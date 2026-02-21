@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="travelback-test">
+  <trk>
+    <name>Test Route Seoul</name>
+    <trkseg>
+      <trkpt lat="37.5665" lon="126.9780"><ele>38</ele><time>2024-01-01T10:00:00Z</time></trkpt>
+      <trkpt lat="37.5670" lon="126.9790"><ele>40</ele><time>2024-01-01T10:01:00Z</time></trkpt>
+      <trkpt lat="37.5680" lon="126.9800"><ele>42</ele><time>2024-01-01T10:02:00Z</time></trkpt>
+      <trkpt lat="37.5690" lon="126.9810"><ele>44</ele><time>2024-01-01T10:03:00Z</time></trkpt>
+      <trkpt lat="37.5700" lon="126.9820"><ele>45</ele><time>2024-01-01T10:04:00Z</time></trkpt>
+      <trkpt lat="37.5710" lon="126.9830"><ele>46</ele><time>2024-01-01T10:05:00Z</time></trkpt>
+      <trkpt lat="37.5720" lon="126.9840"><ele>47</ele><time>2024-01-01T10:06:00Z</time></trkpt>
+      <trkpt lat="37.5730" lon="126.9850"><ele>48</ele><time>2024-01-01T10:07:00Z</time></trkpt>
+      <trkpt lat="37.5740" lon="126.9860"><ele>49</ele><time>2024-01-01T10:08:00Z</time></trkpt>
+      <trkpt lat="37.5750" lon="126.9870"><ele>50</ele><time>2024-01-01T10:09:00Z</time></trkpt>
+      <trkpt lat="37.5760" lon="126.9880"><ele>51</ele><time>2024-01-01T10:10:00Z</time></trkpt>
+      <trkpt lat="37.5770" lon="126.9890"><ele>52</ele><time>2024-01-01T10:11:00Z</time></trkpt>
+      <trkpt lat="37.5780" lon="126.9900"><ele>53</ele><time>2024-01-01T10:12:00Z</time></trkpt>
+      <trkpt lat="37.5790" lon="126.9910"><ele>54</ele><time>2024-01-01T10:13:00Z</time></trkpt>
+      <trkpt lat="37.5800" lon="126.9920"><ele>55</ele><time>2024-01-01T10:14:00Z</time></trkpt>
+      <trkpt lat="37.5810" lon="126.9930"><ele>55</ele><time>2024-01-01T10:15:00Z</time></trkpt>
+      <trkpt lat="37.5820" lon="126.9940"><ele>54</ele><time>2024-01-01T10:16:00Z</time></trkpt>
+      <trkpt lat="37.5830" lon="126.9950"><ele>53</ele><time>2024-01-01T10:17:00Z</time></trkpt>
+      <trkpt lat="37.5840" lon="126.9960"><ele>52</ele><time>2024-01-01T10:18:00Z</time></trkpt>
+      <trkpt lat="37.5850" lon="126.9970"><ele>50</ele><time>2024-01-01T10:19:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+
