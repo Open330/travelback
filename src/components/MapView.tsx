@@ -2,19 +2,26 @@
 
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { Track, MapStyleKey } from '@/types'
+import type { Track, MapStyleKey, Scene } from '@/types'
 import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
+import { computeCameraForProgress } from '@/lib/camera'
+import type { CameraState } from '@/lib/camera'
 
 interface MapViewProps {
   track: Track | null
   progress: number
   mapStyleKey: MapStyleKey
   followCamera: boolean
+  scenes?: Scene[]
 }
 
 export interface MapViewHandle {
   getMap: () => maplibregl.Map | null
   getCanvas: () => HTMLCanvasElement | null
+  applyCameraState: (state: CameraState) => void
+  resize: (width: number, height: number) => void
+  resetSize: () => void
+  waitForIdle: () => Promise<void>
 }
 
 const ROUTE_COLOR = '#06b6d4'
@@ -22,7 +29,7 @@ const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
 
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { track, progress, mapStyleKey, followCamera },
+  { track, progress, mapStyleKey, followCamera, scenes },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -31,10 +38,52 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const cumulDistRef = useRef<number[]>([])
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
+  const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
     getCanvas: () => mapRef.current?.getCanvas() ?? null,
+    applyCameraState: (state: CameraState) => {
+      const map = mapRef.current
+      if (!map) return
+      map.jumpTo({
+        center: state.center as [number, number],
+        zoom: state.zoom,
+        pitch: state.pitch,
+        bearing: state.bearing,
+      })
+    },
+    resize: (width: number, height: number) => {
+      const map = mapRef.current
+      const container = containerRef.current
+      if (!map || !container) return
+      if (!originalSizeRef.current) {
+        originalSizeRef.current = { width: container.clientWidth, height: container.clientHeight }
+      }
+      container.style.width = `${width}px`
+      container.style.height = `${height}px`
+      map.resize()
+    },
+    resetSize: () => {
+      const map = mapRef.current
+      const container = containerRef.current
+      if (!map || !container) return
+      container.style.width = ''
+      container.style.height = ''
+      originalSizeRef.current = null
+      map.resize()
+    },
+    waitForIdle: () => {
+      return new Promise<void>(resolve => {
+        const map = mapRef.current
+        if (!map) { resolve(); return }
+        if (!map.isMoving() && map.areTilesLoaded()) {
+          resolve()
+        } else {
+          map.once('idle', () => resolve())
+        }
+      })
+    },
   }))
 
   // Initialize map
@@ -206,19 +255,32 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       geometry: { type: 'LineString', coordinates: trailCoords },
     })
 
-    // Camera follow
+    // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
     if (followCamera && progress > 0) {
-      const nextIdx = Math.min(segmentIndex + 2, track.points.length - 1)
-      const lookAheadBearing = computeBearing(point, track.points[nextIdx])
-
-      map.jumpTo({
-        center: [point.lng, point.lat],
-        bearing: lookAheadBearing,
-        pitch: 45,
-        zoom: 14,
-      })
+      if (scenes && scenes.length > 0) {
+        // Use the scene-based camera system
+        const elapsedSec = progress * 30 // approximate; real duration is set elsewhere
+        const cameraState = computeCameraForProgress(
+          track, cumulDistRef.current, scenes, progress, elapsedSec,
+        )
+        map.jumpTo({
+          center: cameraState.center as [number, number],
+          zoom: cameraState.zoom,
+          pitch: cameraState.pitch,
+          bearing: cameraState.bearing,
+        })
+      } else {
+        const nextIdx = Math.min(segmentIndex + 2, track.points.length - 1)
+        const lookAheadBearing = computeBearing(point, track.points[nextIdx])
+        map.jumpTo({
+          center: [point.lng, point.lat],
+          bearing: lookAheadBearing,
+          pitch: 45,
+          zoom: 14,
+        })
+      }
     }
-  }, [progress, track, followCamera])
+  }, [progress, track, followCamera, scenes])
 
   return (
     <div ref={containerRef} className="absolute inset-0" />
