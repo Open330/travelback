@@ -61,9 +61,9 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
       className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4 sticky top-0 bg-white dark:bg-zinc-800 rounded-t-2xl z-10">
+        <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 bg-white dark:bg-zinc-800 rounded-t-2xl z-10">
           <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
             Export Google Location History
           </h3>
@@ -80,14 +80,14 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         </div>
 
         {/* Steps */}
-        <div className="px-6 pb-4 space-y-3">
+        <div className="px-5 pb-3 space-y-2">
           {steps.map((step) => (
             <div
               key={step.number}
-              className="flex gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-700/50"
+              className="flex gap-3 px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-700/50"
             >
               {/* Number circle */}
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-cyan-500 flex items-center justify-center">
                 <span className="text-white text-sm font-bold">{step.number}</span>
               </div>
 
@@ -125,7 +125,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         </div>
 
         {/* Tips */}
-        <div className="mx-6 mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
+        <div className="mx-5 mb-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
             Tips
           </p>
