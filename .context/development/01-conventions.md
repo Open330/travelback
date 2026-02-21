@@ -16,10 +16,10 @@
 
 ## Naming
 
-- **Components**: PascalCase with `.tsx` — `MapView.tsx`, `FileUpload.tsx`
-- **Utilities**: camelCase with `.ts` — `parser.ts`, `interpolate.ts`
-- **Types**: PascalCase — `TrackPoint`, `MapStyleKey`, `InterpolationResult`
-- **Constants**: UPPER_SNAKE_CASE — `MAP_STYLES`, `ROUTE_COLOR`
+- **Components**: PascalCase with `.tsx` — `MapView.tsx`, `SceneEditor.tsx`
+- **Utilities**: camelCase with `.ts` — `parser.ts`, `camera.ts`, `videoEncoder.ts`
+- **Types**: PascalCase — `TrackPoint`, `CameraMode`, `Scene`, `ExportConfig`
+- **Constants**: UPPER_SNAKE_CASE — `MAP_STYLES`, `DEFAULT_CAMERA_PARAMS`, `RESOLUTION_PRESETS`
 - **Hooks**: `use` prefix — `useCallback`, `useRef`
 
 ## File Organization
@@ -28,6 +28,8 @@
 - `src/components/` — React components (one primary component per file)
 - `src/lib/` — Utility functions and business logic
 - `src/types.ts` — Shared type definitions
+- `e2e/` — Playwright E2E tests
+- `.context/` — Project context and documentation
 
 ## Code Style
 
@@ -51,6 +53,7 @@
 
 - Build verification: `npm run build` must pass
 - Lint: `npm run lint` must pass
+- E2E: Playwright tests in `e2e/`
 - Manual testing with sample GPX/KML/JSON files
 
 ## Dependencies
@@ -59,4 +62,5 @@
 - Minimal dependency footprint
 - MapLibre GL JS for maps (open-source, no API key)
 - @tmcw/togeojson for GPX/KML parsing
-- No external video encoding libraries (use browser APIs)
+- mediabunny for WebCodecs-based MP4 video encoding
+- Playwright for E2E testing
