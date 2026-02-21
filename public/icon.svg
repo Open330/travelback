@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dark circular background -->
+  <circle cx="16" cy="16" r="16" fill="#0f172a"/>
+
+  <defs>
+    <linearGradient id="pg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Route path — bold, clear at small size -->
+  <path
+    d="M 6 11
+       C 6 8, 9 7, 11 9
+       C 13 11, 11 14, 13 15.5
+       C 15 17, 17 15.5, 18 17
+       C 19 18.5, 18 21, 19.5 22"
+    stroke="url(#pg)"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Start dot -->
+  <circle cx="6" cy="11" r="1.8" fill="#06b6d4" opacity="0.6"/>
+
+  <!-- Play triangle at route end -->
+  <polygon points="19.5,19.5 19.5,24.5 25,22" fill="#06b6d4"/>
+</svg>

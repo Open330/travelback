@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Dark circular background -->
+  <circle cx="256" cy="256" r="256" fill="#0f172a"/>
+
+  <!-- Subtle radial glow behind the path -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pathGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#06b6d4" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background glow -->
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+
+  <!-- GPS route path — organic, winding travel trajectory -->
+  <!-- Starts at top-left, winds naturally across the canvas, ends at play triangle -->
+  <path
+    d="M 90 170
+       C 90 130, 140 115, 165 145
+       C 190 175, 175 220, 200 235
+       C 225 250, 255 230, 265 255
+       C 275 280, 255 310, 270 330
+       C 285 350, 310 345, 320 330"
+    stroke="url(#pathGrad)"
+    stroke-width="18"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    filter="url(#softGlow)"
+  />
+
+  <!-- Waypoint dot at path start -->
+  <circle cx="90" cy="170" r="12" fill="#06b6d4" opacity="0.5"/>
+  <circle cx="90" cy="170" r="6" fill="#06b6d4"/>
+
+  <!-- Intermediate waypoint dot -->
+  <circle cx="200" cy="235" r="8" fill="#06b6d4" opacity="0.6"/>
+
+  <!-- Play triangle at the end of the route — solid, pointing right -->
+  <!-- Centered at approximately (360, 330) -->
+  <polygon
+    points="322,300 322,360 390,330"
+    fill="#06b6d4"
+    filter="url(#softGlow)"
+  />
+
+  <!-- Thin motion trail lines suggesting speed/animation -->
+  <line x1="70" y1="330" x2="110" y2="330" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+  <line x1="60" y1="355" x2="115" y2="355" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.2"/>
+  <line x1="75" y1="305" x2="105" y2="305" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.15"/>
+</svg>
