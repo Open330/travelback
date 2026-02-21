@@ -7,9 +7,10 @@ import { parseTrackFile } from '@/lib/parser'
 interface FileUploadProps {
   onTrackLoaded: (track: Track) => void
   hasTrack: boolean
+  onShowGoogleGuide?: () => void
 }
 
-export default function FileUpload({ onTrackLoaded, hasTrack }: FileUploadProps) {
+export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -111,6 +112,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack }: FileUploadProps)
           onChange={handleInputChange}
           className="hidden"
         />
+        {onShowGoogleGuide && (
+          <div className="mt-3">
+            <button onClick={onShowGoogleGuide} className="text-cyan-500 hover:text-cyan-400 underline text-sm">
+              How to export Google Location History →
+            </button>
+          </div>
+        )}
         {error && (
           <p className="mt-4 text-sm text-red-500">{error}</p>
         )}
