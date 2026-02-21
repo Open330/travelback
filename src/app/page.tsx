@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import type { Track, MapStyleKey } from '@/types'
+import type { Track, MapStyleKey, Scene, ExportConfig } from '@/types'
 import MapView, { type MapViewHandle } from '@/components/MapView'
 import FileUpload from '@/components/FileUpload'
 import Controls from '@/components/Controls'
-import ExportPanel, { type ExportSettings } from '@/components/ExportPanel'
+import ExportPanel from '@/components/ExportPanel'
+import SceneEditor from '@/components/SceneEditor'
 import TimelineSelector from '@/components/TimelineSelector'
 import JourneyCreator from '@/components/JourneyCreator'
 import GoogleGuide from '@/components/GoogleGuide'
 import { MAP_STYLES } from '@/types'
+import { generateDefaultScenes } from '@/lib/camera'
+import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 
 export default function Home() {
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
@@ -26,6 +29,8 @@ export default function Home() {
   const [exportProgress, setExportProgress] = useState(0)
   const [isCreatingJourney, setIsCreatingJourney] = useState(false)
   const [showGoogleGuide, setShowGoogleGuide] = useState(false)
+  const [scenes, setScenes] = useState<Scene[]>([])
+  const [showSceneEditor, setShowSceneEditor] = useState(false)
 
   const mapViewRef = useRef<MapViewHandle>(null)
   const animFrameRef = useRef<number>(0)
@@ -107,69 +112,56 @@ export default function Home() {
     progressRef.current = p
   }, [])
 
-  const handleExport = useCallback(async (settings: ExportSettings) => {
-    const canvas = mapViewRef.current?.getCanvas()
-    if (!canvas || !track) return
+  const handleExport = useCallback(async (config: ExportConfig) => {
+    const mapHandle = mapViewRef.current
+    const canvas = mapHandle?.getCanvas()
+    if (!canvas || !track || !mapHandle) return
 
     setIsExporting(true)
     setExportProgress(0)
     setIsPlaying(false)
 
     try {
-      const stream = canvas.captureStream(settings.fps)
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : 'video/webm'
-      const recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 8_000_000,
-      })
-      const chunks: Blob[] = []
+      // Use scenes from config, or auto-generate if empty
+      const exportScenes = config.scenes.length > 0 ? config.scenes
+        : scenes.length > 0 ? scenes
+        : generateDefaultScenes()
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
+      const exportConfig: ExportConfig = { ...config, scenes: exportScenes }
 
-      const downloadPromise = new Promise<void>((resolve) => {
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `${track.name.replace(/[^a-zA-Z0-9]/g, '_')}_travelback.webm`
-          a.click()
-          URL.revokeObjectURL(url)
-          resolve()
-        }
-      })
+      // Resize map to export resolution
+      mapHandle.resize(config.resolution.width, config.resolution.height)
 
-      recorder.start()
+      // Wait for resize
+      await new Promise(r => setTimeout(r, 500))
+      await mapHandle.waitForIdle()
 
-      // Run animation programmatically
-      const totalFrames = settings.duration * settings.fps
-      const progressStep = 1 / totalFrames
-      const frameInterval = 1000 / settings.fps
+      const result = await exportVideo(
+        canvas,
+        track,
+        exportConfig,
+        async (progress, cameraState) => {
+          // Apply camera and update UI
+          mapHandle.applyCameraState(cameraState)
+          setProgress(progress)
+          progressRef.current = progress
+        },
+        (p) => setExportProgress(p),
+      )
 
-      for (let frame = 0; frame <= totalFrames; frame++) {
-        const p = Math.min(frame * progressStep, 1)
-        setProgress(p)
-        progressRef.current = p
-        setExportProgress(p)
-
-        await new Promise((r) => setTimeout(r, frameInterval))
-      }
-
-      recorder.stop()
-      await downloadPromise
+      downloadVideo(result)
     } catch (err) {
       console.error('Export failed:', err)
-      alert('Video export failed. Your browser may not support MediaRecorder with canvas capture.')
+      alert(`Video export failed: ${err instanceof Error ? err.message : 'Unknown error'}. Your browser may not support WebCodecs with the selected codec.`)
     } finally {
+      // Restore original map size
+      mapViewRef.current?.resetSize()
+      await new Promise(r => setTimeout(r, 200))
       setIsExporting(false)
       setExportProgress(0)
       setShowExport(false)
     }
-  }, [track])
+  }, [track, scenes])
 
   const cycleStyle = useCallback(() => {
     const keys: MapStyleKey[] = ['voyager', 'positron', 'dark']
@@ -185,6 +177,7 @@ export default function Home() {
         progress={progress}
         mapStyleKey={mapStyleKey}
         followCamera={followCamera}
+        scenes={scenes}
       />
 
       {!isCreatingJourney && (
@@ -234,6 +227,16 @@ export default function Home() {
             Create New
           </button>
           <button
+            onClick={() => setShowSceneEditor(s => !s)}
+            className={`backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors cursor-pointer ${
+              showSceneEditor
+                ? 'bg-cyan-500 text-white'
+                : 'bg-white/90 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700'
+            }`}
+          >
+            Scenes
+          </button>
+          <button
             onClick={cycleStyle}
             className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm
               px-3 py-2 rounded-lg shadow-lg text-sm font-medium
@@ -251,6 +254,15 @@ export default function Home() {
             Export
           </button>
         </div>
+      )}
+
+      {/* Scene Editor */}
+      {track && showSceneEditor && (
+        <SceneEditor
+          scenes={scenes}
+          onChange={setScenes}
+          onClose={() => setShowSceneEditor(false)}
+        />
       )}
 
       {/* Track name */}
