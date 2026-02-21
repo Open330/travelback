@@ -7,6 +7,8 @@ import FileUpload from '@/components/FileUpload'
 import Controls from '@/components/Controls'
 import ExportPanel, { type ExportSettings } from '@/components/ExportPanel'
 import TimelineSelector from '@/components/TimelineSelector'
+import JourneyCreator from '@/components/JourneyCreator'
+import GoogleGuide from '@/components/GoogleGuide'
 import { MAP_STYLES } from '@/types'
 
 export default function Home() {
@@ -22,6 +24,8 @@ export default function Home() {
   const [showExport, setShowExport] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [isCreatingJourney, setIsCreatingJourney] = useState(false)
+  const [showGoogleGuide, setShowGoogleGuide] = useState(false)
 
   const mapViewRef = useRef<MapViewHandle>(null)
   const animFrameRef = useRef<number>(0)
@@ -79,6 +83,14 @@ export default function Home() {
     setTrack(t)
     setProgress(0)
     setIsPlaying(false)
+  }, [])
+
+  const handleJourneyComplete = useCallback((t: Track) => {
+    setFullTrack(t)
+    setTrack(t)
+    setProgress(0)
+    setIsPlaying(false)
+    setIsCreatingJourney(false)
   }, [])
 
   const handleTogglePlay = useCallback(() => {
@@ -175,14 +187,52 @@ export default function Home() {
         followCamera={followCamera}
       />
 
-      <FileUpload
-        onTrackLoaded={handleTrackLoaded}
-        hasTrack={track !== null}
+      {!isCreatingJourney && (
+        <FileUpload
+          onTrackLoaded={handleTrackLoaded}
+          hasTrack={track !== null}
+          onShowGoogleGuide={() => setShowGoogleGuide(true)}
+        />
+      )}
+
+      {!track && !isCreatingJourney && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
+          <button
+            onClick={() => setIsCreatingJourney(true)}
+            className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-6 py-3 rounded-xl shadow-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+          >
+            or create a journey manually
+          </button>
+        </div>
+      )}
+
+      {!track && isCreatingJourney && (
+        <JourneyCreator
+          isActive={isCreatingJourney}
+          onComplete={handleJourneyComplete}
+          onCancel={() => setIsCreatingJourney(false)}
+          mapRef={mapViewRef}
+        />
+      )}
+
+      <GoogleGuide
+        isOpen={showGoogleGuide}
+        onClose={() => setShowGoogleGuide(false)}
       />
 
       {/* Top-right toolbar */}
       {track && (
         <div className="absolute top-4 right-16 z-10 flex gap-2">
+          <button
+            onClick={() => {
+              setTrack(null)
+              setFullTrack(null)
+              setIsCreatingJourney(true)
+            }}
+            className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+          >
+            Create New
+          </button>
           <button
             onClick={cycleStyle}
             className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm
