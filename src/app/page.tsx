@@ -6,10 +6,13 @@ import MapView, { type MapViewHandle } from '@/components/MapView'
 import FileUpload from '@/components/FileUpload'
 import Controls from '@/components/Controls'
 import ExportPanel, { type ExportSettings } from '@/components/ExportPanel'
+import TimelineSelector from '@/components/TimelineSelector'
 import { MAP_STYLES } from '@/types'
 
 export default function Home() {
+  const [fullTrack, setFullTrack] = useState<Track | null>(null)
   const [track, setTrack] = useState<Track | null>(null)
+  const [timelineRange, setTimelineRange] = useState<[number, number] | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [speed, setSpeed] = useState(1)
@@ -60,7 +63,19 @@ export default function Home() {
     }
   }, [isPlaying, speed, duration, track])
 
+  const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
+    if (!fullTrack) return
+    const filtered = {
+      name: fullTrack.name,
+      points: fullTrack.points.slice(startIdx, endIdx + 1),
+    }
+    setTrack(filtered)
+    setProgress(0)
+    progressRef.current = 0
+  }, [fullTrack])
+
   const handleTrackLoaded = useCallback((t: Track) => {
+    setFullTrack(t)
     setTrack(t)
     setProgress(0)
     setIsPlaying(false)
@@ -193,7 +208,16 @@ export default function Home() {
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10
           bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-4 py-2
           rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          {track.name} — {track.points.length.toLocaleString()} points
+          {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} points
+        </div>
+      )}
+
+      {fullTrack && fullTrack.points.length > 10 && (
+        <div className="absolute bottom-28 left-0 right-0 z-10 px-4">
+          <TimelineSelector
+            track={fullTrack}
+            onRangeChange={handleRangeChange}
+          />
         </div>
       )}
 
