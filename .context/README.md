@@ -7,11 +7,17 @@ This directory contains project context, conventions, and guidelines for AI assi
 ```
 .context/
 ├── README.md                          # This file
+├── agents/
+│   └── non-tech-traveler-reviewer.md  # Mina — casual traveler persona for UX reviews
 ├── project/
 │   ├── 01-overview.md                 # Tech stack, build instructions, features, structure
 │   └── 02-architecture.md             # Component tree, data flow, camera system, export pipeline
-└── development/
-    └── 01-conventions.md              # Naming, code style, git rules, testing, dependencies
+├── development/
+│   └── 01-conventions.md              # Naming, code style, git rules, testing, dependencies
+├── plans/
+│   └── ux-overhaul-non-technical-traveler.md  # UX overhaul implementation plan
+└── reviews/
+    └── ux-review-non-technical-traveler.md    # UX review from traveler perspective
 ```
 
 ## Purpose
