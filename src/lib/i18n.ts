@@ -250,6 +250,15 @@ export const translations = {
 
     // Locale picker
     'locale.label': 'Language',
+
+    // Keyboard shortcuts
+    'shortcuts.title': 'Keyboard Shortcuts',
+    'shortcuts.playPause': 'Play / Pause',
+    'shortcuts.seek': 'Seek backward / forward',
+    'shortcuts.follow': 'Toggle camera follow',
+    'shortcuts.export': 'Open / close export',
+    'shortcuts.close': 'Close panels',
+    'shortcuts.help': 'Show this help',
   },
   ko: {
     // FileUpload
@@ -492,6 +501,15 @@ export const translations = {
 
     // Locale picker
     'locale.label': '언어',
+
+    // Keyboard shortcuts
+    'shortcuts.title': '키보드 단축키',
+    'shortcuts.playPause': '재생 / 일시정지',
+    'shortcuts.seek': '앞으로 / 뒤로 이동',
+    'shortcuts.follow': '카메라 추적 전환',
+    'shortcuts.export': '내보내기 열기 / 닫기',
+    'shortcuts.close': '패널 닫기',
+    'shortcuts.help': '이 도움말 표시',
   },
 } satisfies Record<Locale, Record<string, string>>
 
