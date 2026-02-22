@@ -10,7 +10,7 @@ export interface Track {
   points: TrackPoint[]
 }
 
-export type MapStyleKey = 'voyager' | 'positron' | 'dark'
+export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'
 
 export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
   voyager: {
@@ -25,10 +25,18 @@ export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
     label: 'Dark',
     url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   },
+  liberty: {
+    label: 'Liberty',
+    url: 'https://tiles.openfreemap.org/styles/liberty',
+  },
+  bright: {
+    label: 'Bright',
+    url: 'https://tiles.openfreemap.org/styles/bright',
+  },
 }
 
 // --- Camera Modes ---
-export type CameraMode = 'overview' | 'flyover' | 'orbit' | 'ground' | 'closeup'
+export type CameraMode = 'overview' | 'flyover' | 'orbit' | 'ground' | 'closeup' | 'birdeye'
 
 export const CAMERA_MODE_LABELS: Record<CameraMode, string> = {
   overview: 'Overview',
@@ -36,6 +44,7 @@ export const CAMERA_MODE_LABELS: Record<CameraMode, string> = {
   orbit: 'Orbit',
   ground: 'Ground Follow',
   closeup: 'Closeup',
+  birdeye: "Bird's Eye",
 }
 
 export interface CameraParams {
@@ -51,6 +60,7 @@ export const DEFAULT_CAMERA_PARAMS: Record<CameraMode, CameraParams> = {
   orbit: { zoom: 14, pitch: 60, bearingOffset: 0, rotationSpeed: 36 },
   ground: { zoom: 15.5, pitch: 70, bearingOffset: 0, rotationSpeed: 0 },
   closeup: { zoom: 17, pitch: 30, bearingOffset: 0, rotationSpeed: 0 },
+  birdeye: { zoom: 11, pitch: 65, bearingOffset: 0, rotationSpeed: 5 },
 }
 
 // --- Scene System ---
