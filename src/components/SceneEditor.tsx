@@ -18,6 +18,7 @@ interface SceneEditorProps {
   onClose: () => void
   transitionDuration: number
   onTransitionDurationChange: (v: number) => void
+  onPreviewScene?: (scene: Scene | null) => void
 }
 
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
@@ -41,7 +42,7 @@ function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }
   }
 }
 
-export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange }: SceneEditorProps) {
+export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
@@ -99,6 +100,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
   }, [deletedScene, scenes, onChange])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
+    let previewTarget: Scene | null = null
     onChange(scenes.map(s => {
       if (s.id !== id) return s
       const updated = { ...s, ...patch }
@@ -106,9 +108,16 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       if (patch.cameraMode && patch.cameraMode !== s.cameraMode) {
         updated.params = { ...DEFAULT_CAMERA_PARAMS[patch.cameraMode] }
       }
+      // Trigger live preview when params change
+      if (patch.params) previewTarget = updated
       return updated
     }))
-  }, [scenes, onChange])
+    if (previewTarget && onPreviewScene) onPreviewScene(previewTarget)
+  }, [scenes, onChange, onPreviewScene])
+
+  const clearPreview = useCallback(() => {
+    onPreviewScene?.(null)
+  }, [onPreviewScene])
 
   // Detect overlaps and gaps
   const warnings = useMemo(() => {
@@ -280,6 +289,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       onChange={e => updateScene(scene.id, {
                         params: { ...scene.params, zoom: parseFloat(e.target.value) }
                       })}
+                      onPointerUp={clearPreview}
                       aria-label={`Zoom for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
@@ -293,6 +303,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       onChange={e => updateScene(scene.id, {
                         params: { ...scene.params, pitch: parseFloat(e.target.value) }
                       })}
+                      onPointerUp={clearPreview}
                       aria-label={`Pitch for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
@@ -309,6 +320,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       onChange={e => updateScene(scene.id, {
                         params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
                       })}
+                      onPointerUp={clearPreview}
                       aria-label={`Bearing offset for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
@@ -322,6 +334,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       onChange={e => updateScene(scene.id, {
                         params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
                       })}
+                      onPointerUp={clearPreview}
                       aria-label={`Rotation speed for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>

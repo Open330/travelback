@@ -16,7 +16,8 @@ import ElevationProfile from '@/components/ElevationProfile'
 import ThemeToggle from '@/components/ThemeToggle'
 import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
-import { generateDefaultScenes } from '@/lib/camera'
+import { generateDefaultScenes, computeCameraForScene } from '@/lib/camera'
+import { computeCumulativeDistances } from '@/lib/interpolate'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, useLocale } from '@/lib/i18n'
@@ -276,6 +277,13 @@ function HomeInner() {
     }
   }, [addToast])
 
+  const handlePreviewScene = useCallback((scene: Scene | null) => {
+    if (!scene || !track) return
+    const cumulDist = computeCumulativeDistances(track.points)
+    const cameraState = computeCameraForScene(track, cumulDist, scene, 0.5, 0)
+    mapViewRef.current?.applyCameraState(cameraState)
+  }, [track])
+
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
     // Auto-match map style with theme
     setMapStyleKey(mode === 'dark' ? 'dark' : 'voyager')
@@ -462,6 +470,7 @@ function HomeInner() {
           onClose={() => setShowSceneEditor(false)}
           transitionDuration={transitionDuration}
           onTransitionDurationChange={setTransitionDuration}
+          onPreviewScene={handlePreviewScene}
         />
       )}
 
