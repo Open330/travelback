@@ -182,8 +182,9 @@ export const translations = {
     'journey.clear': 'Clear',
     'journey.done': 'Done',
     'journey.defaultName': 'Custom Journey',
-    'journey.instructionTitle': 'Click on the map to add waypoints',
-    'journey.instructionSubtitle': 'Click "Done" when finished',
+    'journey.subtitle': 'Plan a new route or recreate one from memory',
+    'journey.instructionTitle': 'Click on the map to trace your route',
+    'journey.instructionSubtitle': 'Best for planning new trips — to relive a past trip, upload your GPS file instead',
 
     // ThemeToggle
     'theme.switchToLight': 'Switch to light mode',
@@ -388,8 +389,9 @@ export const translations = {
     'journey.clear': '초기화',
     'journey.done': '완료',
     'journey.defaultName': '사용자 여행',
-    'journey.instructionTitle': '지도를 클릭하여 경유지를 추가하세요',
-    'journey.instructionSubtitle': '완료되면 "완료"를 누르세요',
+    'journey.subtitle': '새 경로를 계획하거나 기억으로 재현하세요',
+    'journey.instructionTitle': '지도를 클릭하여 경로를 그려보세요',
+    'journey.instructionSubtitle': '새 여행 계획에 적합합니다 — 지난 여행을 다시 보려면 GPS 파일을 업로드하세요',
 
     // ThemeToggle
     'theme.switchToLight': '라이트 모드로 전환',

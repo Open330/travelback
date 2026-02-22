@@ -302,16 +302,21 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden"
       style={{ borderRadius: 'var(--r-glass)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
-        <span className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
-          {t('journey.title')}
-        </span>
-        <button
-          onClick={onCancel}
-          className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
-        >
-          {t('journey.cancel')}
-        </button>
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
+            {t('journey.title')}
+          </span>
+          <button
+            onClick={onCancel}
+            className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
+          >
+            {t('journey.cancel')}
+          </button>
+        </div>
+        <p className="text-[10px] mt-0.5" style={{ color: 'var(--t4)' }}>
+          {t('journey.subtitle')}
+        </p>
       </div>
 
       {/* Instructions overlay when no points yet */}
