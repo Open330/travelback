@@ -17,6 +17,16 @@ html, body, #__next {
   overflow: hidden;
 }
 
+/* Vitro upstream uses font-weight: 100 (ultra-thin) which is too light for Geist Sans.
+   Override to 400 (normal) for readable body text. */
+body, [lang] {
+  font-weight: 400;
+}
+
+.lbl {
+  font-weight: 500;
+}
+
 @keyframes pulse-ring {
   0% { transform: scale(0.8); opacity: 1; }
   100% { transform: scale(2.5); opacity: 0; }
