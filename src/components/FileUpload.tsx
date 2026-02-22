@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState, useRef } from 'react'
+import { Map, ArrowRight } from 'lucide-react'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
 
@@ -90,11 +91,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
             <div className="inline-block w-10 h-10 border-4 rounded-full animate-spin"
               style={{ borderColor: 'rgb(var(--gl))', borderTopColor: 'transparent' }} />
           ) : (
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"
-              style={{ color: 'rgb(var(--gl))' }}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M9 6.75V15m6-6v8.25m.503-11.307c.955.06 1.897.164 2.825.31A48.36 48.36 0 0112 3.75a48.36 48.36 0 01-6.328.563c.928-.146 1.87-.25 2.825-.31M9 6.75a48.6 48.6 0 016 0m-6 0a48.2 48.2 0 00-4.764.544M15 6.75a48.2 48.2 0 014.764.544m-14.528 0A48.1 48.1 0 003 8.25c0 2.291.61 4.441 1.676 6.293m.652-7.505A48.1 48.1 0 0112 6a48.1 48.1 0 016.672.788m0 0c1.065 1.852 1.676 4.002 1.676 6.293m0 0c-1.446 2.518-3.87 4.36-6.762 5.086M3 14.543c1.446 2.518 3.87 4.36 6.762 5.086m0 0a48.7 48.7 0 004.476 0" />
-            </svg>
+            <Map size={48} strokeWidth={1.5} style={{ color: 'rgb(var(--gl))' }} />
           )}
         </div>
         <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
@@ -126,9 +123,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
             <button onClick={onShowGoogleGuide} className="underline text-sm inline-flex items-center gap-1"
               style={{ color: 'rgb(var(--gl))' }}>
               How to export Google Location History
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
+              <ArrowRight size={14} strokeWidth={2} />
             </button>
           </div>
         )}

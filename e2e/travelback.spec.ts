@@ -60,8 +60,8 @@ test.describe('Travelback App', () => {
   test('playback controls work after importing track', async ({ page }) => {
     await uploadGpx(page)
 
-    // Find play button (it has a play icon SVG polygon)
-    const playBtn = page.locator('button').filter({ has: page.locator('polygon') }).first()
+    // Find play button by its aria-label/title
+    const playBtn = page.getByRole('button', { name: 'Play' })
     await expect(playBtn).toBeVisible({ timeout: 10_000 })
 
     // Click play - use force:true to bypass Next.js dev overlay intercepting pointer events

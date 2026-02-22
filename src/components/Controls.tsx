@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { Play, Pause } from 'lucide-react'
 import type { Track } from '@/types'
 import { formatDistance, formatDuration, totalDistance } from '@/lib/interpolate'
 
@@ -78,14 +79,9 @@ export default function Controls({
             style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
           >
             {isPlaying ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
+              <Pause size={16} fill="currentColor" />
             ) : (
-              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <polygon points="5,3 19,12 5,21" />
-              </svg>
+              <Play size={16} fill="currentColor" className="ml-0.5" />
             )}
           </button>
 

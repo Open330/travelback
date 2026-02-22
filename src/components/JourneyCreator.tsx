@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { Check } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
@@ -352,9 +353,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
           style={{ background: '#f97316' }}
         >
           Done
-          <svg className="w-3.5 h-3.5 inline -mt-px ml-1" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
+          <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
         </button>
       </div>
     </div>

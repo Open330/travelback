@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { X } from 'lucide-react'
 import type { VideoCodec, ExportConfig, ResolutionPreset } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
@@ -66,9 +67,7 @@ export default function ExportPanel({
           {!isExporting && (
             <button onClick={onClose}
               className="cursor-pointer" style={{ color: 'var(--t4)' }}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X size={20} strokeWidth={2} />
             </button>
           )}
         </div>

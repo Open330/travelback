@@ -14,6 +14,7 @@ import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ElevationProfile from '@/components/ElevationProfile'
 import ThemeToggle from '@/components/ThemeToggle'
+import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes } from '@/lib/camera'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
@@ -316,9 +317,7 @@ export default function Home() {
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
           >
-            <svg className="w-3.5 h-3.5 inline -mt-px" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>{' '}New
+            <Plus size={14} strokeWidth={2.5} className="inline -mt-px" />{' '}New
           </button>
           <button
             onClick={() => setShowSceneEditor(s => !s)}

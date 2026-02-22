@@ -1,5 +1,7 @@
 'use client'
 
+import { X, ExternalLink, Circle } from 'lucide-react'
+
 interface GoogleGuideProps {
   isOpen: boolean
   onClose: () => void
@@ -75,10 +77,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
             style={{ color: 'var(--t4)' }}
             aria-label="Close"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
 
@@ -115,10 +114,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
                     className="vitro-btn-primary inline-flex items-center gap-1.5 mt-3 px-4 py-2 text-sm font-medium"
                   >
                     {step.action.label}
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
+                    <ExternalLink size={14} strokeWidth={2} />
                   </a>
                 )}
               </div>
@@ -134,9 +130,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           <ul className="space-y-1">
             {tips.map((tip, i) => (
               <li key={i} className="text-sm flex gap-2" style={{ color: 'var(--t3)' }}>
-                <svg className="w-1.5 h-1.5 flex-shrink-0 mt-1.5" fill="currentColor" viewBox="0 0 8 8">
-                  <circle cx="4" cy="4" r="4" />
-                </svg>
+                <Circle size={6} fill="currentColor" strokeWidth={0} className="flex-shrink-0 mt-1.5" />
                 <span>{tip}</span>
               </li>
             ))}
