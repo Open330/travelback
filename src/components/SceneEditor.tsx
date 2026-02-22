@@ -188,7 +188,11 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                 onFocus={e => e.target.style.borderBottomColor = 'rgb(var(--gl))'}
                 onBlur={e => e.target.style.borderBottomColor = 'transparent'} />
               <button onClick={() => removeScene(scene.id)}
-                className="text-xs cursor-pointer" style={{ color: 'var(--t4)' }}>✕</button>
+                className="text-xs cursor-pointer flex items-center justify-center" style={{ color: 'var(--t4)' }}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <select value={scene.cameraMode}

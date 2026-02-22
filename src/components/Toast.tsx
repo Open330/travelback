@@ -39,10 +39,12 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
     >
       <div className="flex items-start gap-2">
         <span className="flex-1">{message.text}</span>
-        <button onClick={onDismiss} className="cursor-pointer"
+        <button onClick={onDismiss} className="cursor-pointer flex-shrink-0"
           style={{ color: 'var(--t4)' }}
           aria-label="Dismiss notification">
-          ✕
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
     </div>

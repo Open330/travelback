@@ -134,7 +134,9 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           <ul className="space-y-1">
             {tips.map((tip, i) => (
               <li key={i} className="text-sm flex gap-2" style={{ color: 'var(--t3)' }}>
-                <span className="flex-shrink-0">•</span>
+                <svg className="w-1.5 h-1.5 flex-shrink-0 mt-1.5" fill="currentColor" viewBox="0 0 8 8">
+                  <circle cx="4" cy="4" r="4" />
+                </svg>
                 <span>{tip}</span>
               </li>
             ))}
