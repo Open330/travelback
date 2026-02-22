@@ -170,14 +170,14 @@ export const translations = {
     'elevation.profileAria': 'Elevation profile',
 
     // TimelineSelector
-    'timeline.points': 'points',
+    'timeline.points': 'locations',
 
     // JourneyCreator
     'journey.title': 'Create Journey',
     'journey.cancel': 'Cancel',
-    'journey.hint': 'Click on the map to add points. Click a point to delete it. Drag to reposition.',
-    'journey.noPoints': 'No points yet',
-    'journey.onePoint': '1 point',
+    'journey.hint': 'Click on the map to add locations. Click a location to delete it. Drag to reposition.',
+    'journey.noPoints': 'No locations yet',
+    'journey.onePoint': '1 location',
     'journey.undo': 'Undo',
     'journey.clear': 'Clear',
     'journey.done': 'Done',
@@ -376,14 +376,14 @@ export const translations = {
     'elevation.profileAria': '고도 프로필',
 
     // TimelineSelector
-    'timeline.points': '포인트',
+    'timeline.points': '위치',
 
     // JourneyCreator
     'journey.title': '여행 만들기',
     'journey.cancel': '취소',
-    'journey.hint': '지도를 클릭하여 포인트를 추가하세요. 포인트를 클릭하면 삭제됩니다. 드래그하여 위치를 변경하세요.',
-    'journey.noPoints': '포인트 없음',
-    'journey.onePoint': '1개 포인트',
+    'journey.hint': '지도를 클릭하여 위치를 추가하세요. 위치를 클릭하면 삭제됩니다. 드래그하여 위치를 변경하세요.',
+    'journey.noPoints': '위치 없음',
+    'journey.onePoint': '1개 위치',
     'journey.undo': '되돌리기',
     'journey.clear': '초기화',
     'journey.done': '완료',
