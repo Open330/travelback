@@ -53,24 +53,24 @@
   --t2: #1C2340;
   --t3: #424E6E;
   --t4: #6E7A96;
-  --div: rgba(17, 24, 39, .07);
+  --div: rgba(15, 23, 42, .10);
 
-  --gs-bg: color-mix(in srgb, white 54%, transparent);
-  --gs-bd: rgba(255, 255, 255, .56);
+  --gs-bg: rgba(255, 255, 255, .62);
+  --gs-bd: rgba(15, 23, 42, .10);
 
-  --gc-bg: color-mix(in srgb, white 60%, transparent);
-  --gc-bd: rgba(255, 255, 255, .62);
-  --gc-sh: 0 10px 28px rgba(17, 24, 39, .07), inset 0 1px 0 rgba(255, 255, 255, .7);
-  --gc-hsh: 0 20px 42px rgba(17, 24, 39, .12), inset 0 1px 0 rgba(255, 255, 255, .82);
+  --gc-bg: rgba(255, 255, 255, .68);
+  --gc-bd: rgba(15, 23, 42, .11);
+  --gc-sh: 0 4px 16px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .06);
+  --gc-hsh: 0 12px 32px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .08);
 
-  --gi-bg: color-mix(in srgb, white 62%, transparent);
-  --gi-bd: rgba(255, 255, 255, .52);
-  --gi-hbg: color-mix(in srgb, white 78%, transparent);
+  --gi-bg: rgba(255, 255, 255, .65);
+  --gi-bd: rgba(15, 23, 42, .12);
+  --gi-hbg: rgba(255, 255, 255, .82);
 
-  --go-bg: color-mix(in srgb, white 72%, transparent);
-  --go-bd: rgba(255, 255, 255, .66);
+  --go-bg: rgba(255, 255, 255, .78);
+  --go-bd: rgba(15, 23, 42, .10);
 
-  --spec: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .06) 34%, transparent);
+  --spec: linear-gradient(180deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .08) 34%, transparent);
 
   --mesh-op: .22;
   --mesh-op2: .16;
@@ -229,6 +229,18 @@
   border-radius: var(--r-glass);
   box-shadow: 0 24px 58px rgba(0, 0, 0, .18);
   animation: vitro-fade-in .16s var(--ease) both;
+}
+
+[data-mode=light] .gs {
+  box-shadow: 0 2px 12px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+[data-mode=light] .go {
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .10), 0 4px 12px rgba(15, 23, 42, .06);
+}
+
+[data-mode=light] .gi:hover {
+  border-color: rgba(var(--gl), .35);
 }
 
 [data-mode=dark] .go {
