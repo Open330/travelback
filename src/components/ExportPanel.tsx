@@ -50,6 +50,16 @@ export default function ExportPanel({
 
   const bitrate = QUALITY_MAP[quality] ?? 8
 
+  // Estimate export time: base = duration * 0.5 for 1080p H.264, scaled by resolution and codec
+  const resScale = (() => {
+    const px = RESOLUTION_PRESETS[resolutionIdx].width * RESOLUTION_PRESETS[resolutionIdx].height
+    if (px <= 921600) return 0.6   // 720p or smaller
+    if (px <= 2073600) return 1.0  // 1080p
+    return 3.0                      // 4K
+  })()
+  const codecScale = codec === 'av1' ? 2.5 : codec === 'h265' ? 1.5 : 1.0
+  const estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)
+
   // Check codec support on mount
   useEffect(() => {
     let cancelled = false
@@ -260,10 +270,16 @@ export default function ExportPanel({
               )}
             </div>
 
-            <p className="text-xs mb-4" style={{ color: 'var(--t4)' }}>
+            <p className="text-xs mb-2" style={{ color: 'var(--t4)' }}>
               {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
               {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
               {' '}· ~{((bitrate * duration) / 8).toFixed(0)} MB
+            </p>
+            <p className="text-xs mb-4" style={{ color: 'var(--t4)' }}>
+              {t('export.estimatedTime')}{' '}
+              {estimatedSeconds >= 60
+                ? t('export.minutes').replace('{n}', String(Math.round(estimatedSeconds / 60)))
+                : t('export.seconds').replace('{n}', String(estimatedSeconds))}
             </p>
 
             <button onClick={handleExport}
