@@ -1,23 +1,12 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "../styles/vitro-base.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--t1);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 html, body, #__next {
@@ -42,3 +31,90 @@ input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: 4px;
 }
+
+/* Vitro glass button helpers */
+.vitro-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--t1);
+}
+
+.vitro-btn-primary {
+  background: rgba(var(--gl), .85);
+  border: 1px solid rgba(var(--gl), .5);
+  border-radius: var(--r-interactive);
+  color: #fff;
+  transition: background .15s ease, transform .15s ease;
+}
+
+.vitro-btn-primary:hover {
+  background: rgba(var(--gl), 1);
+  transform: translateY(-1px);
+}
+
+.vitro-btn-primary:active {
+  transform: translateY(1px) scale(.995);
+}
+
+/* Vitro form inputs */
+.vitro-input {
+  background: var(--gi-bg);
+  backdrop-filter: blur(16px) saturate(165%);
+  -webkit-backdrop-filter: blur(16px) saturate(165%);
+  border: 1px solid var(--gi-bd);
+  border-radius: var(--r-interactive);
+  color: var(--t1);
+  padding: 6px 10px;
+  font-size: 13px;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.vitro-input:hover {
+  background: var(--gi-hbg);
+}
+
+.vitro-input:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Vitro select */
+.vitro-select {
+  background: var(--gi-bg);
+  backdrop-filter: blur(16px) saturate(165%);
+  -webkit-backdrop-filter: blur(16px) saturate(165%);
+  border: 1px solid var(--gi-bd);
+  border-radius: var(--r-interactive);
+  color: var(--t1);
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.vitro-select:hover {
+  background: var(--gi-hbg);
+}
+
+.vitro-select:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Vitro label */
+.vitro-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--t3);
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* Toast glass variants */
+.vitro-toast-err  { background: color-mix(in srgb, var(--err) 80%, var(--go-bg)); }
+.vitro-toast-ok   { background: color-mix(in srgb, var(--ok) 80%, var(--go-bg)); }
+.vitro-toast-info { background: color-mix(in srgb, var(--info) 80%, var(--go-bg)); }

@@ -1,0 +1,269 @@
+/*
+ * Vitro — Liquid Glass Design System (adapted for Travelback)
+ * Original: https://github.com/circle-oo/vitro
+ * Copyright (c) 2025 Won Park — MIT License
+ */
+
+/* Reset */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+
+  --vitro-type-scale: 1;
+  --vitro-space-scale: 1;
+  --vitro-radius-scale: 1;
+  --vitro-touch-scale: 1;
+
+  --ok: #10B981;
+  --err: #F43F5E;
+  --warn: #F59E0B;
+  --info: #0EA5E9;
+
+  --r-glass: calc(20px * var(--vitro-radius-scale));
+  --r-interactive: calc(14px * var(--vitro-radius-scale));
+  --r-chip: calc(10px * var(--vitro-radius-scale));
+
+  --focus-ring: 0 0 0 3px rgba(var(--gl), .24);
+}
+
+/* ── Travelback Service Theme (Teal/Cyan) ── */
+[data-svc=travelback] {
+  --p50:  #ECFEFF;
+  --p100: #CFFAFE;
+  --p200: #A5F3FC;
+  --p300: #67E8F9;
+  --p400: #22D3EE;
+  --p500: #06B6D4;
+  --p600: #0891B2;
+  --p700: #0E7490;
+  --gl: 6, 182, 212;
+}
+
+/* ── Light Mode ── */
+[data-mode=light] {
+  --bg: #EBF0F4;
+  --bg2: #E2E8F0;
+
+  --t1: #050810;
+  --t2: #1C2340;
+  --t3: #424E6E;
+  --t4: #6E7A96;
+  --div: rgba(17, 24, 39, .07);
+
+  --gs-bg: color-mix(in srgb, white 54%, transparent);
+  --gs-bd: rgba(255, 255, 255, .56);
+
+  --gc-bg: color-mix(in srgb, white 60%, transparent);
+  --gc-bd: rgba(255, 255, 255, .62);
+  --gc-sh: 0 10px 28px rgba(17, 24, 39, .07), inset 0 1px 0 rgba(255, 255, 255, .7);
+  --gc-hsh: 0 20px 42px rgba(17, 24, 39, .12), inset 0 1px 0 rgba(255, 255, 255, .82);
+
+  --gi-bg: color-mix(in srgb, white 62%, transparent);
+  --gi-bd: rgba(255, 255, 255, .52);
+  --gi-hbg: color-mix(in srgb, white 78%, transparent);
+
+  --go-bg: color-mix(in srgb, white 72%, transparent);
+  --go-bd: rgba(255, 255, 255, .66);
+
+  --spec: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .06) 34%, transparent);
+
+  --mesh-op: .22;
+  --mesh-op2: .16;
+  --mesh-op3: .09;
+
+  color: var(--t1);
+}
+
+/* ── Dark Mode ── */
+[data-mode=dark] {
+  --bg: #0A0D14;
+  --bg2: #101420;
+
+  --t1: #FFFFFF;
+  --t2: #D8E0F4;
+  --t3: #A4B0CC;
+  --t4: #6E7C9A;
+  --div: rgba(255, 255, 255, .09);
+
+  --gs-bg: rgba(16, 20, 30, .52);
+  --gs-bd: rgba(255, 255, 255, .08);
+
+  --gc-bg: rgba(22, 26, 38, .52);
+  --gc-bd: rgba(255, 255, 255, .09);
+  --gc-sh: 0 16px 36px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .06);
+  --gc-hsh: 0 22px 50px rgba(0, 0, 0, .44), inset 0 1px 0 rgba(255, 255, 255, .1);
+
+  --gi-bg: rgba(30, 35, 50, .54);
+  --gi-bd: rgba(255, 255, 255, .1);
+  --gi-hbg: rgba(42, 48, 66, .62);
+
+  --go-bg: rgba(12, 16, 24, .76);
+  --go-bd: rgba(255, 255, 255, .11);
+
+  --spec: linear-gradient(180deg, rgba(255, 255, 255, .1), transparent 35%);
+
+  --mesh-op: .16;
+  --mesh-op2: .11;
+  --mesh-op3: .07;
+}
+
+/* ── Mesh Background ── */
+@property --ma1 {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 220deg;
+}
+
+@property --ma2 {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 40deg;
+}
+
+@property --ma3 {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 140deg;
+}
+
+.vitro-mesh {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(var(--gl), .12) 0%, transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, rgba(var(--gl), .08) 0%, transparent 64%),
+    conic-gradient(from var(--ma1) at 14% 18%, rgba(var(--gl), var(--mesh-op)) 0deg, transparent 115deg),
+    conic-gradient(from var(--ma2) at 86% 76%, rgba(var(--gl), var(--mesh-op2)) 0deg, transparent 102deg),
+    conic-gradient(from var(--ma3) at 50% 50%, rgba(var(--gl), var(--mesh-op3)) 0deg, transparent 86deg),
+    linear-gradient(150deg, var(--bg), var(--bg2));
+  transition: background .8s ease;
+}
+
+@keyframes mesh-rot {
+  0%   { --ma1: 220deg; --ma2: 40deg;  --ma3: 140deg; }
+  100% { --ma1: 580deg; --ma2: 400deg; --ma3: 500deg; }
+}
+
+[data-mesh=on] .vitro-mesh {
+  animation: mesh-rot 22s linear infinite;
+}
+
+.vitro-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .018;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-mode=dark] .vitro-noise { opacity: .028; }
+
+/* ── Glass Layers ── */
+.gs {
+  backdrop-filter: blur(42px) saturate(176%);
+  -webkit-backdrop-filter: blur(42px) saturate(176%);
+  background: var(--gs-bg);
+  border: 1px solid var(--gs-bd);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+}
+
+.gc {
+  backdrop-filter: blur(26px) saturate(176%);
+  -webkit-backdrop-filter: blur(26px) saturate(176%);
+  background: var(--gc-bg);
+  border: 1px solid var(--gc-bd);
+  border-radius: var(--r-glass);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--gc-sh);
+  transition: transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s var(--ease);
+}
+
+.gc::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: var(--spec);
+}
+
+.gc:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--gc-hsh);
+}
+
+.gc.nh:hover {
+  transform: none;
+  box-shadow: var(--gc-sh);
+}
+
+.gi {
+  backdrop-filter: blur(16px) saturate(165%);
+  -webkit-backdrop-filter: blur(16px) saturate(165%);
+  background: var(--gi-bg);
+  border: 1px solid var(--gi-bd);
+  border-radius: var(--r-interactive);
+  transition: background .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.gi:hover {
+  background: var(--gi-hbg);
+  border-color: color-mix(in srgb, var(--gi-bd) 58%, rgba(var(--gl), .2));
+  transform: translateY(-1px);
+}
+
+.gi:active {
+  transform: translateY(1px) scale(.995);
+}
+
+.go {
+  backdrop-filter: blur(48px) saturate(190%);
+  -webkit-backdrop-filter: blur(48px) saturate(190%);
+  background: var(--go-bg);
+  border: 1px solid var(--go-bd);
+  border-radius: var(--r-glass);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, .18);
+  animation: vitro-fade-in .16s var(--ease) both;
+}
+
+[data-mode=dark] .go {
+  box-shadow: 0 26px 62px rgba(0, 0, 0, .44);
+}
+
+/* ── Focus Ring ── */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Animations ── */
+@keyframes vitro-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fi {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.an { animation: fi .3s var(--ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
