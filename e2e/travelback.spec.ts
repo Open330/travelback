@@ -69,8 +69,8 @@ test.describe('Travelback App', () => {
 
     // Track info should be visible
     await expect(page.getByText('Test Route Seoul')).toBeVisible()
-    // Use exact text to avoid strict mode violation (multiple elements contain point counts)
-    await expect(page.getByText('20 / 20 points', { exact: true })).toBeVisible()
+    // Use regex to match point count in the track info header
+    await expect(page.locator('text=/20 \\/ 20 locations/').first()).toBeVisible()
 
     // Controls should appear (any button with SVG icons)
     await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
@@ -87,8 +87,8 @@ test.describe('Travelback App', () => {
     await playBtn.click({ force: true })
     await page.waitForTimeout(1500)
 
-    // The Track button should be visible (renamed from Follow)
-    await expect(page.getByText('Track')).toBeVisible()
+    // The camera tracking button should be visible
+    await expect(page.getByRole('button', { name: /camera tracking/i })).toBeVisible()
   })
 
   test('scene editor opens and allows adding scenes', async ({ page }) => {
@@ -197,39 +197,39 @@ test.describe('Travelback App', () => {
     await uploadKml(page)
     await expect(page.getByText('Korea to Japan via Ferry')).toBeVisible()
     // Track header shows point count (matches first element)
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
     await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('imports Google JSON flat array and displays track', async ({ page }) => {
     await uploadJson(page, JSON_FLAT_FIXTURE)
     await expect(page.getByText('Google Location History')).toBeVisible()
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
     await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('imports Google Records.json and displays track', async ({ page }) => {
     await uploadJson(page, JSON_RECORDS_FIXTURE)
     await expect(page.getByText('Google Location History')).toBeVisible()
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
   })
 
   test('imports Google Semantic Location History and displays track', async ({ page }) => {
     await uploadJson(page, JSON_SEMANTIC_LOC_FIXTURE)
     await expect(page.getByText('Google Location History')).toBeVisible()
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
   })
 
   test('imports Google Timeline Edits and displays track', async ({ page }) => {
     await uploadJson(page, JSON_TIMELINE_EDITS_FIXTURE)
     await expect(page.getByText('Google Location History')).toBeVisible()
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
   })
 
   test('imports Google Semantic Segments and displays track', async ({ page }) => {
     await uploadJson(page, JSON_SEMANTIC_SEG_FIXTURE)
     await expect(page.getByText('Google Location History')).toBeVisible()
-    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
   })
 
   // --- Error resilience ---
@@ -260,7 +260,7 @@ test.describe('Travelback App', () => {
     await expect(playBtn).toBeVisible({ timeout: 10_000 })
     await playBtn.click({ force: true })
     await page.waitForTimeout(1000)
-    await expect(page.getByText('Track')).toBeVisible()
+    await expect(page.getByRole('button', { name: /camera tracking/i })).toBeVisible()
 
     // Pause if still playing (short tracks may auto-complete)
     const pauseBtn = page.getByRole('button', { name: 'Pause' })
