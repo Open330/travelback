@@ -312,7 +312,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [progress, track, followCamera, scenes, duration, transitionDuration])
 
   return (
-    <div ref={containerRef} data-testid="map-container" className="absolute inset-0">
+    <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ''}`}>
       {mapError && (
         <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>Map failed to load: {mapError}</p>
