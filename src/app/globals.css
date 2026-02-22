@@ -5,8 +5,7 @@
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--t1);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
 }
 
 html, body, #__next {
@@ -17,9 +16,10 @@ html, body, #__next {
   overflow: hidden;
 }
 
-/* Vitro upstream uses font-weight: 100 (ultra-thin) which is too light for Geist Sans.
-   Override to 400 (normal) for readable body text. */
+/* Override Vitro font to Pretendard Variable (covers Latin + Korean).
+   Also override font-weight: 100 to 400 for readability. */
 body, [lang] {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   font-weight: 400;
 }
 
