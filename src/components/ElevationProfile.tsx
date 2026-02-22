@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { Track } from '@/types'
+import { formatElevation } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface ElevationProfileProps {
@@ -61,7 +62,7 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
     <div className="w-full">
       <div className="flex items-center justify-between text-[9px] mb-0.5 px-1" style={{ color: 'var(--t4)' }}>
         <span>{t('elevation.label')}</span>
-        <span>{Math.round(minEle)}m — {Math.round(maxEle)}m ({Math.round(elevRange)}m Δ)</span>
+        <span>{formatElevation(minEle)} — {formatElevation(maxEle)} ({formatElevation(elevRange)} Δ)</span>
       </div>
       <svg
         viewBox="0 0 100 100"

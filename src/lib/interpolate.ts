@@ -122,9 +122,40 @@ export function interpolateAlongTrack(
   }
 }
 
-export function formatDistance(meters: number): string {
+export type UnitSystem = 'metric' | 'imperial'
+
+const UNITS_STORAGE_KEY = 'travelback-units'
+
+export function getUnitPreference(): UnitSystem {
+  if (typeof window === 'undefined') return 'metric'
+  try {
+    const stored = localStorage.getItem(UNITS_STORAGE_KEY)
+    if (stored === 'metric' || stored === 'imperial') return stored
+  } catch { /* ignore */ }
+  // Default: en-US → imperial, everything else → metric
+  const lang = navigator.language || ''
+  return lang === 'en-US' ? 'imperial' : 'metric'
+}
+
+export function setUnitPreference(units: UnitSystem): void {
+  try { localStorage.setItem(UNITS_STORAGE_KEY, units) } catch { /* ignore */ }
+}
+
+export function formatDistance(meters: number, units?: UnitSystem): string {
+  const u = units ?? getUnitPreference()
+  if (u === 'imperial') {
+    const feet = meters * 3.28084
+    if (feet < 5280) return `${Math.round(feet)} ft`
+    return `${(feet / 5280).toFixed(1)} mi`
+  }
   if (meters < 1000) return `${Math.round(meters)} m`
   return `${(meters / 1000).toFixed(1)} km`
+}
+
+export function formatElevation(meters: number, units?: UnitSystem): string {
+  const u = units ?? getUnitPreference()
+  if (u === 'imperial') return `${Math.round(meters * 3.28084)} ft`
+  return `${Math.round(meters)} m`
 }
 
 export function formatDuration(seconds: number): string {
