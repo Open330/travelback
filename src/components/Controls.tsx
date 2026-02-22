@@ -136,7 +136,7 @@ export default function Controls({
           {/* Stats — always visible, compact on mobile */}
           <div className="text-xs sm:text-sm space-x-2 sm:space-x-3 flex" style={{ color: 'var(--t3)' }}>
             <span>{formatDistance(traveled)} / {formatDistance(total)}</span>
-            <span className="hidden sm:inline">{formatDuration(elapsed)} / {formatDuration(duration)}</span>
+            <span>{formatDuration(elapsed)} / {formatDuration(duration)}</span>
           </div>
         </div>
       </div>
