@@ -50,6 +50,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   // State drives UI re-renders
   const [pointCount, setPointCount] = useState(0)
   const [distanceMeters, setDistanceMeters] = useState(0)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
@@ -289,12 +290,17 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
+    setShowConfirm(true)
+  }, [])
+
+  const handleConfirmCreate = useCallback(() => {
     const track: Track = {
       name: t('journey.defaultName'),
       points: waypointsRef.current as TrackPoint[],
     }
+    setShowConfirm(false)
     onComplete(track)
-  }, [onComplete])
+  }, [onComplete, t])
 
   if (!isActive) return null
 
@@ -347,34 +353,61 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         </>
       )}
 
+      {/* Confirmation card */}
+      {showConfirm && (
+        <div className="px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
+          <p className="text-xs font-medium mb-2" style={{ color: 'var(--t1)' }}>
+            {t('journey.confirmTitle')}
+          </p>
+          <p className="text-[10px] mb-3" style={{ color: 'var(--t3)' }}>
+            {pointCount} {t('timeline.points')} · {formatDistance(distanceMeters)}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowConfirm(false)}
+              className="gi px-3 py-1.5 text-xs font-medium cursor-pointer"
+              style={{ color: 'var(--t1)' }}>
+              {t('journey.confirmEdit')}
+            </button>
+            <button onClick={handleConfirmCreate}
+              className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer transition-colors"
+              style={{ background: '#f97316' }}>
+              {t('journey.confirmCreate')}
+              <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
-        <button
-          onClick={handleUndo}
-          disabled={pointCount === 0}
-          className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ color: 'var(--t1)' }}
-        >
-          {t('journey.undo')}
-        </button>
-        <button
-          onClick={handleClear}
-          disabled={pointCount === 0}
-          className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ color: 'var(--t1)' }}
-        >
-          {t('journey.clear')}
-        </button>
-        <button
-          onClick={handleDone}
-          disabled={pointCount < 2}
-          className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          style={{ background: '#f97316' }}
-        >
-          {t('journey.done')}
-          <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
-        </button>
-      </div>
+      {!showConfirm && (
+        <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
+          <button
+            onClick={handleUndo}
+            disabled={pointCount === 0}
+            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'var(--t1)' }}
+          >
+            {t('journey.undo')}
+          </button>
+          <button
+            onClick={handleClear}
+            disabled={pointCount === 0}
+            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'var(--t1)' }}
+          >
+            {t('journey.clear')}
+          </button>
+          <button
+            onClick={handleDone}
+            disabled={pointCount < 2}
+            className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            style={{ background: '#f97316' }}
+          >
+            {t('journey.done')}
+            <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
