@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
@@ -51,6 +51,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   const [pointCount, setPointCount] = useState(0)
   const [distanceMeters, setDistanceMeters] = useState(0)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([])
+  const [searching, setSearching] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
@@ -267,6 +271,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         cleanupRef.current()
         cleanupRef.current = null
       }
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
       removeLayers(map)
       waypointsRef.current = []
       setPointCount(0)
@@ -287,6 +292,28 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     updateMapData()
     syncUI()
   }, [updateMapData, syncUI])
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!query.trim()) { setSearchResults([]); return }
+    searchTimerRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=5`
+        const res = await fetch(url, { headers: { 'User-Agent': 'Travelback/1.0 (https://github.com/Open330/travelback)' } })
+        if (res.ok) setSearchResults(await res.json())
+      } catch { /* ignore network errors */ }
+      setSearching(false)
+    }, 1000) // 1 req/sec rate limit per Nominatim policy
+  }, [])
+
+  const handleSelectPlace = useCallback((lat: string, lon: string) => {
+    const map = mapRef.current?.getMap()
+    if (map) map.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 14 })
+    setSearchResults([])
+    setSearchQuery('')
+  }, [mapRef])
 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
@@ -323,6 +350,36 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         <p className="text-[10px] mt-0.5" style={{ color: 'var(--t4)' }}>
           {t('journey.subtitle')}
         </p>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative px-4 pt-2 pb-1">
+        <div className="relative">
+          <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--t4)' }} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+            placeholder={t('journey.searchPlaceholder')}
+            className="w-full text-xs pl-7 pr-2 py-1.5 rounded-lg outline-none"
+            style={{ background: 'var(--bg2)', color: 'var(--t1)', border: '1px solid var(--div)' }}
+          />
+          {searching && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
+          )}
+        </div>
+        {searchResults.length > 0 && (
+          <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
+            style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
+            {searchResults.map((r, i) => (
+              <button key={i} onClick={() => handleSelectPlace(r.lat, r.lon)}
+                className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
+                style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
+                {r.display_name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Instructions overlay when no points yet */}
