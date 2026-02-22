@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 
 interface GoogleGuideProps {
@@ -7,56 +8,83 @@ interface GoogleGuideProps {
   onClose: () => void
 }
 
-const steps = [
+const methods = [
   {
-    number: 1,
-    title: 'Go to Google Takeout',
-    items: [
-      'Visit takeout.google.com',
-      'Deselect all, then select only "Location History"',
+    label: 'From your phone (recommended)',
+    steps: [
+      {
+        number: 1,
+        title: 'Open Google Maps',
+        items: [
+          'Tap your profile picture',
+          'Go to "Your Timeline"',
+        ],
+      },
+      {
+        number: 2,
+        title: 'Export your data',
+        items: [
+          'Tap ⋮ (more) → Settings → Export Timeline data',
+          'This downloads a location-history.json file',
+        ],
+      },
+      {
+        number: 3,
+        title: 'Upload to Travelback',
+        items: [
+          'Drop the JSON file here',
+          'Use the timeline slider to select a date range',
+        ],
+      },
     ],
-    action: {
-      label: 'Open Google Takeout',
-      href: 'https://takeout.google.com',
-    },
   },
   {
-    number: 2,
-    title: 'Choose export settings',
-    items: [
-      'Select JSON format',
-      'Choose "Export once"',
-      'Click "Create export"',
-    ],
-  },
-  {
-    number: 3,
-    title: 'Download & extract',
-    items: [
-      'Wait for the email from Google',
-      'Download the zip file',
-      'Extract and find "Records.json" or "Location History.json"',
-    ],
-  },
-  {
-    number: 4,
-    title: 'Upload to Travelback',
-    items: [
-      'Drop the JSON file into Travelback',
-      'Use the timeline slider to select a date range',
-      'Play and export your journey!',
+    label: 'From Google Takeout',
+    steps: [
+      {
+        number: 1,
+        title: 'Go to Google Takeout',
+        items: [
+          'Visit takeout.google.com',
+          'Deselect all, then select "Location History"',
+        ],
+        action: {
+          label: 'Open Google Takeout',
+          href: 'https://takeout.google.com',
+        },
+      },
+      {
+        number: 2,
+        title: 'Download & extract',
+        items: [
+          'Create export → wait for email → download zip',
+          'Any of these files work: Records.json, Timeline Edits.json, or monthly Semantic Location History files (e.g. 2024_JANUARY.json)',
+        ],
+      },
+      {
+        number: 3,
+        title: 'Upload to Travelback',
+        items: [
+          'Drop any of the JSON files here',
+          'Use the timeline slider to select a date range',
+        ],
+      },
     ],
   },
 ]
 
 const tips = [
+  'Since 2024, Google stores Timeline data on-device — phone export usually has the most complete data',
   'Large files (100MB+) may take a moment to parse',
   'Use the timeline selector to zoom into specific trips',
-  'Google Location History updates may be delayed',
 ]
 
 export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
+  const [tab, setTab] = useState(0)
+
   if (!isOpen) return null
+
+  const active = methods[tab]
 
   return (
     <div
@@ -69,7 +97,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 z-10"
           style={{ background: 'inherit', borderRadius: 'var(--r-glass) var(--r-glass) 0 0' }}>
           <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
-            Export Google Location History
+            Export Google Timeline
           </h3>
           <button
             onClick={onClose}
@@ -81,20 +109,34 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </button>
         </div>
 
-        {/* Steps */}
+        {/* Method tabs */}
+        <div className="px-5 flex gap-2 mb-3">
+          {methods.map((m, i) => (
+            <button
+              key={i}
+              onClick={() => setTab(i)}
+              className="px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-colors"
+              style={{
+                background: tab === i ? 'rgb(var(--gl))' : 'var(--bg-gi)',
+                color: tab === i ? '#fff' : 'var(--t3)',
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Steps for active tab */}
         <div className="px-5 pb-3 space-y-2">
-          {steps.map((step) => (
+          {active.steps.map((step) => (
             <div
               key={step.number}
               className="gi flex gap-3 px-3 py-2.5" style={{ borderRadius: '10px' }}
             >
-              {/* Number circle */}
               <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
                 style={{ background: 'rgb(var(--gl))' }}>
                 <span className="text-white text-sm font-bold">{step.number}</span>
               </div>
-
-              {/* Content */}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold mb-1" style={{ color: 'var(--t1)' }}>
                   {step.title}
@@ -106,7 +148,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
                     </li>
                   ))}
                 </ul>
-                {step.action && (
+                {'action' in step && step.action && (
                   <a
                     href={step.action.href}
                     target="_blank"

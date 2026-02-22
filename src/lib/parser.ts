@@ -63,77 +63,173 @@ function parseKML(text: string): Track {
   return { name, points }
 }
 
-interface GoogleLocationOld {
-  latitudeE7: number
-  longitudeE7: number
-  altitude?: number
-  timestampMs?: string
-  timestamp?: string
+/* ------------------------------------------------------------------ */
+/*  Google Location History — all known JSON formats                   */
+/* ------------------------------------------------------------------ */
+
+// Helper: E7 coordinate → decimal degrees
+function e7(v: number): number { return v / 1e7 }
+
+// Helper: parse timestamp from various Google formats
+function gTime(ts?: string, tsMs?: string): Date | undefined {
+  if (ts) return new Date(ts)
+  if (tsMs) return new Date(Number(tsMs))
+  return undefined
 }
 
-interface GoogleLocationNew {
-  latitudeE7?: number
-  longitudeE7?: number
-  latitude?: number
-  longitude?: number
-  altitude?: number
-  timestamp?: string
-  timestampMs?: string
+// Helper: push a point only when lat/lng are valid
+function pushE7(
+  out: TrackPoint[], latE7?: number, lngE7?: number,
+  ts?: string, tsMs?: string, alt?: number,
+) {
+  if (latE7 == null || lngE7 == null) return
+  out.push({ lat: e7(latE7), lng: e7(lngE7), ele: alt, time: gTime(ts, tsMs) })
 }
 
-type GoogleRecords = { locations: GoogleLocationOld[] }
-  | GoogleLocationNew[]
-  | { semanticSegments?: { timelinePath?: { point?: string; timestamp?: string }[] }[] }
+/* ---------- Format 1: Records.json / Location History.json --------- */
+// { locations: [{ latitudeE7, longitudeE7, timestamp, ... }] }
+function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
+  for (const loc of locations) {
+    const lat = (loc.latitude as number | undefined) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7 as number) : undefined)
+    const lng = (loc.longitude as number | undefined) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7 as number) : undefined)
+    if (lat == null || lng == null) continue
+    out.push({
+      lat, lng,
+      ele: loc.altitude as number | undefined,
+      time: gTime(loc.timestamp as string | undefined, loc.timestampMs as string | undefined),
+    })
+  }
+}
 
-function parseGoogleLocationHistory(text: string): Track {
-  const data = JSON.parse(text) as GoogleRecords
+/* ---------- Format 2: Semantic Location History (monthly) ---------- */
+// { timelineObjects: [{ activitySegment | placeVisit }] }
+function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoint[]) {
+  for (const obj of objects) {
+    const seg = obj.activitySegment as Record<string, unknown> | undefined
+    const visit = obj.placeVisit as Record<string, unknown> | undefined
 
-  const points: TrackPoint[] = []
-
-  if (Array.isArray(data)) {
-    for (const loc of data as GoogleLocationNew[]) {
-      const lat = loc.latitude ?? (loc.latitudeE7 != null ? loc.latitudeE7 / 1e7 : undefined)
-      const lng = loc.longitude ?? (loc.longitudeE7 != null ? loc.longitudeE7 / 1e7 : undefined)
-      if (lat == null || lng == null) continue
-      points.push({
-        lat, lng,
-        ele: loc.altitude,
-        time: loc.timestamp ? new Date(loc.timestamp)
-          : loc.timestampMs ? new Date(Number(loc.timestampMs))
-          : undefined,
-      })
+    if (seg) {
+      // Best data: simplifiedRawPath.points[]
+      const rawPath = seg.simplifiedRawPath as Record<string, unknown> | undefined
+      if (rawPath && Array.isArray(rawPath.points)) {
+        for (const pt of rawPath.points as Record<string, unknown>[]) {
+          pushE7(out, pt.latE7 as number, pt.lngE7 as number, pt.timestamp as string)
+        }
+      } else {
+        // Fallback: waypointPath.waypoints[]
+        const wpPath = seg.waypointPath as Record<string, unknown> | undefined
+        if (wpPath && Array.isArray(wpPath.waypoints)) {
+          for (const wp of wpPath.waypoints as Record<string, unknown>[]) {
+            pushE7(out, wp.latE7 as number, wp.lngE7 as number)
+          }
+        } else {
+          // Last resort: startLocation + endLocation
+          const dur = seg.duration as Record<string, unknown> | undefined
+          const start = seg.startLocation as Record<string, unknown> | undefined
+          const end = seg.endLocation as Record<string, unknown> | undefined
+          if (start) pushE7(out, start.latitudeE7 as number, start.longitudeE7 as number, dur?.startTimestamp as string)
+          if (end) pushE7(out, end.latitudeE7 as number, end.longitudeE7 as number, dur?.endTimestamp as string)
+        }
+      }
     }
-  } else if ('locations' in data && Array.isArray(data.locations)) {
-    for (const loc of data.locations) {
-      if (loc.latitudeE7 == null || loc.longitudeE7 == null) continue
-      points.push({
-        lat: loc.latitudeE7 / 1e7,
-        lng: loc.longitudeE7 / 1e7,
-        ele: loc.altitude,
-        time: loc.timestamp ? new Date(loc.timestamp)
-          : loc.timestampMs ? new Date(Number(loc.timestampMs))
-          : undefined,
-      })
-    }
-  } else if ('semanticSegments' in data && Array.isArray(data.semanticSegments)) {
-    for (const segment of data.semanticSegments) {
-      if (!segment.timelinePath) continue
-      for (const pt of segment.timelinePath) {
-        if (!pt.point) continue
-        const match = pt.point.match(/geo:([-\d.]+),([-\d.]+)/)
-        if (!match) continue
-        points.push({
-          lat: parseFloat(match[1]),
-          lng: parseFloat(match[2]),
-          time: pt.timestamp ? new Date(pt.timestamp) : undefined,
-        })
+
+    if (visit) {
+      const dur = visit.duration as Record<string, unknown> | undefined
+      const loc = visit.location as Record<string, unknown> | undefined
+      if (loc) {
+        pushE7(out, loc.latitudeE7 as number, loc.longitudeE7 as number, dur?.startTimestamp as string)
+      } else if (visit.centerLatE7 != null && visit.centerLngE7 != null) {
+        pushE7(out, visit.centerLatE7 as number, visit.centerLngE7 as number, dur?.startTimestamp as string)
       }
     }
   }
+}
 
-  points.sort((a, b) => (a.time?.getTime() ?? 0) - (b.time?.getTime() ?? 0))
+/* ---------- Format 3: Timeline Edits.json -------------------------- */
+// { timelineEdits: [{ rawSignal: { signal: { position: { point, timestamp } } } }] }
+function parseTimelineEdits(edits: Record<string, unknown>[], out: TrackPoint[]) {
+  for (const edit of edits) {
+    const raw = edit.rawSignal as Record<string, unknown> | undefined
+    if (!raw) continue
+    const signal = raw.signal as Record<string, unknown> | undefined
+    if (!signal) continue
+    const pos = signal.position as Record<string, unknown> | undefined
+    if (!pos) continue
+    const pt = pos.point as Record<string, unknown> | undefined
+    if (!pt) continue
+    pushE7(out, pt.latE7 as number, pt.lngE7 as number, pos.timestamp as string, undefined, pos.altitudeMeters as number)
+  }
+}
 
-  return { name: 'Google Location History', points }
+/* ---------- Format 4: semanticSegments (phone export) -------------- */
+// { semanticSegments: [{ timelinePath | visit }] }
+function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPoint[]) {
+  for (const seg of segments) {
+    // timelinePath: [{ point: "geo:lat,lng", timestamp }]
+    if (Array.isArray(seg.timelinePath)) {
+      for (const pt of seg.timelinePath as Record<string, unknown>[]) {
+        if (!pt.point) continue
+        const m = (pt.point as string).match(/geo:([-\d.]+),([-\d.]+)/)
+        if (!m) continue
+        out.push({
+          lat: parseFloat(m[1]), lng: parseFloat(m[2]),
+          time: gTime(pt.timestamp as string),
+        })
+      }
+    }
+    // visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
+    const visit = seg.visit as Record<string, unknown> | undefined
+    if (visit) {
+      const top = visit.topCandidate as Record<string, unknown> | undefined
+      const placeLoc = top?.placeLocation as Record<string, unknown> | undefined
+      if (placeLoc?.latLng) {
+        const m = (placeLoc.latLng as string).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
+        if (m) {
+          const dur = seg.startTime as string | undefined
+          out.push({ lat: parseFloat(m[1]), lng: parseFloat(m[2]), time: gTime(dur) })
+        }
+      }
+    }
+  }
+}
+
+/* ---------- Main dispatcher ---------------------------------------- */
+function parseGoogleLocationHistory(text: string): Track {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = JSON.parse(text) as any
+  const points: TrackPoint[] = []
+
+  // Flat array: [{ latitudeE7, ... }]
+  if (Array.isArray(data)) {
+    parseRecords(data, points)
+  }
+  // Records.json / Location History.json: { locations: [...] }
+  else if (Array.isArray(data.locations)) {
+    parseRecords(data.locations, points)
+  }
+  // Semantic Location History (monthly): { timelineObjects: [...] }
+  if (Array.isArray(data.timelineObjects)) {
+    parseTimelineObjects(data.timelineObjects, points)
+  }
+  // Timeline Edits.json: { timelineEdits: [...] }
+  if (Array.isArray(data.timelineEdits)) {
+    parseTimelineEdits(data.timelineEdits, points)
+  }
+  // Phone export / new format: { semanticSegments: [...] }
+  if (Array.isArray(data.semanticSegments)) {
+    parseSemanticSegments(data.semanticSegments, points)
+  }
+
+  // De-duplicate identical lat/lng/time combos that may come from multiple branches
+  const seen = new Set<string>()
+  const unique: TrackPoint[] = []
+  for (const p of points) {
+    const key = `${p.lat},${p.lng},${p.time?.getTime() ?? ''}`
+    if (!seen.has(key)) { seen.add(key); unique.push(p) }
+  }
+
+  unique.sort((a, b) => (a.time?.getTime() ?? 0) - (b.time?.getTime() ?? 0))
+  return { name: 'Google Location History', points: unique }
 }
 
 function isGoogleLocationJSON(text: string): boolean {
@@ -143,7 +239,12 @@ function isGoogleLocationJSON(text: string): boolean {
       const first = data[0]
       return first && ('latitudeE7' in first || 'latitude' in first)
     }
-    return 'locations' in data || 'semanticSegments' in data
+    return (
+      'locations' in data ||
+      'semanticSegments' in data ||
+      'timelineObjects' in data ||
+      'timelineEdits' in data
+    )
   } catch {
     return false
   }
