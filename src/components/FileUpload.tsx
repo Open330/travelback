@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useState, useRef, useMemo } from 'react'
 import { ArrowRight, MapPin } from 'lucide-react'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
@@ -20,6 +20,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const isIOS = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  }, [])
 
   const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
   const WARN_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
@@ -171,6 +176,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           onChange={handleInputChange}
           className="hidden"
         />
+        {isIOS && (
+          <p className="mt-2 text-[10px]" style={{ color: 'var(--t4)' }}>
+            {t('fileUpload.iosTip')}
+          </p>
+        )}
         <div className="mt-3 flex flex-col items-center gap-2">
           {onLoadSample && (
             <button onClick={onLoadSample} className="text-sm cursor-pointer transition-colors"
