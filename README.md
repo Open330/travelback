@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/favicon.svg" width="128" alt="Travelback Logo"/>
+</p>
+
 <h1 align="center">Travelback</h1>
 
 <p align="center">

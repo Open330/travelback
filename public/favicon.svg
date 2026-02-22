@@ -1,64 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <!-- Dark circular background -->
-  <circle cx="256" cy="256" r="256" fill="#0f172a"/>
-
-  <!-- Subtle radial glow behind the path -->
   <defs>
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="pathGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.4"/>
-      <stop offset="60%" stop-color="#06b6d4" stop-opacity="1"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0e1525"/>
+      <stop offset="100%" stop-color="#0a1020"/>
+    </linearGradient>
+    <linearGradient id="route" x1="80" y1="120" x2="340" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.3"/>
+      <stop offset="40%" stop-color="#06b6d4"/>
       <stop offset="100%" stop-color="#22d3ee"/>
     </linearGradient>
-    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <linearGradient id="play" x1="310" y1="280" x2="420" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#67e8f9"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="playGlow">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <!-- Background glow -->
-  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-  <!-- GPS route path — organic, winding travel trajectory -->
-  <!-- Starts at top-left, winds naturally across the canvas, ends at play triangle -->
+  <!-- Subtle radial ambient -->
+  <circle cx="280" cy="300" r="180" fill="#06b6d4" opacity="0.06"/>
+
+  <!-- Route path — organic winding GPS trajectory -->
   <path
-    d="M 90 170
-       C 90 130, 140 115, 165 145
-       C 190 175, 175 220, 200 235
-       C 225 250, 255 230, 265 255
-       C 275 280, 255 310, 270 330
-       C 285 350, 310 345, 320 330"
-    stroke="url(#pathGrad)"
-    stroke-width="18"
+    d="M 100 160
+       C 100 120, 150 105, 175 140
+       C 200 175, 180 215, 210 240
+       C 240 265, 270 235, 285 265
+       C 300 295, 280 330, 305 350"
+    stroke="url(#route)"
+    stroke-width="20"
     stroke-linecap="round"
     stroke-linejoin="round"
     fill="none"
-    filter="url(#softGlow)"
+    filter="url(#glow)"
   />
 
-  <!-- Waypoint dot at path start -->
-  <circle cx="90" cy="170" r="12" fill="#06b6d4" opacity="0.5"/>
-  <circle cx="90" cy="170" r="6" fill="#06b6d4"/>
+  <!-- Start waypoint — outer ring + inner dot -->
+  <circle cx="100" cy="160" r="16" fill="#06b6d4" opacity="0.25"/>
+  <circle cx="100" cy="160" r="8" fill="#06b6d4"/>
 
-  <!-- Intermediate waypoint dot -->
-  <circle cx="200" cy="235" r="8" fill="#06b6d4" opacity="0.6"/>
+  <!-- Mid waypoint -->
+  <circle cx="210" cy="240" r="6" fill="#22d3ee" opacity="0.5"/>
 
-  <!-- Play triangle at the end of the route — solid, pointing right -->
-  <!-- Centered at approximately (360, 330) -->
+  <!-- Play triangle at the route terminus -->
   <polygon
-    points="322,300 322,360 390,330"
-    fill="#06b6d4"
-    filter="url(#softGlow)"
+    points="320,295 320,385 410,340"
+    fill="url(#play)"
+    filter="url(#playGlow)"
   />
-
-  <!-- Thin motion trail lines suggesting speed/animation -->
-  <line x1="70" y1="330" x2="110" y2="330" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
-  <line x1="60" y1="355" x2="115" y2="355" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.2"/>
-  <line x1="75" y1="305" x2="105" y2="305" stroke="#06b6d4" stroke-width="5" stroke-linecap="round" opacity="0.15"/>
 </svg>
