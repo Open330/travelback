@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="travelback-test">
+  <trk>
+    <name>Korea to Japan</name>
+    <trkseg>
+      <!-- Seoul - Departure -->
+      <trkpt lat="37.5665" lon="126.9780"><ele>38</ele><time>2025-04-10T08:00:00Z</time></trkpt>
+      <trkpt lat="37.5560" lon="126.9724"><ele>35</ele><time>2025-04-10T08:15:00Z</time></trkpt>
+      <!-- Seoul Station area -->
+      <trkpt lat="37.5547" lon="126.9707"><ele>30</ele><time>2025-04-10T08:30:00Z</time></trkpt>
+      <!-- Heading south toward Suwon -->
+      <trkpt lat="37.4138" lon="127.0000"><ele>42</ele><time>2025-04-10T09:00:00Z</time></trkpt>
+      <!-- Suwon -->
+      <trkpt lat="37.2636" lon="127.0286"><ele>38</ele><time>2025-04-10T09:30:00Z</time></trkpt>
+      <!-- Cheonan -->
+      <trkpt lat="36.8151" lon="127.1139"><ele>25</ele><time>2025-04-10T10:15:00Z</time></trkpt>
+      <!-- Daejeon -->
+      <trkpt lat="36.3504" lon="127.3845"><ele>55</ele><time>2025-04-10T11:00:00Z</time></trkpt>
+      <!-- Gimcheon -->
+      <trkpt lat="36.1198" lon="128.1136"><ele>90</ele><time>2025-04-10T11:45:00Z</time></trkpt>
+      <!-- Daegu -->
+      <trkpt lat="35.8714" lon="128.6014"><ele>48</ele><time>2025-04-10T12:15:00Z</time></trkpt>
+      <!-- Gyeongju area -->
+      <trkpt lat="35.8562" lon="129.2249"><ele>60</ele><time>2025-04-10T12:45:00Z</time></trkpt>
+      <!-- Ulsan -->
+      <trkpt lat="35.5384" lon="129.3114"><ele>15</ele><time>2025-04-10T13:15:00Z</time></trkpt>
+      <!-- Busan - Gimhae area -->
+      <trkpt lat="35.1796" lon="128.9382"><ele>5</ele><time>2025-04-10T14:00:00Z</time></trkpt>
+      <!-- Busan Port -->
+      <trkpt lat="35.1028" lon="129.0403"><ele>3</ele><time>2025-04-10T14:30:00Z</time></trkpt>
+      <!-- Korea Strait - open water -->
+      <trkpt lat="34.8500" lon="129.2000"><ele>0</ele><time>2025-04-10T15:30:00Z</time></trkpt>
+      <trkpt lat="34.5000" lon="129.5000"><ele>0</ele><time>2025-04-10T16:30:00Z</time></trkpt>
+      <trkpt lat="34.2000" lon="129.8000"><ele>0</ele><time>2025-04-10T17:30:00Z</time></trkpt>
+      <!-- Tsushima Island -->
+      <trkpt lat="34.2050" lon="129.2874"><ele>5</ele><time>2025-04-10T18:00:00Z</time></trkpt>
+      <!-- Open water between Tsushima and Kyushu -->
+      <trkpt lat="33.9500" lon="129.5000"><ele>0</ele><time>2025-04-10T18:45:00Z</time></trkpt>
+      <trkpt lat="33.7500" lon="130.0000"><ele>0</ele><time>2025-04-10T19:30:00Z</time></trkpt>
+      <!-- Approaching Fukuoka -->
+      <trkpt lat="33.6500" lon="130.2500"><ele>2</ele><time>2025-04-10T20:00:00Z</time></trkpt>
+      <!-- Fukuoka / Hakata -->
+      <trkpt lat="33.5904" lon="130.4017"><ele>5</ele><time>2025-04-10T20:30:00Z</time></trkpt>
+      <!-- Kitakyushu -->
+      <trkpt lat="33.8834" lon="130.8752"><ele>10</ele><time>2025-04-10T21:15:00Z</time></trkpt>
+      <!-- Shimonoseki -->
+      <trkpt lat="33.9580" lon="130.9413"><ele>8</ele><time>2025-04-10T21:30:00Z</time></trkpt>
+      <!-- Hiroshima -->
+      <trkpt lat="34.3853" lon="132.4553"><ele>6</ele><time>2025-04-11T08:00:00Z</time></trkpt>
+      <!-- Okayama -->
+      <trkpt lat="34.6551" lon="133.9195"><ele>3</ele><time>2025-04-11T09:00:00Z</time></trkpt>
+      <!-- Kobe -->
+      <trkpt lat="34.6901" lon="135.1956"><ele>15</ele><time>2025-04-11T09:45:00Z</time></trkpt>
+      <!-- Osaka -->
+      <trkpt lat="34.6937" lon="135.5023"><ele>10</ele><time>2025-04-11T10:15:00Z</time></trkpt>
+      <!-- Kyoto -->
+      <trkpt lat="35.0116" lon="135.7681"><ele>45</ele><time>2025-04-11T11:00:00Z</time></trkpt>
+      <!-- Nagoya -->
+      <trkpt lat="35.1815" lon="136.9066"><ele>12</ele><time>2025-04-11T12:30:00Z</time></trkpt>
+      <!-- Shizuoka -->
+      <trkpt lat="34.9756" lon="138.3828"><ele>8</ele><time>2025-04-11T13:30:00Z</time></trkpt>
+      <!-- Mt. Fuji area -->
+      <trkpt lat="35.3606" lon="138.7274"><ele>800</ele><time>2025-04-11T14:00:00Z</time></trkpt>
+      <!-- Yokohama -->
+      <trkpt lat="35.4437" lon="139.6380"><ele>20</ele><time>2025-04-11T14:45:00Z</time></trkpt>
+      <!-- Tokyo - Shinagawa -->
+      <trkpt lat="35.6284" lon="139.7387"><ele>8</ele><time>2025-04-11T15:15:00Z</time></trkpt>
+      <!-- Tokyo Station -->
+      <trkpt lat="35.6812" lon="139.7671"><ele>5</ele><time>2025-04-11T15:30:00Z</time></trkpt>
+      <!-- Tokyo Tower area -->
+      <trkpt lat="35.6586" lon="139.7454"><ele>15</ele><time>2025-04-11T15:45:00Z</time></trkpt>
+      <!-- Shibuya -->
+      <trkpt lat="35.6580" lon="139.7016"><ele>30</ele><time>2025-04-11T16:00:00Z</time></trkpt>
+      <!-- Shinjuku -->
+      <trkpt lat="35.6896" lon="139.6922"><ele>35</ele><time>2025-04-11T16:15:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+

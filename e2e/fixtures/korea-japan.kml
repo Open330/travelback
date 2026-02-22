@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"
+     xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <name>Korea to Japan via Ferry</name>
+    <description>Seoul → Busan → Fukuoka → Osaka → Tokyo ferry and rail journey</description>
+    <Style id="trackStyle">
+      <LineStyle>
+        <color>ff0088ff</color>
+        <width>3</width>
+      </LineStyle>
+    </Style>
+    <Placemark>
+      <name>Seoul to Tokyo Route</name>
+      <styleUrl>#trackStyle</styleUrl>
+      <gx:Track>
+        <!-- Seoul - Gwanghwamun -->
+        <when>2025-05-15T07:00:00Z</when>
+        <gx:coord>126.9769 37.5759 40</gx:coord>
+        <!-- Seoul - Yongsan -->
+        <when>2025-05-15T07:20:00Z</when>
+        <gx:coord>126.9648 37.5298 25</gx:coord>
+        <!-- Seoul Station -->
+        <when>2025-05-15T07:40:00Z</when>
+        <gx:coord>126.9707 37.5547 30</gx:coord>
+        <!-- Osan -->
+        <when>2025-05-15T08:20:00Z</when>
+        <gx:coord>127.0770 37.1498 50</gx:coord>
+        <!-- Cheonan-Asan -->
+        <when>2025-05-15T08:50:00Z</when>
+        <gx:coord>127.0074 36.7946 20</gx:coord>
+        <!-- Daejeon -->
+        <when>2025-05-15T09:30:00Z</when>
+        <gx:coord>127.3845 36.3504 55</gx:coord>
+        <!-- Gumi -->
+        <when>2025-05-15T10:10:00Z</when>
+        <gx:coord>128.3440 36.1195 80</gx:coord>
+        <!-- Daegu -->
+        <when>2025-05-15T10:40:00Z</when>
+        <gx:coord>128.6014 35.8714 48</gx:coord>
+        <!-- Miryang -->
+        <when>2025-05-15T11:10:00Z</when>
+        <gx:coord>128.7486 35.4937 30</gx:coord>
+        <!-- Busan Station -->
+        <when>2025-05-15T11:45:00Z</when>
+        <gx:coord>129.0403 35.1150 5</gx:coord>
+        <!-- Busan International Ferry Terminal -->
+        <when>2025-05-15T12:30:00Z</when>
+        <gx:coord>129.0560 35.0968 3</gx:coord>
+        <!-- Korea Strait -->
+        <when>2025-05-15T13:30:00Z</when>
+        <gx:coord>129.3000 34.7500 0</gx:coord>
+        <when>2025-05-15T14:30:00Z</when>
+        <gx:coord>129.5500 34.4000 0</gx:coord>
+        <when>2025-05-15T15:30:00Z</when>
+        <gx:coord>129.8000 34.1000 0</gx:coord>
+        <!-- Approaching Tsushima -->
+        <when>2025-05-15T16:00:00Z</when>
+        <gx:coord>129.4800 34.2500 3</gx:coord>
+        <!-- Open water -->
+        <when>2025-05-15T17:00:00Z</when>
+        <gx:coord>129.8500 33.9000 0</gx:coord>
+        <when>2025-05-15T18:00:00Z</when>
+        <gx:coord>130.1500 33.7000 0</gx:coord>
+        <!-- Hakata Bay -->
+        <when>2025-05-15T18:45:00Z</when>
+        <gx:coord>130.3500 33.6200 2</gx:coord>
+        <!-- Fukuoka / Hakata Port -->
+        <when>2025-05-15T19:15:00Z</when>
+        <gx:coord>130.4017 33.5904 5</gx:coord>
+        <!-- Fukuoka - Tenjin -->
+        <when>2025-05-15T19:45:00Z</when>
+        <gx:coord>130.3990 33.5897 8</gx:coord>
+        <!-- Hakata Station -->
+        <when>2025-05-15T20:00:00Z</when>
+        <gx:coord>130.4207 33.5898 10</gx:coord>
+        <!-- Kokura (Kitakyushu) -->
+        <when>2025-05-16T08:00:00Z</when>
+        <gx:coord>130.8752 33.8834 10</gx:coord>
+        <!-- Hiroshima -->
+        <when>2025-05-16T09:00:00Z</when>
+        <gx:coord>132.4553 34.3853 6</gx:coord>
+        <!-- Shin-Kobe -->
+        <when>2025-05-16T10:30:00Z</when>
+        <gx:coord>135.1956 34.6901 50</gx:coord>
+        <!-- Shin-Osaka -->
+        <when>2025-05-16T10:50:00Z</when>
+        <gx:coord>135.5023 34.7337 10</gx:coord>
+        <!-- Osaka - Dotonbori -->
+        <when>2025-05-16T11:30:00Z</when>
+        <gx:coord>135.5022 34.6687 5</gx:coord>
+        <!-- Kyoto Station -->
+        <when>2025-05-16T12:30:00Z</when>
+        <gx:coord>135.7581 34.9858 30</gx:coord>
+        <!-- Nagoya -->
+        <when>2025-05-16T14:00:00Z</when>
+        <gx:coord>136.9066 35.1815 12</gx:coord>
+        <!-- Hamamatsu -->
+        <when>2025-05-16T14:45:00Z</when>
+        <gx:coord>137.7350 34.7108 5</gx:coord>
+        <!-- Shizuoka -->
+        <when>2025-05-16T15:15:00Z</when>
+        <gx:coord>138.3828 34.9756 8</gx:coord>
+        <!-- Shin-Fuji (Mt. Fuji view) -->
+        <when>2025-05-16T15:40:00Z</when>
+        <gx:coord>138.6700 35.1614 100</gx:coord>
+        <!-- Odawara -->
+        <when>2025-05-16T16:00:00Z</when>
+        <gx:coord>139.1530 35.2564 15</gx:coord>
+        <!-- Shin-Yokohama -->
+        <when>2025-05-16T16:20:00Z</when>
+        <gx:coord>139.6173 35.5076 20</gx:coord>
+        <!-- Shinagawa -->
+        <when>2025-05-16T16:35:00Z</when>
+        <gx:coord>139.7387 35.6284 8</gx:coord>
+        <!-- Tokyo Station -->
+        <when>2025-05-16T16:45:00Z</when>
+        <gx:coord>139.7671 35.6812 5</gx:coord>
+        <!-- Akihabara -->
+        <when>2025-05-16T17:15:00Z</when>
+        <gx:coord>139.7745 35.6984 10</gx:coord>
+        <!-- Asakusa / Senso-ji -->
+        <when>2025-05-16T17:45:00Z</when>
+        <gx:coord>139.7966 35.7148 5</gx:coord>
+        <!-- Tokyo Skytree -->
+        <when>2025-05-16T18:15:00Z</when>
+        <gx:coord>139.8107 35.7101 8</gx:coord>
+      </gx:Track>
+    </Placemark>
+  </Document>
+</kml>
+
