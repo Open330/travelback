@@ -1,8 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { GripHorizontal } from 'lucide-react'
 import { Track } from '@/types'
 import { useLocale } from '@/lib/i18n'
+
+const HINT_DISMISSED_KEY = 'travelback-timeline-hint-dismissed'
 
 interface TimelineSelectorProps {
   track: Track
@@ -35,6 +38,18 @@ export default function TimelineSelector({
   // startRatio and endRatio are [0,1] fractions of the full timeline
   const [startRatio, setStartRatio] = useState(0)
   const [endRatio, setEndRatio] = useState(1)
+
+  // Show drag hint on first appearance, dismiss on interaction or click
+  const [showHint, setShowHint] = useState(false)
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(HINT_DISMISSED_KEY)) setShowHint(true)
+    } catch { /* localStorage unavailable */ }
+  }, [])
+  const dismissHint = useCallback(() => {
+    setShowHint(false)
+    try { localStorage.setItem(HINT_DISMISSED_KEY, '1') } catch { /* noop */ }
+  }, [])
 
   // drag state stored in refs to avoid re-renders during drag
   const dragState = useRef<{
@@ -129,6 +144,7 @@ export default function TimelineSelector({
     type: 'start' | 'end' | 'region',
     clientX: number
   ) => {
+    if (showHint) dismissHint()
     dragState.current = {
       dragging: type,
       originX: clientX,
@@ -199,6 +215,20 @@ export default function TimelineSelector({
             )
           })}
         </div>
+
+        {/* Drag hint overlay — shown on first appearance */}
+        {showHint && (
+          <button
+            onClick={dismissHint}
+            className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 cursor-pointer"
+            style={{ background: 'rgba(var(--gl),.12)', borderRadius: '10px' }}
+          >
+            <GripHorizontal size={14} style={{ color: 'rgb(var(--gl))' }} />
+            <span className="text-xs font-medium" style={{ color: 'rgb(var(--gl))' }}>
+              {t('timeline.dragHint')}
+            </span>
+          </button>
+        )}
 
         {/* Selected region overlay - draggable */}
         <div

@@ -177,6 +177,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': 'locations',
     'timeline.histogramHint': 'Taller bars = more GPS data',
+    'timeline.dragHint': 'Drag the handles to select a date range',
 
     // JourneyCreator
     'journey.title': 'Create Journey',
@@ -390,6 +391,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': '위치',
     'timeline.histogramHint': '높은 막대 = GPS 데이터가 많은 구간',
+    'timeline.dragHint': '핸들을 드래그하여 날짜 범위를 선택하세요',
 
     // JourneyCreator
     'journey.title': '여행 만들기',
