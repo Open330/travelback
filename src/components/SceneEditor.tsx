@@ -22,6 +22,25 @@ interface SceneEditorProps {
 
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
 
+/** Small inline SVG icons for each camera mode */
+function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }) {
+  const s = { width: size, height: size, flexShrink: 0 }
+  switch (mode) {
+    case 'overview':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+    case 'flyover':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><path d="M4 20L12 4l8 16"/><path d="M8 14h8"/></svg>
+    case 'orbit':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20"/><path d="M19 5l-2 2"/></svg>
+    case 'ground':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><path d="M3 20h18"/><path d="M5 20V10l7-6 7 6v10"/><path d="M9 20v-6h6v6"/></svg>
+    case 'closeup':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+    case 'birdeye':
+      return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><path d="M2 12l10-8 10 8"/><path d="M12 4v16"/><path d="M6 8v12h12V8"/></svg>
+  }
+}
+
 export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
@@ -197,15 +216,18 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
               </button>
             </div>
 
-            <select value={scene.cameraMode}
-              onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
-              className="vitro-select w-full text-xs px-2 py-1">
-              {MODES.map(m => (
-                <option key={m} value={m}>
-                  {t(`camera.${m}` as TranslationKey)} — {t(`camera.${m}Desc` as TranslationKey)}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <span style={{ color: 'var(--t3)' }}><CameraModeIcon mode={scene.cameraMode} /></span>
+              <select value={scene.cameraMode}
+                onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
+                className="vitro-select flex-1 text-xs px-2 py-1">
+                {MODES.map(m => (
+                  <option key={m} value={m}>
+                    {t(`camera.${m}` as TranslationKey)} — {t(`camera.${m}Desc` as TranslationKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="flex gap-2">
               <label className="flex-1">
