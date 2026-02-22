@@ -105,6 +105,7 @@ function parseGoogleLocationHistory(text: string): Track {
     }
   } else if ('locations' in data && Array.isArray(data.locations)) {
     for (const loc of data.locations) {
+      if (loc.latitudeE7 == null || loc.longitudeE7 == null) continue
       points.push({
         lat: loc.latitudeE7 / 1e7,
         lng: loc.longitudeE7 / 1e7,
