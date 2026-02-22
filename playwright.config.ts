@@ -26,6 +26,11 @@ export default defineConfig({
           args: [
             '--enable-features=SharedArrayBuffer',
             '--enable-experimental-web-platform-features',
+            '--use-gl=angle',
+            '--use-angle=swiftshader',
+            '--enable-webgl',
+            '--ignore-gpu-blocklist',
+            '--disable-gpu-sandbox',
           ],
         },
       },
