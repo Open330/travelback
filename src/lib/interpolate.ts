@@ -12,6 +12,7 @@ function haversineDistance(a: TrackPoint, b: TrackPoint): number {
 }
 
 export function computeCumulativeDistances(points: TrackPoint[]): number[] {
+  if (points.length === 0) return []
   const distances = [0]
   for (let i = 1; i < points.length; i++) {
     distances.push(distances[i - 1] + haversineDistance(points[i - 1], points[i]))
@@ -50,6 +51,26 @@ export function interpolateAlongTrack(
   cumulativeDistances: number[],
   progress: number,
 ): InterpolationResult {
+  // Guard: empty or single-point tracks
+  if (points.length === 0) {
+    return {
+      point: { lng: 0, lat: 0 },
+      bearing: 0,
+      segmentIndex: 0,
+      distanceTraveled: 0,
+      totalDist: 0,
+    }
+  }
+  if (points.length === 1) {
+    return {
+      point: { ...points[0] },
+      bearing: 0,
+      segmentIndex: 0,
+      distanceTraveled: 0,
+      totalDist: 0,
+    }
+  }
+
   const clampedProgress = Math.max(0, Math.min(1, progress))
   const total = cumulativeDistances[cumulativeDistances.length - 1]
   const targetDist = clampedProgress * total
@@ -80,7 +101,17 @@ export function interpolateAlongTrack(
       : a.time,
   }
 
-  const bearing = computeBearing(a, b)
+  // Compute bearing; if a and b are identical, look backward for a valid bearing
+  let bearing = computeBearing(a, b)
+  if (a.lat === b.lat && a.lng === b.lng && segIdx > 0) {
+    // Walk backward to find the last distinct point for a meaningful bearing
+    for (let k = segIdx - 1; k >= 0; k--) {
+      if (points[k].lat !== a.lat || points[k].lng !== a.lng) {
+        bearing = computeBearing(points[k], a)
+        break
+      }
+    }
+  }
 
   return {
     point,
