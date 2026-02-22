@@ -71,13 +71,13 @@ export default function Controls({
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-2 sm:gap-3">
           {/* Play/Pause */}
           <button
             onClick={onTogglePlay}
             aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
             title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
-            className="w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-colors shrink-0"
             style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
           >
             {isPlaying ? (
@@ -95,7 +95,7 @@ export default function Controls({
               onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
               aria-label={t('controls.playbackSpeed')}
               title={t('controls.playbackSpeed')}
-              className="vitro-select px-2 py-1.5 text-sm font-medium"
+              className="vitro-select px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs sm:text-sm font-medium"
             >
               {SPEEDS.map((s) => (
                 <option key={s} value={s}>{s}x</option>
@@ -109,7 +109,7 @@ export default function Controls({
             onChange={(e) => onDurationChange(parseInt(e.target.value))}
             aria-label={t('controls.animationDuration')}
             title={t('controls.animationDuration')}
-            className="vitro-select px-2 py-1.5 text-sm font-medium"
+            className="vitro-select px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs sm:text-sm font-medium"
           >
             {DURATIONS.map((d) => (
               <option key={d} value={d}>{formatDuration(d)}</option>
@@ -121,7 +121,7 @@ export default function Controls({
             onClick={onFollowCameraToggle}
             aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
             title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
-            className="gi px-3 py-1.5 text-sm font-medium cursor-pointer"
+            className="gi px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium cursor-pointer"
             style={followCamera
               ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
               : { color: 'var(--t3)' }
@@ -131,11 +131,11 @@ export default function Controls({
             <span className="[@media(pointer:coarse)]:hidden">{t('controls.follow')}</span>
           </button>
 
-          {/* Spacer */}
-          <div className="flex-1" />
+          {/* Spacer — collapses on mobile to allow wrapping */}
+          <div className="hidden sm:block flex-1" />
 
-          {/* Stats — always visible, compact on mobile */}
-          <div className="text-xs sm:text-sm space-x-2 sm:space-x-3 flex" style={{ color: 'var(--t3)' }}>
+          {/* Stats — wrap to second line on narrow screens */}
+          <div className="text-[10px] sm:text-sm space-x-2 sm:space-x-3 flex ml-auto" style={{ color: 'var(--t3)' }}>
             <span>{formatDistance(traveled)} / {formatDistance(total)}</span>
             <span>{formatDuration(elapsed)} / {formatDuration(duration)}</span>
           </div>
