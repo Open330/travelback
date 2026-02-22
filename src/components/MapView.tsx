@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Track, MapStyleKey, Scene } from '@/types'
+import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
 import { computeCameraForProgress } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
@@ -13,6 +14,8 @@ interface MapViewProps {
   mapStyleKey: MapStyleKey
   followCamera: boolean
   scenes?: Scene[]
+  duration?: number
+  transitionDuration?: number
 }
 
 export interface MapViewHandle {
@@ -29,7 +32,7 @@ const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
 
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { track, progress, mapStyleKey, followCamera, scenes },
+  { track, progress, mapStyleKey, followCamera, scenes, duration = 30, transitionDuration = 0.03 },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -86,26 +89,39 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
   }))
 
+  const [mapError, setMapError] = useState<string | null>(null)
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current) return
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: `https://basemaps.cartocdn.com/gl/${mapStyleKey === 'dark' ? 'dark-matter' : mapStyleKey === 'positron' ? 'positron' : 'voyager'}-gl-style/style.json`,
-      center: [0, 20],
-      zoom: 2,
-      canvasContextAttributes: { preserveDrawingBuffer: true },
-    })
+    try {
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: MAP_STYLES[mapStyleKey].url,
+        center: [0, 20],
+        zoom: 2,
+        canvasContextAttributes: { preserveDrawingBuffer: true },
+      })
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right')
+      map.addControl(new maplibregl.NavigationControl(), 'top-right')
 
-    mapRef.current = map
-    styleKeyRef.current = mapStyleKey
+      mapRef.current = map
+      styleKeyRef.current = mapStyleKey
 
-    return () => {
-      map.remove()
-      mapRef.current = null
+      return () => {
+        markerRef.current?.remove()
+        markerRef.current = null
+        if (markerEl.current) {
+          markerEl.current.remove()
+          markerEl.current = null
+        }
+        map.remove()
+        mapRef.current = null
+      }
+    } catch (err) {
+      console.error('Failed to initialize map:', err)
+      setMapError(err instanceof Error ? err.message : 'Failed to initialize WebGL map')
     }
     // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,8 +133,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (!map || styleKeyRef.current === mapStyleKey) return
     styleKeyRef.current = mapStyleKey
 
-    const styleUrl = `https://basemaps.cartocdn.com/gl/${mapStyleKey === 'dark' ? 'dark-matter' : mapStyleKey === 'positron' ? 'positron' : 'voyager'}-gl-style/style.json`
-    map.setStyle(styleUrl)
+    map.setStyle(MAP_STYLES[mapStyleKey].url)
 
     // Re-add sources/layers after style loads
     if (track) {
@@ -259,9 +274,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (followCamera && progress > 0) {
       if (scenes && scenes.length > 0) {
         // Use the scene-based camera system
-        const elapsedSec = progress * 30 // approximate; real duration is set elsewhere
+        const elapsedSec = progress * duration
         const cameraState = computeCameraForProgress(
-          track, cumulDistRef.current, scenes, progress, elapsedSec,
+          track, cumulDistRef.current, scenes, progress, elapsedSec, transitionDuration,
         )
         map.jumpTo({
           center: cameraState.center as [number, number],
@@ -280,10 +295,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         })
       }
     }
-  }, [progress, track, followCamera, scenes])
+  }, [progress, track, followCamera, scenes, duration, transitionDuration])
 
   return (
-    <div ref={containerRef} className="absolute inset-0" />
+    <div ref={containerRef} data-testid="map-container" className="absolute inset-0">
+      {mapError && (
+        <div data-testid="map-error" className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-sm p-4 text-center">
+          <p>Map failed to load: {mapError}</p>
+        </div>
+      )}
+    </div>
   )
 })
 
