@@ -30,6 +30,8 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
   // Auto-clear undo after 5 seconds
   useEffect(() => {
     if (!deletedScene) return
+    // Clear any previous timer before setting a new one
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     undoTimerRef.current = setTimeout(() => setDeletedScene(null), 5000)
     return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current) }
   }, [deletedScene])

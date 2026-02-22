@@ -221,7 +221,7 @@ function HomeInner() {
       } else {
         console.error('Export failed:', err)
         addToast(
-          `${t('app.exportFailed')} ${err instanceof Error ? err.message : 'Unknown error'}. ${t('app.exportFailedSuffix')}`,
+          `${t('app.exportFailed')} ${t('app.exportFailedSuffix')}`,
           'error',
         )
       }

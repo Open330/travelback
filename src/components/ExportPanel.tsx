@@ -55,7 +55,10 @@ export default function ExportPanel({
 
   const handleExport = useCallback(() => {
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
-    onExport({ resolution, codec, fps, duration, bitrate, scenes: [] })
+    // Clamp values to safe bounds before passing to encoder
+    const safeDuration = Math.max(5, Math.min(duration, 600))
+    const safeBitrate = Math.max(1, Math.min(bitrate, 50))
+    onExport({ resolution, codec, fps: fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
   }, [onExport, resolutionIdx, codec, fps, duration, bitrate])
 
   if (!isOpen) return null
@@ -121,7 +124,7 @@ export default function ExportPanel({
                 <div>
                   <label className="vitro-label block text-sm font-medium mb-1">{t('export.duration')}</label>
                   <input type="number" min={5} max={600} value={duration}
-                    onChange={e => setDuration(parseInt(e.target.value) || 30)}
+                    onChange={e => setDuration(Math.max(5, Math.min(600, parseInt(e.target.value) || 30)))}
                     className="vitro-input w-full px-3 py-2 text-sm" />
                 </div>
                 {/* FPS */}
@@ -138,7 +141,7 @@ export default function ExportPanel({
                 <div>
                   <label className="vitro-label block text-sm font-medium mb-1">{t('export.mbps')}</label>
                   <input type="number" min={1} max={50} value={bitrate}
-                    onChange={e => setBitrate(parseInt(e.target.value) || 8)}
+                    onChange={e => setBitrate(Math.max(1, Math.min(50, parseInt(e.target.value) || 8)))}
                     className="vitro-input w-full px-3 py-2 text-sm" />
                 </div>
               </div>

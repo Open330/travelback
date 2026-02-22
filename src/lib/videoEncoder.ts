@@ -49,8 +49,14 @@ export async function exportVideo(
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource } = await import('mediabunny')
 
   const { resolution, codec, fps, duration, bitrate, scenes } = config
-  const totalFrames = Math.max(2, Math.ceil(duration * fps))
-  const frameDuration = 1 / fps
+
+  // Clamp config values to safe bounds
+  const safeDuration = Math.max(1, Math.min(duration, 600))
+  const safeFps = Math.max(1, Math.min(fps, 120))
+  const safeBitrate = Math.max(1, Math.min(bitrate, 100))
+
+  const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))
+  const frameDuration = 1 / safeFps
   const cumulDist = computeCumulativeDistances(track.points)
 
   const mbCodec = toMediabunnyCodec(codec)
@@ -64,57 +70,59 @@ export async function exportVideo(
 
   const videoSource = new CanvasSource(canvas, {
     codec: mbCodec,
-    bitrate: bitrate * 1_000_000, // Mbps to bps
+    bitrate: safeBitrate * 1_000_000, // Mbps to bps
   })
 
-  output.addVideoTrack(videoSource, { frameRate: fps })
+  output.addVideoTrack(videoSource, { frameRate: safeFps })
   await output.start()
 
-  // Render each frame
-  for (let frame = 0; frame < totalFrames; frame++) {
-    if (signal?.aborted) {
-      throw new DOMException('Export cancelled', 'AbortError')
-    }
+  // Render each frame (wrapped in try/finally to ensure cleanup)
+  try {
+    for (let frame = 0; frame < totalFrames; frame++) {
+      if (signal?.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
 
-    const progress = frame / (totalFrames - 1)
-    const elapsedSec = frame * frameDuration
+      const progress = frame / (totalFrames - 1)
+      const elapsedSec = frame * frameDuration
 
-    // Compute camera state for this frame
-    const cameraState = computeCameraForProgress(
-      track, cumulDist, scenes, progress, elapsedSec,
-    )
+      // Compute camera state for this frame
+      const cameraState = computeCameraForProgress(
+        track, cumulDist, scenes, progress, elapsedSec,
+      )
 
-    // Apply camera state to the map (caller implements this)
-    await renderFrame(progress, cameraState)
+      // Apply camera state to the map (caller implements this)
+      await renderFrame(progress, cameraState)
 
-    // Wait for the map to finish rendering tiles
-    if (waitForIdle) {
-      await waitForIdle()
-    } else {
-      // Fallback: double-rAF
-      await new Promise<void>(resolve => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
+      // Wait for the map to finish rendering tiles
+      if (waitForIdle) {
+        await waitForIdle()
+      } else {
+        // Fallback: double-rAF
+        await new Promise<void>(resolve => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve())
+          })
         })
-      })
+      }
+
+      // Capture frame
+      const timestamp = frame * frameDuration
+      await videoSource.add(timestamp, frameDuration)
+
+      onProgress?.(progress)
     }
-
-    // Capture frame
-    const timestamp = frame * frameDuration
-    await videoSource.add(timestamp, frameDuration)
-
-    onProgress?.(progress)
+  } finally {
+    // Always finalize to release encoder resources
+    await output.finalize()
   }
-
-  // Finalize
-  await output.finalize()
 
   const buffer = target.buffer
   if (!buffer) {
     throw new Error('Video encoding failed: no output buffer')
   }
 
-  const sanitizedName = track.name.replace(/[^a-zA-Z0-9]/g, '_')
+  const sanitizedName = track.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 64)
   const codecLabel = codec === 'h265' ? 'hevc' : codec
   return {
     buffer,
@@ -131,7 +139,8 @@ export function downloadVideo(result: VideoExportResult): void {
   a.href = url
   a.download = result.filename
   a.click()
-  URL.revokeObjectURL(url)
+  // Defer revoke to give the browser time to start the download
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 /** Check if a codec is supported in the current browser */

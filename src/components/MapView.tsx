@@ -136,9 +136,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     map.setStyle(MAP_STYLES[mapStyleKey].url)
 
     // Re-add sources/layers after style loads
+    let styleHandler: (() => void) | null = null
     if (track) {
-      map.once('style.load', () => addTrackLayers(map, track))
+      styleHandler = () => addTrackLayers(map, track)
+      map.once('style.load', styleHandler)
     }
+    return () => {
+      if (styleHandler) map.off('style.load', styleHandler)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapStyleKey, track])
 
   const addTrackLayers = useCallback((map: maplibregl.Map, t: Track) => {
@@ -247,6 +253,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       onStyleLoad()
     } else {
       map.once('style.load', onStyleLoad)
+    }
+    return () => {
+      // Clean up pending style.load listener if component re-renders before it fires
+      map.off('style.load', onStyleLoad)
     }
   }, [track, addTrackLayers])
 
