@@ -307,9 +307,11 @@ export default function TimelineSelector({
         </div>
       )}
 
-      {/* Point count summary */}
+      {/* Point count + histogram hint */}
       <div className="text-xs mt-0.5 text-center" style={{ color: 'var(--t4)' }}>
         {endIdx - startIdx + 1} / {points.length} {t('timeline.points')}
+        <span className="mx-1">·</span>
+        {t('timeline.histogramHint')}
       </div>
     </div>
   )
