@@ -42,6 +42,8 @@ export const translations = {
     'controls.cameraFollowOnTitle': 'Camera tracking: ON (F)',
     'controls.cameraFollowOffTitle': 'Camera tracking: OFF (F)',
     'controls.follow': 'Track',
+    'controls.trackOn': 'Track: ON',
+    'controls.trackOff': 'Track: OFF',
 
     // SceneEditor
     'scenes.title': 'Camera',
@@ -249,6 +251,8 @@ export const translations = {
     'controls.cameraFollowOnTitle': '카메라 추적: 켜짐 (F)',
     'controls.cameraFollowOffTitle': '카메라 추적: 꺼짐 (F)',
     'controls.follow': '추적',
+    'controls.trackOn': '추적: 켜짐',
+    'controls.trackOff': '추적: 꺼짐',
 
     // SceneEditor
     'scenes.title': '카메라',

@@ -116,7 +116,7 @@ export default function Controls({
             ))}
           </select>
 
-          {/* Follow camera toggle */}
+          {/* Follow camera toggle — show ON/OFF on touch devices */}
           <button
             onClick={onFollowCameraToggle}
             aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
@@ -127,7 +127,8 @@ export default function Controls({
               : { color: 'var(--t3)' }
             }
           >
-            {t('controls.follow')}
+            <span className="hidden [@media(pointer:coarse)]:inline">{followCamera ? t('controls.trackOn') : t('controls.trackOff')}</span>
+            <span className="[@media(pointer:coarse)]:hidden">{t('controls.follow')}</span>
           </button>
 
           {/* Spacer */}
