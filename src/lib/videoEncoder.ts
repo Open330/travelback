@@ -42,12 +42,14 @@ export async function exportVideo(
   config: ExportConfig,
   renderFrame: RenderFrameCallback,
   onProgress?: ExportProgressCallback,
+  waitForIdle?: () => Promise<void>,
+  signal?: AbortSignal,
 ): Promise<VideoExportResult> {
   // Dynamic import mediabunny (it uses WebCodecs, browser-only)
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource } = await import('mediabunny')
 
   const { resolution, codec, fps, duration, bitrate, scenes } = config
-  const totalFrames = Math.ceil(duration * fps)
+  const totalFrames = Math.max(2, Math.ceil(duration * fps))
   const frameDuration = 1 / fps
   const cumulDist = computeCumulativeDistances(track.points)
 
@@ -70,6 +72,10 @@ export async function exportVideo(
 
   // Render each frame
   for (let frame = 0; frame < totalFrames; frame++) {
+    if (signal?.aborted) {
+      throw new DOMException('Export cancelled', 'AbortError')
+    }
+
     const progress = frame / (totalFrames - 1)
     const elapsedSec = frame * frameDuration
 
@@ -81,12 +87,17 @@ export async function exportVideo(
     // Apply camera state to the map (caller implements this)
     await renderFrame(progress, cameraState)
 
-    // Small delay to let the map render
-    await new Promise<void>(resolve => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve())
+    // Wait for the map to finish rendering tiles
+    if (waitForIdle) {
+      await waitForIdle()
+    } else {
+      // Fallback: double-rAF
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
       })
-    })
+    }
 
     // Capture frame
     const timestamp = frame * frameDuration
