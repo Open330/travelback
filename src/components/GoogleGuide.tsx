@@ -144,8 +144,8 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </button>
         </div>
 
-        {/* Method tabs — wrapping for many platforms */}
-        <div className="px-5 flex flex-wrap gap-1.5 mb-3">
+        {/* Method tabs — grid wrapping (4+3 on desktop, fluid on mobile) */}
+        <div className="px-5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 mb-3">
           {methods.map((m, i) => (
             <button
               key={i}
