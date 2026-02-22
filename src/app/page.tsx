@@ -20,7 +20,7 @@ import { generateDefaultScenes, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances } from '@/lib/interpolate'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 import { parseTrackFile } from '@/lib/parser'
-import { LocaleProvider, useLocale } from '@/lib/i18n'
+import { LocaleProvider, useLocale, type Locale } from '@/lib/i18n'
 
 export default function Home() {
   return (
@@ -341,13 +341,16 @@ function HomeInner() {
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <select
           value={locale}
-          onChange={e => setLocale(e.target.value as 'en' | 'ko')}
+          onChange={e => setLocale(e.target.value as Locale)}
           aria-label={t('locale.label')}
           className="gi px-2 py-1.5 text-xs font-medium cursor-pointer appearance-none text-center"
           style={{ color: 'var(--t2)', minWidth: '3.5rem' }}
         >
           <option value="en">EN</option>
           <option value="ko">KO</option>
+          <option value="ja">JA</option>
+          <option value="zh">ZH</option>
+          <option value="es">ES</option>
         </select>
         <ThemeToggle onModeChange={handleModeChange} />
       </div>
