@@ -55,6 +55,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
     return (
       <button
         onClick={() => inputRef.current?.click()}
+        aria-label="Load a new track file"
         className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm
           px-4 py-2 rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200
           hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer"
@@ -86,7 +87,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
         `}
       >
         <div className="text-5xl mb-4">
-          {loading ? '...' : '🗺️'}
+          {loading ? (
+            <div className="inline-block w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          ) : '🗺️'}
         </div>
         <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
           Travelback
@@ -100,6 +103,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
         <button
           onClick={() => inputRef.current?.click()}
           disabled={loading}
+          aria-label="Browse files to upload"
           className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg
             font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >

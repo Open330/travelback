@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { VideoCodec, ExportConfig, ResolutionPreset } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
+import { isCodecSupported } from '@/lib/videoEncoder'
 
 interface ExportPanelProps {
   isOpen: boolean
@@ -24,6 +25,30 @@ export default function ExportPanel({
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(30)
   const [bitrate, setBitrate] = useState(8)
+  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>({
+    h264: null, h265: null, av1: null,
+  })
+
+  // Check codec support on mount
+  useEffect(() => {
+    let cancelled = false
+    const checkAll = async () => {
+      const codecs: VideoCodec[] = ['h264', 'h265', 'av1']
+      const results: Record<string, boolean> = {}
+      for (const c of codecs) {
+        try {
+          results[c] = await isCodecSupported(c)
+        } catch {
+          results[c] = false
+        }
+      }
+      if (!cancelled) {
+        setCodecSupport(results as Record<VideoCodec, boolean>)
+      }
+    }
+    checkAll()
+    return () => { cancelled = true }
+  }, [])
 
   const handleExport = useCallback(() => {
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
@@ -57,7 +82,7 @@ export default function ExportPanel({
                 style={{ width: `${exportProgress * 100}%` }} />
             </div>
             <p className="text-xs text-zinc-400 mt-2">
-              Frame {Math.round(exportProgress * duration * fps)} / {duration * fps}
+              Frame {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}
             </p>
           </div>
         ) : (
@@ -84,7 +109,9 @@ export default function ExportPanel({
                   className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-700 rounded-lg
                     text-zinc-800 dark:text-zinc-200 cursor-pointer text-sm">
                   {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                    <option key={k} value={k} disabled={codecSupport[k] === false}>
+                      {v}{codecSupport[k] === false ? ' (unsupported)' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -122,7 +149,7 @@ export default function ExportPanel({
 
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
               Output: {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
-              ({CODEC_LABELS[codec]}) at {bitrate} Mbps
+              ({CODEC_LABELS[codec]}) at {bitrate} Mbps · ~{((bitrate * duration) / 8).toFixed(0)} MB
             </p>
 
             <button onClick={handleExport}

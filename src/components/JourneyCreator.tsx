@@ -296,7 +296,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   if (!isActive) return null
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-72 rounded-xl bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+    <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
         <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-100">

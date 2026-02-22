@@ -43,7 +43,7 @@ export default function Controls({
   }, [onSeek])
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10">
+    <div>
       <div className="mx-4 mb-4 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm rounded-xl
         shadow-lg p-4">
         {/* Progress bar */}
@@ -55,6 +55,7 @@ export default function Controls({
             step={0.001}
             value={progress}
             onChange={handleProgressChange}
+            aria-label="Playback progress"
             className="w-full h-2 rounded-full appearance-none cursor-pointer
               bg-zinc-200 dark:bg-zinc-600
               [&::-webkit-slider-thumb]:appearance-none
@@ -70,6 +71,8 @@ export default function Controls({
           {/* Play/Pause */}
           <button
             onClick={onTogglePlay}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             className="w-10 h-10 flex items-center justify-center rounded-full
               bg-cyan-500 hover:bg-cyan-600 text-white transition-colors cursor-pointer"
           >
@@ -89,6 +92,8 @@ export default function Controls({
           <select
             value={speed}
             onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+            aria-label="Playback speed"
+            title="Playback speed"
             className="bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
               rounded-lg px-2 py-1.5 text-sm font-medium cursor-pointer"
           >
@@ -101,6 +106,8 @@ export default function Controls({
           <select
             value={duration}
             onChange={(e) => onDurationChange(parseInt(e.target.value))}
+            aria-label="Animation duration"
+            title="Animation duration"
             className="bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
               rounded-lg px-2 py-1.5 text-sm font-medium cursor-pointer"
           >
@@ -112,6 +119,8 @@ export default function Controls({
           {/* Follow camera toggle */}
           <button
             onClick={onFollowCameraToggle}
+            aria-label={followCamera ? 'Disable camera follow' : 'Enable camera follow'}
+            title={`Camera follow: ${followCamera ? 'ON' : 'OFF'} (F)`}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer
               ${followCamera
                 ? 'bg-cyan-500 text-white'
