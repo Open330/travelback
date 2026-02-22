@@ -47,6 +47,19 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Swipe-left to dismiss
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }, [])
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y
+    touchStartRef.current = null
+    if (dx < -80 && Math.abs(dy) < Math.abs(dx)) onClose()
+  }, [onClose])
+
   // Auto-clear undo after 5 seconds
   useEffect(() => {
     if (!deletedScene) return
@@ -118,7 +131,8 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
   return (
     <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] gs flex flex-col overflow-hidden"
-      style={{ borderRadius: 'var(--r-glass)' }}>
+      style={{ borderRadius: 'var(--r-glass)' }}
+      onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
         <div className="flex gap-2">

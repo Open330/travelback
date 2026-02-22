@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw } from 'lucide-react'
 import type { VideoCodec, ExportConfig, ResolutionPreset } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
@@ -59,6 +59,19 @@ export default function ExportPanel({
   })
 
   const bitrate = QUALITY_MAP[quality] ?? 8
+
+  // Swipe-down to dismiss (mobile)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }, [])
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || isExporting) return
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x
+    touchStartRef.current = null
+    if (dy > 80 && Math.abs(dx) < Math.abs(dy)) onClose()
+  }, [onClose, isExporting])
 
   // Estimate export time: base = duration * 0.5 for 1080p H.264, scaled by resolution and codec
   const resScale = (() => {
@@ -127,7 +140,8 @@ export default function ExportPanel({
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
-      <div className="go p-6 w-full max-w-md mx-4" style={{ borderRadius: 'var(--r-glass)' }}>
+      <div className="go p-6 w-full max-w-md mx-4" style={{ borderRadius: 'var(--r-glass)' }}
+        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>{t('export.title')}</h3>
           {!isExporting && (
