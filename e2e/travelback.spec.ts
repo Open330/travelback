@@ -1,7 +1,14 @@
 import { test, expect, Page } from '@playwright/test'
 import path from 'node:path'
+import fs from 'node:fs'
 
 const GPX_FIXTURE = path.resolve(__dirname, 'fixtures/sample.gpx')
+const KML_FIXTURE = path.resolve(__dirname, 'fixtures/korea-japan.kml')
+const JSON_FLAT_FIXTURE = path.resolve(__dirname, 'fixtures/korea-japan.json')
+const JSON_RECORDS_FIXTURE = path.resolve(__dirname, 'fixtures/google-records.json')
+const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-location.json')
+const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
+const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
 
 /** Helper: wait for the app to be ready (map container rendered, with or without WebGL) */
 async function waitForApp(page: Page) {
@@ -18,12 +25,24 @@ async function hasMapCanvas(page: Page): Promise<boolean> {
 
 /** Helper: upload a GPX file and wait for the track to load */
 async function uploadGpx(page: Page) {
-  // The FileUpload component has a hidden file input
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(GPX_FIXTURE)
-
-  // Wait for track name to appear (indicating successful load)
   await expect(page.getByText('Test Route Seoul')).toBeVisible({ timeout: 15_000 })
+}
+
+/** Helper: upload a KML file and wait for the track to load */
+async function uploadKml(page: Page) {
+  const fileInput = page.locator('input[type="file"]')
+  await fileInput.setInputFiles(KML_FIXTURE)
+  // KML parser reads Document > name first → "Korea to Japan via Ferry"
+  await expect(page.getByText('Korea to Japan via Ferry')).toBeVisible({ timeout: 15_000 })
+}
+
+/** Helper: upload a JSON file and wait for the track to load */
+async function uploadJson(page: Page, fixture: string) {
+  const fileInput = page.locator('input[type="file"]')
+  await fileInput.setInputFiles(fixture)
+  await expect(page.getByText('Google Location History')).toBeVisible({ timeout: 15_000 })
 }
 
 test.describe('Travelback App', () => {
@@ -170,6 +189,119 @@ test.describe('Travelback App', () => {
     // Close it
     await page.locator('.z-30 button svg').first().click({ force: true })
     await expect(page.getByText('Export Video')).not.toBeVisible()
+  })
+
+  // --- Multi-format import tests ---
+
+  test('imports KML file and displays track', async ({ page }) => {
+    await uploadKml(page)
+    await expect(page.getByText('Korea to Japan via Ferry')).toBeVisible()
+    // Track header shows point count (matches first element)
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('imports Google JSON flat array and displays track', async ({ page }) => {
+    await uploadJson(page, JSON_FLAT_FIXTURE)
+    await expect(page.getByText('Google Location History')).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+    await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('imports Google Records.json and displays track', async ({ page }) => {
+    await uploadJson(page, JSON_RECORDS_FIXTURE)
+    await expect(page.getByText('Google Location History')).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+  })
+
+  test('imports Google Semantic Location History and displays track', async ({ page }) => {
+    await uploadJson(page, JSON_SEMANTIC_LOC_FIXTURE)
+    await expect(page.getByText('Google Location History')).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+  })
+
+  test('imports Google Timeline Edits and displays track', async ({ page }) => {
+    await uploadJson(page, JSON_TIMELINE_EDITS_FIXTURE)
+    await expect(page.getByText('Google Location History')).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+  })
+
+  test('imports Google Semantic Segments and displays track', async ({ page }) => {
+    await uploadJson(page, JSON_SEMANTIC_SEG_FIXTURE)
+    await expect(page.getByText('Google Location History')).toBeVisible()
+    await expect(page.locator('text=/\\d+ \\/ \\d+ points/').first()).toBeVisible()
+  })
+
+  // --- Error resilience ---
+
+  test('shows error for unsupported file format', async ({ page }) => {
+    // Create a temporary .txt file to upload
+    const tmpFile = path.resolve(__dirname, 'fixtures/unsupported.txt')
+    fs.writeFileSync(tmpFile, 'This is not a travel file')
+    try {
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles(tmpFile)
+      // Should show an error message (error text in the upload area)
+      await expect(page.locator('text=/Unsupported file format|parse|error/i')).toBeVisible({ timeout: 10_000 })
+      // App should not crash — heading should still be visible
+      await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
+    } finally {
+      fs.unlinkSync(tmpFile)
+    }
+  })
+
+  // --- KML full journey test ---
+
+  test('uploads KML file and completes full journey', async ({ page }) => {
+    await uploadKml(page)
+
+    // Verify playback works
+    const playBtn = page.getByRole('button', { name: 'Play' })
+    await expect(playBtn).toBeVisible({ timeout: 10_000 })
+    await playBtn.click({ force: true })
+    await page.waitForTimeout(1000)
+    await expect(page.getByText('Track')).toBeVisible()
+
+    // Pause if still playing (short tracks may auto-complete)
+    const pauseBtn = page.getByRole('button', { name: 'Pause' })
+    if (await pauseBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await pauseBtn.click({ force: true })
+    }
+
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await page.getByRole('button', { name: '+ Add' }).click({ force: true })
+    const sceneInput = page.getByRole('textbox')
+    await expect(sceneInput).toHaveValue('Scene 1', { timeout: 5_000 })
+
+    // Open export panel — close scene editor first via Escape
+    await page.keyboard.press('Escape')
+    await page.getByText('Export', { exact: true }).click({ force: true })
+    await expect(page.getByText('Export Video')).toBeVisible()
+    await expect(page.getByText('Resolution')).toBeVisible()
+    await expect(page.getByText('Quality')).toBeVisible()
+    await expect(page.getByText('Start Export')).toBeVisible()
+  })
+
+  // --- Google Records.json full journey test ---
+
+  test('uploads Google Records.json and completes full journey', async ({ page }) => {
+    await uploadJson(page, JSON_RECORDS_FIXTURE)
+
+    // Verify playback
+    const playBtn = page.getByRole('button', { name: 'Play' })
+    await expect(playBtn).toBeVisible({ timeout: 10_000 })
+    await playBtn.click({ force: true })
+    await page.waitForTimeout(1000)
+
+    // Pause if still playing
+    const pauseBtn = page.getByRole('button', { name: 'Pause' })
+    if (await pauseBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await pauseBtn.click({ force: true })
+    }
+
+    await page.getByText('Export', { exact: true }).click({ force: true })
+    await expect(page.getByText('Export Video')).toBeVisible()
+    await expect(page.getByText('Start Export')).toBeVisible()
   })
 })
 

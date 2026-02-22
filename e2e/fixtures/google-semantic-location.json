@@ -1,0 +1,54 @@
+{
+  "timelineObjects": [
+    {
+      "activitySegment": {
+        "startLocation": { "latitudeE7": 375665000, "longitudeE7": 1269780000 },
+        "endLocation": { "latitudeE7": 375547000, "longitudeE7": 1269707000 },
+        "duration": { "startTimestamp": "2025-06-20T08:00:00Z", "endTimestamp": "2025-06-20T08:35:00Z" },
+        "simplifiedRawPath": {
+          "points": [
+            { "latE7": 375665000, "lngE7": 1269780000, "timestamp": "2025-06-20T08:00:00Z" },
+            { "latE7": 375600000, "lngE7": 1269750000, "timestamp": "2025-06-20T08:15:00Z" },
+            { "latE7": 375547000, "lngE7": 1269707000, "timestamp": "2025-06-20T08:35:00Z" }
+          ]
+        }
+      }
+    },
+    {
+      "placeVisit": {
+        "location": { "latitudeE7": 374138000, "longitudeE7": 1270000000, "name": "Gangnam Station" },
+        "duration": { "startTimestamp": "2025-06-20T09:00:00Z", "endTimestamp": "2025-06-20T09:30:00Z" }
+      }
+    },
+    {
+      "activitySegment": {
+        "startLocation": { "latitudeE7": 374138000, "longitudeE7": 1270000000 },
+        "endLocation": { "latitudeE7": 368151000, "longitudeE7": 1271139000 },
+        "duration": { "startTimestamp": "2025-06-20T09:30:00Z", "endTimestamp": "2025-06-20T10:30:00Z" },
+        "simplifiedRawPath": {
+          "points": [
+            { "latE7": 374138000, "lngE7": 1270000000, "timestamp": "2025-06-20T09:30:00Z" },
+            { "latE7": 372636000, "lngE7": 1270286000, "timestamp": "2025-06-20T09:50:00Z" },
+            { "latE7": 370000000, "lngE7": 1270700000, "timestamp": "2025-06-20T10:10:00Z" },
+            { "latE7": 368151000, "lngE7": 1271139000, "timestamp": "2025-06-20T10:30:00Z" }
+          ]
+        }
+      }
+    },
+    {
+      "activitySegment": {
+        "startLocation": { "latitudeE7": 368151000, "longitudeE7": 1271139000 },
+        "endLocation": { "latitudeE7": 363504000, "longitudeE7": 1273845000 },
+        "duration": { "startTimestamp": "2025-06-20T10:30:00Z", "endTimestamp": "2025-06-20T11:15:00Z" },
+        "simplifiedRawPath": {
+          "points": [
+            { "latE7": 368151000, "lngE7": 1271139000, "timestamp": "2025-06-20T10:30:00Z" },
+            { "latE7": 365800000, "lngE7": 1272500000, "timestamp": "2025-06-20T10:50:00Z" },
+            { "latE7": 363504000, "lngE7": 1273845000, "timestamp": "2025-06-20T11:15:00Z" }
+          ]
+        }
+      }
+    }
+  ]
+}
+

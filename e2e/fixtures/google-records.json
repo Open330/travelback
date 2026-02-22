@@ -1,0 +1,17 @@
+{
+  "locations": [
+    { "latitudeE7": 375665000, "longitudeE7": 1269780000, "altitude": 38, "timestamp": "2025-06-20T08:00:00Z" },
+    { "latitudeE7": 375560000, "longitudeE7": 1269724000, "altitude": 35, "timestamp": "2025-06-20T08:20:00Z" },
+    { "latitudeE7": 375547000, "longitudeE7": 1269707000, "altitude": 30, "timestamp": "2025-06-20T08:35:00Z" },
+    { "latitudeE7": 374138000, "longitudeE7": 1270000000, "altitude": 42, "timestamp": "2025-06-20T09:10:00Z" },
+    { "latitudeE7": 372636000, "longitudeE7": 1270286000, "altitude": 38, "timestamp": "2025-06-20T09:40:00Z" },
+    { "latitudeE7": 368151000, "longitudeE7": 1271139000, "altitude": 25, "timestamp": "2025-06-20T10:30:00Z" },
+    { "latitudeE7": 363504000, "longitudeE7": 1273845000, "altitude": 55, "timestamp": "2025-06-20T11:15:00Z" },
+    { "latitudeE7": 361198000, "longitudeE7": 1281136000, "altitude": 90, "timestamp": "2025-06-20T12:00:00Z" },
+    { "latitudeE7": 358714000, "longitudeE7": 1286014000, "altitude": 48, "timestamp": "2025-06-20T12:30:00Z" },
+    { "latitudeE7": 355384000, "longitudeE7": 1293114000, "altitude": 15, "timestamp": "2025-06-20T13:15:00Z" },
+    { "latitudeE7": 351796000, "longitudeE7": 1289382000, "altitude": 5, "timestamp": "2025-06-20T14:00:00Z" },
+    { "latitudeE7": 351150000, "longitudeE7": 1290403000, "altitude": 5, "timestamp": "2025-06-20T14:20:00Z" }
+  ]
+}
+

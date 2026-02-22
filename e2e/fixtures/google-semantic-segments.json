@@ -1,0 +1,44 @@
+{
+  "semanticSegments": [
+    {
+      "startTime": "2025-06-20T08:00:00Z",
+      "endTime": "2025-06-20T09:00:00Z",
+      "timelinePath": [
+        { "point": "geo:37.5665,126.9780", "timestamp": "2025-06-20T08:00:00Z" },
+        { "point": "geo:37.5600,126.9750", "timestamp": "2025-06-20T08:10:00Z" },
+        { "point": "geo:37.5560,126.9724", "timestamp": "2025-06-20T08:20:00Z" },
+        { "point": "geo:37.5547,126.9707", "timestamp": "2025-06-20T08:35:00Z" }
+      ]
+    },
+    {
+      "startTime": "2025-06-20T09:00:00Z",
+      "endTime": "2025-06-20T09:30:00Z",
+      "visit": {
+        "topCandidate": {
+          "placeLocation": { "latLng": "37.4138°, 127.0000°" },
+          "name": "Gangnam Station"
+        }
+      }
+    },
+    {
+      "startTime": "2025-06-20T09:30:00Z",
+      "endTime": "2025-06-20T10:30:00Z",
+      "timelinePath": [
+        { "point": "geo:37.4138,127.0000", "timestamp": "2025-06-20T09:30:00Z" },
+        { "point": "geo:37.2636,127.0286", "timestamp": "2025-06-20T09:50:00Z" },
+        { "point": "geo:37.0000,127.0700", "timestamp": "2025-06-20T10:10:00Z" },
+        { "point": "geo:36.8151,127.1139", "timestamp": "2025-06-20T10:30:00Z" }
+      ]
+    },
+    {
+      "startTime": "2025-06-20T10:30:00Z",
+      "endTime": "2025-06-20T11:15:00Z",
+      "timelinePath": [
+        { "point": "geo:36.8151,127.1139", "timestamp": "2025-06-20T10:30:00Z" },
+        { "point": "geo:36.5800,127.2500", "timestamp": "2025-06-20T10:50:00Z" },
+        { "point": "geo:36.3504,127.3845", "timestamp": "2025-06-20T11:15:00Z" }
+      ]
+    }
+  ]
+}
+

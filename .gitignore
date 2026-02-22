@@ -42,6 +42,9 @@ yarn-error.log*
 # test results
 test-results/
 
+# review screenshots (artifacts, not source)
+review-screenshots/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
