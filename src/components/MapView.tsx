@@ -220,15 +220,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
       map.fitBounds(bounds, { padding: 80, duration: 1000 })
 
-      // Create marker
+      // Create marker using DOM API (avoid innerHTML for security)
       if (!markerEl.current) {
         markerEl.current = document.createElement('div')
-        markerEl.current.innerHTML = `
-          <div style="position:relative;width:20px;height:20px;">
-            <div style="position:absolute;inset:0;border-radius:50%;background:${MARKER_COLOR};opacity:0.3;" class="marker-pulse"></div>
-            <div style="position:absolute;inset:4px;border-radius:50%;background:${MARKER_COLOR};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
-          </div>
-        `
+        const wrapper = document.createElement('div')
+        Object.assign(wrapper.style, { position: 'relative', width: '20px', height: '20px' })
+        const pulse = document.createElement('div')
+        pulse.className = 'marker-pulse'
+        Object.assign(pulse.style, { position: 'absolute', inset: '0', borderRadius: '50%', background: MARKER_COLOR, opacity: '0.3' })
+        const dot = document.createElement('div')
+        Object.assign(dot.style, { position: 'absolute', inset: '4px', borderRadius: '50%', background: MARKER_COLOR, border: '2px solid white', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' })
+        wrapper.appendChild(pulse)
+        wrapper.appendChild(dot)
+        markerEl.current.appendChild(wrapper)
       }
 
       if (markerRef.current) {

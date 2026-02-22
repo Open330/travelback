@@ -46,7 +46,7 @@ export default class ErrorBoundary extends React.Component<
               {t('error.title')}
             </h1>
             <p className="text-sm mb-6" style={{ color: 'var(--t3)' }}>
-              {this.state.error?.message || t('error.fallback')}
+              {t('error.fallback')}
             </p>
             <div className="flex gap-3 justify-center">
               <button

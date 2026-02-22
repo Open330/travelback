@@ -45,10 +45,15 @@ export default function RootLayout({
   return (
     <html lang="en" data-svc="travelback" data-mode="dark" data-mesh="on">
       <head>
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data: https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; connect-src 'self' https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:;"
+        />
         <link
           rel="stylesheet"
           as="style"
           crossOrigin="anonymous"
+          integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
       </head>

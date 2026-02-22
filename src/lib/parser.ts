@@ -193,10 +193,18 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
   }
 }
 
+/* ---------- Google JSON shape -------------------------------------- */
+interface GoogleLocationData {
+  locations?: Record<string, unknown>[]
+  timelineObjects?: Record<string, unknown>[]
+  timelineEdits?: Record<string, unknown>[]
+  semanticSegments?: Record<string, unknown>[]
+  [key: string]: unknown
+}
+
 /* ---------- Main dispatcher ---------------------------------------- */
 function parseGoogleLocationHistory(text: string): Track {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = JSON.parse(text) as any
+  const data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
   const points: TrackPoint[] = []
 
   // Flat array: [{ latitudeE7, ... }]
@@ -208,15 +216,15 @@ function parseGoogleLocationHistory(text: string): Track {
     parseRecords(data.locations, points)
   }
   // Semantic Location History (monthly): { timelineObjects: [...] }
-  if (Array.isArray(data.timelineObjects)) {
+  if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
     parseTimelineObjects(data.timelineObjects, points)
   }
   // Timeline Edits.json: { timelineEdits: [...] }
-  if (Array.isArray(data.timelineEdits)) {
+  if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
     parseTimelineEdits(data.timelineEdits, points)
   }
   // Phone export / new format: { semanticSegments: [...] }
-  if (Array.isArray(data.semanticSegments)) {
+  if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
     parseSemanticSegments(data.semanticSegments, points)
   }
 
@@ -234,17 +242,20 @@ function parseGoogleLocationHistory(text: string): Track {
 
 function isGoogleLocationJSON(text: string): boolean {
   try {
-    const data = JSON.parse(text)
+    const data: unknown = JSON.parse(text)
     if (Array.isArray(data)) {
-      const first = data[0]
-      return first && ('latitudeE7' in first || 'latitude' in first)
+      const first = data[0] as Record<string, unknown> | undefined
+      return !!first && ('latitudeE7' in first || 'latitude' in first)
     }
-    return (
-      'locations' in data ||
-      'semanticSegments' in data ||
-      'timelineObjects' in data ||
-      'timelineEdits' in data
-    )
+    if (typeof data === 'object' && data !== null) {
+      return (
+        'locations' in data ||
+        'semanticSegments' in data ||
+        'timelineObjects' in data ||
+        'timelineEdits' in data
+      )
+    }
+    return false
   } catch {
     return false
   }

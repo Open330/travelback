@@ -19,14 +19,33 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
+  const WARN_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
+
   const handleFile = useCallback(async (file: File) => {
     setError(null)
     setLoading(true)
     try {
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(t('fileUpload.fileTooLarge'))
+      }
+      if (file.size > WARN_FILE_SIZE) {
+        console.warn(`[Travelback] Large file (${(file.size / 1024 / 1024).toFixed(0)} MB) — parsing may take a moment`)
+      }
       const track = await parseTrackFile(file)
       onTrackLoaded(track)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('fileUpload.parseFailed'))
+      const message = err instanceof Error ? err.message : ''
+      // Show known safe error messages; generic fallback for unexpected errors
+      const safeMessages = [
+        'Unsupported file format',
+        'Track must contain at least 2 points',
+        'Failed to read file',
+      ]
+      const isSafe = safeMessages.some(m => message.includes(m))
+        || message === t('fileUpload.fileTooLarge')
+      if (!isSafe) console.error('[Travelback] Parse error:', err)
+      setError(isSafe ? message : t('fileUpload.parseFailed'))
     } finally {
       setLoading(false)
     }

@@ -21,6 +21,7 @@ export const translations = {
     'fileUpload.browse': 'Browse Files',
     'fileUpload.googleGuideLink': 'How to export Google Location History',
     'fileUpload.parseFailed': 'Failed to parse file',
+    'fileUpload.fileTooLarge': 'File is too large (max 500 MB)',
 
     // Controls
     'controls.pause': 'Pause',
@@ -160,6 +161,7 @@ export const translations = {
     'fileUpload.browse': '파일 선택',
     'fileUpload.googleGuideLink': 'Google 위치 기록 내보내기 방법',
     'fileUpload.parseFailed': '파일을 분석할 수 없습니다',
+    'fileUpload.fileTooLarge': '파일이 너무 큽니다 (최대 500 MB)',
 
     // Controls
     'controls.pause': '일시정지',
