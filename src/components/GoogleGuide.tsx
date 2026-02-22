@@ -4,6 +4,132 @@ import { useState } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
 
+/** Compact SVG illustrations for each guide tab */
+function GuideIllustration({ tabIndex }: { tabIndex: number }) {
+  const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  const text = { fill: 'var(--t3)', fontSize: 9, fontFamily: 'inherit' }
+  const box = { fill: 'var(--bg-gi)', stroke: 'var(--t5, var(--t4))', strokeWidth: 1, rx: 4 }
+  const arrow = { ...common, strokeWidth: 1.2, markerEnd: 'url(#arrowG)' }
+  const arrowDef = (
+    <defs>
+      <marker id="arrowG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M1,1 L5,3 L1,5" fill="none" stroke="rgb(var(--gl))" strokeWidth="1" />
+      </marker>
+    </defs>
+  )
+
+  // Google Maps Phone — phone screen with profile → timeline → export flow
+  if (tabIndex === 0) return (
+    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="56" height="48" {...box} rx={8} />
+      <circle cx="32" cy="18" r="6" {...common} strokeWidth={1} />
+      <text x="32" y="40" textAnchor="middle" {...text} fontSize={7}>Profile</text>
+      <line x1="66" y1="30" x2="88" y2="30" {...arrow} />
+      <rect x="94" y="6" width="72" height="48" {...box} />
+      <text x="130" y="26" textAnchor="middle" {...text}>Your Timeline</text>
+      <text x="130" y="40" textAnchor="middle" {...text} fontSize={7}>⋮ → Settings</text>
+      <line x1="172" y1="30" x2="194" y2="30" {...arrow} />
+      <rect x="200" y="6" width="72" height="48" {...box} />
+      <text x="236" y="26" textAnchor="middle" {...text}>Export</text>
+      <text x="236" y="40" textAnchor="middle" {...text} fontSize={7}>→ .json</text>
+    </svg>
+  )
+
+  // Google Takeout — web page flow
+  if (tabIndex === 1) return (
+    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="72" height="48" {...box} />
+      <text x="40" y="24" textAnchor="middle" {...text}>Takeout</text>
+      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>☑ Location</text>
+      <line x1="82" y1="30" x2="104" y2="30" {...arrow} />
+      <rect x="110" y="6" width="60" height="48" {...box} />
+      <text x="140" y="24" textAnchor="middle" {...text}>Export</text>
+      <text x="140" y="38" textAnchor="middle" {...text} fontSize={7}>📧 Wait</text>
+      <line x1="176" y1="30" x2="198" y2="30" {...arrow} />
+      <rect x="204" y="6" width="72" height="48" {...box} />
+      <text x="240" y="24" textAnchor="middle" {...text}>Upload</text>
+      <text x="240" y="38" textAnchor="middle" {...text} fontSize={7}>Records.json</text>
+    </svg>
+  )
+
+  // Strava — profile → settings → archive
+  if (tabIndex === 2) return (
+    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="72" height="48" {...box} />
+      <text x="40" y="24" textAnchor="middle" {...text}>Profile</text>
+      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>Settings</text>
+      <line x1="82" y1="30" x2="104" y2="30" {...arrow} />
+      <rect x="110" y="6" width="72" height="48" {...box} />
+      <text x="146" y="24" textAnchor="middle" {...text}>Download</text>
+      <text x="146" y="38" textAnchor="middle" {...text} fontSize={7}>Archive</text>
+      <line x1="188" y1="30" x2="210" y2="30" {...arrow} />
+      <rect x="216" y="6" width="56" height="48" {...box} />
+      <text x="244" y="28" textAnchor="middle" {...text}>.gpx</text>
+    </svg>
+  )
+
+  // Garmin — activity → export
+  if (tabIndex === 3) return (
+    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="80" height="48" {...box} />
+      <text x="44" y="24" textAnchor="middle" {...text}>Activity</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⚙ Options</text>
+      <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
+      <rect x="124" y="6" width="80" height="48" {...box} />
+      <text x="164" y="24" textAnchor="middle" {...text}>Export</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+    </svg>
+  )
+
+  // AllTrails — trail → export
+  if (tabIndex === 4) return (
+    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="80" height="48" {...box} />
+      <text x="44" y="24" textAnchor="middle" {...text}>Trail Page</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⋯ Menu</text>
+      <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
+      <rect x="124" y="6" width="80" height="48" {...box} />
+      <text x="164" y="24" textAnchor="middle" {...text}>Export</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+    </svg>
+  )
+
+  // Komoot — tour → download
+  if (tabIndex === 5) return (
+    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="80" height="48" {...box} />
+      <text x="44" y="24" textAnchor="middle" {...text}>Tour Page</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⋯ Menu</text>
+      <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
+      <rect x="124" y="6" width="80" height="48" {...box} />
+      <text x="164" y="24" textAnchor="middle" {...text}>Download</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+    </svg>
+  )
+
+  // Other — generic export
+  if (tabIndex === 6) return (
+    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+      {arrowDef}
+      <rect x="4" y="6" width="80" height="48" {...box} />
+      <text x="44" y="24" textAnchor="middle" {...text}>Any App</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>Export / Share</text>
+      <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
+      <rect x="124" y="6" width="80" height="48" {...box} />
+      <text x="164" y="24" textAnchor="middle" {...text}>Upload</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>.gpx / .kml</text>
+    </svg>
+  )
+
+  return null
+}
+
 interface GoogleGuideProps {
   isOpen: boolean
   onClose: () => void
@@ -159,6 +285,11 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
               {m.label}
             </button>
           ))}
+        </div>
+
+        {/* Illustration for active tab */}
+        <div className="px-5">
+          <GuideIllustration tabIndex={tab} />
         </div>
 
         {/* Steps for active tab */}
