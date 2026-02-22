@@ -4,10 +4,8 @@
  * Copyright (c) 2025 Won Park — MIT License
  */
 
-/* Reset */
+/* Reset — only box-sizing; margin/padding handled by Tailwind preflight */
 *, *::before, *::after {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
