@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
-@import "../styles/vitro-base.css";
+@import "../styles/vitro-base.css" layer(base);
 
 @theme inline {
   --color-background: var(--bg);
