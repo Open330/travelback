@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useRef } from 'react'
-import { Map, ArrowRight, MapPin } from 'lucide-react'
+import { ArrowRight, MapPin } from 'lucide-react'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
@@ -114,7 +114,34 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
             <div className="inline-block w-10 h-10 border-4 rounded-full animate-spin"
               style={{ borderColor: 'rgb(var(--gl))', borderTopColor: 'transparent' }} />
           ) : (
-            <Map size={48} strokeWidth={1.5} style={{ color: 'rgb(var(--gl))' }} />
+            <div className="relative w-48 h-28 mb-1">
+              <svg viewBox="0 0 200 120" className="w-full h-full" aria-label={t('fileUpload.previewAlt')}>
+                {/* Stylized route path */}
+                <path d="M 20 90 C 40 60, 60 30, 100 40 S 160 80, 180 30"
+                  fill="none" stroke="rgba(var(--gl),.2)" strokeWidth="3" strokeLinecap="round" />
+                <path d="M 20 90 C 40 60, 60 30, 100 40 S 160 80, 180 30"
+                  fill="none" stroke="rgb(var(--gl))" strokeWidth="2.5" strokeLinecap="round"
+                  strokeDasharray="250" strokeDashoffset="250"
+                  className="animate-[tracePath_3s_ease-in-out_infinite]" />
+                {/* Moving dot */}
+                <circle r="4" fill="rgb(var(--gl))" className="animate-[moveDot_3s_ease-in-out_infinite]">
+                  <animateMotion dur="3s" repeatCount="indefinite"
+                    keyTimes="0;1" keySplines="0.42 0 0.58 1"
+                    calcMode="spline"
+                    path="M 20 90 C 40 60, 60 30, 100 40 S 160 80, 180 30" />
+                </circle>
+                {/* Start marker */}
+                <circle cx="20" cy="90" r="3" fill="none" stroke="rgb(var(--gl))" strokeWidth="1.5" opacity=".5" />
+                {/* End marker */}
+                <circle cx="180" cy="30" r="3" fill="none" stroke="rgb(var(--gl))" strokeWidth="1.5" opacity=".5" />
+              </svg>
+              <style>{`
+                @keyframes tracePath {
+                  0% { stroke-dashoffset: 250; }
+                  80%, 100% { stroke-dashoffset: 0; }
+                }
+              `}</style>
+            </div>
           )}
         </div>
         <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
