@@ -300,7 +300,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   return (
     <div ref={containerRef} data-testid="map-container" className="absolute inset-0">
       {mapError && (
-        <div data-testid="map-error" className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-sm p-4 text-center">
+        <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>Map failed to load: {mapError}</p>
         </div>
       )}

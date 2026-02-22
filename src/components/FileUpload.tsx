@@ -56,9 +56,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
       <button
         onClick={() => inputRef.current?.click()}
         aria-label="Load a new track file"
-        className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm
-          px-4 py-2 rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200
-          hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+        className="absolute top-4 left-4 z-10 gi px-4 py-2 text-sm font-medium cursor-pointer"
+        style={{ color: 'var(--t1)' }}
       >
         Load New File
         <input
@@ -73,39 +72,39 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
   }
 
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/60 backdrop-blur-sm">
+    <div className="absolute inset-0 z-10 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`
-          w-full max-w-lg mx-4 p-12 rounded-2xl border-2 border-dashed
-          transition-all duration-200 text-center
-          ${isDragging
-            ? 'border-cyan-400 bg-cyan-400/10 scale-[1.02]'
-            : 'border-zinc-400/50 bg-white/95 dark:bg-zinc-800/95'}
-        `}
+        className="gc w-full max-w-lg mx-4 p-12 border-2 border-dashed transition-all duration-200 text-center"
+        style={{
+          borderRadius: 'var(--r-glass)',
+          borderColor: isDragging ? 'rgb(var(--gl))' : 'var(--div)',
+          transform: isDragging ? 'scale(1.02)' : undefined,
+        }}
       >
         <div className="text-5xl mb-4">
           {loading ? (
-            <div className="inline-block w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <div className="inline-block w-10 h-10 border-4 rounded-full animate-spin"
+              style={{ borderColor: 'rgb(var(--gl))', borderTopColor: 'transparent' }} />
           ) : '🗺️'}
         </div>
-        <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+        <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
           Travelback
         </h2>
-        <p className="text-zinc-500 dark:text-zinc-400 mb-6">
+        <p className="mb-6" style={{ color: 'var(--t3)' }}>
           Animate your journeys into video
         </p>
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-4">
+        <p className="text-sm mb-4" style={{ color: 'var(--t4)' }}>
           Drop your GPX, KML, or Google Location History JSON file here
         </p>
         <button
           onClick={() => inputRef.current?.click()}
           disabled={loading}
           aria-label="Browse files to upload"
-          className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg
-            font-medium transition-colors disabled:opacity-50 cursor-pointer"
+          className="vitro-btn-primary px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
         >
           {loading ? 'Parsing...' : 'Browse Files'}
         </button>
@@ -118,13 +117,14 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
         />
         {onShowGoogleGuide && (
           <div className="mt-3">
-            <button onClick={onShowGoogleGuide} className="text-cyan-500 hover:text-cyan-400 underline text-sm">
+            <button onClick={onShowGoogleGuide} className="underline text-sm"
+              style={{ color: 'rgb(var(--gl))' }}>
               How to export Google Location History →
             </button>
           </div>
         )}
         {error && (
-          <p className="mt-4 text-sm text-red-500">{error}</p>
+          <p className="mt-4 text-sm" style={{ color: 'var(--err)' }}>{error}</p>
         )}
       </div>
     </div>

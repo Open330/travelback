@@ -25,20 +25,22 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
     return () => clearTimeout(timer)
   }, [onDismiss])
 
-  const bgColor = message.type === 'error'
-    ? 'bg-red-500'
+  const statusColor = message.type === 'error'
+    ? 'var(--err)'
     : message.type === 'success'
-    ? 'bg-emerald-500'
-    : 'bg-cyan-500'
+    ? 'var(--ok)'
+    : 'rgb(var(--gl))'
 
   return (
     <div
-      className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm
+      className={`go px-4 py-3 text-sm max-w-sm
         transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+      style={{ borderLeft: `3px solid ${statusColor}`, color: 'var(--t1)' }}
     >
       <div className="flex items-start gap-2">
         <span className="flex-1">{message.text}</span>
-        <button onClick={onDismiss} className="text-white/70 hover:text-white cursor-pointer"
+        <button onClick={onDismiss} className="cursor-pointer"
+          style={{ color: 'var(--t4)' }}
           aria-label="Dismiss notification">
           ✕
         </button>

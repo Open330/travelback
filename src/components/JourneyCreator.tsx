@@ -296,15 +296,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   if (!isActive) return null
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+    <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden"
+      style={{ borderRadius: 'var(--r-glass)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
-        <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-100">
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
+        <span className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
           Create Journey
         </span>
         <button
           onClick={onCancel}
-          className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors"
+          className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
         >
           Cancel
         </button>
@@ -312,13 +313,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
 
       {/* Hint */}
       <div className="px-4 py-2">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs" style={{ color: 'var(--t3)' }}>
           Click on the map to add points. Click a point to delete it. Drag to reposition.
         </p>
       </div>
 
       {/* Stats */}
-      <div className="px-4 py-2 text-xs text-zinc-600 dark:text-zinc-300 font-medium">
+      <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--t2)' }}>
         {pointCount === 0
           ? 'No points yet'
           : pointCount === 1
@@ -327,25 +328,28 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
         <button
           onClick={handleUndo}
           disabled={pointCount === 0}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: 'var(--t1)' }}
         >
           Undo
         </button>
         <button
           onClick={handleClear}
           disabled={pointCount === 0}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: 'var(--t1)' }}
         >
           Clear
         </button>
         <button
           onClick={handleDone}
           disabled={pointCount < 2}
-          className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          style={{ background: '#f97316' }}
         >
           Done ✓
         </button>

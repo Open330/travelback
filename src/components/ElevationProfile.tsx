@@ -57,7 +57,7 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between text-[9px] text-zinc-400 mb-0.5 px-1">
+      <div className="flex items-center justify-between text-[9px] mb-0.5 px-1" style={{ color: 'var(--t4)' }}>
         <span>Elevation</span>
         <span>{Math.round(minEle)}m — {Math.round(maxEle)}m ({Math.round(elevRange)}m Δ)</span>
       </div>

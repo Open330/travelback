@@ -13,6 +13,7 @@ import GoogleGuide from '@/components/GoogleGuide'
 import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ElevationProfile from '@/components/ElevationProfile'
+import ThemeToggle from '@/components/ThemeToggle'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes } from '@/lib/camera'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
@@ -245,15 +246,16 @@ export default function Home() {
       />
 
       {isExporting && (
-        <div className="absolute inset-0 z-20 bg-zinc-900/70 backdrop-blur-sm flex items-center justify-center">
-          <div className="text-center text-white">
-            <div className="inline-block w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(12px)' }}>
+          <div className="go p-8 text-center" style={{ color: 'var(--t1)' }}>
+            <div className="inline-block w-12 h-12 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'rgba(var(--gl),.6)', borderTopColor: 'transparent' }} />
             <p className="text-lg font-medium">Rendering video...</p>
-            <p className="text-sm text-zinc-300 mt-1">{Math.round(exportProgress * 100)}%</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
             <button
               onClick={() => exportAbortRef.current?.abort()}
               aria-label="Cancel export"
-              className="mt-4 px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white text-sm rounded-lg transition-colors cursor-pointer"
+              className="gi mt-4 px-4 py-2 text-sm cursor-pointer"
+              style={{ background: 'rgba(var(--err-rgb, 244,63,94),.7)', color: '#fff', border: 'none' }}
             >
               Cancel
             </button>
@@ -269,11 +271,17 @@ export default function Home() {
         />
       )}
 
+      {/* Theme toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+
       {!track && !isCreatingJourney && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
           <button
             onClick={() => setIsCreatingJourney(true)}
-            className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-6 py-3 rounded-xl shadow-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="gi px-6 py-3 text-sm font-medium cursor-pointer"
+            style={{ color: 'var(--t2)' }}
           >
             or create a journey manually
           </button>
@@ -305,37 +313,36 @@ export default function Home() {
             }}
             aria-label="Create a new journey"
             title="Create a new journey"
-            className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer ring-1 ring-cyan-400/50"
+            className="gi px-3 py-2 text-sm font-medium cursor-pointer"
+            style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
           >
             ＋ New
           </button>
           <button
             onClick={() => setShowSceneEditor(s => !s)}
             title="Open scene editor"
-            className={`backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors cursor-pointer ${
-              showSceneEditor
-                ? 'bg-cyan-500 text-white'
-                : 'bg-white/90 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700'
+            className={`gi px-3 py-2 text-sm font-medium cursor-pointer ${
+              showSceneEditor ? '' : ''
             }`}
+            style={showSceneEditor
+              ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
+              : { color: 'var(--t1)' }
+            }
           >
             Scenes
           </button>
           <button
             onClick={cycleStyle}
             title="Cycle map style"
-            className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm
-              px-3 py-2 rounded-lg shadow-lg text-sm font-medium
-              text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700
-              transition-colors cursor-pointer"
+            className="gi px-3 py-2 text-sm font-medium cursor-pointer"
+            style={{ color: 'var(--t1)' }}
           >
             {MAP_STYLES[mapStyleKey].label}
           </button>
           <button
             onClick={() => setShowExport(true)}
             title="Export video (E)"
-            className="bg-cyan-500 hover:bg-cyan-600 text-white
-              px-4 py-2 rounded-lg shadow-lg text-sm font-medium
-              transition-colors cursor-pointer"
+            className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
           >
             Export
           </button>
@@ -355,9 +362,8 @@ export default function Home() {
 
       {/* Track name */}
       {track && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10
-          bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm px-4 py-2
-          rounded-lg shadow-lg text-sm font-medium text-zinc-700 dark:text-zinc-200">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 gi px-4 py-2 text-sm font-medium"
+          style={{ color: 'var(--t1)' }}>
           {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} points
         </div>
       )}

@@ -44,8 +44,7 @@ export default function Controls({
 
   return (
     <div>
-      <div className="mx-4 mb-4 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm rounded-xl
-        shadow-lg p-4">
+      <div className="gc nh mx-4 mb-4 p-4" style={{ borderRadius: 'var(--r-glass)' }}>
         {/* Progress bar */}
         <div className="mb-3">
           <input
@@ -57,13 +56,15 @@ export default function Controls({
             onChange={handleProgressChange}
             aria-label="Playback progress"
             className="w-full h-2 rounded-full appearance-none cursor-pointer
-              bg-zinc-200 dark:bg-zinc-600
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
               [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:bg-cyan-500
               [&::-webkit-slider-thumb]:shadow-md
               [&::-webkit-slider-thumb]:cursor-pointer"
+            style={{
+              background: 'rgba(var(--gl),.15)',
+              accentColor: 'rgb(var(--gl))',
+            }}
           />
         </div>
 
@@ -73,8 +74,8 @@ export default function Controls({
             onClick={onTogglePlay}
             aria-label={isPlaying ? 'Pause' : 'Play'}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-            className="w-10 h-10 flex items-center justify-center rounded-full
-              bg-cyan-500 hover:bg-cyan-600 text-white transition-colors cursor-pointer"
+            className="w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-colors"
+            style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
           >
             {isPlaying ? (
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -94,8 +95,7 @@ export default function Controls({
             onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
             aria-label="Playback speed"
             title="Playback speed"
-            className="bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
-              rounded-lg px-2 py-1.5 text-sm font-medium cursor-pointer"
+            className="vitro-select px-2 py-1.5 text-sm font-medium"
           >
             {SPEEDS.map((s) => (
               <option key={s} value={s}>{s}x</option>
@@ -108,8 +108,7 @@ export default function Controls({
             onChange={(e) => onDurationChange(parseInt(e.target.value))}
             aria-label="Animation duration"
             title="Animation duration"
-            className="bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
-              rounded-lg px-2 py-1.5 text-sm font-medium cursor-pointer"
+            className="vitro-select px-2 py-1.5 text-sm font-medium"
           >
             {DURATIONS.map((d) => (
               <option key={d} value={d}>{formatDuration(d)}</option>
@@ -121,10 +120,11 @@ export default function Controls({
             onClick={onFollowCameraToggle}
             aria-label={followCamera ? 'Disable camera follow' : 'Enable camera follow'}
             title={`Camera follow: ${followCamera ? 'ON' : 'OFF'} (F)`}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer
-              ${followCamera
-                ? 'bg-cyan-500 text-white'
-                : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}
+            className="gi px-3 py-1.5 text-sm font-medium cursor-pointer"
+            style={followCamera
+              ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
+              : { color: 'var(--t3)' }
+            }
           >
             Follow
           </button>
@@ -133,7 +133,7 @@ export default function Controls({
           <div className="flex-1" />
 
           {/* Stats */}
-          <div className="text-sm text-zinc-500 dark:text-zinc-400 space-x-3 hidden sm:flex">
+          <div className="text-sm space-x-3 hidden sm:flex" style={{ color: 'var(--t3)' }}>
             <span>{formatDistance(traveled)} / {formatDistance(total)}</span>
             <span>{formatDuration(elapsed)} / {formatDuration(duration)}</span>
           </div>

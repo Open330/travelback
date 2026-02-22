@@ -36,28 +36,26 @@ export default class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 p-8">
-          <div className="text-center max-w-md">
+        <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
+          <div className="gc text-center max-w-md p-8" style={{ borderRadius: 'var(--r-glass)' }}>
             <p className="text-5xl mb-4">😵</p>
-            <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+            <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
               Something went wrong
             </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+            <p className="text-sm mb-6" style={{ color: 'var(--t3)' }}>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleReset}
-                className="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200
-                  rounded-lg text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-600
-                  transition-colors cursor-pointer"
+                className="gi px-4 py-2 text-sm font-medium cursor-pointer"
+                style={{ color: 'var(--t1)' }}
               >
                 Try Again
               </button>
               <button
                 onClick={this.handleReload}
-                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white
-                  rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
               >
                 Reload Page
               </button>

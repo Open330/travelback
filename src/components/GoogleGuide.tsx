@@ -58,18 +58,21 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
 
   return (
     <div
-      className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="absolute inset-0 z-20 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="go w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" style={{ borderRadius: 'var(--r-glass)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 bg-white dark:bg-zinc-800 rounded-t-2xl z-10">
-          <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
+        <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 z-10"
+          style={{ background: 'inherit', borderRadius: 'var(--r-glass) var(--r-glass) 0 0' }}>
+          <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
             Export Google Location History
           </h3>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer flex-shrink-0"
+            className="transition-colors cursor-pointer flex-shrink-0"
+            style={{ color: 'var(--t4)' }}
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,21 +87,22 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           {steps.map((step) => (
             <div
               key={step.number}
-              className="flex gap-3 px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-700/50"
+              className="gi flex gap-3 px-3 py-2.5" style={{ borderRadius: '10px' }}
             >
               {/* Number circle */}
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-cyan-500 flex items-center justify-center">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ background: 'rgb(var(--gl))' }}>
                 <span className="text-white text-sm font-bold">{step.number}</span>
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-zinc-800 dark:text-zinc-100 mb-1">
+                <p className="font-semibold mb-1" style={{ color: 'var(--t1)' }}>
                   {step.title}
                 </p>
                 <ul className="space-y-0.5">
                   {step.items.map((item, i) => (
-                    <li key={i} className="text-sm text-zinc-500 dark:text-zinc-400">
+                    <li key={i} className="text-sm" style={{ color: 'var(--t3)' }}>
                       {item}
                     </li>
                   ))}
@@ -108,9 +112,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
                     href={step.action.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 bg-cyan-500
-                      hover:bg-cyan-600 text-white text-sm font-medium rounded-lg
-                      transition-colors"
+                    className="vitro-btn-primary inline-flex items-center gap-1.5 mt-3 px-4 py-2 text-sm font-medium"
                   >
                     {step.action.label}
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,13 +127,13 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         </div>
 
         {/* Tips */}
-        <div className="mx-5 mb-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
-          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
+        <div className="mx-5 mb-5 p-4 gi" style={{ borderRadius: '10px', borderLeft: '3px solid var(--warn)' }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: 'var(--warn)' }}>
             Tips
           </p>
           <ul className="space-y-1">
             {tips.map((tip, i) => (
-              <li key={i} className="text-sm text-amber-600 dark:text-amber-500 flex gap-2">
+              <li key={i} className="text-sm flex gap-2" style={{ color: 'var(--t3)' }}>
                 <span className="flex-shrink-0">•</span>
                 <span>{tip}</span>
               </li>

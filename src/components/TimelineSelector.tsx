@@ -174,8 +174,8 @@ export default function TimelineSelector({
     <div className={`select-none ${className}`}>
       <div
         ref={containerRef}
-        className="relative h-16 rounded-lg bg-gray-900/80 backdrop-blur border border-gray-700 cursor-crosshair overflow-visible"
-        style={{ userSelect: 'none' }}
+        className="gc nh relative h-16 cursor-crosshair overflow-visible"
+        style={{ userSelect: 'none', borderRadius: '10px' }}
       >
         {/* Histogram bars */}
         <div className="absolute inset-x-0 bottom-0 top-0 flex items-end px-3 gap-px pointer-events-none">
@@ -190,8 +190,8 @@ export default function TimelineSelector({
                 style={{
                   height: `${Math.max(heightPct, 4)}%`,
                   backgroundColor: inRange
-                    ? 'rgb(34 211 238 / 0.85)'
-                    : 'rgb(107 114 128 / 0.35)',
+                    ? 'rgba(var(--gl),.85)'
+                    : 'rgba(128,128,128,.25)',
                 }}
               />
             )
@@ -204,9 +204,9 @@ export default function TimelineSelector({
           style={{
             left: `${startRatio * 100}%`,
             width: `${(endRatio - startRatio) * 100}%`,
-            backgroundColor: 'rgb(34 211 238 / 0.08)',
-            borderLeft: '2px solid rgb(34 211 238 / 0.4)',
-            borderRight: '2px solid rgb(34 211 238 / 0.4)',
+            backgroundColor: 'rgba(var(--gl),.08)',
+            borderLeft: '2px solid rgba(var(--gl),.4)',
+            borderRight: '2px solid rgba(var(--gl),.4)',
           }}
           onMouseDown={(e) => {
             e.stopPropagation()
@@ -237,11 +237,12 @@ export default function TimelineSelector({
           }}
         >
           <div
-            className="w-4 h-8 rounded-full bg-cyan-400 shadow-lg shadow-cyan-900/60 border-2 border-cyan-200 flex items-center justify-center"
+            className="w-4 h-8 rounded-full shadow-lg flex items-center justify-center"
+            style={{ background: 'rgb(var(--gl))', border: '2px solid rgba(255,255,255,.5)' }}
           >
             <div className="flex flex-col gap-0.5">
-              <div className="w-px h-2 bg-cyan-900/60 rounded" />
-              <div className="w-px h-2 bg-cyan-900/60 rounded" />
+              <div className="w-px h-2 rounded" style={{ background: 'rgba(0,0,0,.4)' }} />
+              <div className="w-px h-2 rounded" style={{ background: 'rgba(0,0,0,.4)' }} />
             </div>
           </div>
         </div>
@@ -265,11 +266,12 @@ export default function TimelineSelector({
           }}
         >
           <div
-            className="w-4 h-8 rounded-full bg-cyan-400 shadow-lg shadow-cyan-900/60 border-2 border-cyan-200 flex items-center justify-center"
+            className="w-4 h-8 rounded-full shadow-lg flex items-center justify-center"
+            style={{ background: 'rgb(var(--gl))', border: '2px solid rgba(255,255,255,.5)' }}
           >
             <div className="flex flex-col gap-0.5">
-              <div className="w-px h-2 bg-cyan-900/60 rounded" />
-              <div className="w-px h-2 bg-cyan-900/60 rounded" />
+              <div className="w-px h-2 rounded" style={{ background: 'rgba(0,0,0,.4)' }} />
+              <div className="w-px h-2 rounded" style={{ background: 'rgba(0,0,0,.4)' }} />
             </div>
           </div>
         </div>
@@ -277,7 +279,7 @@ export default function TimelineSelector({
 
       {/* Date labels */}
       {hasTime && (
-        <div className="relative h-5 mt-1 text-xs text-gray-400 pointer-events-none">
+        <div className="relative h-5 mt-1 text-xs pointer-events-none" style={{ color: 'var(--t4)' }}>
           <span
             className="absolute"
             style={{
@@ -304,7 +306,7 @@ export default function TimelineSelector({
       )}
 
       {/* Point count summary */}
-      <div className="text-xs text-gray-500 mt-0.5 text-center">
+      <div className="text-xs mt-0.5 text-center" style={{ color: 'var(--t4)' }}>
         {endIdx - startIdx + 1} / {points.length} points
       </div>
     </div>

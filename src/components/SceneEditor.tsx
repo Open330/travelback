@@ -6,8 +6,8 @@ import { CAMERA_MODE_LABELS, DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from '@/lib/camera'
 
 const SCENE_COLORS = [
-  'bg-cyan-400', 'bg-emerald-400', 'bg-amber-400', 'bg-violet-400',
-  'bg-rose-400', 'bg-teal-400', 'bg-orange-400', 'bg-indigo-400',
+  'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
+  '#FB7185', '#2DD4BF', '#FB923C', '#818CF8',
 ]
 
 interface SceneEditorProps {
@@ -92,17 +92,17 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
   }, [scenes])
 
   return (
-    <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-zinc-800/95
-      backdrop-blur-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
-        <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-100">Scenes</h3>
+    <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] gs flex flex-col overflow-hidden"
+      style={{ borderRadius: 'var(--r-glass)' }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
+        <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>Scenes</h3>
         <div className="flex gap-2">
           <button onClick={addScene}
-            className="text-xs px-2 py-1 bg-cyan-500 text-white rounded-md hover:bg-cyan-600 cursor-pointer">
+            className="vitro-btn-primary text-xs px-2 py-1 cursor-pointer">
             + Add
           </button>
           <button onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer">
+            className="cursor-pointer" style={{ color: 'var(--t4)' }}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -112,21 +112,21 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
-        <span className="text-[10px] text-zinc-400 leading-6">Presets:</span>
+        <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>Presets:</span>
         <button onClick={() => onChange(generateDefaultScenes())}
-          className="text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600 cursor-pointer">
+          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           Cinematic
         </button>
         <button onClick={() => onChange(generateSimpleFlyover())}
-          className="text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600 cursor-pointer">
+          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           Simple
         </button>
         <button onClick={() => onChange(generateBirdeyeFlyover())}
-          className="text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600 cursor-pointer">
+          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           Bird&apos;s Eye
         </button>
         <button onClick={() => onChange(generateDynamicScenes())}
-          className="text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600 cursor-pointer">
+          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           Dynamic
         </button>
       </div>
@@ -135,12 +135,13 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       {scenes.length > 1 && (
         <div className="px-3 pt-1">
           <label className="flex items-center gap-2">
-            <span className="text-[10px] text-zinc-400 whitespace-nowrap">Blend {Math.round(transitionDuration * 100)}%</span>
+            <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--t4)' }}>Blend {Math.round(transitionDuration * 100)}%</span>
             <input type="range" min={0} max={20} step={1}
               value={Math.round(transitionDuration * 100)}
               onChange={e => onTransitionDurationChange(parseInt(e.target.value) / 100)}
               aria-label="Scene transition blend duration"
-              className="flex-1 h-1 cursor-pointer" />
+              className="flex-1 h-1 cursor-pointer"
+              style={{ accentColor: 'rgb(var(--gl))' }} />
           </label>
         </div>
       )}
@@ -148,25 +149,27 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       {/* Coverage bar */}
       {scenes.length > 0 && (
         <div className="px-3 pt-2">
-          <div className="relative h-3 bg-zinc-200 dark:bg-zinc-600 rounded-full overflow-hidden">
+          <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'var(--div)' }}>
             {scenes.map((s, i) => (
               <div
                 key={s.id}
-                className={`absolute top-0 bottom-0 ${SCENE_COLORS[i % SCENE_COLORS.length]} opacity-80`}
+                className="absolute top-0 bottom-0"
                 style={{
                   left: `${Math.max(0, s.startPercent) * 100}%`,
                   width: `${Math.max(0, s.endPercent - s.startPercent) * 100}%`,
+                  background: SCENE_COLORS[i % SCENE_COLORS.length],
+                  opacity: 0.8,
                 }}
               />
             ))}
           </div>
-          <div className="flex justify-between text-[9px] text-zinc-400 mt-0.5">
+          <div className="flex justify-between text-[9px] mt-0.5" style={{ color: 'var(--t4)' }}>
             <span>0%</span><span>50%</span><span>100%</span>
           </div>
           {warnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
               {warnings.map((w, i) => (
-                <p key={i} className="text-[10px] text-amber-500">⚠ {w}</p>
+                <p key={i} className="text-[10px]" style={{ color: 'var(--warn)' }}>⚠ {w}</p>
               ))}
             </div>
           )}
@@ -176,92 +179,91 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {scenes.map((scene, i) => (
           <div key={scene.id}
-            className="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-3 space-y-2">
+            className="gi p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
               <input value={scene.name}
                 onChange={e => updateScene(scene.id, { name: e.target.value })}
-                className="text-xs font-semibold bg-transparent text-zinc-700 dark:text-zinc-200
-                  w-32 outline-none border-b border-transparent focus:border-cyan-400" />
+                className="text-xs font-semibold bg-transparent w-32 outline-none border-b border-transparent"
+                style={{ color: 'var(--t1)', borderBottomColor: 'transparent' }}
+                onFocus={e => e.target.style.borderBottomColor = 'rgb(var(--gl))'}
+                onBlur={e => e.target.style.borderBottomColor = 'transparent'} />
               <button onClick={() => removeScene(scene.id)}
-                className="text-zinc-400 hover:text-red-500 text-xs cursor-pointer">✕</button>
+                className="text-xs cursor-pointer" style={{ color: 'var(--t4)' }}>✕</button>
             </div>
 
             <select value={scene.cameraMode}
               onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
-              className="w-full text-xs px-2 py-1 bg-white dark:bg-zinc-600 rounded
-                text-zinc-700 dark:text-zinc-200 cursor-pointer">
+              className="vitro-select w-full text-xs px-2 py-1">
               {MODES.map(m => <option key={m} value={m}>{CAMERA_MODE_LABELS[m]}</option>)}
             </select>
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">Start %</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Start %</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.startPercent * 100)}
                   onChange={e => updateScene(scene.id, { startPercent: parseInt(e.target.value) / 100 })}
-                  className="w-full text-xs px-2 py-1 bg-white dark:bg-zinc-600 rounded
-                    text-zinc-700 dark:text-zinc-200" />
+                  className="vitro-input w-full text-xs px-2 py-1" />
               </label>
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">End %</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>End %</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.endPercent * 100)}
                   onChange={e => updateScene(scene.id, { endPercent: parseInt(e.target.value) / 100 })}
-                  className="w-full text-xs px-2 py-1 bg-white dark:bg-zinc-600 rounded
-                    text-zinc-700 dark:text-zinc-200" />
+                  className="vitro-input w-full text-xs px-2 py-1" />
               </label>
             </div>
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">Zoom {scene.params.zoom}</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Zoom {scene.params.zoom}</span>
                 <input type="range" min={1} max={20} step={0.5}
                   value={scene.params.zoom}
                   onChange={e => updateScene(scene.id, {
                     params: { ...scene.params, zoom: parseFloat(e.target.value) }
                   })}
                   aria-label={`Zoom for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" />
+                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">Pitch {scene.params.pitch}°</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Pitch {scene.params.pitch}°</span>
                 <input type="range" min={0} max={85} step={1}
                   value={scene.params.pitch}
                   onChange={e => updateScene(scene.id, {
                     params: { ...scene.params, pitch: parseFloat(e.target.value) }
                   })}
                   aria-label={`Pitch for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" />
+                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
             </div>
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">Bearing {scene.params.bearingOffset}°</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Bearing {scene.params.bearingOffset}°</span>
                 <input type="range" min={-180} max={180} step={1}
                   value={scene.params.bearingOffset}
                   onChange={e => updateScene(scene.id, {
                     params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
                   })}
                   aria-label={`Bearing offset for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" />
+                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
               <label className="flex-1">
-                <span className="text-[10px] text-zinc-400">Rotation {scene.params.rotationSpeed}°/s</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Rotation {scene.params.rotationSpeed}°/s</span>
                 <input type="range" min={0} max={90} step={1}
                   value={scene.params.rotationSpeed}
                   onChange={e => updateScene(scene.id, {
                     params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
                   })}
                   aria-label={`Rotation speed for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" />
+                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
             </div>
           </div>
         ))}
 
         {scenes.length === 0 && (
-          <p className="text-xs text-zinc-400 text-center py-8">
+          <p className="text-xs text-center py-8" style={{ color: 'var(--t4)' }}>
             No scenes yet. Click &ldquo;+ Add&rdquo; to create one,<br />
             or scenes will be auto-generated on export.
           </p>
@@ -270,12 +272,12 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
       {/* Undo delete banner */}
       {deletedScene && (
-        <div className="px-3 py-2 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="px-3 py-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--div)' }}>
+          <span className="text-xs" style={{ color: 'var(--t3)' }}>
             Deleted &ldquo;{deletedScene.scene.name}&rdquo;
           </span>
           <button onClick={undoDelete}
-            className="text-xs px-2 py-0.5 text-cyan-500 hover:text-cyan-400 font-medium cursor-pointer">
+            className="text-xs px-2 py-0.5 font-medium cursor-pointer" style={{ color: 'rgb(var(--gl))' }}>
             Undo
           </button>
         </div>
