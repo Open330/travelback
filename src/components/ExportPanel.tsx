@@ -262,7 +262,8 @@ export default function ExportPanel({
 
             <p className="text-xs mb-4" style={{ color: 'var(--t4)' }}>
               {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
-              ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps · ~{((bitrate * duration) / 8).toFixed(0)} MB
+              {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
+              {' '}· ~{((bitrate * duration) / 8).toFixed(0)} MB
             </p>
 
             <button onClick={handleExport}
