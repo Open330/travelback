@@ -88,17 +88,20 @@ export default function Controls({
           </button>
 
           {/* Speed */}
-          <select
-            value={speed}
-            onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
-            aria-label={t('controls.playbackSpeed')}
-            title={t('controls.playbackSpeed')}
-            className="vitro-select px-2 py-1.5 text-sm font-medium"
-          >
-            {SPEEDS.map((s) => (
-              <option key={s} value={s}>{s}x</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-medium hidden sm:inline" style={{ color: 'var(--t4)' }}>{t('controls.speedLabel')}</span>
+            <select
+              value={speed}
+              onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+              aria-label={t('controls.playbackSpeed')}
+              title={t('controls.playbackSpeed')}
+              className="vitro-select px-2 py-1.5 text-sm font-medium"
+            >
+              {SPEEDS.map((s) => (
+                <option key={s} value={s}>{s}x</option>
+              ))}
+            </select>
+          </div>
 
           {/* Duration */}
           <select
