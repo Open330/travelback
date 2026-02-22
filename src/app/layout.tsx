@@ -54,11 +54,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-svc="travelback" data-mode="dark" data-mesh="on">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ background: 'var(--bg)', color: 'var(--t1)' }}
       >
-        {children}
+        <div className="vitro-mesh fixed inset-0 z-0" />
+        <div className="vitro-noise" />
+        <div className="relative z-10">
+          {children}
+        </div>
       </body>
     </html>
   )
