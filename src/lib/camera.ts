@@ -80,6 +80,9 @@ export function computeCameraForScene(
   const result = interpolateAlongTrack(track.points, cumulDist, trackProgress)
   const { point, bearing } = result
 
+  /** Normalize bearing to [0, 360) */
+  const normBearing = (b: number) => ((b % 360) + 360) % 360
+
   switch (scene.cameraMode) {
     case 'overview': {
       const center = trackCenter(track.points)
@@ -88,7 +91,7 @@ export function computeCameraForScene(
         center,
         zoom: Math.min(zoom, params.zoom),
         pitch: params.pitch,
-        bearing: elapsedSec * params.rotationSpeed + params.bearingOffset,
+        bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
       }
     }
     case 'flyover':
@@ -96,35 +99,49 @@ export function computeCameraForScene(
         center: [point.lng, point.lat],
         zoom: params.zoom,
         pitch: params.pitch,
-        bearing: bearing + params.bearingOffset,
+        bearing: normBearing(bearing + params.bearingOffset),
       }
     case 'orbit':
       return {
         center: [point.lng, point.lat],
         zoom: params.zoom,
         pitch: params.pitch,
-        bearing: elapsedSec * params.rotationSpeed + params.bearingOffset,
+        bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
       }
     case 'ground':
       return {
         center: [point.lng, point.lat],
         zoom: params.zoom,
         pitch: params.pitch,
-        bearing: bearing + params.bearingOffset,
+        bearing: normBearing(bearing + params.bearingOffset),
       }
     case 'closeup':
       return {
         center: [point.lng, point.lat],
         zoom: params.zoom,
         pitch: params.pitch,
-        bearing: bearing + params.bearingOffset,
+        bearing: normBearing(bearing + params.bearingOffset),
       }
+    case 'birdeye': {
+      // Look-ahead: interpolate a point ~5% further along the track for bearing
+      const lookAheadProgress = Math.min(1, trackProgress + 0.05)
+      const ahead = interpolateAlongTrack(track.points, cumulDist, lookAheadProgress)
+      const lookBearing = computeBearing(point, ahead.point)
+      // Use the look-ahead bearing combined with slow rotation for cinematic drift
+      const drift = elapsedSec * params.rotationSpeed
+      return {
+        center: [point.lng, point.lat],
+        zoom: params.zoom,
+        pitch: params.pitch,
+        bearing: normBearing(lookBearing + drift + params.bearingOffset),
+      }
+    }
     default:
       return {
         center: [point.lng, point.lat],
         zoom: 14,
         pitch: 45,
-        bearing: bearing,
+        bearing: normBearing(bearing),
       }
   }
 }
@@ -144,35 +161,117 @@ export function generateDefaultScenes(): Scene[] {
     },
     {
       id: 'scene-2',
-      name: 'Flyover',
-      cameraMode: 'flyover',
+      name: "Bird's Eye",
+      cameraMode: 'birdeye',
       startPercent: 0.08,
-      endPercent: 0.45,
-      params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+      endPercent: 0.3,
+      params: { ...DEFAULT_CAMERA_PARAMS.birdeye },
     },
     {
       id: 'scene-3',
-      name: 'Orbit Midpoint',
-      cameraMode: 'orbit',
-      startPercent: 0.45,
-      endPercent: 0.55,
-      params: { ...DEFAULT_CAMERA_PARAMS.orbit },
+      name: 'Flyover',
+      cameraMode: 'flyover',
+      startPercent: 0.3,
+      endPercent: 0.5,
+      params: { ...DEFAULT_CAMERA_PARAMS.flyover },
     },
     {
       id: 'scene-4',
+      name: 'Orbit Midpoint',
+      cameraMode: 'orbit',
+      startPercent: 0.5,
+      endPercent: 0.6,
+      params: { ...DEFAULT_CAMERA_PARAMS.orbit },
+    },
+    {
+      id: 'scene-5',
       name: 'Ground Follow',
       cameraMode: 'ground',
-      startPercent: 0.55,
+      startPercent: 0.6,
       endPercent: 0.85,
       params: { ...DEFAULT_CAMERA_PARAMS.ground },
     },
     {
-      id: 'scene-5',
+      id: 'scene-6',
       name: 'Closing Overview',
       cameraMode: 'overview',
       startPercent: 0.85,
       endPercent: 1.0,
       params: { ...DEFAULT_CAMERA_PARAMS.overview },
+    },
+  ]
+}
+
+/** Scene preset: simple flyover — one continuous flyover scene. */
+export function generateSimpleFlyover(): Scene[] {
+  return [
+    {
+      id: 'preset-1',
+      name: 'Flyover',
+      cameraMode: 'flyover',
+      startPercent: 0,
+      endPercent: 1,
+      params: { zoom: 13, pitch: 55, bearingOffset: 0, rotationSpeed: 0 },
+    },
+  ]
+}
+
+/** Scene preset: bird's eye — full track from a high 3D perspective. */
+export function generateBirdeyeFlyover(): Scene[] {
+  return [
+    {
+      id: 'be-1',
+      name: "Bird's Eye",
+      cameraMode: 'birdeye',
+      startPercent: 0,
+      endPercent: 1,
+      params: { zoom: 11, pitch: 65, bearingOffset: 0, rotationSpeed: 5 },
+    },
+  ]
+}
+
+/** Scene preset: dynamic — quick cuts between different modes. */
+export function generateDynamicScenes(): Scene[] {
+  return [
+    {
+      id: 'dyn-1', name: 'Wide Open', cameraMode: 'overview',
+      startPercent: 0, endPercent: 0.08,
+      params: { zoom: 9, pitch: 40, bearingOffset: 0, rotationSpeed: 12 },
+    },
+    {
+      id: 'dyn-2', name: 'Cruise', cameraMode: 'flyover',
+      startPercent: 0.08, endPercent: 0.25,
+      params: { zoom: 13.5, pitch: 50, bearingOffset: 10, rotationSpeed: 0 },
+    },
+    {
+      id: 'dyn-3', name: "Bird's Eye", cameraMode: 'birdeye',
+      startPercent: 0.25, endPercent: 0.4,
+      params: { zoom: 10.5, pitch: 60, bearingOffset: 0, rotationSpeed: 8 },
+    },
+    {
+      id: 'dyn-4', name: 'Orbit', cameraMode: 'orbit',
+      startPercent: 0.4, endPercent: 0.5,
+      params: { zoom: 14, pitch: 60, bearingOffset: 0, rotationSpeed: 45 },
+    },
+    {
+      id: 'dyn-5', name: 'Street Level', cameraMode: 'ground',
+      startPercent: 0.5, endPercent: 0.65,
+      params: { zoom: 16, pitch: 72, bearingOffset: 0, rotationSpeed: 0 },
+    },
+    {
+      id: 'dyn-6', name: 'Close Up', cameraMode: 'closeup',
+      startPercent: 0.65, endPercent: 0.75,
+      params: { zoom: 17, pitch: 30, bearingOffset: -20, rotationSpeed: 0 },
+    },
+    {
+      id: 'dyn-7', name: 'Pull Back', cameraMode: 'flyover',
+      startPercent: 0.75, endPercent: 0.9,
+      params: { zoom: 12, pitch: 50, bearingOffset: 0, rotationSpeed: 0 },
+    },
+    {
+      id: 'dyn-8', name: 'Final Orbit', cameraMode: 'orbit',
+      startPercent: 0.9, endPercent: 1,
+      params: { zoom: 11, pitch: 50, bearingOffset: 0, rotationSpeed: 30 },
     },
   ]
 }
@@ -199,15 +298,40 @@ export function computeCameraForProgress(
     }
   }
 
-  // Find which scene we're in
-  let sceneIdx = 0
+  // Find which scene contains globalProgress
+  let sceneIdx = -1
   for (let i = 0; i < scenes.length; i++) {
     if (globalProgress >= scenes[i].startPercent && globalProgress <= scenes[i].endPercent) {
       sceneIdx = i
       break
     }
-    if (globalProgress > scenes[i].endPercent) {
-      sceneIdx = i
+  }
+
+  // If in a gap between scenes, interpolate between the surrounding scenes
+  if (sceneIdx === -1) {
+    // Find the closest previous and next scenes
+    let prevIdx = -1
+    let nextIdx = -1
+    for (let i = 0; i < scenes.length; i++) {
+      if (scenes[i].endPercent <= globalProgress) prevIdx = i
+      if (scenes[i].startPercent > globalProgress && nextIdx === -1) nextIdx = i
+    }
+
+    if (prevIdx >= 0 && nextIdx >= 0) {
+      const prevScene = scenes[prevIdx]
+      const nextScene = scenes[nextIdx]
+      const gapStart = prevScene.endPercent
+      const gapEnd = nextScene.startPercent
+      const gapT = gapEnd > gapStart ? (globalProgress - gapStart) / (gapEnd - gapStart) : 0.5
+      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
+      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
+      return lerpCamera(prevCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
+    } else if (prevIdx >= 0) {
+      sceneIdx = prevIdx
+    } else if (nextIdx >= 0) {
+      sceneIdx = nextIdx
+    } else {
+      sceneIdx = 0
     }
   }
 
