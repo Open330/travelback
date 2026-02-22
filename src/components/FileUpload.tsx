@@ -4,6 +4,7 @@ import { useCallback, useState, useRef } from 'react'
 import { Map, ArrowRight } from 'lucide-react'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
+import { useLocale } from '@/lib/i18n'
 
 interface FileUploadProps {
   onTrackLoaded: (track: Track) => void
@@ -12,6 +13,7 @@ interface FileUploadProps {
 }
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide }: FileUploadProps) {
+  const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -24,11 +26,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
       const track = await parseTrackFile(file)
       onTrackLoaded(track)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse file')
+      setError(err instanceof Error ? err.message : t('fileUpload.parseFailed'))
     } finally {
       setLoading(false)
     }
-  }, [onTrackLoaded])
+  }, [onTrackLoaded, t])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -56,11 +58,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
     return (
       <button
         onClick={() => inputRef.current?.click()}
-        aria-label="Load a new track file"
+        aria-label={t('fileUpload.loadNewFileAria')}
         className="absolute top-4 left-4 z-10 gi px-4 py-2 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--t1)' }}
       >
-        Load New File
+        {t('fileUpload.loadNewFile')}
         <input
           ref={inputRef}
           type="file"
@@ -95,21 +97,21 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
           )}
         </div>
         <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
-          Travelback
+          {t('fileUpload.title')}
         </h2>
         <p className="mb-6" style={{ color: 'var(--t3)' }}>
-          Animate your journeys into video
+          {t('fileUpload.subtitle')}
         </p>
         <p className="text-sm mb-4" style={{ color: 'var(--t4)' }}>
-          Drop your GPX, KML, or Google Location History JSON file here
+          {t('fileUpload.dropHint')}
         </p>
         <button
           onClick={() => inputRef.current?.click()}
           disabled={loading}
-          aria-label="Browse files to upload"
+          aria-label={t('fileUpload.browseAria')}
           className="vitro-btn-primary px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
         >
-          {loading ? 'Parsing...' : 'Browse Files'}
+          {loading ? t('fileUpload.parsing') : t('fileUpload.browse')}
         </button>
         <input
           ref={inputRef}
@@ -122,7 +124,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
           <div className="mt-3">
             <button onClick={onShowGoogleGuide} className="underline text-sm inline-flex items-center gap-1"
               style={{ color: 'rgb(var(--gl))' }}>
-              How to export Google Location History
+              {t('fileUpload.googleGuideLink')}
               <ArrowRight size={14} strokeWidth={2} />
             </button>
           </div>

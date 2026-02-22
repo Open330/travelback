@@ -6,6 +6,7 @@ import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
 import { totalDistance, formatDistance } from '@/lib/interpolate'
+import { useLocale } from '@/lib/i18n'
 
 interface JourneyCreatorProps {
   isActive: boolean
@@ -43,6 +44,7 @@ function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
 }
 
 export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef }: JourneyCreatorProps) {
+  const { t } = useLocale()
   // Use refs for waypoints to avoid stale closure issues in map event handlers
   const waypointsRef = useRef<TrackPoint[]>([])
   // State drives UI re-renders
@@ -288,7 +290,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
     const track: Track = {
-      name: 'Custom Journey',
+      name: t('journey.defaultName'),
       points: waypointsRef.current as TrackPoint[],
     }
     onComplete(track)
@@ -302,30 +304,30 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <span className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
-          Create Journey
+          {t('journey.title')}
         </span>
         <button
           onClick={onCancel}
           className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
         >
-          Cancel
+          {t('journey.cancel')}
         </button>
       </div>
 
       {/* Hint */}
       <div className="px-4 py-2">
         <p className="text-xs" style={{ color: 'var(--t3)' }}>
-          Click on the map to add points. Click a point to delete it. Drag to reposition.
+          {t('journey.hint')}
         </p>
       </div>
 
       {/* Stats */}
       <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--t2)' }}>
         {pointCount === 0
-          ? 'No points yet'
+          ? t('journey.noPoints')
           : pointCount === 1
-          ? '1 point'
-          : `${pointCount} points · ${formatDistance(distanceMeters)}`}
+          ? t('journey.onePoint')
+          : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters)}`}
       </div>
 
       {/* Actions */}
@@ -336,7 +338,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
           className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ color: 'var(--t1)' }}
         >
-          Undo
+          {t('journey.undo')}
         </button>
         <button
           onClick={handleClear}
@@ -344,7 +346,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
           className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ color: 'var(--t1)' }}
         >
-          Clear
+          {t('journey.clear')}
         </button>
         <button
           onClick={handleDone}
@@ -352,7 +354,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
           className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ background: '#f97316' }}
         >
-          Done
+          {t('journey.done')}
           <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
         </button>
       </div>

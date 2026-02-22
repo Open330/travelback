@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
 import { CAMERA_MODE_LABELS, DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from '@/lib/camera'
+import { useLocale } from '@/lib/i18n'
 
 const SCENE_COLORS = [
   'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
@@ -22,6 +23,7 @@ interface SceneEditorProps {
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
 
 export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange }: SceneEditorProps) {
+  const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -80,12 +82,12 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
     for (let i = 0; i < sorted.length; i++) {
       const s = sorted[i]
       if (s.startPercent >= s.endPercent) {
-        w.push(`"${s.name}" has start ≥ end`)
+        w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
       }
       if (i > 0) {
         const prev = sorted[i - 1]
         if (s.startPercent < prev.endPercent) {
-          w.push(`"${prev.name}" and "${s.name}" overlap`)
+          w.push(`"${prev.name}" ${t('scenes.overlap')} "${s.name}" ${t('scenes.overlapSuffix')}`)
         }
       }
     }
@@ -96,11 +98,11 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
     <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] gs flex flex-col overflow-hidden"
       style={{ borderRadius: 'var(--r-glass)' }}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
-        <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>Scenes</h3>
+        <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
         <div className="flex gap-2">
           <button onClick={addScene}
             className="vitro-btn-primary text-xs px-2 py-1 cursor-pointer">
-            + Add
+            {t('scenes.add')}
           </button>
           <button onClick={onClose}
             className="cursor-pointer" style={{ color: 'var(--t4)' }}>
@@ -111,22 +113,22 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
-        <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>Presets:</span>
+        <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
         <button onClick={() => onChange(generateDefaultScenes())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
-          Cinematic
+          {t('scenes.cinematic')}
         </button>
         <button onClick={() => onChange(generateSimpleFlyover())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
-          Simple
+          {t('scenes.simple')}
         </button>
         <button onClick={() => onChange(generateBirdeyeFlyover())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
-          Bird&apos;s Eye
+          {t('scenes.birdsEye')}
         </button>
         <button onClick={() => onChange(generateDynamicScenes())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
-          Dynamic
+          {t('scenes.dynamic')}
         </button>
       </div>
 
@@ -134,11 +136,11 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       {scenes.length > 1 && (
         <div className="px-3 pt-1">
           <label className="flex items-center gap-2">
-            <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--t4)' }}>Blend {Math.round(transitionDuration * 100)}%</span>
+            <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--t4)' }}>{t('scenes.blend')} {Math.round(transitionDuration * 100)}%</span>
             <input type="range" min={0} max={20} step={1}
               value={Math.round(transitionDuration * 100)}
               onChange={e => onTransitionDurationChange(parseInt(e.target.value) / 100)}
-              aria-label="Scene transition blend duration"
+              aria-label={t('scenes.blendAria')}
               className="flex-1 h-1 cursor-pointer"
               style={{ accentColor: 'rgb(var(--gl))' }} />
           </label>
@@ -200,14 +202,14 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Start %</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.startPct')}</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.startPercent * 100)}
                   onChange={e => updateScene(scene.id, { startPercent: parseInt(e.target.value) / 100 })}
                   className="vitro-input w-full text-xs px-2 py-1" />
               </label>
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>End %</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.endPct')}</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.endPercent * 100)}
                   onChange={e => updateScene(scene.id, { endPercent: parseInt(e.target.value) / 100 })}
@@ -217,7 +219,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Zoom {scene.params.zoom}</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
                 <input type="range" min={1} max={20} step={0.5}
                   value={scene.params.zoom}
                   onChange={e => updateScene(scene.id, {
@@ -227,7 +229,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                   className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Pitch {scene.params.pitch}°</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
                 <input type="range" min={0} max={85} step={1}
                   value={scene.params.pitch}
                   onChange={e => updateScene(scene.id, {
@@ -240,7 +242,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
 
             <div className="flex gap-2">
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Bearing {scene.params.bearingOffset}°</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.bearing')} {scene.params.bearingOffset}°</span>
                 <input type="range" min={-180} max={180} step={1}
                   value={scene.params.bearingOffset}
                   onChange={e => updateScene(scene.id, {
@@ -250,7 +252,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                   className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
               </label>
               <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>Rotation {scene.params.rotationSpeed}°/s</span>
+                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
                 <input type="range" min={0} max={90} step={1}
                   value={scene.params.rotationSpeed}
                   onChange={e => updateScene(scene.id, {
@@ -264,9 +266,8 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
         ))}
 
         {scenes.length === 0 && (
-          <p className="text-xs text-center py-8" style={{ color: 'var(--t4)' }}>
-            No scenes yet. Click &ldquo;+ Add&rdquo; to create one,<br />
-            or scenes will be auto-generated on export.
+          <p className="text-xs text-center py-8 whitespace-pre-line" style={{ color: 'var(--t4)' }}>
+            {t('scenes.emptyState')}
           </p>
         )}
       </div>
@@ -275,11 +276,11 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       {deletedScene && (
         <div className="px-3 py-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--div)' }}>
           <span className="text-xs" style={{ color: 'var(--t3)' }}>
-            Deleted &ldquo;{deletedScene.scene.name}&rdquo;
+            {t('scenes.deleted')} &ldquo;{deletedScene.scene.name}&rdquo;
           </span>
           <button onClick={undoDelete}
             className="text-xs px-2 py-0.5 font-medium cursor-pointer" style={{ color: 'rgb(var(--gl))' }}>
-            Undo
+            {t('scenes.undo')}
           </button>
         </div>
       )}

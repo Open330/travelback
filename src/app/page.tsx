@@ -18,8 +18,18 @@ import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes } from '@/lib/camera'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
+import { LocaleProvider, useLocale } from '@/lib/i18n'
 
 export default function Home() {
+  return (
+    <LocaleProvider>
+      <HomeInner />
+    </LocaleProvider>
+  )
+}
+
+function HomeInner() {
+  const { t } = useLocale()
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
   const [track, setTrack] = useState<Track | null>(null)
   const [timelineRange, setTimelineRange] = useState<[number, number] | null>(null)
@@ -204,14 +214,14 @@ export default function Home() {
       )
 
       downloadVideo(result)
-      addToast('Video exported successfully!', 'success')
+      addToast(t('app.exportSuccess'), 'success')
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        addToast('Export cancelled.', 'info')
+        addToast(t('app.exportCancelled'), 'info')
       } else {
         console.error('Export failed:', err)
         addToast(
-          `Export failed: ${err instanceof Error ? err.message : 'Unknown error'}. Your browser may not support WebCodecs with the selected codec.`,
+          `${t('app.exportFailed')} ${err instanceof Error ? err.message : 'Unknown error'}. ${t('app.exportFailedSuffix')}`,
           'error',
         )
       }
@@ -250,7 +260,7 @@ export default function Home() {
         <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(12px)' }}>
           <div className="go p-8 text-center" style={{ color: 'var(--t1)' }}>
             <div className="inline-block w-12 h-12 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'rgba(var(--gl),.6)', borderTopColor: 'transparent' }} />
-            <p className="text-lg font-medium">Rendering video...</p>
+            <p className="text-lg font-medium">{t('app.renderingVideo')}</p>
             <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
             <button
               onClick={() => exportAbortRef.current?.abort()}
@@ -258,7 +268,7 @@ export default function Home() {
               className="gi mt-4 px-4 py-2 text-sm cursor-pointer"
               style={{ background: 'rgba(var(--err-rgb, 244,63,94),.7)', color: '#fff', border: 'none' }}
             >
-              Cancel
+              {t('app.cancelExport')}
             </button>
           </div>
         </div>
@@ -284,7 +294,7 @@ export default function Home() {
             className="gi px-6 py-3 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t2)' }}
           >
-            or create a journey manually
+            {t('app.createJourney')}
           </button>
         </div>
       )}
@@ -312,16 +322,16 @@ export default function Home() {
               setFullTrack(null)
               setIsCreatingJourney(true)
             }}
-            aria-label="Create a new journey"
-            title="Create a new journey"
+            aria-label={t('app.newJourneyAria')}
+            title={t('app.newJourneyAria')}
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
           >
-            <Plus size={14} strokeWidth={2.5} className="inline -mt-px" />{' '}New
+            <Plus size={14} strokeWidth={2.5} className="inline -mt-px" />{' '}{t('app.new')}
           </button>
           <button
             onClick={() => setShowSceneEditor(s => !s)}
-            title="Open scene editor"
+            title={t('app.openSceneEditor')}
             className={`gi px-3 py-2 text-sm font-medium cursor-pointer ${
               showSceneEditor ? '' : ''
             }`}
@@ -330,11 +340,11 @@ export default function Home() {
               : { color: 'var(--t1)' }
             }
           >
-            Scenes
+            {t('app.scenes')}
           </button>
           <button
             onClick={cycleStyle}
-            title="Cycle map style"
+            title={t('app.cycleMapStyle')}
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t1)' }}
           >
@@ -342,10 +352,10 @@ export default function Home() {
           </button>
           <button
             onClick={() => setShowExport(true)}
-            title="Export video (E)"
+            title={t('app.exportVideoKey')}
             className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
           >
-            Export
+            {t('app.export')}
           </button>
         </div>
       )}
@@ -365,7 +375,7 @@ export default function Home() {
       {track && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 gi px-4 py-2 text-sm font-medium"
           style={{ color: 'var(--t1)' }}>
-          {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} points
+          {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} {t('timeline.points')}
         </div>
       )}
 

@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Sun, Moon } from 'lucide-react'
+import { useLocale } from '@/lib/i18n'
 
 export default function ThemeToggle() {
+  const { t } = useLocale()
   const [mode, setMode] = useState<'dark' | 'light'>('dark')
 
   useEffect(() => {
@@ -20,8 +22,8 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
-      aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+      title={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      aria-label={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
       className="gi w-9 h-9 flex items-center justify-center cursor-pointer"
       style={{ color: 'var(--t2)' }}
     >

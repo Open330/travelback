@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { Play, Pause } from 'lucide-react'
 import type { Track } from '@/types'
 import { formatDistance, formatDuration, totalDistance } from '@/lib/interpolate'
+import { useLocale } from '@/lib/i18n'
 
 interface ControlsProps {
   track: Track
@@ -35,6 +36,7 @@ export default function Controls({
   onDurationChange,
   onFollowCameraToggle,
 }: ControlsProps) {
+  const { t } = useLocale()
   const total = totalDistance(track.points)
   const traveled = total * progress
   const elapsed = duration * progress
@@ -73,8 +75,8 @@ export default function Controls({
           {/* Play/Pause */}
           <button
             onClick={onTogglePlay}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+            aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
+            title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
             className="w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-colors"
             style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
           >
@@ -89,8 +91,8 @@ export default function Controls({
           <select
             value={speed}
             onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
-            aria-label="Playback speed"
-            title="Playback speed"
+            aria-label={t('controls.playbackSpeed')}
+            title={t('controls.playbackSpeed')}
             className="vitro-select px-2 py-1.5 text-sm font-medium"
           >
             {SPEEDS.map((s) => (
@@ -102,8 +104,8 @@ export default function Controls({
           <select
             value={duration}
             onChange={(e) => onDurationChange(parseInt(e.target.value))}
-            aria-label="Animation duration"
-            title="Animation duration"
+            aria-label={t('controls.animationDuration')}
+            title={t('controls.animationDuration')}
             className="vitro-select px-2 py-1.5 text-sm font-medium"
           >
             {DURATIONS.map((d) => (
@@ -114,15 +116,15 @@ export default function Controls({
           {/* Follow camera toggle */}
           <button
             onClick={onFollowCameraToggle}
-            aria-label={followCamera ? 'Disable camera follow' : 'Enable camera follow'}
-            title={`Camera follow: ${followCamera ? 'ON' : 'OFF'} (F)`}
+            aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
+            title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
             className="gi px-3 py-1.5 text-sm font-medium cursor-pointer"
             style={followCamera
               ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
               : { color: 'var(--t3)' }
             }
           >
-            Follow
+            {t('controls.follow')}
           </button>
 
           {/* Spacer */}

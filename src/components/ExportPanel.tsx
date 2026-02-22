@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import type { VideoCodec, ExportConfig, ResolutionPreset } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
+import { useLocale } from '@/lib/i18n'
 
 interface ExportPanelProps {
   isOpen: boolean
@@ -21,6 +22,7 @@ export default function ExportPanel({
   isExporting,
   exportProgress,
 }: ExportPanelProps) {
+  const { t } = useLocale()
   const [resolutionIdx, setResolutionIdx] = useState(0)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
@@ -63,7 +65,7 @@ export default function ExportPanel({
       style={{ background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
       <div className="go p-6 w-full max-w-md mx-4" style={{ borderRadius: 'var(--r-glass)' }}>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>Export Video</h3>
+          <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>{t('export.title')}</h3>
           {!isExporting && (
             <button onClick={onClose}
               className="cursor-pointer" style={{ color: 'var(--t4)' }}>
@@ -75,14 +77,14 @@ export default function ExportPanel({
         {isExporting ? (
           <div>
             <div className="mb-2 text-sm" style={{ color: 'var(--t3)' }}>
-              Rendering... {Math.round(exportProgress * 100)}%
+              {t('export.rendering')} {Math.round(exportProgress * 100)}%
             </div>
             <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: 'var(--div)' }}>
               <div className="h-full rounded-full transition-all duration-200"
                 style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))' }} />
             </div>
             <p className="text-xs mt-2" style={{ color: 'var(--t4)' }}>
-              Frame {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}
+              {t('export.frame')} {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}
             </p>
           </div>
         ) : (
@@ -90,7 +92,7 @@ export default function ExportPanel({
             <div className="space-y-4 mb-6">
               {/* Resolution */}
               <div>
-                <label className="vitro-label block text-sm font-medium mb-1">Resolution</label>
+                <label className="vitro-label block text-sm font-medium mb-1">{t('export.resolution')}</label>
                 <select value={resolutionIdx}
                   onChange={e => setResolutionIdx(parseInt(e.target.value))}
                   className="vitro-select w-full px-3 py-2 text-sm">
@@ -102,13 +104,13 @@ export default function ExportPanel({
 
               {/* Codec */}
               <div>
-                <label className="vitro-label block text-sm font-medium mb-1">Codec</label>
+                <label className="vitro-label block text-sm font-medium mb-1">{t('export.codec')}</label>
                 <select value={codec}
                   onChange={e => setCodec(e.target.value as VideoCodec)}
                   className="vitro-select w-full px-3 py-2 text-sm">
                   {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k, v]) => (
                     <option key={k} value={k} disabled={codecSupport[k] === false}>
-                      {v}{codecSupport[k] === false ? ' (unsupported)' : ''}
+                      {v}{codecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
                     </option>
                   ))}
                 </select>
@@ -117,14 +119,14 @@ export default function ExportPanel({
               <div className="grid grid-cols-3 gap-3">
                 {/* Duration */}
                 <div>
-                  <label className="vitro-label block text-sm font-medium mb-1">Duration</label>
+                  <label className="vitro-label block text-sm font-medium mb-1">{t('export.duration')}</label>
                   <input type="number" min={5} max={600} value={duration}
                     onChange={e => setDuration(parseInt(e.target.value) || 30)}
                     className="vitro-input w-full px-3 py-2 text-sm" />
                 </div>
                 {/* FPS */}
                 <div>
-                  <label className="vitro-label block text-sm font-medium mb-1">FPS</label>
+                  <label className="vitro-label block text-sm font-medium mb-1">{t('export.fps')}</label>
                   <select value={fps} onChange={e => setFps(parseInt(e.target.value))}
                     className="vitro-select w-full px-3 py-2 text-sm">
                     <option value={24}>24</option>
@@ -134,7 +136,7 @@ export default function ExportPanel({
                 </div>
                 {/* Bitrate */}
                 <div>
-                  <label className="vitro-label block text-sm font-medium mb-1">Mbps</label>
+                  <label className="vitro-label block text-sm font-medium mb-1">{t('export.mbps')}</label>
                   <input type="number" min={1} max={50} value={bitrate}
                     onChange={e => setBitrate(parseInt(e.target.value) || 8)}
                     className="vitro-input w-full px-3 py-2 text-sm" />
@@ -143,13 +145,13 @@ export default function ExportPanel({
             </div>
 
             <p className="text-xs mb-4" style={{ color: 'var(--t4)' }}>
-              Output: {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
-              ({CODEC_LABELS[codec]}) at {bitrate} Mbps · ~{((bitrate * duration) / 8).toFixed(0)} MB
+              {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
+              ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps · ~{((bitrate * duration) / 8).toFixed(0)} MB
             </p>
 
             <button onClick={handleExport}
               className="vitro-btn-primary w-full py-3 font-medium cursor-pointer">
-              Start Export
+              {t('export.startExport')}
             </button>
           </>
         )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { useLocale } from '@/lib/i18n'
 
 export interface ToastMessage {
   id: string
@@ -15,6 +16,7 @@ interface ToastProps {
 }
 
 function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: () => void }) {
+  const { t } = useLocale()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -42,7 +44,7 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
         <span className="flex-1">{message.text}</span>
         <button onClick={onDismiss} className="cursor-pointer flex-shrink-0"
           style={{ color: 'var(--t4)' }}
-          aria-label="Dismiss notification">
+          aria-label={t('toast.dismiss')}>
           <X size={14} strokeWidth={2} />
         </button>
       </div>

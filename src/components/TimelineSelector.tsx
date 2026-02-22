@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Track } from '@/types'
+import { useLocale } from '@/lib/i18n'
 
 interface TimelineSelectorProps {
   track: Track
@@ -27,6 +28,7 @@ export default function TimelineSelector({
   onRangeChange,
   className = '',
 }: TimelineSelectorProps) {
+  const { t } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
 
@@ -307,7 +309,7 @@ export default function TimelineSelector({
 
       {/* Point count summary */}
       <div className="text-xs mt-0.5 text-center" style={{ color: 'var(--t4)' }}>
-        {endIdx - startIdx + 1} / {points.length} points
+        {endIdx - startIdx + 1} / {points.length} {t('timeline.points')}
       </div>
     </div>
   )

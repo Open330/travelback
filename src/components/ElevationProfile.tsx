@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { Track } from '@/types'
+import { useLocale } from '@/lib/i18n'
 
 interface ElevationProfileProps {
   track: Track
@@ -10,6 +11,7 @@ interface ElevationProfileProps {
 }
 
 export default function ElevationProfile({ track, progress, onSeek }: ElevationProfileProps) {
+  const { t } = useLocale()
   const elevations = useMemo(() => {
     return track.points.map(p => p.ele ?? null)
   }, [track])
@@ -58,7 +60,7 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
   return (
     <div className="w-full">
       <div className="flex items-center justify-between text-[9px] mb-0.5 px-1" style={{ color: 'var(--t4)' }}>
-        <span>Elevation</span>
+        <span>{t('elevation.label')}</span>
         <span>{Math.round(minEle)}m — {Math.round(maxEle)}m ({Math.round(elevRange)}m Δ)</span>
       </div>
       <svg
@@ -66,7 +68,7 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
         preserveAspectRatio="none"
         className="w-full h-10 cursor-pointer rounded"
         onClick={handleClick}
-        aria-label="Elevation profile"
+        aria-label={t('elevation.profileAria')}
       >
         {/* Gradient fill */}
         <defs>

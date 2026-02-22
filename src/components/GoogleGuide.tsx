@@ -2,85 +2,65 @@
 
 import { useState } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
+import { useLocale } from '@/lib/i18n'
 
 interface GoogleGuideProps {
   isOpen: boolean
   onClose: () => void
 }
 
-const methods = [
-  {
-    label: 'From your phone (recommended)',
-    steps: [
-      {
-        number: 1,
-        title: 'Open Google Maps',
-        items: [
-          'Tap your profile picture',
-          'Go to "Your Timeline"',
-        ],
-      },
-      {
-        number: 2,
-        title: 'Export your data',
-        items: [
-          'Tap ⋮ (more) → Settings → Export Timeline data',
-          'This downloads a location-history.json file',
-        ],
-      },
-      {
-        number: 3,
-        title: 'Upload to Travelback',
-        items: [
-          'Drop the JSON file here',
-          'Use the timeline slider to select a date range',
-        ],
-      },
-    ],
-  },
-  {
-    label: 'From Google Takeout',
-    steps: [
-      {
-        number: 1,
-        title: 'Go to Google Takeout',
-        items: [
-          'Visit takeout.google.com',
-          'Deselect all, then select "Location History"',
-        ],
-        action: {
-          label: 'Open Google Takeout',
-          href: 'https://takeout.google.com',
-        },
-      },
-      {
-        number: 2,
-        title: 'Download & extract',
-        items: [
-          'Create export → wait for email → download zip',
-          'Any of these files work: Records.json, Timeline Edits.json, or monthly Semantic Location History files (e.g. 2024_JANUARY.json)',
-        ],
-      },
-      {
-        number: 3,
-        title: 'Upload to Travelback',
-        items: [
-          'Drop any of the JSON files here',
-          'Use the timeline slider to select a date range',
-        ],
-      },
-    ],
-  },
-]
-
-const tips = [
-  'Since 2024, Google stores Timeline data on-device — phone export usually has the most complete data',
-  'Large files (100MB+) may take a moment to parse',
-  'Use the timeline selector to zoom into specific trips',
-]
-
 export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
+  const { t } = useLocale()
   const [tab, setTab] = useState(0)
+
+  const methods = [
+    {
+      label: t('google.phoneTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.step1Phone'),
+          items: [t('google.step1PhoneItem1'), t('google.step1PhoneItem2')],
+        },
+        {
+          number: 2,
+          title: t('google.step2Phone'),
+          items: [t('google.step2PhoneItem1'), t('google.step2PhoneItem2')],
+        },
+        {
+          number: 3,
+          title: t('google.step3Phone'),
+          items: [t('google.step3PhoneItem1'), t('google.step3PhoneItem2')],
+        },
+      ],
+    },
+    {
+      label: t('google.takeoutTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.step1Takeout'),
+          items: [t('google.step1TakeoutItem1'), t('google.step1TakeoutItem2')],
+          action: {
+            label: t('google.openTakeout'),
+            href: 'https://takeout.google.com',
+          },
+        },
+        {
+          number: 2,
+          title: t('google.step2Takeout'),
+          items: [t('google.step2TakeoutItem1'), t('google.step2TakeoutItem2')],
+        },
+        {
+          number: 3,
+          title: t('google.step3Takeout'),
+          items: [t('google.step3TakeoutItem1'), t('google.step3TakeoutItem2')],
+        },
+      ],
+    },
+  ]
+
+  const tips = [t('google.tip1'), t('google.tip2'), t('google.tip3')]
 
   if (!isOpen) return null
 
@@ -97,13 +77,13 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 z-10"
           style={{ background: 'inherit', borderRadius: 'var(--r-glass) var(--r-glass) 0 0' }}>
           <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
-            Export Google Timeline
+            {t('google.title')}
           </h3>
           <button
             onClick={onClose}
             className="transition-colors cursor-pointer flex-shrink-0"
             style={{ color: 'var(--t4)' }}
-            aria-label="Close"
+            aria-label={t('google.close')}
           >
             <X size={20} strokeWidth={2} />
           </button>
@@ -167,7 +147,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         {/* Tips */}
         <div className="mx-5 mb-5 p-4 gi" style={{ borderRadius: '10px', borderLeft: '3px solid var(--warn)' }}>
           <p className="text-sm font-semibold mb-2" style={{ color: 'var(--warn)' }}>
-            Tips
+            {t('google.tips')}
           </p>
           <ul className="space-y-1">
             {tips.map((tip, i) => (

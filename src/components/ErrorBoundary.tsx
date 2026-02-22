@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { t as translate, detectLocale } from '@/lib/i18n'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -35,15 +36,17 @@ export default class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
+      const locale = detectLocale()
+      const t = (key: Parameters<typeof translate>[0]) => translate(key, locale)
       return (
         <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
           <div className="gc text-center max-w-md p-8" style={{ borderRadius: 'var(--r-glass)' }}>
             <p className="text-5xl mb-4">😵</p>
             <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
-              Something went wrong
+              {t('error.title')}
             </h1>
             <p className="text-sm mb-6" style={{ color: 'var(--t3)' }}>
-              {this.state.error?.message || 'An unexpected error occurred.'}
+              {this.state.error?.message || t('error.fallback')}
             </p>
             <div className="flex gap-3 justify-center">
               <button
@@ -51,13 +54,13 @@ export default class ErrorBoundary extends React.Component<
                 className="gi px-4 py-2 text-sm font-medium cursor-pointer"
                 style={{ color: 'var(--t1)' }}
               >
-                Try Again
+                {t('error.tryAgain')}
               </button>
               <button
                 onClick={this.handleReload}
                 className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
               >
-                Reload Page
+                {t('error.reloadPage')}
               </button>
             </div>
           </div>
