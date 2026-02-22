@@ -16,6 +16,16 @@ const QUALITY_MAP: Record<string, number> = {
   maximum: 20,
 }
 
+const RESOLUTION_KEYS = [
+  'resolution.youtube',
+  'resolution.tiktok',
+  'resolution.instagramSquare',
+  'resolution.instagramPost',
+  'resolution.hd',
+  'resolution.4k',
+  'resolution.4kPortrait',
+] as const
+
 interface ExportPanelProps {
   isOpen: boolean
   onClose: () => void
@@ -192,8 +202,8 @@ export default function ExportPanel({
                 <select value={resolutionIdx}
                   onChange={e => setResolutionIdx(parseInt(e.target.value))}
                   className="vitro-select w-full px-3 py-2 text-sm">
-                  {RESOLUTION_PRESETS.map((r, i) => (
-                    <option key={i} value={i}>{r.label}</option>
+                  {RESOLUTION_PRESETS.map((_r, i) => (
+                    <option key={i} value={i}>{t(RESOLUTION_KEYS[i] as 'resolution.youtube')}</option>
                   ))}
                 </select>
               </div>

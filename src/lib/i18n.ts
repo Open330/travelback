@@ -99,6 +99,22 @@ export const translations = {
     'export.exportAgain': 'Export Again',
     'export.share': 'Share',
 
+    // Resolution preset labels
+    'resolution.youtube': 'YouTube / Landscape (1920×1080)',
+    'resolution.tiktok': 'TikTok / Shorts / Reels (1080×1920)',
+    'resolution.instagramSquare': 'Instagram Square (1080×1080)',
+    'resolution.instagramPost': 'Instagram Post (1080×1350)',
+    'resolution.hd': 'HD Landscape (1280×720)',
+    'resolution.4k': '4K Landscape (3840×2160)',
+    'resolution.4kPortrait': '4K Portrait (2160×3840)',
+
+    // Map style labels
+    'mapStyle.voyager': 'Voyager',
+    'mapStyle.positron': 'Light',
+    'mapStyle.dark': 'Dark',
+    'mapStyle.liberty': 'Liberty',
+    'mapStyle.bright': 'Bright',
+
     // GoogleGuide / ImportGuide
     'google.title': 'How to Get Your Travel Data',
     'google.close': 'Close',
@@ -312,6 +328,22 @@ export const translations = {
     'export.tipYouTube': 'YouTube 업로드: YouTube 열기 → + 탭 → 동영상 업로드 → 파일 선택',
     'export.exportAgain': '다시 내보내기',
     'export.share': '공유',
+
+    // Resolution preset labels
+    'resolution.youtube': 'YouTube / 가로 (1920×1080)',
+    'resolution.tiktok': 'TikTok / 세로 (1080×1920)',
+    'resolution.instagramSquare': 'Instagram 정사각형 (1080×1080)',
+    'resolution.instagramPost': 'Instagram 게시물 (1080×1350)',
+    'resolution.hd': 'HD 가로 (1280×720)',
+    'resolution.4k': '4K 가로 (3840×2160)',
+    'resolution.4kPortrait': '4K 세로 (2160×3840)',
+
+    // Map style labels
+    'mapStyle.voyager': 'Voyager',
+    'mapStyle.positron': '밝은',
+    'mapStyle.dark': '어두운',
+    'mapStyle.liberty': 'Liberty',
+    'mapStyle.bright': 'Bright',
 
     // GoogleGuide / ImportGuide
     'google.title': '여행 데이터 가져오기',

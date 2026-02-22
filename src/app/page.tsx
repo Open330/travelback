@@ -390,7 +390,7 @@ function HomeInner() {
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t1)' }}
           >
-            {t('app.mapStylePrefix')} {MAP_STYLES[mapStyleKey].label}
+            {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
           </button>
           <button
             onClick={() => setShowExport(true)}
