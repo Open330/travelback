@@ -122,11 +122,10 @@ export async function exportVideo(
     throw new Error('Video encoding failed: no output buffer')
   }
 
-  const sanitizedName = track.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 64)
-  const codecLabel = codec === 'h265' ? 'hevc' : codec
+  const sanitizedName = track.name.replace(/[^a-zA-Z0-9\s\-]/g, '').trim().slice(0, 64) || 'Journey'
   return {
     buffer,
-    filename: `${sanitizedName}_travelback_${resolution.width}x${resolution.height}_${codecLabel}.mp4`,
+    filename: `Travelback - ${sanitizedName}.mp4`,
     mimeType: 'video/mp4',
   }
 }

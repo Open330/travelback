@@ -18,6 +18,7 @@ import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes } from '@/lib/camera'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
+import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, useLocale } from '@/lib/i18n'
 
 export default function Home() {
@@ -42,6 +43,8 @@ function HomeInner() {
   const [showExport, setShowExport] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [exportState, setExportState] = useState<'idle' | 'exporting' | 'done'>('idle')
+  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null)
   const [isCreatingJourney, setIsCreatingJourney] = useState(false)
   const [showGoogleGuide, setShowGoogleGuide] = useState(false)
   const [scenes, setScenes] = useState<Scene[]>([])
@@ -180,6 +183,7 @@ function HomeInner() {
     exportAbortRef.current = abortController
 
     setIsExporting(true)
+    setExportState('exporting')
     setExportProgress(0)
     setIsPlaying(false)
 
@@ -214,6 +218,12 @@ function HomeInner() {
       )
 
       downloadVideo(result)
+
+      // Store blob URL for video preview in success screen
+      const blob = new Blob([result.buffer], { type: result.mimeType })
+      const videoUrl = URL.createObjectURL(blob)
+      setExportedVideoUrl(videoUrl)
+      setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -225,6 +235,7 @@ function HomeInner() {
           'error',
         )
       }
+      setExportState('idle')
     } finally {
       exportAbortRef.current = null
       // Restore original map size
@@ -232,9 +243,38 @@ function HomeInner() {
       await new Promise(r => setTimeout(r, 200))
       setIsExporting(false)
       setExportProgress(0)
-      setShowExport(false)
     }
-  }, [track, scenes, addToast])
+  }, [track, scenes, addToast, t])
+
+  const handleResetExport = useCallback(() => {
+    if (exportedVideoUrl) {
+      URL.revokeObjectURL(exportedVideoUrl)
+    }
+    setExportedVideoUrl(null)
+    setExportState('idle')
+    setShowExport(false)
+  }, [exportedVideoUrl])
+
+  const handleLoadSample = useCallback(async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sample-trip.gpx`)
+      if (!res.ok) throw new Error('fetch failed')
+      const text = await res.text()
+      const file = new File([text], 'sample-trip.gpx', { type: 'application/gpx+xml' })
+      const parsed = await parseTrackFile(file)
+      setFullTrack(parsed)
+      setTrack(parsed)
+      setProgress(0)
+      setIsPlaying(false)
+    } catch {
+      addToast('Could not load sample trip', 'error')
+    }
+  }, [addToast])
+
+  const handleModeChange = useCallback((mode: 'dark' | 'light') => {
+    // Auto-match map style with theme
+    setMapStyleKey(mode === 'dark' ? 'dark' : 'voyager')
+  }, [])
 
   const cycleStyle = useCallback(() => {
     const keys = Object.keys(MAP_STYLES) as MapStyleKey[]
@@ -279,12 +319,14 @@ function HomeInner() {
           onTrackLoaded={handleTrackLoaded}
           hasTrack={track !== null}
           onShowGoogleGuide={() => setShowGoogleGuide(true)}
+          onLoadSample={handleLoadSample}
+          onCreateJourney={() => setIsCreatingJourney(true)}
         />
       )}
 
       {/* Theme toggle */}
       <div className="absolute top-4 right-4 z-10">
-        <ThemeToggle />
+        <ThemeToggle onModeChange={handleModeChange} />
       </div>
 
       {!track && !isCreatingJourney && (
@@ -348,7 +390,7 @@ function HomeInner() {
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t1)' }}
           >
-            {MAP_STYLES[mapStyleKey].label}
+            {t('app.mapStylePrefix')} {MAP_STYLES[mapStyleKey].label}
           </button>
           <button
             onClick={() => setShowExport(true)}
@@ -415,6 +457,9 @@ function HomeInner() {
         onExport={handleExport}
         isExporting={isExporting}
         exportProgress={exportProgress}
+        exportState={exportState}
+        exportedVideoUrl={exportedVideoUrl}
+        onResetExport={handleResetExport}
       />
 
       <Toast messages={toasts} onDismiss={dismissToast} />

@@ -48,7 +48,7 @@ export default function Controls({
   return (
     <div>
       <div className="gc nh mx-4 mb-4 p-4" style={{ borderRadius: 'var(--r-glass)' }}>
-        {/* Progress bar */}
+        {/* Progress bar — thicker for touch */}
         <div className="mb-3">
           <input
             type="range"
@@ -58,9 +58,9 @@ export default function Controls({
             value={progress}
             onChange={handleProgressChange}
             aria-label="Playback progress"
-            className="w-full h-2 rounded-full appearance-none cursor-pointer
+            className="w-full h-3 rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
+              [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
               [&::-webkit-slider-thumb]:rounded-full
               [&::-webkit-slider-thumb]:shadow-md
               [&::-webkit-slider-thumb]:cursor-pointer"
@@ -130,10 +130,10 @@ export default function Controls({
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Stats */}
-          <div className="text-sm space-x-3 hidden sm:flex" style={{ color: 'var(--t3)' }}>
+          {/* Stats — always visible, compact on mobile */}
+          <div className="text-xs sm:text-sm space-x-2 sm:space-x-3 flex" style={{ color: 'var(--t3)' }}>
             <span>{formatDistance(traveled)} / {formatDistance(total)}</span>
-            <span>{formatDuration(elapsed)} / {formatDuration(duration)}</span>
+            <span className="hidden sm:inline">{formatDuration(elapsed)} / {formatDuration(duration)}</span>
           </div>
         </div>
       </div>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Travelback"
+  xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Namsan Tower Walk</name>
+    <desc>A scenic walk around Namsan Tower in Seoul</desc>
+  </metadata>
+  <trk>
+    <name>Namsan Tower Walk</name>
+    <trkseg>
+      <trkpt lat="37.5512" lon="126.9882"><ele>125</ele><time>2024-03-15T10:00:00Z</time></trkpt>
+      <trkpt lat="37.5516" lon="126.9878"><ele>132</ele><time>2024-03-15T10:01:00Z</time></trkpt>
+      <trkpt lat="37.5521" lon="126.9873"><ele>141</ele><time>2024-03-15T10:02:00Z</time></trkpt>
+      <trkpt lat="37.5527" lon="126.9869"><ele>155</ele><time>2024-03-15T10:03:00Z</time></trkpt>
+      <trkpt lat="37.5533" lon="126.9864"><ele>168</ele><time>2024-03-15T10:04:00Z</time></trkpt>
+      <trkpt lat="37.5539" lon="126.9858"><ele>182</ele><time>2024-03-15T10:05:30Z</time></trkpt>
+      <trkpt lat="37.5544" lon="126.9851"><ele>195</ele><time>2024-03-15T10:07:00Z</time></trkpt>
+      <trkpt lat="37.5549" lon="126.9845"><ele>210</ele><time>2024-03-15T10:08:30Z</time></trkpt>
+      <trkpt lat="37.5554" lon="126.9838"><ele>225</ele><time>2024-03-15T10:10:00Z</time></trkpt>
+      <trkpt lat="37.5558" lon="126.9830"><ele>238</ele><time>2024-03-15T10:11:30Z</time></trkpt>
+      <trkpt lat="37.5562" lon="126.9822"><ele>250</ele><time>2024-03-15T10:13:00Z</time></trkpt>
+      <trkpt lat="37.5565" lon="126.9814"><ele>260</ele><time>2024-03-15T10:14:30Z</time></trkpt>
+      <trkpt lat="37.5568" lon="126.9805"><ele>270</ele><time>2024-03-15T10:16:00Z</time></trkpt>
+      <trkpt lat="37.5570" lon="126.9796"><ele>278</ele><time>2024-03-15T10:17:30Z</time></trkpt>
+      <trkpt lat="37.5572" lon="126.9787"><ele>285</ele><time>2024-03-15T10:19:00Z</time></trkpt>
+      <trkpt lat="37.5574" lon="126.9778"><ele>290</ele><time>2024-03-15T10:20:30Z</time></trkpt>
+      <trkpt lat="37.5575" lon="126.9770"><ele>295</ele><time>2024-03-15T10:22:00Z</time></trkpt>
+      <trkpt lat="37.5577" lon="126.9762"><ele>298</ele><time>2024-03-15T10:23:30Z</time></trkpt>
+      <trkpt lat="37.5578" lon="126.9753"><ele>300</ele><time>2024-03-15T10:25:00Z</time></trkpt>
+      <trkpt lat="37.5580" lon="126.9745"><ele>302</ele><time>2024-03-15T10:26:30Z</time></trkpt>
+      <trkpt lat="37.5581" lon="126.9737"><ele>305</ele><time>2024-03-15T10:28:00Z</time></trkpt>
+      <trkpt lat="37.5582" lon="126.9730"><ele>308</ele><time>2024-03-15T10:29:30Z</time></trkpt>
+      <trkpt lat="37.5583" lon="126.9722"><ele>310</ele><time>2024-03-15T10:31:00Z</time></trkpt>
+      <trkpt lat="37.5584" lon="126.9714"><ele>312</ele><time>2024-03-15T10:32:30Z</time></trkpt>
+      <trkpt lat="37.5585" lon="126.9707"><ele>315</ele><time>2024-03-15T10:34:00Z</time></trkpt>
+      <trkpt lat="37.5586" lon="126.9700"><ele>318</ele><time>2024-03-15T10:35:30Z</time></trkpt>
+      <trkpt lat="37.5587" lon="126.9692"><ele>320</ele><time>2024-03-15T10:37:00Z</time></trkpt>
+      <trkpt lat="37.5588" lon="126.9685"><ele>322</ele><time>2024-03-15T10:38:30Z</time></trkpt>
+      <trkpt lat="37.5590" lon="126.9678"><ele>318</ele><time>2024-03-15T10:40:00Z</time></trkpt>
+      <trkpt lat="37.5592" lon="126.9671"><ele>312</ele><time>2024-03-15T10:41:30Z</time></trkpt>
+      <trkpt lat="37.5595" lon="126.9665"><ele>305</ele><time>2024-03-15T10:43:00Z</time></trkpt>
+      <trkpt lat="37.5598" lon="126.9659"><ele>298</ele><time>2024-03-15T10:44:30Z</time></trkpt>
+      <trkpt lat="37.5601" lon="126.9653"><ele>290</ele><time>2024-03-15T10:46:00Z</time></trkpt>
+      <trkpt lat="37.5605" lon="126.9648"><ele>282</ele><time>2024-03-15T10:47:30Z</time></trkpt>
+      <trkpt lat="37.5609" lon="126.9643"><ele>275</ele><time>2024-03-15T10:49:00Z</time></trkpt>
+      <trkpt lat="37.5613" lon="126.9639"><ele>268</ele><time>2024-03-15T10:50:30Z</time></trkpt>
+      <trkpt lat="37.5617" lon="126.9635"><ele>260</ele><time>2024-03-15T10:52:00Z</time></trkpt>
+      <trkpt lat="37.5622" lon="126.9631"><ele>252</ele><time>2024-03-15T10:53:30Z</time></trkpt>
+      <trkpt lat="37.5626" lon="126.9628"><ele>245</ele><time>2024-03-15T10:55:00Z</time></trkpt>
+      <trkpt lat="37.5631" lon="126.9625"><ele>238</ele><time>2024-03-15T10:56:30Z</time></trkpt>
+      <trkpt lat="37.5636" lon="126.9622"><ele>230</ele><time>2024-03-15T10:58:00Z</time></trkpt>
+      <trkpt lat="37.5641" lon="126.9620"><ele>222</ele><time>2024-03-15T10:59:30Z</time></trkpt>
+      <trkpt lat="37.5646" lon="126.9618"><ele>215</ele><time>2024-03-15T11:01:00Z</time></trkpt>
+      <trkpt lat="37.5651" lon="126.9617"><ele>208</ele><time>2024-03-15T11:02:30Z</time></trkpt>
+      <trkpt lat="37.5656" lon="126.9616"><ele>200</ele><time>2024-03-15T11:04:00Z</time></trkpt>
+      <trkpt lat="37.5661" lon="126.9616"><ele>192</ele><time>2024-03-15T11:05:30Z</time></trkpt>
+      <trkpt lat="37.5666" lon="126.9617"><ele>185</ele><time>2024-03-15T11:07:00Z</time></trkpt>
+      <trkpt lat="37.5671" lon="126.9618"><ele>178</ele><time>2024-03-15T11:08:30Z</time></trkpt>
+      <trkpt lat="37.5676" lon="126.9620"><ele>170</ele><time>2024-03-15T11:10:00Z</time></trkpt>
+      <trkpt lat="37.5680" lon="126.9623"><ele>162</ele><time>2024-03-15T11:11:30Z</time></trkpt>
+      <trkpt lat="37.5684" lon="126.9627"><ele>155</ele><time>2024-03-15T11:13:00Z</time></trkpt>
+      <trkpt lat="37.5688" lon="126.9631"><ele>148</ele><time>2024-03-15T11:14:30Z</time></trkpt>
+      <trkpt lat="37.5691" lon="126.9636"><ele>140</ele><time>2024-03-15T11:16:00Z</time></trkpt>
+      <trkpt lat="37.5694" lon="126.9642"><ele>135</ele><time>2024-03-15T11:17:30Z</time></trkpt>
+      <trkpt lat="37.5696" lon="126.9649"><ele>130</ele><time>2024-03-15T11:19:00Z</time></trkpt>
+      <trkpt lat="37.5697" lon="126.9656"><ele>128</ele><time>2024-03-15T11:20:30Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+

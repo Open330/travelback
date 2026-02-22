@@ -11,7 +11,7 @@ interface TimelineSelectorProps {
 }
 
 const BUCKET_COUNT = 100
-const HANDLE_RADIUS = 10
+const HANDLE_RADIUS = 14
 
 function formatDate(date: Date | undefined): string {
   if (!date) return ''
@@ -220,13 +220,13 @@ export default function TimelineSelector({
           }}
         />
 
-        {/* Start handle */}
+        {/* Start handle — 44px min touch target */}
         <div
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
           style={{
             left: `calc(${startRatio * 100}% - ${HANDLE_RADIUS}px)`,
-            width: HANDLE_RADIUS * 2,
-            height: HANDLE_RADIUS * 2 + 8,
+            width: Math.max(HANDLE_RADIUS * 2, 44),
+            height: Math.max(HANDLE_RADIUS * 2 + 8, 44),
             touchAction: 'none',
           }}
           onMouseDown={(e) => {
@@ -249,13 +249,13 @@ export default function TimelineSelector({
           </div>
         </div>
 
-        {/* End handle */}
+        {/* End handle — 44px min touch target */}
         <div
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
           style={{
             left: `calc(${endRatio * 100}% - ${HANDLE_RADIUS}px)`,
-            width: HANDLE_RADIUS * 2,
-            height: HANDLE_RADIUS * 2 + 8,
+            width: Math.max(HANDLE_RADIUS * 2, 44),
+            height: Math.max(HANDLE_RADIUS * 2 + 8, 44),
             touchAction: 'none',
           }}
           onMouseDown={(e) => {

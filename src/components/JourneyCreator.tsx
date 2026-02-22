@@ -314,21 +314,33 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         </button>
       </div>
 
-      {/* Hint */}
-      <div className="px-4 py-2">
-        <p className="text-xs" style={{ color: 'var(--t3)' }}>
-          {t('journey.hint')}
-        </p>
-      </div>
+      {/* Instructions overlay when no points yet */}
+      {pointCount === 0 ? (
+        <div className="px-4 py-4 text-center">
+          <p className="text-sm font-medium" style={{ color: 'var(--t2)' }}>
+            {t('journey.instructionTitle')}
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--t4)' }}>
+            {t('journey.instructionSubtitle')}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Hint */}
+          <div className="px-4 py-2">
+            <p className="text-xs" style={{ color: 'var(--t3)' }}>
+              {t('journey.hint')}
+            </p>
+          </div>
 
-      {/* Stats */}
-      <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--t2)' }}>
-        {pointCount === 0
-          ? t('journey.noPoints')
-          : pointCount === 1
-          ? t('journey.onePoint')
-          : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters)}`}
-      </div>
+          {/* Stats */}
+          <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--t2)' }}>
+            {pointCount === 1
+              ? t('journey.onePoint')
+              : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters)}`}
+          </div>
+        </>
+      )}
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>

@@ -38,15 +38,6 @@ export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
 // --- Camera Modes ---
 export type CameraMode = 'overview' | 'flyover' | 'orbit' | 'ground' | 'closeup' | 'birdeye'
 
-export const CAMERA_MODE_LABELS: Record<CameraMode, string> = {
-  overview: 'Overview',
-  flyover: 'Flyover',
-  orbit: 'Orbit',
-  ground: 'Ground Follow',
-  closeup: 'Closeup',
-  birdeye: "Bird's Eye",
-}
-
 export interface CameraParams {
   zoom: number
   pitch: number

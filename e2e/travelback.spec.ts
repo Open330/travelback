@@ -42,7 +42,7 @@ test.describe('Travelback App', () => {
 
   test('shows file upload area on initial load', async ({ page }) => {
     // The file upload drop zone should be visible
-    await expect(page.getByText(/drop.*gpx|upload/i)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
   })
 
   test('imports GPX file and displays track', async ({ page }) => {
@@ -68,15 +68,15 @@ test.describe('Travelback App', () => {
     await playBtn.click({ force: true })
     await page.waitForTimeout(1500)
 
-    // The Follow button should be visible
-    await expect(page.getByText('Follow')).toBeVisible()
+    // The Track button should be visible (renamed from Follow)
+    await expect(page.getByText('Track')).toBeVisible()
   })
 
   test('scene editor opens and allows adding scenes', async ({ page }) => {
     await uploadGpx(page)
 
-    // Click Scenes button
-    const scenesBtn = page.getByText('Scenes', { exact: true })
+    // Click Camera button (renamed from Scenes)
+    const scenesBtn = page.getByText('Camera', { exact: true })
     await expect(scenesBtn).toBeVisible({ timeout: 10_000 })
     await scenesBtn.click({ force: true })
 
@@ -101,8 +101,8 @@ test.describe('Travelback App', () => {
   test('scene editor can change camera mode', async ({ page }) => {
     await uploadGpx(page)
 
-    // Open scene editor
-    await page.getByText('Scenes', { exact: true }).click({ force: true })
+    // Open scene editor (Camera button, renamed from Scenes)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
     await page.getByRole('button', { name: '+ Add' }).click({ force: true })
 
     // Change camera mode to Orbit
@@ -114,13 +114,13 @@ test.describe('Travelback App', () => {
   test('map style cycling works', async ({ page }) => {
     await uploadGpx(page)
 
-    // Click style cycle button (shows "Voyager" initially)
-    const styleBtn = page.getByText('Voyager')
+    // Click style cycle button (shows "Map: Voyager" initially)
+    const styleBtn = page.getByText('Map: Voyager')
     await expect(styleBtn).toBeVisible({ timeout: 10_000 })
     await styleBtn.click({ force: true })
 
-    // Should cycle to "Light"
-    await expect(page.getByText('Light')).toBeVisible({ timeout: 5_000 })
+    // Should cycle to "Map: Light"
+    await expect(page.getByText('Map: Light')).toBeVisible({ timeout: 5_000 })
   })
 
   test('export panel opens with resolution and codec options', async ({ page }) => {
@@ -131,16 +131,17 @@ test.describe('Travelback App', () => {
     await expect(exportBtn).toBeVisible({ timeout: 10_000 })
     await exportBtn.click({ force: true })
 
-    // Export panel should be visible with resolution presets
+    // Export panel should be visible with resolution presets and quality
     await expect(page.getByText('Export Video')).toBeVisible()
     await expect(page.getByText('Resolution')).toBeVisible()
-    await expect(page.getByText('Codec')).toBeVisible()
+    await expect(page.getByText('Quality')).toBeVisible()
 
     // Should have resolution select (options inside <select> are "hidden" per Playwright)
     const resolutionSelect = page.getByRole('combobox').first()
     await expect(resolutionSelect).toBeVisible()
 
-    // Should have codec options - check for select with codec values
+    // Codec is now behind the Advanced toggle — click to expand
+    await page.getByText('Advanced').click({ force: true })
     await expect(page.getByText('Codec')).toBeVisible()
 
     // Should have Start Export button

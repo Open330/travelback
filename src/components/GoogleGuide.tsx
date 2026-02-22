@@ -58,6 +58,61 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
         },
       ],
     },
+    {
+      label: t('google.stravaTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.strava1'),
+          items: [t('google.strava1Item1'), t('google.strava1Item2')],
+        },
+        {
+          number: 2,
+          title: t('google.strava2'),
+          items: [t('google.strava2Item1'), t('google.strava2Item2')],
+        },
+      ],
+    },
+    {
+      label: t('google.garminTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.garmin1'),
+          items: [t('google.garmin1Item1'), t('google.garmin1Item2')],
+        },
+      ],
+    },
+    {
+      label: t('google.allTrailsTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.alltrails1'),
+          items: [t('google.alltrails1Item1'), t('google.alltrails1Item2')],
+        },
+      ],
+    },
+    {
+      label: t('google.komootTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.komoot1'),
+          items: [t('google.komoot1Item1'), t('google.komoot1Item2')],
+        },
+      ],
+    },
+    {
+      label: t('google.otherTab'),
+      steps: [
+        {
+          number: 1,
+          title: t('google.other1'),
+          items: [t('google.other1Item1'), t('google.other1Item2')],
+        },
+      ],
+    },
   ]
 
   const tips = [t('google.tip1'), t('google.tip2'), t('google.tip3')]
@@ -89,13 +144,13 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </button>
         </div>
 
-        {/* Method tabs */}
-        <div className="px-5 flex gap-2 mb-3">
+        {/* Method tabs — wrapping for many platforms */}
+        <div className="px-5 flex flex-wrap gap-1.5 mb-3">
           {methods.map((m, i) => (
             <button
               key={i}
               onClick={() => setTab(i)}
-              className="px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-colors"
+              className="px-2.5 py-1 text-[11px] font-medium rounded-full cursor-pointer transition-colors"
               style={{
                 background: tab === i ? 'rgb(var(--gl))' : 'var(--bg-gi)',
                 color: tab === i ? '#fff' : 'var(--t3)',

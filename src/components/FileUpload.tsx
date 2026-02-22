@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useRef } from 'react'
-import { Map, ArrowRight } from 'lucide-react'
+import { Map, ArrowRight, MapPin, ChevronDown } from 'lucide-react'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
@@ -10,13 +10,16 @@ interface FileUploadProps {
   onTrackLoaded: (track: Track) => void
   hasTrack: boolean
   onShowGoogleGuide?: () => void
+  onLoadSample?: () => void
+  onCreateJourney?: () => void
 }
 
-export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide }: FileUploadProps) {
+export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showWhereToFind, setShowWhereToFind] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
@@ -121,8 +124,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
         <p className="mb-6" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.subtitle')}
         </p>
-        <p className="text-sm mb-4" style={{ color: 'var(--t4)' }}>
+        <p className="text-sm mb-1" style={{ color: 'var(--t4)' }}>
           {t('fileUpload.dropHint')}
+        </p>
+        <p className="text-xs mb-4" style={{ color: 'var(--t4)', opacity: 0.7 }}>
+          {t('fileUpload.formatHint')}
         </p>
         <button
           onClick={() => inputRef.current?.click()}
@@ -139,15 +145,44 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide 
           onChange={handleInputChange}
           className="hidden"
         />
-        {onShowGoogleGuide && (
-          <div className="mt-3">
+        <div className="mt-3 flex flex-col items-center gap-2">
+          {onLoadSample && (
+            <button onClick={onLoadSample} className="text-sm cursor-pointer transition-colors"
+              style={{ color: 'var(--t3)' }}>
+              {t('fileUpload.trySample')}
+            </button>
+          )}
+          {onCreateJourney && (
+            <button onClick={onCreateJourney} className="inline-flex items-center gap-1 text-sm cursor-pointer"
+              style={{ color: 'var(--t3)' }}>
+              <MapPin size={14} strokeWidth={2} />
+              {t('fileUpload.drawRoute')}
+            </button>
+          )}
+        </div>
+        <div className="mt-4 w-full">
+          {onShowGoogleGuide && (
             <button onClick={onShowGoogleGuide} className="underline text-sm inline-flex items-center gap-1"
               style={{ color: 'rgb(var(--gl))' }}>
-              {t('fileUpload.googleGuideLink')}
+              {t('fileUpload.importGuideLink')}
               <ArrowRight size={14} strokeWidth={2} />
             </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={() => setShowWhereToFind(v => !v)}
+            className="mt-1 text-xs inline-flex items-center gap-1 cursor-pointer"
+            style={{ color: 'var(--t4)' }}
+          >
+            <ChevronDown size={12} strokeWidth={2} className={`transition-transform ${showWhereToFind ? 'rotate-180' : ''}`} />
+            {t('fileUpload.whereToFind')}
+          </button>
+          {showWhereToFind && (
+            <div className="mt-2 text-xs text-left space-y-1" style={{ color: 'var(--t4)' }}>
+              <p>• <strong>{t('fileUpload.fromGoogle')}</strong> — {t('fileUpload.importGuideLink')}</p>
+              <p>• <strong>{t('fileUpload.fromOtherApps')}</strong> — GPX export</p>
+            </div>
+          )}
+        </div>
         {error && (
           <p className="mt-4 text-sm" style={{ color: 'var(--err)' }}>{error}</p>
         )}

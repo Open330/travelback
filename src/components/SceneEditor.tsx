@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
-import { CAMERA_MODE_LABELS, DEFAULT_CAMERA_PARAMS } from '@/types'
+import { DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from '@/lib/camera'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type TranslationKey } from '@/lib/i18n'
 
 const SCENE_COLORS = [
   'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
@@ -25,6 +25,7 @@ const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup'
 export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
+  const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-clear undo after 5 seconds
@@ -199,7 +200,11 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
             <select value={scene.cameraMode}
               onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
               className="vitro-select w-full text-xs px-2 py-1">
-              {MODES.map(m => <option key={m} value={m}>{CAMERA_MODE_LABELS[m]}</option>)}
+              {MODES.map(m => (
+                <option key={m} value={m}>
+                  {t(`camera.${m}` as TranslationKey)} — {t(`camera.${m}Desc` as TranslationKey)}
+                </option>
+              ))}
             </select>
 
             <div className="flex gap-2">
@@ -219,51 +224,65 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
               </label>
             </div>
 
-            <div className="flex gap-2">
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
-                <input type="range" min={1} max={20} step={0.5}
-                  value={scene.params.zoom}
-                  onChange={e => updateScene(scene.id, {
-                    params: { ...scene.params, zoom: parseFloat(e.target.value) }
-                  })}
-                  aria-label={`Zoom for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
-              </label>
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
-                <input type="range" min={0} max={85} step={1}
-                  value={scene.params.pitch}
-                  onChange={e => updateScene(scene.id, {
-                    params: { ...scene.params, pitch: parseFloat(e.target.value) }
-                  })}
-                  aria-label={`Pitch for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
-              </label>
-            </div>
+            {/* Collapsible parameters */}
+            <button
+              onClick={() => setExpandedSceneId(expandedSceneId === scene.id ? null : scene.id)}
+              className="text-[10px] inline-flex items-center gap-1 cursor-pointer"
+              style={{ color: 'var(--t4)' }}
+            >
+              <ChevronDown size={10} strokeWidth={2} className={`transition-transform ${expandedSceneId === scene.id ? 'rotate-180' : ''}`} />
+              {t('scenes.customize')}
+            </button>
 
-            <div className="flex gap-2">
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.bearing')} {scene.params.bearingOffset}°</span>
-                <input type="range" min={-180} max={180} step={1}
-                  value={scene.params.bearingOffset}
-                  onChange={e => updateScene(scene.id, {
-                    params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
-                  })}
-                  aria-label={`Bearing offset for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
-              </label>
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
-                <input type="range" min={0} max={90} step={1}
-                  value={scene.params.rotationSpeed}
-                  onChange={e => updateScene(scene.id, {
-                    params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
-                  })}
-                  aria-label={`Rotation speed for ${scene.name}`}
-                  className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
-              </label>
-            </div>
+            {expandedSceneId === scene.id && (
+              <>
+                <div className="flex gap-2">
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
+                    <input type="range" min={1} max={20} step={0.5}
+                      value={scene.params.zoom}
+                      onChange={e => updateScene(scene.id, {
+                        params: { ...scene.params, zoom: parseFloat(e.target.value) }
+                      })}
+                      aria-label={`Zoom for ${scene.name}`}
+                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
+                    <input type="range" min={0} max={85} step={1}
+                      value={scene.params.pitch}
+                      onChange={e => updateScene(scene.id, {
+                        params: { ...scene.params, pitch: parseFloat(e.target.value) }
+                      })}
+                      aria-label={`Pitch for ${scene.name}`}
+                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                  </label>
+                </div>
+
+                <div className="flex gap-2">
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.bearing')} {scene.params.bearingOffset}°</span>
+                    <input type="range" min={-180} max={180} step={1}
+                      value={scene.params.bearingOffset}
+                      onChange={e => updateScene(scene.id, {
+                        params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
+                      })}
+                      aria-label={`Bearing offset for ${scene.name}`}
+                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
+                    <input type="range" min={0} max={90} step={1}
+                      value={scene.params.rotationSpeed}
+                      onChange={e => updateScene(scene.id, {
+                        params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
+                      })}
+                      aria-label={`Rotation speed for ${scene.name}`}
+                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                  </label>
+                </div>
+              </>
+            )}
           </div>
         ))}
 
