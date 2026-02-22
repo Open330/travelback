@@ -30,7 +30,7 @@ export default function Home() {
 }
 
 function HomeInner() {
-  const { t } = useLocale()
+  const { t, locale, setLocale } = useLocale()
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
   const [track, setTrack] = useState<Track | null>(null)
   const [timelineRange, setTimelineRange] = useState<[number, number] | null>(null)
@@ -324,8 +324,18 @@ function HomeInner() {
         />
       )}
 
-      {/* Theme toggle */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* Theme toggle + Language picker */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <select
+          value={locale}
+          onChange={e => setLocale(e.target.value as 'en' | 'ko')}
+          aria-label={t('locale.label')}
+          className="gi px-2 py-1.5 text-xs font-medium cursor-pointer appearance-none text-center"
+          style={{ color: 'var(--t2)', minWidth: '3.5rem' }}
+        >
+          <option value="en">EN</option>
+          <option value="ko">KO</option>
+        </select>
         <ThemeToggle onModeChange={handleModeChange} />
       </div>
 

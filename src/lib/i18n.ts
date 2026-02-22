@@ -247,6 +247,9 @@ export const translations = {
     'app.cycleMapStyle': 'Cycle map style',
     'app.exportVideoKey': 'Export video (E)',
     'app.export': 'Export',
+
+    // Locale picker
+    'locale.label': 'Language',
   },
   ko: {
     // FileUpload
@@ -486,6 +489,9 @@ export const translations = {
     'app.cycleMapStyle': '지도 스타일 변경',
     'app.exportVideoKey': '영상 내보내기 (E)',
     'app.export': '내보내기',
+
+    // Locale picker
+    'locale.label': '언어',
   },
 } satisfies Record<Locale, Record<string, string>>
 
