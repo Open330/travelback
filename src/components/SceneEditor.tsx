@@ -246,6 +246,9 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       })}
                       aria-label={`Zoom for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
+                      <span>{t('scenes.zoomFar')}</span><span>{t('scenes.zoomClose')}</span>
+                    </span>
                   </label>
                   <label className="flex-1">
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
@@ -256,6 +259,9 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       })}
                       aria-label={`Pitch for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
+                      <span>{t('scenes.pitchFlat')}</span><span>{t('scenes.pitchAngled')}</span>
+                    </span>
                   </label>
                 </div>
 
@@ -269,6 +275,9 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       })}
                       aria-label={`Bearing offset for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
+                      <span>{t('scenes.bearingLeft')}</span><span>{t('scenes.bearingRight')}</span>
+                    </span>
                   </label>
                   <label className="flex-1">
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
@@ -279,6 +288,9 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                       })}
                       aria-label={`Rotation speed for ${scene.name}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
+                      <span>{t('scenes.rotationStill')}</span><span>{t('scenes.rotationSpin')}</span>
+                    </span>
                   </label>
                 </div>
               </>
