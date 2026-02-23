@@ -76,7 +76,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
     const end = Math.min(start + 0.15, 1)
     const newScene: Scene = {
       id: `scene-${Date.now()}`,
-      name: `Scene ${scenes.length + 1}`,
+      name: t('scenes.newSceneName').replace('{n}', String(scenes.length + 1)),
       cameraMode: 'flyover',
       startPercent: start,
       endPercent: end,
@@ -290,7 +290,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                         params: { ...scene.params, zoom: parseFloat(e.target.value) }
                       })}
                       onPointerUp={clearPreview}
-                      aria-label={`Zoom for ${scene.name}`}
+                      aria-label={t('scenes.zoomAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.zoomFar')}</span><span>{t('scenes.zoomClose')}</span>
@@ -304,7 +304,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                         params: { ...scene.params, pitch: parseFloat(e.target.value) }
                       })}
                       onPointerUp={clearPreview}
-                      aria-label={`Pitch for ${scene.name}`}
+                      aria-label={t('scenes.pitchAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.pitchFlat')}</span><span>{t('scenes.pitchAngled')}</span>
@@ -321,7 +321,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                         params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
                       })}
                       onPointerUp={clearPreview}
-                      aria-label={`Bearing offset for ${scene.name}`}
+                      aria-label={t('scenes.bearingAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.bearingLeft')}</span><span>{t('scenes.bearingRight')}</span>
@@ -335,7 +335,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
                         params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
                       })}
                       onPointerUp={clearPreview}
-                      aria-label={`Rotation speed for ${scene.name}`}
+                      aria-label={t('scenes.rotationAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.rotationStill')}</span><span>{t('scenes.rotationSpin')}</span>

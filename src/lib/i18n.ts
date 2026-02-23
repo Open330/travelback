@@ -30,6 +30,9 @@ export const translations = {
     'fileUpload.whereToFind': 'Where do I find my travel file?',
     'fileUpload.fromGoogle': 'Google Maps',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails, and more',
+    'fileUpload.unsupportedFormat': 'Unsupported file format',
+    'fileUpload.tooFewPoints': 'Track must contain at least 2 points',
+    'fileUpload.readFailed': 'Failed to read file',
 
     // Controls
     'controls.pause': 'Pause',
@@ -46,6 +49,7 @@ export const translations = {
     'controls.follow': 'Track',
     'controls.trackOn': 'Track: ON',
     'controls.trackOff': 'Track: OFF',
+    'controls.progressAria': 'Playback progress',
 
     // SceneEditor
     'scenes.title': 'Camera',
@@ -78,6 +82,11 @@ export const translations = {
     'scenes.hasStartGteEnd': 'has start ≥ end',
     'scenes.overlap': 'and',
     'scenes.overlapSuffix': 'overlap',
+    'scenes.newSceneName': 'Scene {n}',
+    'scenes.zoomAria': 'Zoom for {name}',
+    'scenes.pitchAria': 'Tilt for {name}',
+    'scenes.bearingAria': 'Direction for {name}',
+    'scenes.rotationAria': 'Orbit speed for {name}',
 
     // ExportPanel
     'export.title': 'Export Video',
@@ -252,6 +261,34 @@ export const translations = {
     'app.cycleMapStyle': 'Cycle map style',
     'app.exportVideoKey': 'Export video (E)',
     'app.export': 'Export',
+    'app.sampleLoadFailed': 'Could not load sample trip',
+    'app.cancelExportAria': 'Cancel export',
+    'app.mapLoadFailed': 'Map failed to load: {error}',
+
+    // GoogleGuide illustrations
+    'guide.profile': 'Profile',
+    'guide.yourTimeline': 'Your Timeline',
+    'guide.menuSettings': '⋮ → Settings',
+    'guide.export': 'Export',
+    'guide.toJson': '→ .json',
+    'guide.takeout': 'Takeout',
+    'guide.checkLocation': '☑ Location',
+    'guide.emailWait': '📧 Wait',
+    'guide.upload': 'Upload',
+    'guide.recordsJson': 'Records.json',
+    'guide.settings': 'Settings',
+    'guide.download': 'Download',
+    'guide.archive': 'Archive',
+    'guide.dotGpx': '.gpx',
+    'guide.activity': 'Activity',
+    'guide.gearOptions': '⚙ Options',
+    'guide.toGpx': '→ .gpx',
+    'guide.trailPage': 'Trail Page',
+    'guide.dotsMenu': '⋯ Menu',
+    'guide.tourPage': 'Tour Page',
+    'guide.anyApp': 'Any App',
+    'guide.exportShare': 'Export / Share',
+    'guide.gpxKml': '.gpx / .kml',
 
     // Locale picker
     'locale.label': 'Language',
@@ -286,6 +323,9 @@ export const translations = {
     'fileUpload.whereToFind': '여행 파일은 어디에 있나요?',
     'fileUpload.fromGoogle': 'Google 지도',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails 등',
+    'fileUpload.unsupportedFormat': '지원하지 않는 파일 형식입니다',
+    'fileUpload.tooFewPoints': '트랙에 최소 2개의 지점이 필요합니다',
+    'fileUpload.readFailed': '파일을 읽지 못했습니다',
 
     // Controls
     'controls.pause': '일시정지',
@@ -302,6 +342,7 @@ export const translations = {
     'controls.follow': '추적',
     'controls.trackOn': '추적: 켜짐',
     'controls.trackOff': '추적: 꺼짐',
+    'controls.progressAria': '재생 진행률',
 
     // SceneEditor
     'scenes.title': '카메라',
@@ -334,6 +375,11 @@ export const translations = {
     'scenes.hasStartGteEnd': '의 시작이 끝보다 크거나 같음',
     'scenes.overlap': '과',
     'scenes.overlapSuffix': '이(가) 겹침',
+    'scenes.newSceneName': '장면 {n}',
+    'scenes.zoomAria': '{name}의 줌',
+    'scenes.pitchAria': '{name}의 기울기',
+    'scenes.bearingAria': '{name}의 방향',
+    'scenes.rotationAria': '{name}의 회전 속도',
 
     // ExportPanel
     'export.title': '영상 내보내기',
@@ -508,6 +554,34 @@ export const translations = {
     'app.cycleMapStyle': '지도 스타일 변경',
     'app.exportVideoKey': '영상 내보내기 (E)',
     'app.export': '내보내기',
+    'app.sampleLoadFailed': '샘플 여행을 불러올 수 없습니다',
+    'app.cancelExportAria': '내보내기 취소',
+    'app.mapLoadFailed': '지도 로드 실패: {error}',
+
+    // GoogleGuide illustrations
+    'guide.profile': '프로필',
+    'guide.yourTimeline': '내 타임라인',
+    'guide.menuSettings': '⋮ → 설정',
+    'guide.export': '내보내기',
+    'guide.toJson': '→ .json',
+    'guide.takeout': 'Takeout',
+    'guide.checkLocation': '☑ 위치',
+    'guide.emailWait': '📧 대기',
+    'guide.upload': '업로드',
+    'guide.recordsJson': 'Records.json',
+    'guide.settings': '설정',
+    'guide.download': '다운로드',
+    'guide.archive': '아카이브',
+    'guide.dotGpx': '.gpx',
+    'guide.activity': '활동',
+    'guide.gearOptions': '⚙ 옵션',
+    'guide.toGpx': '→ .gpx',
+    'guide.trailPage': '트레일 페이지',
+    'guide.dotsMenu': '⋯ 메뉴',
+    'guide.tourPage': '투어 페이지',
+    'guide.anyApp': '기타 앱',
+    'guide.exportShare': '내보내기 / 공유',
+    'guide.gpxKml': '.gpx / .kml',
 
     // Locale picker
     'locale.label': '언어',
@@ -542,6 +616,9 @@ export const translations = {
     'fileUpload.whereToFind': '旅行ファイルはどこにありますか？',
     'fileUpload.fromGoogle': 'Google マップ',
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails など',
+    'fileUpload.unsupportedFormat': '対応していないファイル形式です',
+    'fileUpload.tooFewPoints': 'トラックには最低2つのポイントが必要です',
+    'fileUpload.readFailed': 'ファイルの読み取りに失敗しました',
 
     // Controls
     'controls.pause': '一時停止',
@@ -558,6 +635,7 @@ export const translations = {
     'controls.follow': '追従',
     'controls.trackOn': '追従: ON',
     'controls.trackOff': '追従: OFF',
+    'controls.progressAria': '再生の進行状況',
 
     // SceneEditor
     'scenes.title': 'カメラ',
@@ -590,6 +668,11 @@ export const translations = {
     'scenes.hasStartGteEnd': 'の開始が終了以上です',
     'scenes.overlap': 'と',
     'scenes.overlapSuffix': 'が重なっています',
+    'scenes.newSceneName': 'シーン {n}',
+    'scenes.zoomAria': '{name}のズーム',
+    'scenes.pitchAria': '{name}の傾き',
+    'scenes.bearingAria': '{name}の方向',
+    'scenes.rotationAria': '{name}の回転速度',
 
     // ExportPanel
     'export.title': '動画をエクスポート',
@@ -764,6 +847,34 @@ export const translations = {
     'app.cycleMapStyle': 'マップスタイルを切り替え',
     'app.exportVideoKey': '動画をエクスポート (E)',
     'app.export': 'エクスポート',
+    'app.sampleLoadFailed': 'サンプルの旅を読み込めませんでした',
+    'app.cancelExportAria': 'エクスポートをキャンセル',
+    'app.mapLoadFailed': 'マップの読み込みに失敗: {error}',
+
+    // GoogleGuide illustrations
+    'guide.profile': 'プロフィール',
+    'guide.yourTimeline': 'タイムライン',
+    'guide.menuSettings': '⋮ → 設定',
+    'guide.export': 'エクスポート',
+    'guide.toJson': '→ .json',
+    'guide.takeout': 'Takeout',
+    'guide.checkLocation': '☑ 位置情報',
+    'guide.emailWait': '📧 待機',
+    'guide.upload': 'アップロード',
+    'guide.recordsJson': 'Records.json',
+    'guide.settings': '設定',
+    'guide.download': 'ダウンロード',
+    'guide.archive': 'アーカイブ',
+    'guide.dotGpx': '.gpx',
+    'guide.activity': 'アクティビティ',
+    'guide.gearOptions': '⚙ オプション',
+    'guide.toGpx': '→ .gpx',
+    'guide.trailPage': 'トレイルページ',
+    'guide.dotsMenu': '⋯ メニュー',
+    'guide.tourPage': 'ツアーページ',
+    'guide.anyApp': 'その他のアプリ',
+    'guide.exportShare': 'エクスポート / 共有',
+    'guide.gpxKml': '.gpx / .kml',
 
     // Locale picker
     'locale.label': '言語',
@@ -798,6 +909,9 @@ export const translations = {
     'fileUpload.whereToFind': '旅行文件在哪里？',
     'fileUpload.fromGoogle': 'Google 地图',
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails 等',
+    'fileUpload.unsupportedFormat': '不支持的文件格式',
+    'fileUpload.tooFewPoints': '轨迹至少需要2个点',
+    'fileUpload.readFailed': '文件读取失败',
 
     // Controls
     'controls.pause': '暂停',
@@ -814,6 +928,7 @@ export const translations = {
     'controls.follow': '跟随',
     'controls.trackOn': '跟随: 开',
     'controls.trackOff': '跟随: 关',
+    'controls.progressAria': '播放进度',
 
     // SceneEditor
     'scenes.title': '镜头',
@@ -846,6 +961,11 @@ export const translations = {
     'scenes.hasStartGteEnd': '的起始 ≥ 结束',
     'scenes.overlap': '和',
     'scenes.overlapSuffix': '重叠',
+    'scenes.newSceneName': '场景 {n}',
+    'scenes.zoomAria': '{name}的缩放',
+    'scenes.pitchAria': '{name}的倾斜',
+    'scenes.bearingAria': '{name}的方向',
+    'scenes.rotationAria': '{name}的旋转速度',
 
     // ExportPanel
     'export.title': '导出视频',
@@ -1020,6 +1140,34 @@ export const translations = {
     'app.cycleMapStyle': '切换地图样式',
     'app.exportVideoKey': '导出视频 (E)',
     'app.export': '导出',
+    'app.sampleLoadFailed': '无法加载示例旅程',
+    'app.cancelExportAria': '取消导出',
+    'app.mapLoadFailed': '地图加载失败: {error}',
+
+    // GoogleGuide illustrations
+    'guide.profile': '个人资料',
+    'guide.yourTimeline': '您的时间线',
+    'guide.menuSettings': '⋮ → 设置',
+    'guide.export': '导出',
+    'guide.toJson': '→ .json',
+    'guide.takeout': 'Takeout',
+    'guide.checkLocation': '☑ 位置信息',
+    'guide.emailWait': '📧 等待',
+    'guide.upload': '上传',
+    'guide.recordsJson': 'Records.json',
+    'guide.settings': '设置',
+    'guide.download': '下载',
+    'guide.archive': '存档',
+    'guide.dotGpx': '.gpx',
+    'guide.activity': '活动',
+    'guide.gearOptions': '⚙ 选项',
+    'guide.toGpx': '→ .gpx',
+    'guide.trailPage': '路线页面',
+    'guide.dotsMenu': '⋯ 菜单',
+    'guide.tourPage': '旅程页面',
+    'guide.anyApp': '其他应用',
+    'guide.exportShare': '导出 / 分享',
+    'guide.gpxKml': '.gpx / .kml',
 
     // Locale picker
     'locale.label': '语言',
@@ -1054,6 +1202,9 @@ export const translations = {
     'fileUpload.whereToFind': '¿Dónde encuentro mi archivo de viaje?',
     'fileUpload.fromGoogle': 'Google Maps',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails y más',
+    'fileUpload.unsupportedFormat': 'Formato de archivo no compatible',
+    'fileUpload.tooFewPoints': 'La ruta debe tener al menos 2 puntos',
+    'fileUpload.readFailed': 'Error al leer el archivo',
 
     // Controls
     'controls.pause': 'Pausar',
@@ -1070,6 +1221,7 @@ export const translations = {
     'controls.follow': 'Seguir',
     'controls.trackOn': 'Seguir: ON',
     'controls.trackOff': 'Seguir: OFF',
+    'controls.progressAria': 'Progreso de reproducción',
 
     // SceneEditor
     'scenes.title': 'Cámara',
@@ -1102,6 +1254,11 @@ export const translations = {
     'scenes.hasStartGteEnd': 'tiene inicio ≥ fin',
     'scenes.overlap': 'y',
     'scenes.overlapSuffix': 'se solapan',
+    'scenes.newSceneName': 'Escena {n}',
+    'scenes.zoomAria': 'Zoom de {name}',
+    'scenes.pitchAria': 'Inclinación de {name}',
+    'scenes.bearingAria': 'Dirección de {name}',
+    'scenes.rotationAria': 'Velocidad de giro de {name}',
 
     // ExportPanel
     'export.title': 'Exportar video',
@@ -1276,6 +1433,34 @@ export const translations = {
     'app.cycleMapStyle': 'Cambiar estilo de mapa',
     'app.exportVideoKey': 'Exportar video (E)',
     'app.export': 'Exportar',
+    'app.sampleLoadFailed': 'No se pudo cargar el viaje de ejemplo',
+    'app.cancelExportAria': 'Cancelar exportación',
+    'app.mapLoadFailed': 'Error al cargar el mapa: {error}',
+
+    // GoogleGuide illustrations
+    'guide.profile': 'Perfil',
+    'guide.yourTimeline': 'Tu cronología',
+    'guide.menuSettings': '⋮ → Ajustes',
+    'guide.export': 'Exportar',
+    'guide.toJson': '→ .json',
+    'guide.takeout': 'Takeout',
+    'guide.checkLocation': '☑ Ubicación',
+    'guide.emailWait': '📧 Esperar',
+    'guide.upload': 'Subir',
+    'guide.recordsJson': 'Records.json',
+    'guide.settings': 'Ajustes',
+    'guide.download': 'Descargar',
+    'guide.archive': 'Archivo',
+    'guide.dotGpx': '.gpx',
+    'guide.activity': 'Actividad',
+    'guide.gearOptions': '⚙ Opciones',
+    'guide.toGpx': '→ .gpx',
+    'guide.trailPage': 'Página del sendero',
+    'guide.dotsMenu': '⋯ Menú',
+    'guide.tourPage': 'Página del tour',
+    'guide.anyApp': 'Otra app',
+    'guide.exportShare': 'Exportar / Compartir',
+    'guide.gpxKml': '.gpx / .kml',
 
     // Locale picker
     'locale.label': 'Idioma',

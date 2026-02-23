@@ -273,7 +273,7 @@ function HomeInner() {
       setProgress(0)
       setIsPlaying(false)
     } catch {
-      addToast('Could not load sample trip', 'error')
+      addToast(t('app.sampleLoadFailed'), 'error')
     }
   }, [addToast])
 
@@ -317,7 +317,7 @@ function HomeInner() {
             <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
             <button
               onClick={() => exportAbortRef.current?.abort()}
-              aria-label="Cancel export"
+              aria-label={t('app.cancelExportAria')}
               className="gi mt-4 px-4 py-2 text-sm cursor-pointer"
               style={{ background: 'rgba(var(--err-rgb, 244,63,94),.7)', color: '#fff', border: 'none' }}
             >

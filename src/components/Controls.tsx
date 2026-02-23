@@ -57,7 +57,7 @@ export default function Controls({
             step={0.001}
             value={progress}
             onChange={handleProgressChange}
-            aria-label="Playback progress"
+            aria-label={t('controls.progressAria')}
             className="w-full h-3 rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5

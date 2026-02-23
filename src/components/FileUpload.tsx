@@ -43,16 +43,22 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       onTrackLoaded(track)
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
-      // Show known safe error messages; generic fallback for unexpected errors
-      const safeMessages = [
-        'Unsupported file format',
-        'Track must contain at least 2 points',
-        'Failed to read file',
-      ]
-      const isSafe = safeMessages.some(m => message.includes(m))
-        || message === t('fileUpload.fileTooLarge')
+      // Map known English parser errors to i18n keys for display
+      const parserErrorMap: Record<string, string> = {
+        'Unsupported file format': 'fileUpload.unsupportedFormat',
+        'Track must contain at least 2 points': 'fileUpload.tooFewPoints',
+        'Failed to read file': 'fileUpload.readFailed',
+      }
+      const matchedKey = Object.keys(parserErrorMap).find(m => message.includes(m))
+      const isSafe = !!matchedKey || message === t('fileUpload.fileTooLarge')
       if (!isSafe) console.error('[Travelback] Parse error:', err)
-      setError(isSafe ? message : t('fileUpload.parseFailed'))
+      if (matchedKey) {
+        setError(t(parserErrorMap[matchedKey] as Parameters<typeof t>[0]))
+      } else if (message === t('fileUpload.fileTooLarge')) {
+        setError(message)
+      } else {
+        setError(t('fileUpload.parseFailed'))
+      }
     } finally {
       setLoading(false)
     }

@@ -6,6 +6,7 @@ import { useLocale } from '@/lib/i18n'
 
 /** Compact SVG illustrations for each guide tab */
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
+  const { t } = useLocale()
   const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   const text = { fill: 'var(--t3)', fontSize: 9, fontFamily: 'inherit' }
   const box = { fill: 'var(--bg-gi)', stroke: 'var(--t5, var(--t4))', strokeWidth: 1, rx: 4 }
@@ -24,15 +25,15 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
       {arrowDef}
       <rect x="4" y="6" width="56" height="48" {...box} rx={8} />
       <circle cx="32" cy="18" r="6" {...common} strokeWidth={1} />
-      <text x="32" y="40" textAnchor="middle" {...text} fontSize={7}>Profile</text>
+      <text x="32" y="40" textAnchor="middle" {...text} fontSize={7}>{t('guide.profile')}</text>
       <line x1="66" y1="30" x2="88" y2="30" {...arrow} />
       <rect x="94" y="6" width="72" height="48" {...box} />
-      <text x="130" y="26" textAnchor="middle" {...text}>Your Timeline</text>
-      <text x="130" y="40" textAnchor="middle" {...text} fontSize={7}>⋮ → Settings</text>
+      <text x="130" y="26" textAnchor="middle" {...text}>{t('guide.yourTimeline')}</text>
+      <text x="130" y="40" textAnchor="middle" {...text} fontSize={7}>{t('guide.menuSettings')}</text>
       <line x1="172" y1="30" x2="194" y2="30" {...arrow} />
       <rect x="200" y="6" width="72" height="48" {...box} />
-      <text x="236" y="26" textAnchor="middle" {...text}>Export</text>
-      <text x="236" y="40" textAnchor="middle" {...text} fontSize={7}>→ .json</text>
+      <text x="236" y="26" textAnchor="middle" {...text}>{t('guide.export')}</text>
+      <text x="236" y="40" textAnchor="middle" {...text} fontSize={7}>{t('guide.toJson')}</text>
     </svg>
   )
 
@@ -41,16 +42,16 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
-      <text x="40" y="24" textAnchor="middle" {...text}>Takeout</text>
-      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>☑ Location</text>
+      <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.takeout')}</text>
+      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.checkLocation')}</text>
       <line x1="82" y1="30" x2="104" y2="30" {...arrow} />
       <rect x="110" y="6" width="60" height="48" {...box} />
-      <text x="140" y="24" textAnchor="middle" {...text}>Export</text>
-      <text x="140" y="38" textAnchor="middle" {...text} fontSize={7}>📧 Wait</text>
+      <text x="140" y="24" textAnchor="middle" {...text}>{t('guide.export')}</text>
+      <text x="140" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.emailWait')}</text>
       <line x1="176" y1="30" x2="198" y2="30" {...arrow} />
       <rect x="204" y="6" width="72" height="48" {...box} />
-      <text x="240" y="24" textAnchor="middle" {...text}>Upload</text>
-      <text x="240" y="38" textAnchor="middle" {...text} fontSize={7}>Records.json</text>
+      <text x="240" y="24" textAnchor="middle" {...text}>{t('guide.upload')}</text>
+      <text x="240" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.recordsJson')}</text>
     </svg>
   )
 
@@ -59,15 +60,15 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
-      <text x="40" y="24" textAnchor="middle" {...text}>Profile</text>
-      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>Settings</text>
+      <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.profile')}</text>
+      <text x="40" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.settings')}</text>
       <line x1="82" y1="30" x2="104" y2="30" {...arrow} />
       <rect x="110" y="6" width="72" height="48" {...box} />
-      <text x="146" y="24" textAnchor="middle" {...text}>Download</text>
-      <text x="146" y="38" textAnchor="middle" {...text} fontSize={7}>Archive</text>
+      <text x="146" y="24" textAnchor="middle" {...text}>{t('guide.download')}</text>
+      <text x="146" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.archive')}</text>
       <line x1="188" y1="30" x2="210" y2="30" {...arrow} />
       <rect x="216" y="6" width="56" height="48" {...box} />
-      <text x="244" y="28" textAnchor="middle" {...text}>.gpx</text>
+      <text x="244" y="28" textAnchor="middle" {...text}>{t('guide.dotGpx')}</text>
     </svg>
   )
 
@@ -76,12 +77,12 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
-      <text x="44" y="24" textAnchor="middle" {...text}>Activity</text>
-      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⚙ Options</text>
+      <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.activity')}</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.gearOptions')}</text>
       <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
       <rect x="124" y="6" width="80" height="48" {...box} />
-      <text x="164" y="24" textAnchor="middle" {...text}>Export</text>
-      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+      <text x="164" y="24" textAnchor="middle" {...text}>{t('guide.export')}</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.toGpx')}</text>
     </svg>
   )
 
@@ -90,12 +91,12 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
-      <text x="44" y="24" textAnchor="middle" {...text}>Trail Page</text>
-      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⋯ Menu</text>
+      <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.trailPage')}</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.dotsMenu')}</text>
       <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
       <rect x="124" y="6" width="80" height="48" {...box} />
-      <text x="164" y="24" textAnchor="middle" {...text}>Export</text>
-      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+      <text x="164" y="24" textAnchor="middle" {...text}>{t('guide.export')}</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.toGpx')}</text>
     </svg>
   )
 
@@ -104,12 +105,12 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
-      <text x="44" y="24" textAnchor="middle" {...text}>Tour Page</text>
-      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>⋯ Menu</text>
+      <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.tourPage')}</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.dotsMenu')}</text>
       <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
       <rect x="124" y="6" width="80" height="48" {...box} />
-      <text x="164" y="24" textAnchor="middle" {...text}>Download</text>
-      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>→ .gpx</text>
+      <text x="164" y="24" textAnchor="middle" {...text}>{t('guide.download')}</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.toGpx')}</text>
     </svg>
   )
 
@@ -118,12 +119,12 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
-      <text x="44" y="24" textAnchor="middle" {...text}>Any App</text>
-      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>Export / Share</text>
+      <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.anyApp')}</text>
+      <text x="44" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.exportShare')}</text>
       <line x1="90" y1="30" x2="118" y2="30" {...arrow} />
       <rect x="124" y="6" width="80" height="48" {...box} />
-      <text x="164" y="24" textAnchor="middle" {...text}>Upload</text>
-      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>.gpx / .kml</text>
+      <text x="164" y="24" textAnchor="middle" {...text}>{t('guide.upload')}</text>
+      <text x="164" y="38" textAnchor="middle" {...text} fontSize={7}>{t('guide.gpxKml')}</text>
     </svg>
   )
 

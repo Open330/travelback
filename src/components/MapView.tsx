@@ -7,6 +7,7 @@ import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
 import { computeCameraForProgress } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
+import { useLocale } from '@/lib/i18n'
 
 interface MapViewProps {
   track: Track | null
@@ -35,6 +36,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   { track, progress, mapStyleKey, followCamera, scenes, duration = 30, transitionDuration = 0.03 },
   ref,
 ) {
+  const { t } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markerEl = useRef<HTMLDivElement | null>(null)
@@ -315,7 +317,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ''}`}>
       {mapError && (
         <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
-          <p>Map failed to load: {mapError}</p>
+          <p>{t('app.mapLoadFailed').replace('{error}', mapError)}</p>
         </div>
       )}
     </div>
