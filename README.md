@@ -1,3 +1,13 @@
+<div><img src="https://quickstart-for-agents.vercel.app/api/header.svg?theme=opencode&logo=travelback&title=Animate+GPX+and+location+history+into+cinematic+travel+videos&font=inter" width="100%" /></div>
+
+```
+You are an AI agent working on travelback, a browser-based app that animates
+GPX, KML, and Google Location History into cinematic travel videos using
+Next.js 16, React 19, MapLibre GL, and WebCodecs.
+Clone https://github.com/Open330/travelback and help add camera modes,
+map styles, export presets, or improve the scene editor.
+```
+
 <p align="center">
   <img src="public/favicon.svg" width="128" alt="Travelback Logo"/>
 </p>
