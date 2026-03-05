@@ -262,8 +262,13 @@ function HomeInner() {
   }, [exportedVideoUrl])
 
   const handleLoadSample = useCallback(async () => {
+    const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+    const sampleUrl = `${basePath}/sample-trip.gpx`
+    let responseStatus: number | null = null
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sample-trip.gpx`)
+      const res = await fetch(sampleUrl)
+      responseStatus = res.status
       if (!res.ok) throw new Error('fetch failed')
       const text = await res.text()
       const file = new File([text], 'sample-trip.gpx', { type: 'application/gpx+xml' })
@@ -272,10 +277,15 @@ function HomeInner() {
       setTrack(parsed)
       setProgress(0)
       setIsPlaying(false)
-    } catch {
+    } catch (err) {
+      console.error('Sample load failed:', {
+        sampleUrl,
+        responseStatus,
+        error: err instanceof Error ? err.message : String(err),
+      })
       addToast(t('app.sampleLoadFailed'), 'error')
     }
-  }, [addToast])
+  }, [addToast, t])
 
   const handlePreviewScene = useCallback((scene: Scene | null) => {
     if (!scene || !track) return

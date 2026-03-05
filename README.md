@@ -180,16 +180,26 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
 npx playwright install --with-deps chromium
-npx playwright test
+npm run test:e2e:dev
+npm run test:e2e:static
+```
+
+### Typecheck & Lint
+
+```bash
+npm run typecheck
+npm run lint
 ```
 
 ### Build
 
 ```bash
 npm run build
+npm run start
 ```
 
 Static output is generated in `out/` for deployment.
+`npm run start` serves the exported app at `http://localhost:3000/travelback/`.
 
 ## Deploy
 

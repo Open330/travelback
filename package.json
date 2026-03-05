@@ -5,8 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "node scripts/serve-static.mjs --base-path /travelback",
+    "preview": "npm run start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:dev": "playwright test -c playwright.config.ts",
+    "test:e2e:static": "npm run build && playwright test -c playwright.static.config.ts",
+    "smoke:static": "node scripts/smoke-static.mjs"
   },
   "dependencies": {
     "@tmcw/togeojson": "^7.1.2",
@@ -23,7 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^10.0.1",
+    "eslint": "^9.39.3",
     "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"

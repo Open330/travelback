@@ -41,6 +41,7 @@ yarn-error.log*
 
 # test results
 test-results/
+playwright-report/
 
 # review screenshots (artifacts, not source)
 review-screenshots/

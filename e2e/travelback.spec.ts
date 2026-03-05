@@ -64,6 +64,16 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
   })
 
+  test('loads sample trip from landing CTA', async ({ page }) => {
+    const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
+    await expect(sampleBtn).toBeVisible({ timeout: 10_000 })
+    await sampleBtn.click({ force: true })
+
+    await expect(page.getByText('Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible({ timeout: 10_000 })
+  })
+
   test('imports GPX file and displays track', async ({ page }) => {
     await uploadGpx(page)
 
@@ -304,4 +314,3 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Start Export')).toBeVisible()
   })
 })
-
