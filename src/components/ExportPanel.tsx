@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw } from 'lucide-react'
-import type { VideoCodec, ExportConfig, ResolutionPreset } from '@/types'
+import type { VideoCodec, ExportConfig } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
@@ -261,7 +261,7 @@ export default function ExportPanel({
                     <select value={codec}
                       onChange={e => setCodec(e.target.value as VideoCodec)}
                       className="vitro-select w-full px-3 py-2 text-sm">
-                      {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k, v]) => (
+                      {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k]) => (
                         <option key={k} value={k} disabled={codecSupport[k] === false}>
                           {t(`codec.${k}Desc` as 'codec.h264Desc' | 'codec.h265Desc' | 'codec.av1Desc')}{codecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
                         </option>
@@ -284,7 +284,6 @@ export default function ExportPanel({
                     <div>
                       <label className="vitro-label block text-sm font-medium mb-1">{t('export.mbps')}</label>
                       <input type="number" min={1} max={50} value={bitrate}
-                        onChange={e => setQuality('custom')}
                         className="vitro-input w-full px-3 py-2 text-sm"
                         readOnly
                       />

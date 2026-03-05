@@ -1509,26 +1509,28 @@ export const LocaleContext = createContext<LocaleContextValue>({
 })
 
 const LOCALE_STORAGE_KEY = 'travelback-locale'
+const VALID_LOCALES: Locale[] = ['en', 'ko', 'ja', 'zh', 'es']
+
+function getInitialLocale(): Locale {
+  if (typeof window === 'undefined') return 'en'
+
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null
+    if (stored && VALID_LOCALES.includes(stored)) {
+      return stored
+    }
+  } catch {}
+
+  return detectLocale()
+}
 
 // ── Provider component ──
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en')
+  const [locale, setLocaleState] = useState<Locale>(() => getInitialLocale())
 
   useEffect(() => {
-    // Check localStorage first, then detect from browser
-    try {
-      const stored = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null
-      const VALID_LOCALES: Locale[] = ['en', 'ko', 'ja', 'zh', 'es']
-      if (stored && VALID_LOCALES.includes(stored as Locale)) {
-        setLocaleState(stored)
-        document.documentElement.setAttribute('lang', stored)
-        return
-      }
-    } catch { /* localStorage not available */ }
-    const detected = detectLocale()
-    setLocaleState(detected)
-    document.documentElement.setAttribute('lang', detected)
-  }, [])
+    document.documentElement.setAttribute('lang', locale)
+  }, [locale])
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
@@ -1551,4 +1553,3 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 export function useLocale() {
   return useContext(LocaleContext)
 }
-

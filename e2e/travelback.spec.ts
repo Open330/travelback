@@ -10,17 +10,25 @@ const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-seman
 const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
 
+function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  )
+}
+
+function shortestAngleDelta(from: number, to: number) {
+  return Math.abs(((to - from + 540) % 360) - 180)
+}
+
 /** Helper: wait for the app to be ready (map container rendered, with or without WebGL) */
 async function waitForApp(page: Page) {
   // Wait for the heading to be visible (confirms React rendered)
   await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible({ timeout: 30_000 })
   // Give the app a moment to settle
   await page.waitForTimeout(500)
-}
-
-/** Helper: check if the map canvas loaded (WebGL worked) */
-async function hasMapCanvas(page: Page): Promise<boolean> {
-  return await page.locator('canvas').count() > 0
 }
 
 /** Helper: upload a GPX file and wait for the track to load */
@@ -99,6 +107,98 @@ test.describe('Travelback App', () => {
 
     // The camera tracking button should be visible
     await expect(page.getByRole('button', { name: /camera tracking/i })).toBeVisible()
+  })
+
+  test('map zoom controls do not overlap top toolbars', async ({ page }) => {
+    await uploadGpx(page)
+
+    const zoomControls = page.locator('.maplibregl-ctrl-top-left .maplibregl-ctrl-group').first()
+    await expect(zoomControls).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('global-toolbar')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('track-toolbar')).toBeVisible({ timeout: 10_000 })
+
+    await expect.poll(async () => {
+      const [zoomBox, globalToolbarBox, trackToolbarBox] = await Promise.all([
+        zoomControls.boundingBox(),
+        page.getByTestId('global-toolbar').boundingBox(),
+        page.getByTestId('track-toolbar').boundingBox(),
+      ])
+
+      if (!zoomBox || !globalToolbarBox || !trackToolbarBox) {
+        return true
+      }
+
+      return boxesOverlap(zoomBox, globalToolbarBox) || boxesOverlap(zoomBox, trackToolbarBox)
+    }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
+  })
+
+  test('map camera movement stays stable during playback', async ({ page }) => {
+    await uploadGpx(page)
+
+    const playBtn = page.getByRole('button', { name: 'Play' })
+    await expect(playBtn).toBeVisible({ timeout: 10_000 })
+    await playBtn.click({ force: true })
+
+    const samples = await page.evaluate(async () => {
+      type CameraSample = { center: [number, number]; bearing: number }
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getCamera: () => CameraSample | null
+        }
+      }
+
+      const debugWindow = window as DebugWindow
+      const points: CameraSample[] = []
+
+      for (let i = 0; i < 16; i++) {
+        const camera = debugWindow.__travelbackDebug?.getCamera()
+        if (camera) {
+          points.push({ center: [...camera.center] as [number, number], bearing: camera.bearing })
+        }
+        await new Promise(resolve => setTimeout(resolve, 120))
+      }
+
+      return points
+    })
+
+    expect(samples.length).toBeGreaterThanOrEqual(8)
+
+    const centerJumpsMeters: number[] = []
+    const bearingJumps: number[] = []
+
+    for (let i = 1; i < samples.length; i++) {
+      const prev = samples[i - 1]
+      const next = samples[i]
+      const avgLatRad = ((prev.center[1] + next.center[1]) / 2) * (Math.PI / 180)
+      const dLngMeters = (next.center[0] - prev.center[0]) * 111320 * Math.cos(avgLatRad)
+      const dLatMeters = (next.center[1] - prev.center[1]) * 110540
+      centerJumpsMeters.push(Math.hypot(dLngMeters, dLatMeters))
+      bearingJumps.push(shortestAngleDelta(prev.bearing, next.bearing))
+    }
+
+    const steadyCenterJumps = centerJumpsMeters.slice(4)
+    const steadyBearingJumps = bearingJumps.slice(4)
+
+    expect(steadyCenterJumps.length).toBeGreaterThanOrEqual(4)
+    expect(steadyBearingJumps.length).toBeGreaterThanOrEqual(4)
+
+    const sortedCenterJumps = [...steadyCenterJumps].sort((a, b) => a - b)
+    const sortedBearingJumps = [...steadyBearingJumps].sort((a, b) => a - b)
+    const centerMedian = sortedCenterJumps[Math.floor(sortedCenterJumps.length / 2)]
+    const bearingMedian = sortedBearingJumps[Math.floor(sortedBearingJumps.length / 2)]
+    const centerP95 = sortedCenterJumps[Math.floor((sortedCenterJumps.length - 1) * 0.95)]
+    const bearingP95 = sortedBearingJumps[Math.floor((sortedBearingJumps.length - 1) * 0.95)]
+
+    const firstSample = samples[0]
+    const lastSample = samples[samples.length - 1]
+    const avgLatRad = ((firstSample.center[1] + lastSample.center[1]) / 2) * (Math.PI / 180)
+    const totalLngMeters = (lastSample.center[0] - firstSample.center[0]) * 111320 * Math.cos(avgLatRad)
+    const totalLatMeters = (lastSample.center[1] - firstSample.center[1]) * 110540
+    const totalDisplacementMeters = Math.hypot(totalLngMeters, totalLatMeters)
+
+    expect(totalDisplacementMeters).toBeGreaterThan(25)
+    expect(centerP95).toBeLessThan(Math.max(600, centerMedian * 8))
+    expect(bearingP95).toBeLessThan(Math.max(150, bearingMedian * 8))
   })
 
   test('scene editor opens and allows adding scenes', async ({ page }) => {

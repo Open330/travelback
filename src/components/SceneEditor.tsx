@@ -83,7 +83,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       params: { ...DEFAULT_CAMERA_PARAMS.flyover },
     }
     onChange([...scenes, newScene])
-  }, [scenes, onChange])
+  }, [scenes, onChange, t])
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
@@ -136,7 +136,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       }
     }
     return w
-  }, [scenes])
+  }, [scenes, t])
 
   return (
     <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] gs flex flex-col overflow-hidden"
@@ -223,7 +223,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-        {scenes.map((scene, i) => (
+          {scenes.map((scene) => (
           <div key={scene.id}
             className="gi p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
@@ -369,4 +369,3 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
     </div>
   )
 }
-

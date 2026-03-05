@@ -14,6 +14,8 @@ interface MapViewProps {
   progress: number
   mapStyleKey: MapStyleKey
   followCamera: boolean
+  suspendAutoCamera?: boolean
+  seekNonce?: number
   scenes?: Scene[]
   duration?: number
   transitionDuration?: number
@@ -25,15 +27,64 @@ export interface MapViewHandle {
   applyCameraState: (state: CameraState) => void
   resize: (width: number, height: number) => void
   resetSize: () => void
-  waitForIdle: () => Promise<void>
+  waitForIdle: (signal?: AbortSignal) => Promise<void>
 }
 
 const ROUTE_COLOR = '#06b6d4'
 const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
+const LOOK_AHEAD_DISTANCE_METERS = 120
+const CAMERA_SMOOTHING = 0.2
+const SEEK_SNAP_DISTANCE_METERS = 2500
+const SEEK_SNAP_BEARING_DEGREES = 120
+const WAIT_FOR_IDLE_TIMEOUT_MS = 5000
+
+function smoothAngle(from: number, to: number, factor: number): number {
+  const diff = ((to - from + 540) % 360) - 180
+  return from + diff * factor
+}
+
+function angleDelta(from: number, to: number): number {
+  return Math.abs(((to - from + 540) % 360) - 180)
+}
+
+function centerDistanceMeters(a: [number, number], b: [number, number]): number {
+  const avgLatRad = ((a[1] + b[1]) / 2) * (Math.PI / 180)
+  const dLngMeters = (b[0] - a[0]) * 111320 * Math.cos(avgLatRad)
+  const dLatMeters = (b[1] - a[1]) * 110540
+  return Math.hypot(dLngMeters, dLatMeters)
+}
+
+function smoothCameraState(previous: CameraState, target: CameraState, factor: number): CameraState {
+  return {
+    center: [
+      previous.center[0] + (target.center[0] - previous.center[0]) * factor,
+      previous.center[1] + (target.center[1] - previous.center[1]) * factor,
+    ],
+    zoom: previous.zoom + (target.zoom - previous.zoom) * factor,
+    pitch: previous.pitch + (target.pitch - previous.pitch) * factor,
+    bearing: smoothAngle(previous.bearing, target.bearing, factor),
+  }
+}
+
+type TravelbackDebugWindow = Window & {
+  __travelbackDebug?: {
+    getCamera: () => CameraState | null
+  }
+}
 
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { track, progress, mapStyleKey, followCamera, scenes, duration = 30, transitionDuration = 0.03 },
+  {
+    track,
+    progress,
+    mapStyleKey,
+    followCamera,
+    suspendAutoCamera = false,
+    seekNonce = 0,
+    scenes,
+    duration = 30,
+    transitionDuration = 0.03,
+  },
   ref,
 ) {
   const { t } = useLocale()
@@ -44,6 +95,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const cumulDistRef = useRef<number[]>([])
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const lastCameraStateRef = useRef<CameraState | null>(null)
+  const lastSeekNonceRef = useRef(seekNonce)
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -78,15 +131,48 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       originalSizeRef.current = null
       map.resize()
     },
-    waitForIdle: () => {
+    waitForIdle: (signal?: AbortSignal) => {
       return new Promise<void>(resolve => {
         const map = mapRef.current
         if (!map) { resolve(); return }
-        if (!map.isMoving() && map.areTilesLoaded()) {
-          resolve()
-        } else {
-          map.once('idle', () => resolve())
+
+        let settled = false
+        let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+        const onAbort = () => {
+          finish()
         }
+
+        const onIdle = () => {
+          finish()
+        }
+
+        const finish = () => {
+          if (settled) return
+          settled = true
+          if (timeoutId != null) {
+            clearTimeout(timeoutId)
+          }
+          map.off('idle', onIdle)
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }
+
+        timeoutId = setTimeout(finish, WAIT_FOR_IDLE_TIMEOUT_MS)
+
+        if (signal?.aborted) {
+          finish()
+          return
+        }
+
+        signal?.addEventListener('abort', onAbort, { once: true })
+
+        if (!map.isMoving() && map.areTilesLoaded()) {
+          finish()
+          return
+        }
+
+        map.once('idle', onIdle)
       })
     },
   }))
@@ -106,10 +192,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         canvasContextAttributes: { preserveDrawingBuffer: true },
       })
 
-      map.addControl(new maplibregl.NavigationControl(), 'top-right')
+      map.addControl(new maplibregl.NavigationControl(), 'top-left')
 
       mapRef.current = map
       styleKeyRef.current = mapStyleKey
+
+      const canExposeDebugCamera = navigator.webdriver
+      if (canExposeDebugCamera) {
+        const debugWindow = window as TravelbackDebugWindow
+        debugWindow.__travelbackDebug = {
+          getCamera: () => {
+            const currentMap = mapRef.current
+            if (!currentMap) return null
+            const center = currentMap.getCenter()
+            return {
+              center: [center.lng, center.lat],
+              zoom: currentMap.getZoom(),
+              pitch: currentMap.getPitch(),
+              bearing: currentMap.getBearing(),
+            }
+          },
+        }
+      }
 
       return () => {
         markerRef.current?.remove()
@@ -120,6 +224,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         }
         map.remove()
         mapRef.current = null
+        lastCameraStateRef.current = null
+        if (canExposeDebugCamera) {
+          const cleanupWindow = window as TravelbackDebugWindow
+          delete cleanupWindow.__travelbackDebug
+        }
       }
     } catch (err) {
       console.error('Failed to initialize map:', err)
@@ -262,13 +371,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [track, addTrackLayers])
 
+  useEffect(() => {
+    if (!followCamera || suspendAutoCamera) {
+      lastCameraStateRef.current = null
+    }
+  }, [followCamera, suspendAutoCamera, track])
+
   // Update animation state
   useEffect(() => {
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0) return
 
     const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress)
-    const { point, bearing, segmentIndex } = result
+    const { point, segmentIndex } = result
 
     // Update marker position
     markerRef.current?.setLngLat([point.lng, point.lat])
@@ -287,31 +402,68 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     })
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
-    if (followCamera && progress > 0) {
+    if (followCamera && !suspendAutoCamera && progress > 0) {
+      let targetCamera: CameraState
+
       if (scenes && scenes.length > 0) {
-        // Use the scene-based camera system
         const elapsedSec = progress * duration
-        const cameraState = computeCameraForProgress(
+        targetCamera = computeCameraForProgress(
           track, cumulDistRef.current, scenes, progress, elapsedSec, transitionDuration,
         )
-        map.jumpTo({
-          center: cameraState.center as [number, number],
-          zoom: cameraState.zoom,
-          pitch: cameraState.pitch,
-          bearing: cameraState.bearing,
-        })
       } else {
-        const nextIdx = Math.min(segmentIndex + 2, track.points.length - 1)
-        const lookAheadBearing = computeBearing(point, track.points[nextIdx])
-        map.jumpTo({
+        const totalDistance = cumulDistRef.current[cumulDistRef.current.length - 1] ?? 0
+        const lookAheadDistance = Math.min(totalDistance, result.distanceTraveled + LOOK_AHEAD_DISTANCE_METERS)
+        let lookAheadIdx = Math.min(segmentIndex + 1, track.points.length - 1)
+        while (lookAheadIdx < track.points.length - 1 && cumulDistRef.current[lookAheadIdx] < lookAheadDistance) {
+          lookAheadIdx += 1
+        }
+
+        const lookAheadPoint = track.points[lookAheadIdx]
+        const fallbackPoint = track.points[Math.min(segmentIndex + 1, track.points.length - 1)]
+        const lookAheadIsDistinct = lookAheadPoint.lng !== point.lng || lookAheadPoint.lat !== point.lat
+        const fallbackIsDistinct = fallbackPoint.lng !== point.lng || fallbackPoint.lat !== point.lat
+        const lookAheadBearing =
+          lookAheadIsDistinct
+            ? computeBearing(point, lookAheadPoint)
+            : fallbackIsDistinct
+              ? computeBearing(point, fallbackPoint)
+              : result.bearing
+
+        targetCamera = {
           center: [point.lng, point.lat],
           bearing: lookAheadBearing,
           pitch: 45,
           zoom: 14,
-        })
+        }
       }
+
+      const previousCameraState = lastCameraStateRef.current
+      const explicitSeek = seekNonce !== lastSeekNonceRef.current
+      const snapForLargeCenterJump = previousCameraState
+        ? centerDistanceMeters(previousCameraState.center, targetCamera.center) > SEEK_SNAP_DISTANCE_METERS
+        : false
+      const snapForLargeBearingJump = previousCameraState
+        ? angleDelta(previousCameraState.bearing, targetCamera.bearing) > SEEK_SNAP_BEARING_DEGREES
+        : false
+
+      const cameraState = previousCameraState && !explicitSeek && !snapForLargeCenterJump && !snapForLargeBearingJump
+        ? smoothCameraState(previousCameraState, targetCamera, CAMERA_SMOOTHING)
+        : targetCamera
+
+      map.jumpTo({
+        center: cameraState.center as [number, number],
+        zoom: cameraState.zoom,
+        pitch: cameraState.pitch,
+        bearing: cameraState.bearing,
+      })
+
+      lastCameraStateRef.current = cameraState
+      lastSeekNonceRef.current = seekNonce
+    } else {
+      lastCameraStateRef.current = null
+      lastSeekNonceRef.current = seekNonce
     }
-  }, [progress, track, followCamera, scenes, duration, transitionDuration])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, scenes, duration, transitionDuration])
 
   return (
     <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ''}`}>

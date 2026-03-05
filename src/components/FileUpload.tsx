@@ -14,6 +14,9 @@ interface FileUploadProps {
   onCreateJourney?: () => void
 }
 
+const MAX_FILE_SIZE = 500 * 1024 * 1024
+const WARN_FILE_SIZE = 100 * 1024 * 1024
+
 export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
@@ -25,9 +28,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     if (typeof navigator === 'undefined') return false
     return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   }, [])
-
-  const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
-  const WARN_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
 
   const handleFile = useCallback(async (file: File) => {
     setError(null)

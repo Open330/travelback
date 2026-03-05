@@ -1,6 +1,6 @@
-import type { Track, TrackPoint, CameraMode, CameraParams, Scene } from '@/types'
+import type { Track, TrackPoint, Scene } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
-import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from './interpolate'
+import { interpolateAlongTrack, computeBearing } from './interpolate'
 
 export interface CameraState {
   center: [number, number]
@@ -126,7 +126,10 @@ export function computeCameraForScene(
       // Look-ahead: interpolate a point ~5% further along the track for bearing
       const lookAheadProgress = Math.min(1, trackProgress + 0.05)
       const ahead = interpolateAlongTrack(track.points, cumulDist, lookAheadProgress)
-      const lookBearing = computeBearing(point, ahead.point)
+      const lookBearing =
+        ahead.point.lng === point.lng && ahead.point.lat === point.lat
+          ? ahead.bearing
+          : computeBearing(point, ahead.point)
       // Use the look-ahead bearing combined with slow rotation for cinematic drift
       const drift = elapsedSec * params.rotationSpeed
       return {

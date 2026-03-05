@@ -1,4 +1,4 @@
-import type { VideoCodec as AppVideoCodec, ExportConfig, Scene, Track } from '@/types'
+import type { VideoCodec as AppVideoCodec, ExportConfig, Track } from '@/types'
 import type { CameraState } from './camera'
 import { computeCameraForProgress } from './camera'
 import { computeCumulativeDistances } from './interpolate'
@@ -48,7 +48,7 @@ export async function exportVideo(
   // Dynamic import mediabunny (it uses WebCodecs, browser-only)
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource } = await import('mediabunny')
 
-  const { resolution, codec, fps, duration, bitrate, scenes } = config
+  const { codec, fps, duration, bitrate, scenes } = config
 
   // Clamp config values to safe bounds
   const safeDuration = Math.max(1, Math.min(duration, 600))
@@ -151,4 +151,3 @@ export async function isCodecSupported(codec: AppVideoCodec): Promise<boolean> {
     return false
   }
 }
-

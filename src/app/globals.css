@@ -129,5 +129,6 @@ input[type="range"]::-webkit-slider-runnable-track {
 .vitro-toast-ok   { background: color-mix(in srgb, var(--ok) 80%, var(--go-bg)); }
 .vitro-toast-info { background: color-mix(in srgb, var(--info) 80%, var(--go-bg)); }
 
-/* Hide map controls on landing to prevent overlap with upload card */
-.hide-map-controls .maplibregl-ctrl-top-right { display: none; }
+/* Hide map zoom controls on landing to prevent overlap with upload card */
+.hide-map-controls .maplibregl-ctrl-top-right,
+.hide-map-controls .maplibregl-ctrl-top-left { display: none; }

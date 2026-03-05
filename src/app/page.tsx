@@ -34,7 +34,6 @@ function HomeInner() {
   const { t, locale, setLocale } = useLocale()
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
   const [track, setTrack] = useState<Track | null>(null)
-  const [timelineRange, setTimelineRange] = useState<[number, number] | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [speed, setSpeed] = useState(1)
@@ -52,6 +51,7 @@ function HomeInner() {
   const [showSceneEditor, setShowSceneEditor] = useState(false)
   const [transitionDuration, setTransitionDuration] = useState(0.03)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [seekNonce, setSeekNonce] = useState(0)
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   const mapViewRef = useRef<MapViewHandle>(null)
@@ -82,11 +82,13 @@ function HomeInner() {
 
       if (next >= 1) {
         setProgress(1)
+        progressRef.current = 1
         setIsPlaying(false)
         return
       }
 
       setProgress(next)
+      progressRef.current = next
       animFrameRef.current = requestAnimationFrame(animate)
     }
 
@@ -111,11 +113,21 @@ function HomeInner() {
           break
         case 'ArrowRight':
           e.preventDefault()
-          setProgress(p => Math.min(1, p + 0.02))
+          {
+            const next = Math.min(1, progressRef.current + 0.02)
+            setProgress(next)
+            progressRef.current = next
+            setSeekNonce(n => n + 1)
+          }
           break
         case 'ArrowLeft':
           e.preventDefault()
-          setProgress(p => Math.max(0, p - 0.02))
+          {
+            const next = Math.max(0, progressRef.current - 0.02)
+            setProgress(next)
+            progressRef.current = next
+            setSeekNonce(n => n + 1)
+          }
           break
         case 'f':
         case 'F':
@@ -155,6 +167,7 @@ function HomeInner() {
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
+    progressRef.current = 0
     setIsPlaying(false)
   }, [])
 
@@ -162,6 +175,7 @@ function HomeInner() {
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
+    progressRef.current = 0
     setIsPlaying(false)
     setIsCreatingJourney(false)
   }, [])
@@ -169,6 +183,7 @@ function HomeInner() {
   const handleTogglePlay = useCallback(() => {
     if (progress >= 1) {
       setProgress(0)
+      progressRef.current = 0
       setIsPlaying(true)
     } else {
       setIsPlaying((p) => !p)
@@ -178,6 +193,7 @@ function HomeInner() {
   const handleSeek = useCallback((p: number) => {
     setProgress(p)
     progressRef.current = p
+    setSeekNonce(n => n + 1)
   }, [])
 
   const handleExport = useCallback(async (config: ExportConfig) => {
@@ -206,7 +222,7 @@ function HomeInner() {
 
       // Wait for resize to settle then wait for map idle
       await new Promise(r => setTimeout(r, 200))
-      await mapHandle.waitForIdle()
+      await mapHandle.waitForIdle(abortController.signal)
 
       const result = await exportVideo(
         canvas,
@@ -219,7 +235,7 @@ function HomeInner() {
           progressRef.current = progress
         },
         (p) => setExportProgress(p),
-        () => mapHandle.waitForIdle(),
+        () => mapHandle.waitForIdle(abortController.signal),
         abortController.signal,
       )
 
@@ -276,6 +292,7 @@ function HomeInner() {
       setFullTrack(parsed)
       setTrack(parsed)
       setProgress(0)
+      progressRef.current = 0
       setIsPlaying(false)
     } catch (err) {
       console.error('Sample load failed:', {
@@ -314,6 +331,8 @@ function HomeInner() {
         progress={progress}
         mapStyleKey={mapStyleKey}
         followCamera={followCamera}
+        suspendAutoCamera={isExporting}
+        seekNonce={seekNonce}
         scenes={scenes}
         duration={duration}
         transitionDuration={transitionDuration}
@@ -348,7 +367,7 @@ function HomeInner() {
       )}
 
       {/* Theme toggle + Language picker */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+      <div data-testid="global-toolbar" className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <select
           value={locale}
           onChange={e => setLocale(e.target.value as Locale)}
@@ -430,7 +449,7 @@ function HomeInner() {
 
       {/* Top-right toolbar */}
       {track && (
-        <div className="absolute top-4 right-16 z-10 flex flex-wrap gap-2 max-w-[calc(100vw-5rem)]">
+        <div data-testid="track-toolbar" className="absolute top-4 right-16 z-10 flex flex-wrap gap-2 max-w-[calc(100vw-5rem)]">
           <button
             onClick={() => {
               setTrack(null)
