@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GripHorizontal } from 'lucide-react'
 import { Track } from '@/types'
 import { useLocale } from '@/lib/i18n'
@@ -26,7 +26,7 @@ function formatDate(date: Date | undefined): string {
   })
 }
 
-export default function TimelineSelector({
+function TimelineSelector({
   track,
   onRangeChange,
   className = '',
@@ -189,7 +189,7 @@ export default function TimelineSelector({
   const hasTime = points.some((p) => p.time)
 
   return (
-    <div className={`select-none ${className}`}>
+    <div data-testid="timeline-selector" className={`select-none ${className}`}>
       <div
         ref={containerRef}
         className="gc nh relative h-16 cursor-crosshair overflow-visible"
@@ -311,26 +311,16 @@ export default function TimelineSelector({
 
       {/* Date labels */}
       {hasTime && (
-        <div className="relative h-5 mt-1 text-xs pointer-events-none" style={{ color: 'var(--t4)' }}>
-          <span
-            className="absolute"
-            style={{
-              left: `${startRatio * 100}%`,
-              transform: startRatio > 0.6 ? 'translateX(-100%)' : 'translateX(-4px)',
-              whiteSpace: 'nowrap',
-            }}
-          >
+        <div
+          data-testid="timeline-date-row"
+          className="mt-1 flex items-center justify-between gap-3 px-1 text-[10px] sm:text-xs pointer-events-none"
+          style={{ color: 'var(--t4)' }}
+        >
+          <span data-testid="timeline-start-date" className="min-w-0 flex-1 truncate text-left">
             {formatDate(startDate)}
           </span>
           {endRatio - startRatio > 0.08 && (
-            <span
-              className="absolute"
-              style={{
-                left: `${endRatio * 100}%`,
-                transform: endRatio > 0.6 ? 'translateX(-100%)' : 'translateX(-4px)',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <span data-testid="timeline-end-date" className="min-w-0 flex-1 truncate text-right">
               {formatDate(endDate)}
             </span>
           )}
@@ -346,3 +336,5 @@ export default function TimelineSelector({
     </div>
   )
 }
+
+export default memo(TimelineSelector)

@@ -38,7 +38,11 @@ function HomeInner() {
   const [progress, setProgress] = useState(0)
   const [speed, setSpeed] = useState(1)
   const [duration, setDuration] = useState(30)
-  const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>('voyager')
+  const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
+    if (typeof document === 'undefined') return 'dark'
+    const mode = document.documentElement.getAttribute('data-mode')
+    return mode === 'dark' ? 'dark' : 'voyager'
+  })
   const [followCamera, setFollowCamera] = useState(true)
   const [showExport, setShowExport] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -178,6 +182,48 @@ function HomeInner() {
     progressRef.current = 0
     setIsPlaying(false)
     setIsCreatingJourney(false)
+  }, [])
+
+  const handleOpenGoogleGuide = useCallback(() => {
+    setShowGoogleGuide(true)
+  }, [])
+
+  const handleCloseGoogleGuide = useCallback(() => {
+    setShowGoogleGuide(false)
+  }, [])
+
+  const handleStartJourney = useCallback(() => {
+    setIsCreatingJourney(true)
+  }, [])
+
+  const handleCancelJourney = useCallback(() => {
+    setIsCreatingJourney(false)
+  }, [])
+
+  const handleToggleSceneEditor = useCallback(() => {
+    setShowSceneEditor((s) => !s)
+  }, [])
+
+  const handleCloseSceneEditor = useCallback(() => {
+    setShowSceneEditor(false)
+  }, [])
+
+  const handleOpenExport = useCallback(() => {
+    setShowExport(true)
+  }, [])
+
+  const handleCloseExport = useCallback(() => {
+    setShowExport(false)
+  }, [])
+
+  const handleToggleFollowCamera = useCallback(() => {
+    setFollowCamera((f) => !f)
+  }, [])
+
+  const handleStartNewTrack = useCallback(() => {
+    setTrack(null)
+    setFullTrack(null)
+    setIsCreatingJourney(true)
   }, [])
 
   const handleTogglePlay = useCallback(() => {
@@ -360,9 +406,9 @@ function HomeInner() {
         <FileUpload
           onTrackLoaded={handleTrackLoaded}
           hasTrack={track !== null}
-          onShowGoogleGuide={() => setShowGoogleGuide(true)}
+          onShowGoogleGuide={handleOpenGoogleGuide}
           onLoadSample={handleLoadSample}
-          onCreateJourney={() => setIsCreatingJourney(true)}
+          onCreateJourney={handleStartJourney}
         />
       )}
 
@@ -424,7 +470,7 @@ function HomeInner() {
       {!track && !isCreatingJourney && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
           <button
-            onClick={() => setIsCreatingJourney(true)}
+            onClick={handleStartJourney}
             className="gi px-6 py-3 text-sm font-medium cursor-pointer"
             style={{ color: 'var(--t2)' }}
           >
@@ -437,25 +483,21 @@ function HomeInner() {
         <JourneyCreator
           isActive={isCreatingJourney}
           onComplete={handleJourneyComplete}
-          onCancel={() => setIsCreatingJourney(false)}
+          onCancel={handleCancelJourney}
           mapRef={mapViewRef}
         />
       )}
 
       <GoogleGuide
         isOpen={showGoogleGuide}
-        onClose={() => setShowGoogleGuide(false)}
+        onClose={handleCloseGoogleGuide}
       />
 
       {/* Top-right toolbar */}
       {track && (
-        <div data-testid="track-toolbar" className="absolute top-4 right-16 z-10 flex flex-wrap gap-2 max-w-[calc(100vw-5rem)]">
+        <div data-testid="track-toolbar" className="absolute left-4 right-4 top-20 z-10 flex flex-wrap justify-end gap-2 sm:left-auto sm:right-16 sm:top-4 sm:max-w-[calc(100vw-5rem)]">
           <button
-            onClick={() => {
-              setTrack(null)
-              setFullTrack(null)
-              setIsCreatingJourney(true)
-            }}
+            onClick={handleStartNewTrack}
             aria-label={t('app.newJourneyAria')}
             title={t('app.newJourneyAria')}
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
@@ -464,7 +506,7 @@ function HomeInner() {
             <Plus size={14} strokeWidth={2.5} className="inline -mt-px" />{' '}{t('app.new')}
           </button>
           <button
-            onClick={() => setShowSceneEditor(s => !s)}
+            onClick={handleToggleSceneEditor}
             title={t('app.openSceneEditor')}
             className={`gi px-3 py-2 text-sm font-medium cursor-pointer ${
               showSceneEditor ? '' : ''
@@ -477,6 +519,7 @@ function HomeInner() {
             {t('app.scenes')}
           </button>
           <button
+            data-testid="map-style-button"
             onClick={cycleStyle}
             title={t('app.cycleMapStyle')}
             className="gi px-3 py-2 text-sm font-medium cursor-pointer"
@@ -485,7 +528,7 @@ function HomeInner() {
             {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
           </button>
           <button
-            onClick={() => setShowExport(true)}
+            onClick={handleOpenExport}
             title={t('app.exportVideoKey')}
             className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
           >
@@ -499,7 +542,7 @@ function HomeInner() {
         <SceneEditor
           scenes={scenes}
           onChange={setScenes}
-          onClose={() => setShowSceneEditor(false)}
+          onClose={handleCloseSceneEditor}
           transitionDuration={transitionDuration}
           onTransitionDurationChange={setTransitionDuration}
           onPreviewScene={handlePreviewScene}
@@ -508,7 +551,9 @@ function HomeInner() {
 
       {/* Track name */}
       {track && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 gi px-4 py-2 text-sm font-medium"
+        <div
+          data-testid="track-title"
+          className="hidden sm:block absolute left-4 right-4 top-36 z-10 gi px-4 py-2 text-sm font-medium text-center leading-tight sm:left-1/2 sm:right-auto sm:top-4 sm:w-auto sm:max-w-[min(36rem,calc(100vw-28rem))] sm:-translate-x-1/2 sm:whitespace-nowrap"
           style={{ color: 'var(--t1)' }}>
           {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} {t('timeline.points')}
         </div>
@@ -525,6 +570,15 @@ function HomeInner() {
 
       {track && (
         <div className="absolute bottom-0 left-0 right-0 z-10">
+          <div className="px-4 pb-1 sm:hidden">
+            <div
+              data-testid="track-title-mobile"
+              className="gi px-3 py-2 text-[11px] font-medium text-center leading-tight"
+              style={{ color: 'var(--t1)' }}
+            >
+              {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} {t('timeline.points')}
+            </div>
+          </div>
           <div className="px-4 mb-1">
             <ElevationProfile track={track} progress={progress} onSeek={handleSeek} />
           </div>
@@ -539,14 +593,14 @@ function HomeInner() {
             onSeek={handleSeek}
             onSpeedChange={setSpeed}
             onDurationChange={setDuration}
-            onFollowCameraToggle={() => setFollowCamera((f) => !f)}
+            onFollowCameraToggle={handleToggleFollowCamera}
           />
         </div>
       )}
 
       <ExportPanel
         isOpen={showExport}
-        onClose={() => setShowExport(false)}
+        onClose={handleCloseExport}
         onExport={handleExport}
         isExporting={isExporting}
         exportProgress={exportProgress}

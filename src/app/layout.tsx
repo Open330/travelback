@@ -43,8 +43,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" data-svc="travelback" data-mode="dark" data-mesh="on">
+    <html lang="en" data-svc="travelback" data-mode="dark" data-mesh="on" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement,m=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';d.setAttribute('data-mode',m)}catch(e){}})()` }} />
         <meta
           httpEquiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data: https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; connect-src 'self' https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:;"

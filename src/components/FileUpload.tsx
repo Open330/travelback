@@ -89,6 +89,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   if (hasTrack) {
     return (
       <button
+        data-testid="load-new-file-button"
         onClick={() => inputRef.current?.click()}
         aria-label={t('fileUpload.loadNewFileAria')}
         className="absolute top-4 left-4 z-10 gi px-4 py-2 text-sm font-medium cursor-pointer"

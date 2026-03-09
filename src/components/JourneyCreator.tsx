@@ -21,12 +21,23 @@ const LAYER_LINE = 'journey-line'
 const LAYER_POINTS = 'journey-points'
 const LAYER_LABELS = 'journey-points-labels'
 
-function buildPointsGeoJSON(waypoints: TrackPoint[]): GeoJSON.FeatureCollection {
+const TRAVEL_ICON_OPTIONS = [
+  { id: 'walk', symbol: '🚶', labelKey: 'journey.iconWalk' },
+  { id: 'car', symbol: '🚗', labelKey: 'journey.iconCar' },
+  { id: 'plane', symbol: '✈️', labelKey: 'journey.iconPlane' },
+  { id: 'bus', symbol: '🚌', labelKey: 'journey.iconBus' },
+  { id: 'train', symbol: '🚆', labelKey: 'journey.iconTrain' },
+  { id: 'bike', symbol: '🚴', labelKey: 'journey.iconBike' },
+] as const
+
+type TravelIconId = typeof TRAVEL_ICON_OPTIONS[number]['id']
+
+function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: waypoints.map((wp, i) => ({
       type: 'Feature',
-      properties: { index: i, label: String(i + 1) },
+      properties: { index: i, label: String(i + 1), icon: iconSymbol },
       geometry: { type: 'Point', coordinates: [wp.lng, wp.lat] },
     })),
   }
@@ -54,7 +65,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([])
   const [searching, setSearching] = useState(false)
+  const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
@@ -76,9 +89,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     const pointsSrc = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
     const lineSrc = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
 
-    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current))
+    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbol))
     if (lineSrc) lineSrc.setData(buildLineGeoJSON(waypointsRef.current))
-  }, [mapRef])
+  }, [mapRef, selectedIconSymbol])
 
   const addLayers = useCallback((map: maplibregl.Map) => {
     if (layersAddedRef.current) return
@@ -108,7 +121,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     if (!map.getSource(SOURCE_POINTS)) {
       map.addSource(SOURCE_POINTS, {
         type: 'geojson',
-        data: buildPointsGeoJSON([]),
+        data: buildPointsGeoJSON([], selectedIconSymbol),
       })
     }
     if (!map.getLayer(LAYER_POINTS)) {
@@ -132,7 +145,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         type: 'symbol',
         source: SOURCE_POINTS,
         layout: {
-          'text-field': ['get', 'label'],
+          'text-field': ['concat', ['get', 'icon'], ' ', ['get', 'label']],
           'text-size': 11,
           'text-allow-overlap': true,
         },
@@ -143,7 +156,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     }
 
     layersAddedRef.current = true
-  }, [])
+  }, [selectedIconSymbol])
 
   const removeLayers = useCallback((map: maplibregl.Map) => {
     if (!layersAddedRef.current) return
@@ -329,10 +342,14 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     onComplete(track)
   }, [onComplete, t])
 
+  useEffect(() => {
+    updateMapData()
+  }, [selectedIconSymbol, updateMapData])
+
   if (!isActive) return null
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden"
+    <div data-testid="journey-creator-panel" className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
       style={{ borderRadius: 'var(--r-glass)' }}>
       {/* Header */}
       <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
@@ -380,6 +397,36 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
             ))}
           </div>
         )}
+      </div>
+
+      <div className="px-4 pb-2">
+        <div className="text-[10px] mb-1" style={{ color: 'var(--t4)' }}>
+          {t('journey.travelIconLabel')}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {TRAVEL_ICON_OPTIONS.map((option) => {
+            const isSelected = option.id === selectedIconId
+            const optionLabel = t(option.labelKey)
+            return (
+              <button
+                key={option.id}
+                data-testid={`journey-icon-${option.id}`}
+                type="button"
+                aria-label={optionLabel}
+                title={optionLabel}
+                onClick={() => setSelectedIconId(option.id)}
+                className="gi px-2 py-1 text-xs cursor-pointer"
+                style={{
+                  color: 'var(--t1)',
+                  borderColor: isSelected ? 'rgb(var(--gl))' : undefined,
+                  boxShadow: isSelected ? '0 0 0 1px rgba(var(--gl),.45) inset' : undefined,
+                }}
+              >
+                {option.symbol}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Instructions overlay when no points yet */}

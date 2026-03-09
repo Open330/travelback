@@ -35,9 +35,14 @@ const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
 const LOOK_AHEAD_DISTANCE_METERS = 120
 const CAMERA_SMOOTHING = 0.2
+const SCENE_CAMERA_SMOOTHING = 0.34
 const SEEK_SNAP_DISTANCE_METERS = 2500
 const SEEK_SNAP_BEARING_DEGREES = 120
 const WAIT_FOR_IDLE_TIMEOUT_MS = 5000
+const MIN_CAMERA_MOVE_METERS = 0.5
+const MIN_CAMERA_BEARING_DELTA = 0.75
+const MIN_CAMERA_ZOOM_DELTA = 0.01
+const MIN_CAMERA_PITCH_DELTA = 0.1
 
 function smoothAngle(from: number, to: number, factor: number): number {
   const diff = ((to - from + 540) % 360) - 180
@@ -70,6 +75,13 @@ function smoothCameraState(previous: CameraState, target: CameraState, factor: n
 type TravelbackDebugWindow = Window & {
   __travelbackDebug?: {
     getCamera: () => CameraState | null
+    getMapState: () => {
+      hasRouteSource: boolean
+      hasTrailSource: boolean
+      hasRouteLayer: boolean
+      hasTrailLayer: boolean
+      hasMarker: boolean
+    } | null
   }
 }
 
@@ -93,10 +105,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerEl = useRef<HTMLDivElement | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const cumulDistRef = useRef<number[]>([])
+  const trackRef = useRef<Track | null>(track)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
+
+  useEffect(() => {
+    trackRef.current = track
+  }, [track])
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -212,8 +229,26 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               bearing: currentMap.getBearing(),
             }
           },
+          getMapState: () => {
+            const currentMap = mapRef.current
+            if (!currentMap) return null
+            return {
+              hasRouteSource: Boolean(currentMap.getSource('route')),
+              hasTrailSource: Boolean(currentMap.getSource('trail')),
+              hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
+              hasTrailLayer: Boolean(currentMap.getLayer('trail-line')),
+              hasMarker: Boolean(markerRef.current),
+            }
+          },
         }
       }
+
+      const onGlobalStyleLoad = () => {
+        const activeTrack = trackRef.current
+        if (!activeTrack) return
+        addTrackLayers(map, activeTrack)
+      }
+      map.on('style.load', onGlobalStyleLoad)
 
       return () => {
         markerRef.current?.remove()
@@ -222,6 +257,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           markerEl.current.remove()
           markerEl.current = null
         }
+        map.off('style.load', onGlobalStyleLoad)
         map.remove()
         mapRef.current = null
         lastCameraStateRef.current = null
@@ -284,8 +320,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': ROUTE_COLOR,
-          'line-width': 3,
-          'line-opacity': 0.4,
+          'line-width': 5,
+          'line-opacity': 0.75,
         },
       })
     }
@@ -313,11 +349,35 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': TRAIL_COLOR,
-          'line-width': 4,
-          'line-opacity': 0.9,
+          'line-width': 6,
+          'line-opacity': 1,
         },
       })
     }
+  }, [])
+
+  const ensureMarker = useCallback((map: maplibregl.Map, startPoint: Track['points'][number]) => {
+    if (!markerEl.current) {
+      markerEl.current = document.createElement('div')
+      const wrapper = document.createElement('div')
+      Object.assign(wrapper.style, { position: 'relative', width: '20px', height: '20px' })
+      const pulse = document.createElement('div')
+      pulse.className = 'marker-pulse'
+      Object.assign(pulse.style, { position: 'absolute', inset: '0', borderRadius: '50%', background: MARKER_COLOR, opacity: '0.3' })
+      const dot = document.createElement('div')
+      Object.assign(dot.style, { position: 'absolute', inset: '4px', borderRadius: '50%', background: MARKER_COLOR, border: '2px solid white', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' })
+      wrapper.appendChild(pulse)
+      wrapper.appendChild(dot)
+      markerEl.current.appendChild(wrapper)
+    }
+
+    if (markerRef.current) {
+      return
+    }
+
+    markerRef.current = new maplibregl.Marker({ element: markerEl.current })
+      .setLngLat([startPoint.lng, startPoint.lat])
+      .addTo(map)
   }, [])
 
   // Load track onto map
@@ -336,28 +396,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         bounds.extend([p.lng, p.lat])
       }
       map.fitBounds(bounds, { padding: 80, duration: 1000 })
-
-      // Create marker using DOM API (avoid innerHTML for security)
-      if (!markerEl.current) {
-        markerEl.current = document.createElement('div')
-        const wrapper = document.createElement('div')
-        Object.assign(wrapper.style, { position: 'relative', width: '20px', height: '20px' })
-        const pulse = document.createElement('div')
-        pulse.className = 'marker-pulse'
-        Object.assign(pulse.style, { position: 'absolute', inset: '0', borderRadius: '50%', background: MARKER_COLOR, opacity: '0.3' })
-        const dot = document.createElement('div')
-        Object.assign(dot.style, { position: 'absolute', inset: '4px', borderRadius: '50%', background: MARKER_COLOR, border: '2px solid white', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' })
-        wrapper.appendChild(pulse)
-        wrapper.appendChild(dot)
-        markerEl.current.appendChild(wrapper)
-      }
-
       if (markerRef.current) {
         markerRef.current.remove()
+        markerRef.current = null
       }
-      markerRef.current = new maplibregl.Marker({ element: markerEl.current })
-        .setLngLat([track.points[0].lng, track.points[0].lat])
-        .addTo(map)
+      ensureMarker(map, track.points[0])
     }
 
     if (map.isStyleLoaded()) {
@@ -369,7 +412,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       // Clean up pending style.load listener if component re-renders before it fires
       map.off('style.load', onStyleLoad)
     }
-  }, [track, addTrackLayers])
+  }, [track, addTrackLayers, ensureMarker])
 
   useEffect(() => {
     if (!followCamera || suspendAutoCamera) {
@@ -381,6 +424,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0) return
+
+    if (map.isStyleLoaded() && (!map.getLayer('route-line') || !map.getLayer('trail-line'))) {
+      addTrackLayers(map, track)
+    }
+
+    ensureMarker(map, track.points[0])
 
     const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress)
     const { point, segmentIndex } = result
@@ -431,9 +480,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         targetCamera = {
           center: [point.lng, point.lat],
-          bearing: lookAheadBearing,
+          bearing: smoothAngle(result.bearing, lookAheadBearing, 0.35),
           pitch: 45,
-          zoom: 14,
+          zoom: 13,
         }
       }
 
@@ -446,16 +495,35 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         ? angleDelta(previousCameraState.bearing, targetCamera.bearing) > SEEK_SNAP_BEARING_DEGREES
         : false
 
-      const cameraState = previousCameraState && !explicitSeek && !snapForLargeCenterJump && !snapForLargeBearingJump
-        ? smoothCameraState(previousCameraState, targetCamera, CAMERA_SMOOTHING)
+      const hasSceneCamera = Boolean(scenes && scenes.length > 0)
+      const canSmoothCamera = Boolean(
+        previousCameraState
+        && !explicitSeek
+        && !snapForLargeCenterJump
+        && !snapForLargeBearingJump,
+      )
+      const smoothingFactor = hasSceneCamera ? SCENE_CAMERA_SMOOTHING : CAMERA_SMOOTHING
+      const cameraState = canSmoothCamera && previousCameraState
+        ? smoothCameraState(previousCameraState, targetCamera, smoothingFactor)
         : targetCamera
 
-      map.jumpTo({
-        center: cameraState.center as [number, number],
-        zoom: cameraState.zoom,
-        pitch: cameraState.pitch,
-        bearing: cameraState.bearing,
-      })
+      const shouldApplyCamera = !previousCameraState
+        || centerDistanceMeters(previousCameraState.center, cameraState.center) > MIN_CAMERA_MOVE_METERS
+        || angleDelta(previousCameraState.bearing, cameraState.bearing) > MIN_CAMERA_BEARING_DELTA
+        || Math.abs(previousCameraState.zoom - cameraState.zoom) > MIN_CAMERA_ZOOM_DELTA
+        || Math.abs(previousCameraState.pitch - cameraState.pitch) > MIN_CAMERA_PITCH_DELTA
+
+      if (shouldApplyCamera) {
+        if ((explicitSeek || !previousCameraState || snapForLargeCenterJump || snapForLargeBearingJump) && map.isMoving()) {
+          map.stop()
+        }
+        map.jumpTo({
+          center: cameraState.center as [number, number],
+          zoom: cameraState.zoom,
+          pitch: cameraState.pitch,
+          bearing: cameraState.bearing,
+        })
+      }
 
       lastCameraStateRef.current = cameraState
       lastSeekNonceRef.current = seekNonce
@@ -463,10 +531,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, scenes, duration, transitionDuration])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, scenes, duration, transitionDuration, addTrackLayers, ensureMarker])
 
   return (
-    <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ''}`}>
+    <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}>
       {mapError && (
         <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>{t('app.mapLoadFailed').replace('{error}', mapError)}</p>

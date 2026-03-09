@@ -132,3 +132,8 @@ input[type="range"]::-webkit-slider-runnable-track {
 /* Hide map zoom controls on landing to prevent overlap with upload card */
 .hide-map-controls .maplibregl-ctrl-top-right,
 .hide-map-controls .maplibregl-ctrl-top-left { display: none; }
+
+.map-has-track-controls .maplibregl-ctrl-top-left,
+.map-has-track-controls .maplibregl-ctrl-top-right {
+  top: clamp(3.25rem, 8vw, 4.5rem);
+}

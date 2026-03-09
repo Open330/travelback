@@ -231,6 +231,13 @@ export const translations = {
     'journey.subtitle': 'Plan a new route or recreate one from memory',
     'journey.instructionTitle': 'Click on the map to trace your route',
     'journey.instructionSubtitle': 'Best for planning new trips — to relive a past trip, upload your GPS file instead',
+    'journey.travelIconLabel': 'Travel icon',
+    'journey.iconWalk': 'Walking',
+    'journey.iconCar': 'Car',
+    'journey.iconPlane': 'Plane',
+    'journey.iconBus': 'Bus',
+    'journey.iconTrain': 'Train',
+    'journey.iconBike': 'Bike',
 
     // ThemeToggle
     'theme.switchToLight': 'Switch to light mode',
@@ -524,6 +531,13 @@ export const translations = {
     'journey.subtitle': '새 경로를 계획하거나 기억으로 재현하세요',
     'journey.instructionTitle': '지도를 클릭하여 경로를 그려보세요',
     'journey.instructionSubtitle': '새 여행 계획에 적합합니다 — 지난 여행을 다시 보려면 GPS 파일을 업로드하세요',
+    'journey.travelIconLabel': '이동 아이콘',
+    'journey.iconWalk': '도보',
+    'journey.iconCar': '자동차',
+    'journey.iconPlane': '비행기',
+    'journey.iconBus': '버스',
+    'journey.iconTrain': '기차',
+    'journey.iconBike': '자전거',
 
     // ThemeToggle
     'theme.switchToLight': '라이트 모드로 전환',
@@ -817,6 +831,13 @@ export const translations = {
     'journey.subtitle': '新しいルートを計画、または記憶からルートを再現',
     'journey.instructionTitle': '地図をクリックしてルートをトレース',
     'journey.instructionSubtitle': '新しい旅行の計画に最適 — 過去の旅を振り返るにはGPSファイルをアップロード',
+    'journey.travelIconLabel': '移動アイコン',
+    'journey.iconWalk': '徒歩',
+    'journey.iconCar': '車',
+    'journey.iconPlane': '飛行機',
+    'journey.iconBus': 'バス',
+    'journey.iconTrain': '電車',
+    'journey.iconBike': '自転車',
 
     // ThemeToggle
     'theme.switchToLight': 'ライトモードに切り替え',
@@ -1110,6 +1131,13 @@ export const translations = {
     'journey.subtitle': '规划新路线或从记忆中重建',
     'journey.instructionTitle': '点击地图描绘路线',
     'journey.instructionSubtitle': '适合规划新旅程 — 若要重温过去的旅行，请上传GPS文件',
+    'journey.travelIconLabel': '出行图标',
+    'journey.iconWalk': '步行',
+    'journey.iconCar': '汽车',
+    'journey.iconPlane': '飞机',
+    'journey.iconBus': '公交',
+    'journey.iconTrain': '火车',
+    'journey.iconBike': '自行车',
 
     // ThemeToggle
     'theme.switchToLight': '切换到浅色模式',
@@ -1403,6 +1431,13 @@ export const translations = {
     'journey.subtitle': 'Planifica una nueva ruta o recrea una de memoria',
     'journey.instructionTitle': 'Haz clic en el mapa para trazar tu ruta',
     'journey.instructionSubtitle': 'Ideal para planificar nuevos viajes — para revivir uno pasado, sube tu archivo GPS',
+    'journey.travelIconLabel': 'Icono de viaje',
+    'journey.iconWalk': 'A pie',
+    'journey.iconCar': 'Auto',
+    'journey.iconPlane': 'Avión',
+    'journey.iconBus': 'Bus',
+    'journey.iconTrain': 'Tren',
+    'journey.iconBike': 'Bicicleta',
 
     // ThemeToggle
     'theme.switchToLight': 'Cambiar a modo claro',

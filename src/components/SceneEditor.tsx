@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
+import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
@@ -42,7 +42,7 @@ function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }
   }
 }
 
-export default function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
+function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
@@ -139,7 +139,7 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
   }, [scenes, t])
 
   return (
-    <div className="absolute left-4 top-16 bottom-36 z-20 w-72 max-w-[calc(100vw-2rem)] gs flex flex-col overflow-hidden"
+    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 top-48 bottom-36 z-20 w-auto gs flex flex-col overflow-hidden sm:right-auto sm:top-16 sm:w-72 sm:max-w-[calc(100vw-2rem)]"
       style={{ borderRadius: 'var(--r-glass)' }}
       onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
@@ -369,3 +369,5 @@ export default function SceneEditor({ scenes, onChange, onClose, transitionDurat
     </div>
   )
 }
+
+export default memo(SceneEditor)
