@@ -387,7 +387,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     cumulDistRef.current = computeCumulativeDistances(track.points)
 
-    const onStyleLoad = () => {
+    const attachTrackToReadyStyle = () => {
+      if (!map.isStyleLoaded()) {
+        return false
+      }
+
       addTrackLayers(map, track)
 
       // Fit map to track bounds
@@ -401,16 +405,29 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         markerRef.current = null
       }
       ensureMarker(map, track.points[0])
+      return true
     }
 
-    if (map.isStyleLoaded()) {
-      onStyleLoad()
-    } else {
-      map.once('style.load', onStyleLoad)
+    const onStyleReady = () => {
+      if (!attachTrackToReadyStyle()) {
+        return
+      }
+
+      map.off('style.load', onStyleReady)
+      map.off('styledata', onStyleReady)
+      map.off('idle', onStyleReady)
     }
+
+    if (!attachTrackToReadyStyle()) {
+      map.on('style.load', onStyleReady)
+      map.on('styledata', onStyleReady)
+      map.on('idle', onStyleReady)
+    }
+
     return () => {
-      // Clean up pending style.load listener if component re-renders before it fires
-      map.off('style.load', onStyleLoad)
+      map.off('style.load', onStyleReady)
+      map.off('styledata', onStyleReady)
+      map.off('idle', onStyleReady)
     }
   }, [track, addTrackLayers, ensureMarker])
 
