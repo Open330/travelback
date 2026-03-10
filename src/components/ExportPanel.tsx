@@ -169,7 +169,7 @@ export default function ExportPanel({
             {/* Video preview */}
             {exportedVideoUrl && (
               <div className="mb-4 rounded-lg overflow-hidden" style={{ border: '1px solid var(--div)' }}>
-                <video src={exportedVideoUrl} controls className="w-full" style={{ maxHeight: '200px' }} />
+                <video src={exportedVideoUrl} controls playsInline preload="metadata" className="block w-full bg-black" style={{ maxHeight: '200px' }} />
               </div>
             )}
 
