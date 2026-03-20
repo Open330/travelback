@@ -33,8 +33,8 @@ export interface MapViewHandle {
 const ROUTE_COLOR = '#06b6d4'
 const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
-const LOOK_AHEAD_DISTANCE_METERS = 120
-const CAMERA_SMOOTHING = 0.2
+const LOOK_AHEAD_DISTANCE_METERS = 400
+const CAMERA_SMOOTHING = 0.1
 const SCENE_CAMERA_SMOOTHING = 0.34
 const SEEK_SNAP_DISTANCE_METERS = 2500
 const SEEK_SNAP_BEARING_DEGREES = 120
@@ -321,7 +321,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         paint: {
           'line-color': ROUTE_COLOR,
           'line-width': 5,
-          'line-opacity': 0.75,
+          'line-opacity': 0,
         },
       })
     }
@@ -497,7 +497,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         targetCamera = {
           center: [point.lng, point.lat],
-          bearing: smoothAngle(result.bearing, lookAheadBearing, 0.35),
+          bearing: lookAheadBearing,
           pitch: 45,
           zoom: 13,
         }

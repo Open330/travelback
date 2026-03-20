@@ -6,7 +6,7 @@ import { useLocale } from '@/lib/i18n'
 
 function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean } {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
-    return { mode: 'dark', hadExplicitMode: true }
+    return { mode: 'light', hadExplicitMode: true }
   }
 
   const current = document.documentElement.getAttribute('data-mode')
@@ -14,9 +14,8 @@ function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean
     return { mode: current, hadExplicitMode: true }
   }
 
-  const systemMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  document.documentElement.setAttribute('data-mode', systemMode)
-  return { mode: systemMode, hadExplicitMode: false }
+  document.documentElement.setAttribute('data-mode', 'light')
+  return { mode: 'light', hadExplicitMode: false }
 }
 
 export default function ThemeToggle({ onModeChange }: { onModeChange?: (mode: 'dark' | 'light') => void }) {
