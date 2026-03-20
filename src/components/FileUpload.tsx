@@ -109,7 +109,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
 
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+      style={{ background: 'var(--upload-overlay, rgba(0,0,0,.32))', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -119,6 +119,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           borderRadius: 'var(--r-glass)',
           borderColor: isDragging ? 'rgb(var(--gl))' : undefined,
           transform: isDragging ? 'scale(1.02)' : undefined,
+          background: 'var(--gc-solid-bg, var(--gc-bg))',
+          boxShadow: 'var(--gc-sh)',
         }}
       >
         <div className="mb-4 flex items-center justify-center">

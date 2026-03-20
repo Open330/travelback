@@ -169,6 +169,11 @@ body {
 [data-mode=light] {
   --bg: #EBEEF4;
   --bg2: #E5EAF3;
+  --upload-overlay: rgba(180, 190, 210, .52);
+  --gc-solid-bg: rgba(255, 255, 255, .88);
+  --gs-bg: color-mix(in srgb, white 62%, transparent);
+  --gs-bd: rgba(255, 255, 255, .64);
+  --gs-sh: 0 4px 20px rgba(17, 24, 39, .10), inset 0 1px 0 rgba(255, 255, 255, .8);
 
   --t1: #050810;
   --t2: #1C2340;
@@ -179,17 +184,18 @@ body {
   --gs-bg: color-mix(in srgb, white 54%, transparent);
   --gs-bd: rgba(255, 255, 255, .56);
 
-  --gc-bg: color-mix(in srgb, white 60%, transparent);
-  --gc-bd: rgba(255, 255, 255, .62);
-  --gc-sh: 0 10px 28px rgba(17, 24, 39, .07), inset 0 1px 0 rgba(255, 255, 255, .7);
-  --gc-hsh: 0 20px 42px rgba(17, 24, 39, .12), inset 0 1px 0 rgba(255, 255, 255, .82);
+  --gc-bg: color-mix(in srgb, white 72%, transparent);
+  --gc-bd: rgba(255, 255, 255, .72);
+  --gc-sh: 0 8px 32px rgba(17, 24, 39, .12), 0 2px 8px rgba(17, 24, 39, .06), inset 0 1px 0 rgba(255, 255, 255, .85);
+  --gc-hsh: 0 16px 48px rgba(17, 24, 39, .16), 0 4px 12px rgba(17, 24, 39, .08), inset 0 1px 0 rgba(255, 255, 255, .9);
 
-  --gi-bg: color-mix(in srgb, white 62%, transparent);
-  --gi-bd: rgba(255, 255, 255, .52);
-  --gi-hbg: color-mix(in srgb, white 78%, transparent);
+  --gi-bg: color-mix(in srgb, white 76%, transparent);
+  --gi-bd: rgba(255, 255, 255, .68);
+  --gi-hbg: color-mix(in srgb, white 90%, transparent);
 
-  --go-bg: color-mix(in srgb, white 72%, transparent);
-  --go-bd: rgba(255, 255, 255, .66);
+  --go-bg: color-mix(in srgb, white 82%, transparent);
+  --go-bd: rgba(255, 255, 255, .76);
+  --gi-sh: 0 2px 8px rgba(17, 24, 39, .08), inset 0 1px 0 rgba(255, 255, 255, .8);
 
   --spec: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .06) 34%, transparent);
 
@@ -211,6 +217,7 @@ body {
 [data-mode=dark] {
   --bg: #0A0D14;
   --bg2: #101420;
+  --upload-overlay: rgba(0, 0, 0, .52);
 
   --t1: #FFFFFF;
   --t2: #D8E0F4;
@@ -320,7 +327,7 @@ body {
   -webkit-backdrop-filter: blur(42px) saturate(176%);
   background: var(--gs-bg);
   border: 1px solid var(--gs-bd);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+  box-shadow: var(--gs-sh, 0 8px 24px rgba(0, 0, 0, .08));
 }
 
 .gc {
@@ -362,6 +369,7 @@ body {
   background: var(--gi-bg);
   border: 1px solid var(--gi-bd);
   border-radius: var(--r-interactive);
+  box-shadow: var(--gi-sh, none);
   transition: background .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
 }
 

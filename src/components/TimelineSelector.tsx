@@ -13,7 +13,7 @@ interface TimelineSelectorProps {
   className?: string
 }
 
-const BUCKET_COUNT = 100
+const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
 
 function formatDate(date: Date | undefined): string {
@@ -192,7 +192,7 @@ function TimelineSelector({
     <div data-testid="timeline-selector" className={`select-none ${className}`}>
       <div
         ref={containerRef}
-        className="gc nh relative h-16 cursor-crosshair overflow-visible"
+        className="gc nh relative h-12 sm:h-16 cursor-crosshair overflow-visible"
         style={{ userSelect: 'none', borderRadius: '10px' }}
       >
         {/* Histogram bars */}
@@ -204,12 +204,12 @@ function TimelineSelector({
             return (
               <div
                 key={i}
-                className="flex-1 rounded-sm transition-colors duration-75"
+                className="flex-1 rounded-t-sm transition-colors duration-75"
                 style={{
                   height: `${Math.max(heightPct, 4)}%`,
                   backgroundColor: inRange
-                    ? 'rgba(var(--gl),.85)'
-                    : 'rgba(128,128,128,.25)',
+                    ? 'rgba(var(--gl),.6)'
+                    : 'rgba(var(--gl),.12)',
                 }}
               />
             )

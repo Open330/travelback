@@ -39,7 +39,7 @@ function HomeInner() {
   const [speed, setSpeed] = useState(1)
   const [duration, setDuration] = useState(30)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
-    if (typeof document === 'undefined') return 'dark'
+    if (typeof document === 'undefined') return 'voyager'
     const mode = document.documentElement.getAttribute('data-mode')
     return mode === 'dark' ? 'dark' : 'voyager'
   })
@@ -78,7 +78,8 @@ function HomeInner() {
     lastTimeRef.current = performance.now()
 
     const animate = (now: number) => {
-      const dt = (now - lastTimeRef.current) / 1000
+      const rawDt = (now - lastTimeRef.current) / 1000
+      const dt = Math.min(rawDt, 1 / 15) // clamp to prevent jumps from frame spikes
       lastTimeRef.current = now
 
       const increment = (dt * speedRef.current) / durationRef.current
@@ -467,17 +468,6 @@ function HomeInner() {
         </div>
       )}
 
-      {!track && !isCreatingJourney && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
-          <button
-            onClick={handleStartJourney}
-            className="gi px-6 py-3 text-sm font-medium cursor-pointer"
-            style={{ color: 'var(--t2)' }}
-          >
-            {t('app.createJourney')}
-          </button>
-        </div>
-      )}
 
       {!track && isCreatingJourney && (
         <JourneyCreator
@@ -495,7 +485,7 @@ function HomeInner() {
 
       {/* Top-right toolbar */}
       {track && (
-        <div data-testid="track-toolbar" className="absolute left-4 right-4 top-20 z-10 flex flex-wrap justify-end gap-2 sm:left-auto sm:right-16 sm:top-4 sm:max-w-[calc(100vw-5rem)]">
+        <div data-testid="track-toolbar" className="absolute left-4 right-4 top-20 z-10 flex flex-wrap justify-end gap-2 sm:left-auto sm:right-[8rem] sm:top-4 sm:max-w-[calc(100vw-16rem)]">
           <button
             onClick={handleStartNewTrack}
             aria-label={t('app.newJourneyAria')}
@@ -553,14 +543,14 @@ function HomeInner() {
       {track && (
         <div
           data-testid="track-title"
-          className="hidden sm:block absolute left-4 right-4 top-36 z-10 gi px-4 py-2 text-sm font-medium text-center leading-tight sm:left-1/2 sm:right-auto sm:top-4 sm:w-auto sm:max-w-[min(36rem,calc(100vw-28rem))] sm:-translate-x-1/2 sm:whitespace-nowrap"
+          className="hidden sm:block absolute left-4 right-4 top-36 z-10 gi px-4 py-2 text-sm font-medium text-center leading-tight sm:top-4 sm:left-36 sm:right-[34rem] sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap"
           style={{ color: 'var(--t1)' }}>
           {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} {t('timeline.points')}
         </div>
       )}
 
       {fullTrack && fullTrack.points.length > 2 && (
-        <div className="absolute bottom-28 left-0 right-0 z-10 px-4">
+        <div className="absolute bottom-44 sm:bottom-36 left-0 right-0 z-10 px-4">
           <TimelineSelector
             track={fullTrack}
             onRangeChange={handleRangeChange}
@@ -570,16 +560,16 @@ function HomeInner() {
 
       {track && (
         <div className="absolute bottom-0 left-0 right-0 z-10">
-          <div className="px-4 pb-1 sm:hidden">
+          <div className="px-4 pb-0.5 sm:hidden">
             <div
               data-testid="track-title-mobile"
-              className="gi px-3 py-2 text-[11px] font-medium text-center leading-tight"
+              className="gi px-3 py-1.5 text-[10px] font-medium text-center leading-tight truncate"
               style={{ color: 'var(--t1)' }}
             >
-              {track.name} — {track.points.length.toLocaleString()} / {fullTrack!.points.length.toLocaleString()} {t('timeline.points')}
+              {track.name}
             </div>
           </div>
-          <div className="px-4 mb-1">
+          <div className="px-4 mb-1.5">
             <ElevationProfile track={track} progress={progress} onSeek={handleSeek} />
           </div>
           <Controls

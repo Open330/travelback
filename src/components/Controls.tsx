@@ -47,7 +47,7 @@ export default function Controls({
 
   return (
     <div>
-      <div className="gc nh mx-4 mb-4 p-4" style={{ borderRadius: 'var(--r-glass)' }}>
+      <div className="gc nh mx-4 mb-3 sm:mb-4 p-3 sm:p-4" style={{ borderRadius: 'var(--r-glass)' }}>
         {/* Progress bar — thicker for touch */}
         <div className="mb-3">
           <input
