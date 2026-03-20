@@ -256,6 +256,39 @@ body {
   --bi-bg: #0C4A6E; --bi-fg: #7DD3FC;
 }
 
+/* ── Map Style Variations ── */
+/* Voyager: warm teal (default — no override needed) */
+
+/* Positron: cool silver-blue, minimal */
+[data-mode=light][data-mapstyle=positron] {
+  --gl: 100, 116, 160;
+  --bg: #F0F1F5;
+  --bg2: #E8EAF0;
+  --mesh-op: .14;
+  --mesh-op2: .10;
+  --mesh-op3: .06;
+}
+
+/* Liberty: warm earthy olive-green */
+[data-mode=light][data-mapstyle=liberty] {
+  --gl: 76, 148, 108;
+  --bg: #EEF2EC;
+  --bg2: #E6ECE4;
+  --mesh-op: .18;
+  --mesh-op2: .12;
+  --mesh-op3: .07;
+}
+
+/* Bright: vibrant cobalt-blue */
+[data-mode=light][data-mapstyle=bright] {
+  --gl: 56, 108, 220;
+  --bg: #ECF0F8;
+  --bg2: #E4EAF6;
+  --mesh-op: .20;
+  --mesh-op2: .14;
+  --mesh-op3: .08;
+}
+
 /* ── Mesh Background ── */
 @property --ma1 {
   syntax: '<angle>';

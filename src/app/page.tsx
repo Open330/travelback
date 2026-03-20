@@ -41,7 +41,9 @@ function HomeInner() {
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
     if (typeof document === 'undefined') return 'voyager'
     const mode = document.documentElement.getAttribute('data-mode')
-    return mode === 'dark' ? 'dark' : 'voyager'
+    const key = mode === 'dark' ? 'dark' : 'voyager'
+    document.documentElement.setAttribute('data-mapstyle', key)
+    return key
   })
   const [followCamera, setFollowCamera] = useState(true)
   const [showExport, setShowExport] = useState(false)
@@ -79,7 +81,7 @@ function HomeInner() {
 
     const animate = (now: number) => {
       const rawDt = (now - lastTimeRef.current) / 1000
-      const dt = Math.min(rawDt, 1 / 15) // clamp to prevent jumps from frame spikes
+      const dt = Math.min(rawDt, 1 / 30) // clamp to prevent jumps from frame spikes
       lastTimeRef.current = now
 
       const increment = (dt * speedRef.current) / durationRef.current
@@ -358,16 +360,25 @@ function HomeInner() {
     mapViewRef.current?.applyCameraState(cameraState)
   }, [track])
 
-  const handleModeChange = useCallback((mode: 'dark' | 'light') => {
-    // Auto-match map style with theme
-    setMapStyleKey(mode === 'dark' ? 'dark' : 'voyager')
+  const applyMapStyleTheme = useCallback((key: MapStyleKey) => {
+    const mode = key === 'dark' ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-mode', mode)
+    document.documentElement.setAttribute('data-mapstyle', key)
   }, [])
+
+  const handleModeChange = useCallback((mode: 'dark' | 'light') => {
+    const key = mode === 'dark' ? 'dark' : 'voyager'
+    setMapStyleKey(key)
+    applyMapStyleTheme(key)
+  }, [applyMapStyleTheme])
 
   const cycleStyle = useCallback(() => {
     const keys = Object.keys(MAP_STYLES) as MapStyleKey[]
     const idx = keys.indexOf(mapStyleKey)
-    setMapStyleKey(keys[(idx + 1) % keys.length])
-  }, [mapStyleKey])
+    const nextKey = keys[(idx + 1) % keys.length]
+    setMapStyleKey(nextKey)
+    applyMapStyleTheme(nextKey)
+  }, [mapStyleKey, applyMapStyleTheme])
 
   return (
     <ErrorBoundary>

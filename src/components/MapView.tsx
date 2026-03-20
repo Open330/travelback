@@ -33,8 +33,9 @@ export interface MapViewHandle {
 const ROUTE_COLOR = '#06b6d4'
 const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
-const LOOK_AHEAD_DISTANCE_METERS = 400
+const LOOK_AHEAD_DISTANCE_METERS = 600
 const CAMERA_SMOOTHING = 0.1
+const BEARING_SMOOTHING = 0.04
 const SCENE_CAMERA_SMOOTHING = 0.34
 const SEEK_SNAP_DISTANCE_METERS = 2500
 const SEEK_SNAP_BEARING_DEGREES = 120
@@ -60,7 +61,7 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
   return Math.hypot(dLngMeters, dLatMeters)
 }
 
-function smoothCameraState(previous: CameraState, target: CameraState, factor: number): CameraState {
+function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
   return {
     center: [
       previous.center[0] + (target.center[0] - previous.center[0]) * factor,
@@ -68,7 +69,7 @@ function smoothCameraState(previous: CameraState, target: CameraState, factor: n
     ],
     zoom: previous.zoom + (target.zoom - previous.zoom) * factor,
     pitch: previous.pitch + (target.pitch - previous.pitch) * factor,
-    bearing: smoothAngle(previous.bearing, target.bearing, factor),
+    bearing: smoothAngle(previous.bearing, target.bearing, bearingFactor ?? factor),
   }
 }
 
@@ -520,8 +521,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         && !snapForLargeBearingJump,
       )
       const smoothingFactor = hasSceneCamera ? SCENE_CAMERA_SMOOTHING : CAMERA_SMOOTHING
+      const bearingSmoothingFactor = hasSceneCamera ? SCENE_CAMERA_SMOOTHING : BEARING_SMOOTHING
       const cameraState = canSmoothCamera && previousCameraState
-        ? smoothCameraState(previousCameraState, targetCamera, smoothingFactor)
+        ? smoothCameraState(previousCameraState, targetCamera, smoothingFactor, bearingSmoothingFactor)
         : targetCamera
 
       const shouldApplyCamera = !previousCameraState
