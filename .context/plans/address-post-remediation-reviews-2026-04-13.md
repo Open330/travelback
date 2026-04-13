@@ -29,9 +29,15 @@
 
 - [x] Phase A — capture/land the follow-up review baseline
 - [x] Phase B — toolchain, workflow, and plan hygiene
-- [ ] Phase C — Journey Creator privacy and search hardening
+- [x] Phase C — Journey Creator privacy and search hardening
 - [ ] Phase D — style trust reduction and residual privacy copy cleanup
 - [ ] Phase E — bounded maintainability cleanup and final verification
+
+Completed so far:
+- follow-up reviews and plan captured and committed
+- TypeScript/toolchain and Node/doc/runtime expectations aligned
+- stale historical plans moved into archive
+- Journey Creator now requires a minimum query length and no longer attempts to set a forbidden browser `User-Agent` header
 
 ---
 

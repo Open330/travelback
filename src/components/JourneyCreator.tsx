@@ -21,6 +21,7 @@ const SOURCE_LINE = 'journey-line'
 const LAYER_LINE = 'journey-line'
 const LAYER_POINTS = 'journey-points'
 const LAYER_LABELS = 'journey-points-labels'
+const MIN_SEARCH_QUERY_LENGTH = 3
 
 const TRAVEL_ICON_OPTIONS = [
   { id: 'walk', symbol: '🚶', labelKey: 'journey.iconWalk' },
@@ -337,7 +338,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       searchAbortRef.current.abort()
       searchAbortRef.current = null
     }
-    if (!query.trim()) {
+    const trimmedQuery = query.trim()
+    if (trimmedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([])
       setSearching(false)
       return
@@ -349,9 +351,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       searchAbortRef.current = abortController
       setSearching(true)
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=5`
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmedQuery)}&format=json&limit=5`
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'Travelback/1.0 (https://github.com/Open330/travelback)' },
           signal: abortController.signal,
         })
         if (res.ok && requestId === searchRequestIdRef.current) {
