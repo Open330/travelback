@@ -208,7 +208,7 @@ Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/
 ## Privacy & Network Behavior
 
 - **Track files are parsed locally in your browser.** Travelback does not upload your GPX, KML, or Google Timeline files to an app-owned backend.
-- **Map rendering still uses third-party providers at runtime.** Basemap/style requests go to CARTO and OpenFreeMap while the map is displayed.
+- **Map rendering still uses third-party providers at runtime.** Style JSON is bundled locally, but the displayed basemap tiles, glyphs, and sprites still come from CARTO and OpenFreeMap while the map is displayed.
 - **Place search is optional and uses OpenStreetMap Nominatim.** If you use Journey Creator search, your query is sent to `nominatim.openstreetmap.org`.
 - **Large files are bounded for browser safety.** The uploader rejects very large files and extremely high point-count tracks to reduce tab-freeze risk from pathological inputs.
 

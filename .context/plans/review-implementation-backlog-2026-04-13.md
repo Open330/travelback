@@ -8,8 +8,8 @@
 
 | Review | Focus | Status | Active plan(s) |
 |---|---|---|---|
-| `.context/reviews/ux-review-non-technical-traveler.md` | Broad UX issues for non-technical travelers | **Refreshed coverage added in this pass** | `.context/plans/address-open-ux-review-items-2026-04-13.md` (preferred), plus historical refs: `.context/plans/address-ux-review-non-technical-traveler.md`, `.context/plans/address-review-gaps.md` |
-| `.context/reviews/mina-review-2026-02-22.md` | Persona-specific UX review from Mina | **Refreshed coverage added in this pass** | `.context/plans/address-open-ux-review-items-2026-04-13.md` (preferred), plus historical refs: `.context/plans/address-mina-review-2026-02-22.md`, `.context/plans/address-review-gaps.md` |
+| `.context/reviews/ux-review-non-technical-traveler.md` | Broad UX issues for non-technical travelers | **Refreshed coverage added in this pass** | `.context/plans/address-open-ux-review-items-2026-04-13.md` (preferred), plus historical refs: `.context/plans/archive/address-ux-review-non-technical-traveler.md`, `.context/plans/archive/address-review-gaps.md` |
+| `.context/reviews/mina-review-2026-02-22.md` | Persona-specific UX review from Mina | **Refreshed coverage added in this pass** | `.context/plans/address-open-ux-review-items-2026-04-13.md` (preferred), plus historical refs: `.context/plans/archive/address-mina-review-2026-02-22.md`, `.context/plans/archive/address-review-gaps.md` |
 | `.context/reviews/comprehensive-code-review-2026-04-13.md` | Repo-wide correctness / maintainability / release-quality review | **New plan added in this pass** | `.context/plans/address-comprehensive-code-review-2026-04-13.md` |
 | `.context/reviews/ultradeep-code-quality-review-2026-04-13.md` | Deep code-quality / lifecycle / parser / performance review | **New plan added in this pass** | `.context/plans/address-ultradeep-code-quality-review-2026-04-13.md` |
 | `.context/reviews/ultradeep-security-review-2026-04-13.md` | Deep security / privacy / dependency / CSP review | **New plan added in this pass** | `.context/plans/address-ultradeep-security-review-2026-04-13.md` |

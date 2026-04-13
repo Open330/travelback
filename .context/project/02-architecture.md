@@ -94,7 +94,7 @@ interface CameraState {
 All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. This means:
 - No server-side file upload step for track parsing/export
 - Raw track files stay local to the browser runtime
-- Works offline after initial page load **except** for third-party map/style and optional geocoding requests
+- Works offline after initial page load **except** for third-party tile/glyph/sprite requests and optional geocoding requests
 
 Privacy/trust-boundary note:
 - Local style JSON is vendored with the app, but displayed maps still rely on third-party tile/glyph/sprite providers (CARTO / OpenFreeMap)

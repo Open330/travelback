@@ -36,10 +36,10 @@
 Completed so far:
 - follow-up reviews and plan captured and committed
 - TypeScript/toolchain and Node/doc/runtime expectations aligned
-- stale historical plans moved into archive
+- stale historical plans moved into archive and lingering active-plan references were corrected
 - Journey Creator now requires a minimum query length and no longer attempts to set a forbidden browser `User-Agent` header
-- map style JSON files are now vendored locally, reducing remote style-definition mutability at runtime
-- the README closing tagline now matches the documented privacy/network behavior
+- map style JSON files are now vendored locally, reducing remote style-definition mutability at runtime while docs now call out the remaining tile/glyph/sprite trust boundary
+- the README privacy section and closing tagline now match the documented privacy/network behavior
 - `SceneRangeEditor` no longer keeps always-on per-scene global pointer listeners while idle
 - `page.tsx` had unrelated global-toolbar and keyboard-help UI extracted into dedicated components to reduce orchestration coupling
 
