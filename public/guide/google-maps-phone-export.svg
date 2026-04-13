@@ -1,0 +1,33 @@
+<svg width="720" height="420" viewBox="0 0 720 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="420" rx="30" fill="#EEF6FF"/>
+  <rect x="34" y="34" width="210" height="352" rx="28" fill="#111827"/>
+  <rect x="50" y="62" width="178" height="296" rx="22" fill="#F8FAFC"/>
+  <circle cx="139" cy="86" r="18" fill="#0EA5E9" fill-opacity="0.18"/>
+  <text x="139" y="91" text-anchor="middle" fill="#0F172A" font-size="12" font-family="Arial" font-weight="700">Me</text>
+  <rect x="72" y="126" width="134" height="34" rx="16" fill="#E0F2FE" stroke="#0EA5E9" stroke-dasharray="4 4"/>
+  <text x="139" y="147" text-anchor="middle" fill="#0F172A" font-size="14" font-family="Arial" font-weight="700">Your Timeline</text>
+  <path d="M138 171V214" stroke="#0EA5E9" stroke-width="4" stroke-linecap="round"/>
+  <rect x="72" y="224" width="134" height="72" rx="18" fill="#F1F5F9"/>
+  <text x="139" y="248" text-anchor="middle" fill="#0F172A" font-size="14" font-family="Arial" font-weight="700">Settings</text>
+  <text x="139" y="272" text-anchor="middle" fill="#475569" font-size="13" font-family="Arial">Export Timeline data</text>
+
+  <rect x="280" y="70" width="184" height="110" rx="22" fill="white" stroke="#BFDBFE"/>
+  <text x="372" y="112" text-anchor="middle" fill="#0F172A" font-size="22" font-family="Arial" font-weight="700">1. Open profile</text>
+  <text x="372" y="140" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Tap your picture, then choose</text>
+  <text x="372" y="160" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Your Timeline</text>
+
+  <rect x="498" y="70" width="188" height="110" rx="22" fill="white" stroke="#BFDBFE"/>
+  <text x="592" y="112" text-anchor="middle" fill="#0F172A" font-size="22" font-family="Arial" font-weight="700">2. Export</text>
+  <text x="592" y="140" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Open Settings, then tap</text>
+  <text x="592" y="160" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Export Timeline data</text>
+
+  <path d="M244 140H280" stroke="#0EA5E9" stroke-width="4" stroke-linecap="round"/>
+  <path d="M464 140H498" stroke="#0EA5E9" stroke-width="4" stroke-linecap="round"/>
+  <path d="M262 132L280 140L262 148" fill="#0EA5E9"/>
+  <path d="M480 132L498 140L480 148" fill="#0EA5E9"/>
+
+  <rect x="280" y="214" width="406" height="138" rx="24" fill="white" stroke="#BFDBFE"/>
+  <text x="483" y="254" text-anchor="middle" fill="#0F172A" font-size="24" font-family="Arial" font-weight="700">3. Upload the saved JSON file</text>
+  <text x="483" y="286" text-anchor="middle" fill="#475569" font-size="16" font-family="Arial">Google saves the export to Files / Downloads.</text>
+  <text x="483" y="310" text-anchor="middle" fill="#475569" font-size="16" font-family="Arial">Bring that JSON file back to Travelback.</text>
+</svg>

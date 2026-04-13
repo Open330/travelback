@@ -5,7 +5,7 @@ import { Check, Search } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
-import { totalDistance, formatDistance } from '@/lib/interpolate'
+import { totalDistance, formatDistance, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface JourneyCreatorProps {
@@ -13,6 +13,7 @@ interface JourneyCreatorProps {
   onComplete: (track: Track) => void
   onCancel: () => void
   mapRef: React.RefObject<MapViewHandle | null>
+  units: UnitSystem
 }
 
 const SOURCE_POINTS = 'journey-points'
@@ -54,7 +55,7 @@ function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
   }
 }
 
-export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef }: JourneyCreatorProps) {
+export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef, units }: JourneyCreatorProps) {
   const { t } = useLocale()
   // Use refs for waypoints to avoid stale closure issues in map event handlers
   const waypointsRef = useRef<TrackPoint[]>([])
@@ -504,7 +505,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
           <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--t2)' }}>
             {pointCount === 1
               ? t('journey.onePoint')
-              : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters)}`}
+              : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters, units)}`}
           </div>
         </>
       )}
@@ -516,7 +517,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
             {t('journey.confirmTitle')}
           </p>
           <p className="text-[10px] mb-3" style={{ color: 'var(--t3)' }}>
-            {pointCount} {t('timeline.points')} · {formatDistance(distanceMeters)}
+            {pointCount} {t('timeline.points')} · {formatDistance(distanceMeters, units)}
           </p>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowConfirm(false)}

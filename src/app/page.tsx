@@ -17,7 +17,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes, computeCameraForScene } from '@/lib/camera'
-import { computeCumulativeDistances } from '@/lib/interpolate'
+import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, useLocale, type Locale } from '@/lib/i18n'
@@ -59,6 +59,7 @@ function HomeInner() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [seekNonce, setSeekNonce] = useState(0)
   const [trackSessionKey, setTrackSessionKey] = useState(0)
+  const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   const mapViewRef = useRef<MapViewHandle>(null)
@@ -438,6 +439,11 @@ function HomeInner() {
     applyMapStyleTheme(nextKey)
   }, [mapStyleKey, applyMapStyleTheme])
 
+  const handleUnitsChange = useCallback((nextUnits: UnitSystem) => {
+    setUnitPreference(nextUnits)
+    setUnits(nextUnits)
+  }, [])
+
   return (
     <ErrorBoundary>
     <div className="relative w-screen h-screen overflow-hidden">
@@ -484,6 +490,28 @@ function HomeInner() {
 
       {/* Theme toggle + Language picker */}
       <div data-testid="global-toolbar" className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <div className="gi inline-flex items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
+          <button
+            type="button"
+            onClick={() => handleUnitsChange('metric')}
+            className="px-2 py-1.5 cursor-pointer"
+            style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
+            aria-label={t('units.metric')}
+            title={t('units.metric')}
+          >
+            km
+          </button>
+          <button
+            type="button"
+            onClick={() => handleUnitsChange('imperial')}
+            className="px-2 py-1.5 cursor-pointer"
+            style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
+            aria-label={t('units.imperial')}
+            title={t('units.imperial')}
+          >
+            mi
+          </button>
+        </div>
         <select
           value={locale}
           onChange={e => setLocale(e.target.value as Locale)}
@@ -497,7 +525,12 @@ function HomeInner() {
           <option value="zh">ZH</option>
           <option value="es">ES</option>
         </select>
-        <ThemeToggle onModeChange={handleModeChange} />
+        <div className="gi flex items-center gap-1.5 px-1.5 py-1">
+          <span className="hidden text-[10px] font-medium sm:inline" style={{ color: 'var(--t4)' }}>
+            {t('theme.label')}
+          </span>
+          <ThemeToggle onModeChange={handleModeChange} />
+        </div>
       </div>
 
       {/* Keyboard help button — hidden on touch devices */}
@@ -544,6 +577,7 @@ function HomeInner() {
           onComplete={handleJourneyComplete}
           onCancel={handleCancelJourney}
           mapRef={mapViewRef}
+          units={units}
         />
       )}
 
@@ -640,7 +674,7 @@ function HomeInner() {
             </div>
           </div>
           <div className="px-4 mb-1.5">
-            <ElevationProfile track={track} progress={progress} onSeek={handleSeek} />
+            <ElevationProfile track={track} progress={progress} onSeek={handleSeek} units={units} />
           </div>
           <Controls
             track={track}
@@ -648,6 +682,7 @@ function HomeInner() {
             progress={progress}
             speed={speed}
             duration={duration}
+            units={units}
             followCamera={followCamera}
             onTogglePlay={handleTogglePlay}
             onSeek={handleSeek}

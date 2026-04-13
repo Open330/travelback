@@ -11,6 +11,7 @@ const SCENE_COLORS = [
   'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
   '#FB7185', '#2DD4BF', '#FB923C', '#818CF8',
 ]
+const MIN_SCENE_SPAN = 0.01
 
 interface SceneEditorProps {
   scenes: Scene[]
@@ -40,6 +41,145 @@ function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }
     case 'birdeye':
       return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={s}><path d="M2 12l10-8 10 8"/><path d="M12 4v16"/><path d="M6 8v12h12V8"/></svg>
   }
+}
+
+function SceneRangeEditor({
+  sceneName,
+  startPercent,
+  endPercent,
+  onChange,
+  ariaLabel,
+}: {
+  sceneName: string
+  startPercent: number
+  endPercent: number
+  onChange: (startPercent: number, endPercent: number) => void
+  ariaLabel: string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragState = useRef<{
+    type: 'start' | 'end' | 'region' | null
+    originX: number
+    originStart: number
+    originEnd: number
+  }>({ type: null, originX: 0, originStart: 0, originEnd: 1 })
+
+  const clampRange = useCallback((start: number, end: number): [number, number] => {
+    let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
+    let nextEnd = Math.max(MIN_SCENE_SPAN, Math.min(end, 1))
+    if (nextEnd - nextStart < MIN_SCENE_SPAN) {
+      nextEnd = Math.min(1, nextStart + MIN_SCENE_SPAN)
+      nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
+    }
+    return [nextStart, nextEnd]
+  }, [])
+
+  const startDrag = useCallback((type: 'start' | 'end' | 'region', clientX: number) => {
+    dragState.current = {
+      type,
+      originX: clientX,
+      originStart: startPercent,
+      originEnd: endPercent,
+    }
+  }, [endPercent, startPercent])
+
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      if (!dragState.current.type || !containerRef.current) return
+      const width = containerRef.current.getBoundingClientRect().width || 1
+      const dx = (event.clientX - dragState.current.originX) / width
+
+      if (dragState.current.type === 'start') {
+        const [nextStart, nextEnd] = clampRange(dragState.current.originStart + dx, dragState.current.originEnd)
+        onChange(nextStart, nextEnd)
+        return
+      }
+
+      if (dragState.current.type === 'end') {
+        const [nextStart, nextEnd] = clampRange(dragState.current.originStart, dragState.current.originEnd + dx)
+        onChange(nextStart, nextEnd)
+        return
+      }
+
+      const span = dragState.current.originEnd - dragState.current.originStart
+      let nextStart = dragState.current.originStart + dx
+      let nextEnd = dragState.current.originEnd + dx
+      if (nextStart < 0) {
+        nextStart = 0
+        nextEnd = span
+      }
+      if (nextEnd > 1) {
+        nextEnd = 1
+        nextStart = 1 - span
+      }
+      onChange(nextStart, nextEnd)
+    }
+
+    const onPointerUp = () => {
+      dragState.current.type = null
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+  }, [clampRange, onChange])
+
+  return (
+    <div>
+      <div
+        ref={containerRef}
+        aria-label={ariaLabel}
+        className="relative h-8 rounded-xl overflow-visible border"
+        style={{ background: 'rgba(var(--gl),.12)', borderColor: 'var(--div)' }}
+      >
+        <div
+          className="absolute inset-y-1 rounded-lg cursor-grab active:cursor-grabbing"
+          style={{
+            left: `${startPercent * 100}%`,
+            width: `${Math.max(endPercent - startPercent, MIN_SCENE_SPAN) * 100}%`,
+            background: 'rgba(var(--gl),.28)',
+            border: '1px solid rgba(var(--gl),.45)',
+            touchAction: 'none',
+          }}
+          onPointerDown={(event) => {
+            event.stopPropagation()
+            startDrag('region', event.clientX)
+          }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold" style={{ color: 'var(--t2)' }}>
+            {sceneName}
+          </div>
+        </div>
+
+        {([
+          ['start', startPercent],
+          ['end', endPercent],
+        ] as const).map(([type, value]) => (
+          <div
+            key={type}
+            className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center"
+            style={{ left: `${value * 100}%`, touchAction: 'none' }}
+            onPointerDown={(event) => {
+              event.stopPropagation()
+              startDrag(type, event.clientX)
+            }}
+          >
+            <div className="flex h-6 w-3 items-center justify-center rounded-full border border-white/40 bg-[rgb(var(--gl))] shadow-md">
+              <div className="h-3 w-px rounded bg-black/30" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[9px]" style={{ color: 'var(--t4)' }}>
+        <span>0%</span>
+        <span>50%</span>
+        <span>100%</span>
+      </div>
+    </div>
+  )
 }
 
 function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
@@ -280,6 +420,14 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                   className="vitro-input w-full text-xs px-2 py-1" />
               </label>
             </div>
+
+            <SceneRangeEditor
+              sceneName={scene.name}
+              startPercent={scene.startPercent}
+              endPercent={scene.endPercent}
+              ariaLabel={`${scene.name} ${t('scenes.startPct')} / ${t('scenes.endPct')}`}
+              onChange={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
+            />
 
             {/* Collapsible parameters */}
             <button

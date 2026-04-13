@@ -2,16 +2,17 @@
 
 import { useMemo } from 'react'
 import type { Track } from '@/types'
-import { formatElevation } from '@/lib/interpolate'
+import { formatElevation, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface ElevationProfileProps {
   track: Track
   progress: number
   onSeek: (progress: number) => void
+  units: UnitSystem
 }
 
-export default function ElevationProfile({ track, progress, onSeek }: ElevationProfileProps) {
+export default function ElevationProfile({ track, progress, onSeek, units }: ElevationProfileProps) {
   const { t } = useLocale()
   const elevations = useMemo(() => {
     return track.points.map(p => p.ele ?? null)
@@ -62,7 +63,7 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
     <div className="w-full">
       <div className="flex items-center justify-between text-[9px] mb-0.5 px-1" style={{ color: 'var(--t4)' }}>
         <span>{t('elevation.label')}</span>
-        <span>{formatElevation(minEle)} — {formatElevation(maxEle)} ({formatElevation(elevRange)} Δ)</span>
+        <span>{formatElevation(minEle, units)} — {formatElevation(maxEle, units)} ({formatElevation(elevRange, units)} Δ)</span>
       </div>
       <svg
         viewBox="0 0 100 100"
@@ -101,4 +102,3 @@ export default function ElevationProfile({ track, progress, onSeek }: ElevationP
     </div>
   )
 }
-

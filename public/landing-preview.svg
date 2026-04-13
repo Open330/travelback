@@ -1,0 +1,47 @@
+<svg width="960" height="540" viewBox="0 0 960 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="60" y1="40" x2="900" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#082F49"/>
+    </linearGradient>
+    <linearGradient id="card" x1="140" y1="88" x2="820" y2="462" gradientUnits="userSpaceOnUse">
+      <stop stop-color="rgba(255,255,255,0.88)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.18)"/>
+    </linearGradient>
+    <linearGradient id="route" x1="196" y1="186" x2="698" y2="348" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <filter id="shadow" x="102" y="52" width="756" height="436" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="540" rx="40" fill="url(#bg)"/>
+  <circle cx="172" cy="112" r="120" fill="#06B6D4" fill-opacity="0.15"/>
+  <circle cx="760" cy="420" r="164" fill="#22D3EE" fill-opacity="0.12"/>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="70" width="720" height="400" rx="28" fill="#08111F"/>
+    <rect x="138" y="88" width="684" height="364" rx="22" fill="url(#card)" fill-opacity="0.12" stroke="rgba(255,255,255,0.18)"/>
+  </g>
+
+  <rect x="164" y="114" width="632" height="248" rx="18" fill="#102236" stroke="rgba(255,255,255,0.12)"/>
+  <path d="M196 304C255 266 304 180 383 196C452 210 493 292 562 290C626 288 666 218 716 174" stroke="rgba(255,255,255,0.18)" stroke-width="26" stroke-linecap="round"/>
+  <path d="M196 304C255 266 304 180 383 196C452 210 493 292 562 290C626 288 666 218 716 174" stroke="url(#route)" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="196" cy="304" r="10" fill="#06B6D4"/>
+  <circle cx="716" cy="174" r="10" fill="#F97316"/>
+  <circle cx="527" cy="289" r="18" fill="#F97316" fill-opacity="0.24"/>
+  <circle cx="527" cy="289" r="9" fill="#F97316" stroke="white" stroke-width="3"/>
+
+  <rect x="164" y="382" width="632" height="44" rx="14" fill="rgba(15,23,42,0.78)" stroke="rgba(255,255,255,0.1)"/>
+  <circle cx="198" cy="404" r="16" fill="#06B6D4"/>
+  <path d="M194 396L206 404L194 412V396Z" fill="white"/>
+  <rect x="236" y="395" width="204" height="10" rx="5" fill="rgba(255,255,255,0.14)"/>
+  <rect x="236" y="395" width="106" height="10" rx="5" fill="#06B6D4"/>
+  <rect x="570" y="392" width="88" height="14" rx="7" fill="rgba(255,255,255,0.12)"/>
+  <rect x="674" y="392" width="104" height="14" rx="7" fill="rgba(255,255,255,0.12)"/>
+
+  <text x="164" y="52" fill="white" fill-opacity="0.92" font-size="34" font-family="Inter, Arial, sans-serif" font-weight="700">Travelback sample export</text>
+  <text x="164" y="78" fill="white" fill-opacity="0.62" font-size="16" font-family="Inter, Arial, sans-serif">A preview of the kind of cinematic route video the app generates</text>
+</svg>

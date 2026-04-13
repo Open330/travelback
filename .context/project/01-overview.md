@@ -67,12 +67,12 @@ src/
 - **Animated marker**: Pulsing dot following the track with camera tracking
 - **Timeline selector**: Drag-based time range selection with point density histogram
 - **Manual journey creator**: Click-to-add waypoints, drag to reposition, distance display
-- **5 camera modes**: Overview, Flyover, Orbit, Ground Follow, Closeup
+- **6 camera modes**: Overview, Flyover, Orbit, Ground Follow, Closeup, Bird's Eye
 - **Scene system**: Define cinematic scenes assigning camera modes to track segments
 - **Scene blending**: Smooth transitions between scenes with smoothstep interpolation
 - **Playback controls**: Play/pause, 6 speed levels (0.5x–16x), seekable progress bar
 - **Configurable duration**: 10s to 5min animation length
-- **3 map styles**: Voyager (colorful), Positron (light), Dark Matter (dark)
+- **5 map styles**: Voyager (colorful), Positron (light), Dark Matter (dark), Liberty, Bright
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
 - **Resolution presets**: YouTube 1080p, TikTok 9:16, Instagram Square/Post, 4K
 - **Configurable bitrate**: 1–50 Mbps

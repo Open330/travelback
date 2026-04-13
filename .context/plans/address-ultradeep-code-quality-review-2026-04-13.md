@@ -11,7 +11,7 @@
 - [x] Phase B — scene runtime correctness
 - [x] Phase C — parser and route-model fidelity
 - [x] Phase D — performance and async reliability
-- [ ] Phase E — release hygiene and docs consistency
+- [x] Phase E — release hygiene and docs consistency
 
 Completed so far:
 - new track sessions now reset scene/editor/export UI state instead of leaking configuration across trips
@@ -22,9 +22,8 @@ Completed so far:
 - untimed Google points now preserve source-order instead of being reordered to the start of the route
 - playback no longer recomputes full-track distance on every render
 - JourneyCreator search now cancels/ignores stale requests and rebuilds overlays after style reloads
-
-Still open in this plan:
-- remaining release-hygiene/doc tasks under Phase E
+- deploy verification now includes lint, typecheck, audit, build, and static smoke checks
+- stale factual docs were updated to match the current feature and test surface
 
 ---
 

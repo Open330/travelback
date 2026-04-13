@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import { Play, Pause } from 'lucide-react'
 import type { Track } from '@/types'
-import { formatDistance, formatDuration, totalDistance } from '@/lib/interpolate'
+import { formatDistance, formatDuration, totalDistance, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface ControlsProps {
@@ -12,6 +12,7 @@ interface ControlsProps {
   progress: number
   speed: number
   duration: number
+  units: UnitSystem
   followCamera: boolean
   onTogglePlay: () => void
   onSeek: (progress: number) => void
@@ -29,6 +30,7 @@ export default function Controls({
   progress,
   speed,
   duration,
+  units,
   followCamera,
   onTogglePlay,
   onSeek,
@@ -138,7 +140,7 @@ export default function Controls({
             className="flex w-full items-center justify-between gap-3 text-[10px] sm:ml-auto sm:w-auto sm:justify-end sm:text-sm"
             style={{ color: 'var(--t3)' }}
           >
-            <span>{formatDistance(traveled)} / {formatDistance(total)}</span>
+            <span>{formatDistance(traveled, units)} / {formatDistance(total, units)}</span>
             <span>{formatDuration(elapsed)} / {formatDuration(duration)}</span>
           </div>
         </div>

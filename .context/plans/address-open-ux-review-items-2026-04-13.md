@@ -14,6 +14,23 @@
 
 ---
 
+## Progress update
+
+- [x] Phase A — stronger onboarding and demonstration
+- [x] Phase B — make scene segmentation less abstract
+- [x] Phase C — user-facing control clarity
+- [x] Phase D — visual strategy chosen (reusable SVG/mock-asset approach)
+
+Completed in this implementation pass:
+- the landing card now shows a real product-output-style preview instead of only an abstract animated trace
+- the Google phone/computer import flows now have richer visual guidance assets
+- scene cards now include a draggable visual range editor in addition to numeric percentages
+- users can explicitly toggle metric vs imperial units from the global toolbar
+- the appearance control now has a visible label on larger viewports
+- the visual-asset strategy was resolved using lightweight reusable SVGs rather than heavy video media
+
+---
+
 ## Re-triage summary
 
 A large share of the old UX-review criticisms are already implemented in the current app, including:

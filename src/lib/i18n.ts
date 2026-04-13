@@ -27,6 +27,8 @@ export const translations = {
     'fileUpload.fileTooLarge': 'File is too large (max 200 MB)',
     'fileUpload.drawRoute': 'Draw a route on the map',
     'fileUpload.previewAlt': 'Animated route preview',
+    'fileUpload.previewTitle': 'Sample output preview',
+    'fileUpload.previewAction': 'Load demo',
     'fileUpload.whereToFind': 'Where do I find my travel file?',
     'fileUpload.fromGoogle': 'Google Maps',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails, and more',
@@ -244,6 +246,7 @@ export const translations = {
     // ThemeToggle
     'theme.switchToLight': 'Switch to light mode',
     'theme.switchToDark': 'Switch to dark mode',
+    'theme.label': 'Theme',
 
     // Toast
     'toast.dismiss': 'Dismiss notification',
@@ -301,6 +304,8 @@ export const translations = {
 
     // Locale picker
     'locale.label': 'Language',
+    'units.metric': 'Metric units',
+    'units.imperial': 'Imperial units',
 
     // Keyboard shortcuts
     'shortcuts.title': 'Keyboard Shortcuts',
@@ -329,6 +334,8 @@ export const translations = {
     'fileUpload.fileTooLarge': '파일이 너무 큽니다 (최대 200 MB)',
     'fileUpload.drawRoute': '지도에 경로 그리기',
     'fileUpload.previewAlt': '경로 애니메이션 미리보기',
+    'fileUpload.previewTitle': '샘플 결과 미리보기',
+    'fileUpload.previewAction': '데모 불러오기',
     'fileUpload.whereToFind': '여행 파일은 어디에 있나요?',
     'fileUpload.fromGoogle': 'Google 지도',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails 등',
@@ -546,6 +553,7 @@ export const translations = {
     // ThemeToggle
     'theme.switchToLight': '라이트 모드로 전환',
     'theme.switchToDark': '다크 모드로 전환',
+    'theme.label': '테마',
 
     // Toast
     'toast.dismiss': '알림 닫기',
@@ -603,6 +611,8 @@ export const translations = {
 
     // Locale picker
     'locale.label': '언어',
+    'units.metric': '미터법',
+    'units.imperial': '야드파운드법',
 
     // Keyboard shortcuts
     'shortcuts.title': '키보드 단축키',
@@ -631,6 +641,8 @@ export const translations = {
     'fileUpload.fileTooLarge': 'ファイルが大きすぎます（最大200MB）',
     'fileUpload.drawRoute': '地図にルートを描く',
     'fileUpload.previewAlt': 'アニメーションルートプレビュー',
+    'fileUpload.previewTitle': 'サンプル出力プレビュー',
+    'fileUpload.previewAction': 'デモを読み込む',
     'fileUpload.whereToFind': '旅行ファイルはどこにありますか？',
     'fileUpload.fromGoogle': 'Google マップ',
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails など',
@@ -848,6 +860,7 @@ export const translations = {
     // ThemeToggle
     'theme.switchToLight': 'ライトモードに切り替え',
     'theme.switchToDark': 'ダークモードに切り替え',
+    'theme.label': 'テーマ',
 
     // Toast
     'toast.dismiss': '通知を閉じる',
@@ -905,6 +918,8 @@ export const translations = {
 
     // Locale picker
     'locale.label': '言語',
+    'units.metric': 'メートル法',
+    'units.imperial': 'ヤード・ポンド法',
 
     // Keyboard shortcuts
     'shortcuts.title': 'キーボードショートカット',
@@ -933,6 +948,8 @@ export const translations = {
     'fileUpload.fileTooLarge': '文件过大（最大 200 MB）',
     'fileUpload.drawRoute': '在地图上绘制路线',
     'fileUpload.previewAlt': '动画路线预览',
+    'fileUpload.previewTitle': '示例成片预览',
+    'fileUpload.previewAction': '加载演示',
     'fileUpload.whereToFind': '旅行文件在哪里？',
     'fileUpload.fromGoogle': 'Google 地图',
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails 等',
@@ -1150,6 +1167,7 @@ export const translations = {
     // ThemeToggle
     'theme.switchToLight': '切换到浅色模式',
     'theme.switchToDark': '切换到深色模式',
+    'theme.label': '主题',
 
     // Toast
     'toast.dismiss': '关闭通知',
@@ -1207,6 +1225,8 @@ export const translations = {
 
     // Locale picker
     'locale.label': '语言',
+    'units.metric': '公制',
+    'units.imperial': '英制',
 
     // Keyboard shortcuts
     'shortcuts.title': '键盘快捷键',
@@ -1235,6 +1255,8 @@ export const translations = {
     'fileUpload.fileTooLarge': 'El archivo es demasiado grande (máx. 200 MB)',
     'fileUpload.drawRoute': 'Dibuja una ruta en el mapa',
     'fileUpload.previewAlt': 'Vista previa animada de la ruta',
+    'fileUpload.previewTitle': 'Vista previa del resultado',
+    'fileUpload.previewAction': 'Cargar demo',
     'fileUpload.whereToFind': '¿Dónde encuentro mi archivo de viaje?',
     'fileUpload.fromGoogle': 'Google Maps',
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails y más',
@@ -1452,6 +1474,7 @@ export const translations = {
     // ThemeToggle
     'theme.switchToLight': 'Cambiar a modo claro',
     'theme.switchToDark': 'Cambiar a modo oscuro',
+    'theme.label': 'Tema',
 
     // Toast
     'toast.dismiss': 'Cerrar notificación',
@@ -1509,6 +1532,8 @@ export const translations = {
 
     // Locale picker
     'locale.label': 'Idioma',
+    'units.metric': 'Sistema métrico',
+    'units.imperial': 'Sistema imperial',
 
     // Keyboard shortcuts
     'shortcuts.title': 'Atajos de teclado',

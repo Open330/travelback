@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
+import Image from 'next/image'
 import { useLocale } from '@/lib/i18n'
 
 /** Compact SVG illustrations for each guide tab */
@@ -139,6 +140,7 @@ interface GoogleGuideProps {
 export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   const { t } = useLocale()
   const [tab, setTab] = useState(0)
+  const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
   const methods = [
     {
@@ -243,6 +245,11 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   ]
 
   const tips = [t('google.tip1'), t('google.tip2'), t('google.tip3')]
+  const guidePreviewImage = tab === 0
+    ? `${basePath}/guide/google-maps-phone-export.svg`
+    : tab === 1
+      ? `${basePath}/guide/google-takeout-export.svg`
+      : null
 
   if (!isOpen) return null
 
@@ -290,7 +297,17 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
 
         {/* Illustration for active tab */}
         <div className="px-5">
-          <GuideIllustration tabIndex={tab} />
+          {guidePreviewImage ? (
+            <Image
+              src={guidePreviewImage}
+              alt={tab === 0 ? t('google.phoneTab') : t('google.takeoutTab')}
+              width={720}
+              height={420}
+              className="mb-3 w-full rounded-2xl border border-white/10 shadow-sm"
+            />
+          ) : (
+            <GuideIllustration tabIndex={tab} />
+          )}
         </div>
 
         {/* Steps for active tab */}

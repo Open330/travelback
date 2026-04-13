@@ -1,0 +1,27 @@
+<svg width="720" height="420" viewBox="0 0 720 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="420" rx="30" fill="#F8FAFC"/>
+  <rect x="34" y="38" width="652" height="344" rx="26" fill="white" stroke="#CBD5E1"/>
+  <rect x="34" y="38" width="652" height="48" rx="26" fill="#E2E8F0"/>
+  <circle cx="64" cy="62" r="7" fill="#F87171"/>
+  <circle cx="88" cy="62" r="7" fill="#FBBF24"/>
+  <circle cx="112" cy="62" r="7" fill="#34D399"/>
+  <rect x="138" y="52" width="296" height="20" rx="10" fill="#FFFFFF"/>
+  <text x="286" y="66" text-anchor="middle" fill="#334155" font-size="12" font-family="Arial">takeout.google.com</text>
+
+  <rect x="74" y="126" width="236" height="188" rx="22" fill="#EFF6FF" stroke="#93C5FD"/>
+  <text x="192" y="160" text-anchor="middle" fill="#0F172A" font-size="22" font-family="Arial" font-weight="700">1. Select Location History</text>
+  <rect x="118" y="194" width="148" height="40" rx="14" fill="white" stroke="#0EA5E9" stroke-dasharray="4 4"/>
+  <text x="192" y="219" text-anchor="middle" fill="#0F172A" font-size="16" font-family="Arial" font-weight="700">☑ Location History</text>
+  <text x="192" y="266" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Deselect everything else</text>
+
+  <rect x="362" y="126" width="280" height="88" rx="22" fill="#FEF3C7" stroke="#F59E0B"/>
+  <text x="502" y="162" text-anchor="middle" fill="#0F172A" font-size="22" font-family="Arial" font-weight="700">2. Create export</text>
+  <text x="502" y="190" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Wait for Google's email when the archive is ready</text>
+
+  <path d="M310 220H362" stroke="#0EA5E9" stroke-width="4" stroke-linecap="round"/>
+  <path d="M340 212L362 220L340 228" fill="#0EA5E9"/>
+
+  <rect x="362" y="236" width="280" height="100" rx="22" fill="#ECFDF5" stroke="#34D399"/>
+  <text x="502" y="272" text-anchor="middle" fill="#0F172A" font-size="22" font-family="Arial" font-weight="700">3. Find Records.json</text>
+  <text x="502" y="300" text-anchor="middle" fill="#475569" font-size="15" font-family="Arial">Extract the ZIP, then upload Records.json</text>
+</svg>
