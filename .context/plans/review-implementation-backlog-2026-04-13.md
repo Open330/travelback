@@ -26,9 +26,9 @@
 - `.context/plans/address-open-ux-review-items-2026-04-13.md`
   - **Reason:** this is now the preferred consolidated execution plan for the remaining open UX issues from the older UX review family.
 - Historical reference plans kept in place for provenance and task history:
-  - `.context/plans/address-ux-review-non-technical-traveler.md`
-  - `.context/plans/address-mina-review-2026-02-22.md`
-  - `.context/plans/address-review-gaps.md`
+  - `.context/plans/archive/address-ux-review-non-technical-traveler.md`
+  - `.context/plans/archive/address-mina-review-2026-02-22.md`
+  - `.context/plans/archive/address-review-gaps.md`
   - **Reason:** these documents are partially stale but still useful as source-trace records; they are not fully implemented and therefore were not archived in this pass.
 
 ---

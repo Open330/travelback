@@ -17,7 +17,12 @@ This directory contains project context, conventions, and guidelines for AI assi
 ├── plans/
 │   ├── archive/                      # Completed/superseded plans
 │   │   └── ux-overhaul-non-technical-traveler.md  # Archived: fully implemented UX overhaul plan
-│   └── ...                           # Active implementation plans
+│   ├── address-post-remediation-reviews-2026-04-13.md  # Current follow-up plan for residual issues
+│   ├── address-comprehensive-code-review-2026-04-13.md  # Comprehensive review remediation
+│   ├── address-ultradeep-code-quality-review-2026-04-13.md  # Deep quality remediation
+│   ├── address-ultradeep-security-review-2026-04-13.md  # Deep security remediation
+│   ├── address-open-ux-review-items-2026-04-13.md  # Consolidated remaining UX follow-ups
+│   └── ...                           # Additional active implementation plans
 └── reviews/
     └── ux-review-non-technical-traveler.md    # UX review from traveler perspective
 ```

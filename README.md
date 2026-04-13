@@ -145,7 +145,7 @@ travelback/
 │   └── fixtures/                   # GPX, KML, JSON test fixtures
 │
 ├── public/                         # Static assets
-└── .github/workflows/deploy.yml    # GitHub Pages deployment
+└── .github/workflows/deploy-pages.yml    # GitHub Pages deployment
 ```
 
 ## Tech Stack

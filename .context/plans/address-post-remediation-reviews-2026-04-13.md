@@ -27,8 +27,8 @@
 
 ## Progress update
 
-- [ ] Phase A — capture/land the follow-up review baseline
-- [ ] Phase B — toolchain, workflow, and plan hygiene
+- [x] Phase A — capture/land the follow-up review baseline
+- [x] Phase B — toolchain, workflow, and plan hygiene
 - [ ] Phase C — Journey Creator privacy and search hardening
 - [ ] Phase D — style trust reduction and residual privacy copy cleanup
 - [ ] Phase E — bounded maintainability cleanup and final verification

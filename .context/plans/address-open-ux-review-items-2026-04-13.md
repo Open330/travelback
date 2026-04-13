@@ -5,9 +5,9 @@
 - `.context/reviews/mina-review-2026-02-22.md`
 
 **Historical planning references:**
-- `.context/plans/address-ux-review-non-technical-traveler.md`
-- `.context/plans/address-mina-review-2026-02-22.md`
-- `.context/plans/address-review-gaps.md`
+- `.context/plans/archive/address-ux-review-non-technical-traveler.md`
+- `.context/plans/archive/address-mina-review-2026-02-22.md`
+- `.context/plans/archive/address-review-gaps.md`
 - `.context/plans/archive/ux-overhaul-non-technical-traveler.md`
 
 **Goal:** re-triage the older UX review family against the **current** codebase and isolate the UX tasks that still appear genuinely open after the implemented overhaul and later follow-up work.
