@@ -97,7 +97,7 @@ All track parsing and video encoding happen in the browser. There is no app-owne
 - Works offline after initial page load **except** for third-party map/style and optional geocoding requests
 
 Privacy/trust-boundary note:
-- Displayed maps use third-party basemap/style providers (CARTO / OpenFreeMap)
+- Local style JSON is vendored with the app, but displayed maps still rely on third-party tile/glyph/sprite providers (CARTO / OpenFreeMap)
 - Journey Creator search uses OpenStreetMap Nominatim
 - Users with strict privacy requirements should avoid geocoding and may prefer self-hosted map assets in future deployments
 

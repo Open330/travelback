@@ -13,26 +13,28 @@ export interface Track {
 
 export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
 export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
   voyager: {
     label: 'Voyager',
-    url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    url: `${BASE_PATH}/map-styles/voyager.json`,
   },
   positron: {
     label: 'Light',
-    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    url: `${BASE_PATH}/map-styles/positron.json`,
   },
   dark: {
     label: 'Dark',
-    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    url: `${BASE_PATH}/map-styles/dark.json`,
   },
   liberty: {
     label: 'Liberty',
-    url: 'https://tiles.openfreemap.org/styles/liberty',
+    url: `${BASE_PATH}/map-styles/liberty.json`,
   },
   bright: {
     label: 'Bright',
-    url: 'https://tiles.openfreemap.org/styles/bright',
+    url: `${BASE_PATH}/map-styles/bright.json`,
   },
 }
 

@@ -228,5 +228,5 @@ MIT
 ---
 
 <p align="center">
-  <sub>Built with Next.js, React, MapLibre GL, and WebCodecs. Everything runs in your browser — no server, no uploads.</sub>
+  <sub>Built with Next.js, React, MapLibre GL, and WebCodecs. Your track files stay local in the browser while maps and optional place search use third-party providers.</sub>
 </p>
