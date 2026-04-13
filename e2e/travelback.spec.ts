@@ -201,6 +201,28 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('journey-icon-train')).toBeVisible()
   })
 
+  test('journey creator search waits for explicit submit before calling the provider', async ({ page }) => {
+    let requests = 0
+    await page.route('https://nominatim.openstreetmap.org/**', async (route) => {
+      requests += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ display_name: 'Seoul, South Korea', lat: '37.5665', lon: '126.9780' }]),
+      })
+    })
+
+    await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    const searchInput = page.getByPlaceholder('Search for a place')
+    await searchInput.fill('Seoul')
+    await page.waitForTimeout(1500)
+    expect(requests).toBe(0)
+
+    await page.getByTestId('journey-search-submit').click({ force: true })
+    await expect.poll(() => requests, { timeout: 10_000, intervals: [200, 400, 800] }).toBe(1)
+    await expect(page.getByText('Seoul, South Korea')).toBeVisible({ timeout: 10_000 })
+  })
+
   test('playback controls work after importing track', async ({ page }) => {
     await uploadGpx(page)
 

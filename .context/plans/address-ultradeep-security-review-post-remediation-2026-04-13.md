@@ -24,10 +24,16 @@ Out of scope for this plan:
 
 ## Progress update
 
-- [ ] Phase A — Journey Creator privacy minimization
-- [ ] Phase B — CSP hardening feasibility / implementation
-- [ ] Phase C — residual third-party asset trust reduction or explicit formalization
-- [ ] Phase D — privacy documentation alignment
+- [x] Phase A — Journey Creator privacy minimization
+- [x] Phase B — CSP hardening feasibility / implementation
+- [x] Phase C — residual third-party asset trust reduction or explicit formalization
+- [x] Phase D — privacy documentation alignment
+
+Completed so far:
+- Journey Creator search now requires explicit submit instead of sending partial queries on debounce pauses
+- the CSP residual `unsafe-inline` requirement is now explicitly documented in code and architecture docs as a bounded static-export constraint
+- local style JSON remains pinned in-repo and the remaining remote tile/glyph/sprite trust boundary is explicitly documented
+- privacy wording remains aligned across README and `.context` docs with the actual runtime behavior
 
 ---
 

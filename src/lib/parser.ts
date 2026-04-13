@@ -238,7 +238,7 @@ interface GoogleLocationData {
 }
 
 /* ---------- Main dispatcher ---------------------------------------- */
-function parseGoogleLocationHistory(text: string): Track {
+export function parseGoogleLocationHistory(text: string): Track {
   const data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
   const points: TrackPoint[] = []
 
@@ -283,7 +283,7 @@ function parseGoogleLocationHistory(text: string): Track {
   return { name: 'Google Location History', points: unique.map(({ point }) => point) }
 }
 
-function isGoogleLocationJSON(text: string): boolean {
+export function isGoogleLocationJSON(text: string): boolean {
   try {
     const data: unknown = JSON.parse(text)
     if (Array.isArray(data)) {
@@ -304,10 +304,47 @@ function isGoogleLocationJSON(text: string): boolean {
   }
 }
 
+async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> {
+  if (typeof Worker === 'undefined') {
+    return parseGoogleLocationHistory(text)
+  }
+
+  return new Promise((resolve, reject) => {
+    const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+    const worker = new Worker(`${basePath}/workers/googleLocation.worker.js`)
+
+    const cleanup = () => {
+      worker.onmessage = null
+      worker.onerror = null
+      worker.terminate()
+    }
+
+    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string }>) => {
+      cleanup()
+      if (event.data.error) {
+        reject(new Error(event.data.error))
+        return
+      }
+      if (!event.data.track) {
+        reject(new Error('Failed to parse Google Location History'))
+        return
+      }
+      resolve(event.data.track)
+    }
+
+    worker.onerror = (event) => {
+      cleanup()
+      reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+    }
+
+    worker.postMessage({ text })
+  })
+}
+
 export function parseTrackFile(file: File): Promise<Track> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const text = reader.result as string
         const ext = file.name.split('.').pop()?.toLowerCase()
@@ -319,7 +356,7 @@ export function parseTrackFile(file: File): Promise<Track> {
         } else if (ext === 'kml') {
           track = parseKML(text)
         } else if (ext === 'json' && isGoogleLocationJSON(text)) {
-          track = parseGoogleLocationHistory(text)
+          track = await parseGoogleLocationHistoryInWorker(text)
         } else {
           throw new Error(`Unsupported file format: .${ext}`)
         }

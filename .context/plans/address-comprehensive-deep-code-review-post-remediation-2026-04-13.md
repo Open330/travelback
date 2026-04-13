@@ -29,7 +29,7 @@ Out of scope for this plan:
 - [x] Phase A — correctness edge cases
 - [x] Phase B — CI and regression coverage
 - [x] Phase C — documentation alignment
-- [ ] Phase D — parsing resilience and maintainability cleanup
+- [x] Phase D — parsing resilience and maintainability cleanup
 
 Completed so far:
 - timeline trimming now enforces a 2-point minimum after index conversion rather than relying only on ratio gap
@@ -37,6 +37,8 @@ Completed so far:
 - deploy CI now runs the static Playwright suite in addition to lint/typecheck/build/smoke
 - regression coverage now includes non-English locale switching and imperial-unit behavior
 - `.context` structure docs and architecture docs were refreshed to match the current runtime and archive topology
+- Google Location History JSON parsing now runs in a Web Worker path when available instead of always blocking the main thread
+- `page.tsx` was further decomposed by extracting the track toolbar from the main orchestration component
 
 ---
 

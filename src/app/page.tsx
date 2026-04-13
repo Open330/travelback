@@ -12,10 +12,10 @@ import JourneyCreator from '@/components/JourneyCreator'
 import GoogleGuide from '@/components/GoogleGuide'
 import GlobalToolbar from '@/components/GlobalToolbar'
 import KeyboardHelp from '@/components/KeyboardHelp'
+import TrackToolbar from '@/components/TrackToolbar'
 import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ElevationProfile from '@/components/ElevationProfile'
-import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
@@ -532,46 +532,14 @@ function HomeInner() {
 
       {/* Top-right toolbar */}
       {track && (
-        <div data-testid="track-toolbar" className="absolute left-4 right-4 top-20 z-10 flex flex-wrap justify-end gap-2 sm:left-auto sm:right-[8rem] sm:top-4 sm:max-w-[calc(100vw-16rem)]">
-          <button
-            onClick={handleStartNewTrack}
-            aria-label={t('app.newJourneyAria')}
-            title={t('app.newJourneyAria')}
-            className="gi px-3 py-2 text-sm font-medium cursor-pointer"
-            style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
-          >
-            <Plus size={14} strokeWidth={2.5} className="inline -mt-px" />{' '}{t('app.new')}
-          </button>
-          <button
-            onClick={handleToggleSceneEditor}
-            title={t('app.openSceneEditor')}
-            className={`gi px-3 py-2 text-sm font-medium cursor-pointer ${
-              showSceneEditor ? '' : ''
-            }`}
-            style={showSceneEditor
-              ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
-              : { color: 'var(--t1)' }
-            }
-          >
-            {t('app.scenes')}
-          </button>
-          <button
-            data-testid="map-style-button"
-            onClick={cycleStyle}
-            title={t('app.cycleMapStyle')}
-            className="gi px-3 py-2 text-sm font-medium cursor-pointer"
-            style={{ color: 'var(--t1)' }}
-          >
-            {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
-          </button>
-          <button
-            onClick={handleOpenExport}
-            title={t('app.exportVideoKey')}
-            className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
-          >
-            {t('app.export')}
-          </button>
-        </div>
+        <TrackToolbar
+          mapStyleKey={mapStyleKey}
+          showSceneEditor={showSceneEditor}
+          onStartNewTrack={handleStartNewTrack}
+          onToggleSceneEditor={handleToggleSceneEditor}
+          onCycleStyle={cycleStyle}
+          onOpenExport={handleOpenExport}
+        />
       )}
 
       {/* Scene Editor */}

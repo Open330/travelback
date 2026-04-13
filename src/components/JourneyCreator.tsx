@@ -68,7 +68,6 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([])
   const [searching, setSearching] = useState(false)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchAbortRef = useRef<AbortController | null>(null)
   const searchRequestIdRef = useRef(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
@@ -305,7 +304,6 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
       map.off('style.load', handleInitialStyleLoad)
       map.off('style.load', handleStyleReload)
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
       if (searchAbortRef.current) {
         searchAbortRef.current.abort()
         searchAbortRef.current = null
@@ -331,9 +329,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     syncUI()
   }, [updateMapData, syncUI])
 
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query)
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+  const runSearch = useCallback(async (query: string) => {
     if (searchAbortRef.current) {
       searchAbortRef.current.abort()
       searchAbortRef.current = null
@@ -344,33 +340,54 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       setSearching(false)
       return
     }
-    searchTimerRef.current = setTimeout(async () => {
-      const requestId = searchRequestIdRef.current + 1
-      searchRequestIdRef.current = requestId
-      const abortController = new AbortController()
-      searchAbortRef.current = abortController
-      setSearching(true)
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmedQuery)}&format=json&limit=5`
-        const res = await fetch(url, {
-          signal: abortController.signal,
-        })
-        if (res.ok && requestId === searchRequestIdRef.current) {
-          setSearchResults(await res.json())
-        }
-      } catch (err) {
-        if (abortController.signal.aborted) return
-        console.warn('[Travelback] Place search failed:', err)
-      } finally {
-        if (searchAbortRef.current === abortController) {
-          searchAbortRef.current = null
-        }
-        if (requestId === searchRequestIdRef.current) {
-          setSearching(false)
-        }
+    const requestId = searchRequestIdRef.current + 1
+    searchRequestIdRef.current = requestId
+    const abortController = new AbortController()
+    searchAbortRef.current = abortController
+    setSearching(true)
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmedQuery)}&format=json&limit=5`
+      const res = await fetch(url, {
+        signal: abortController.signal,
+      })
+      if (res.ok && requestId === searchRequestIdRef.current) {
+        setSearchResults(await res.json())
       }
-    }, 1000) // 1 req/sec rate limit per Nominatim policy
+    } catch (err) {
+      if (abortController.signal.aborted) return
+      console.warn('[Travelback] Place search failed:', err)
+    } finally {
+      if (searchAbortRef.current === abortController) {
+        searchAbortRef.current = null
+      }
+      if (requestId === searchRequestIdRef.current) {
+        setSearching(false)
+      }
+    }
   }, [])
+
+  const handleSearchInputChange = useCallback((query: string) => {
+    setSearchQuery(query)
+    if (query.trim().length < MIN_SEARCH_QUERY_LENGTH) {
+      setSearchResults([])
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort()
+        searchAbortRef.current = null
+      }
+      setSearching(false)
+    }
+  }, [])
+
+  const handleSearchSubmit = useCallback(() => {
+    void runSearch(searchQuery)
+  }, [runSearch, searchQuery])
+
+  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleSearchSubmit()
+    }
+  }, [handleSearchSubmit])
 
   const handleSelectPlace = useCallback((lat: string, lon: string) => {
     const map = mapRef.current?.getMap()
@@ -427,13 +444,26 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
           <input
             type="text"
             value={searchQuery}
-            onChange={e => handleSearch(e.target.value)}
+            onChange={e => handleSearchInputChange(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder={t('journey.searchPlaceholder')}
-            className="w-full text-xs pl-7 pr-2 py-1.5 rounded-lg outline-none"
+            className="w-full text-xs pl-7 pr-16 py-1.5 rounded-lg outline-none"
             style={{ background: 'var(--bg2)', color: 'var(--t1)', border: '1px solid var(--div)' }}
           />
+          <button
+            type="button"
+            data-testid="journey-search-submit"
+            onClick={handleSearchSubmit}
+            disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH || searching}
+            aria-label={t('journey.searchAction')}
+            title={t('journey.searchAction')}
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            style={{ color: 'rgb(var(--gl))' }}
+          >
+            {t('journey.searchAction')}
+          </button>
           {searching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
+            <span className="absolute right-14 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
           )}
         </div>
         <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
