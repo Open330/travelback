@@ -167,6 +167,13 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('button', { name: '샘플 여행으로 체험하기', exact: true })).toBeVisible()
   })
 
+  test('language picker applies Japanese labels in the loaded track toolbar', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByRole('combobox', { name: 'Language' }).selectOption('ja')
+    await expect(page.getByText('エクスポート', { exact: true })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('カメラ', { exact: true })).toBeVisible()
+  })
+
   test('loads sample trip from landing CTA', async ({ page }) => {
     const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
     await expect(sampleBtn).toBeVisible({ timeout: 10_000 })

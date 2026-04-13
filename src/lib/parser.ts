@@ -3,6 +3,17 @@ import type { Track, TrackPoint } from '@/types'
 
 const MAX_TRACK_POINTS = 250_000
 
+function looksLikeGoogleLocationRecord(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  return (
+    'latitude' in candidate
+    || 'longitude' in candidate
+    || 'latitudeE7' in candidate
+    || 'longitudeE7' in candidate
+  )
+}
+
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []
@@ -244,12 +255,12 @@ export function parseGoogleLocationHistory(text: string): Track {
   let recognizedFormat = false
 
   // Flat array: [{ latitudeE7, ... }]
-  if (Array.isArray(data)) {
+  if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
   }
   // Records.json / Location History.json: { locations: [...] }
-  else if (Array.isArray(data.locations)) {
+  else if (!Array.isArray(data) && Array.isArray(data.locations)) {
     recognizedFormat = true
     parseRecords(data.locations, points)
   }
@@ -299,8 +310,22 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
   }
 
   return new Promise((resolve, reject) => {
-    const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
-    const worker = new Worker(`${basePath}/workers/googleLocation.worker.js`)
+    const parseOnMainThread = () => {
+      try {
+        resolve(parseGoogleLocationHistory(text))
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
+      }
+    }
+
+    let worker: Worker
+    try {
+      const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+      worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
+    } catch {
+      parseOnMainThread()
+      return
+    }
 
     const cleanup = () => {
       worker.onmessage = null
@@ -323,10 +348,67 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
 
     worker.onerror = (event) => {
       cleanup()
-      reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+      if (event.error instanceof Error) {
+        console.warn('[Travelback] Google worker parse failed, falling back to main thread:', event.error.message)
+      }
+      parseOnMainThread()
     }
 
-    worker.postMessage({ text })
+    worker.postMessage({ ext: 'json', text })
+  })
+}
+
+async function parseTrackTextInWorker(ext: 'gpx' | 'kml', text: string): Promise<Track> {
+  if (typeof Worker === 'undefined') {
+    return ext === 'gpx' ? parseGPX(text) : parseKML(text)
+  }
+
+  return new Promise((resolve, reject) => {
+    const parseOnMainThread = () => {
+      try {
+        resolve(ext === 'gpx' ? parseGPX(text) : parseKML(text))
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(`Failed to parse .${ext} file`))
+      }
+    }
+
+    let worker: Worker
+    try {
+      const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+      worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
+    } catch {
+      parseOnMainThread()
+      return
+    }
+
+    const cleanup = () => {
+      worker.onmessage = null
+      worker.onerror = null
+      worker.terminate()
+    }
+
+    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string }>) => {
+      cleanup()
+      if (event.data.error) {
+        reject(new Error(event.data.error))
+        return
+      }
+      if (!event.data.track) {
+        reject(new Error(`Failed to parse .${ext} file`))
+        return
+      }
+      resolve(event.data.track)
+    }
+
+    worker.onerror = (event) => {
+      cleanup()
+      if (event.error instanceof Error) {
+        console.warn(`[Travelback] ${ext.toUpperCase()} worker parse failed, falling back to main thread:`, event.error.message)
+      }
+      parseOnMainThread()
+    }
+
+    worker.postMessage({ ext, text })
   })
 }
 
@@ -341,9 +423,9 @@ export function parseTrackFile(file: File): Promise<Track> {
         let track: Track
 
         if (ext === 'gpx') {
-          track = parseGPX(text)
+          track = await parseTrackTextInWorker('gpx', text)
         } else if (ext === 'kml') {
-          track = parseKML(text)
+          track = await parseTrackTextInWorker('kml', text)
         } else if (ext === 'json') {
           track = await parseGoogleLocationHistoryInWorker(text)
         } else {
