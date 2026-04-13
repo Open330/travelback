@@ -9,6 +9,25 @@ export interface CameraState {
   bearing: number
 }
 
+function clampUnit(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.max(0, Math.min(1, value))
+}
+
+export function normalizeScenes(scenes: Scene[]): Scene[] {
+  return scenes
+    .map((scene) => ({
+      ...scene,
+      startPercent: clampUnit(scene.startPercent, 0),
+      endPercent: clampUnit(scene.endPercent, 1),
+    }))
+    .sort((a, b) => {
+      if (a.startPercent !== b.startPercent) return a.startPercent - b.startPercent
+      if (a.endPercent !== b.endPercent) return a.endPercent - b.endPercent
+      return a.id.localeCompare(b.id)
+    })
+}
+
 /**
  * Compute the bounding box center of the full track
  */
@@ -291,7 +310,9 @@ export function computeCameraForProgress(
   elapsedSec: number,
   transitionDuration: number = 0.03,
 ): CameraState {
-  if (scenes.length === 0) {
+  const normalizedScenes = normalizeScenes(scenes)
+
+  if (normalizedScenes.length === 0) {
     const result = interpolateAlongTrack(track.points, cumulDist, globalProgress)
     return {
       center: [result.point.lng, result.point.lat],
@@ -303,8 +324,8 @@ export function computeCameraForProgress(
 
   // Find which scene contains globalProgress
   let sceneIdx = -1
-  for (let i = 0; i < scenes.length; i++) {
-    if (globalProgress >= scenes[i].startPercent && globalProgress <= scenes[i].endPercent) {
+  for (let i = 0; i < normalizedScenes.length; i++) {
+    if (globalProgress >= normalizedScenes[i].startPercent && globalProgress <= normalizedScenes[i].endPercent) {
       sceneIdx = i
       break
     }
@@ -315,14 +336,14 @@ export function computeCameraForProgress(
     // Find the closest previous and next scenes
     let prevIdx = -1
     let nextIdx = -1
-    for (let i = 0; i < scenes.length; i++) {
-      if (scenes[i].endPercent <= globalProgress) prevIdx = i
-      if (scenes[i].startPercent > globalProgress && nextIdx === -1) nextIdx = i
+    for (let i = 0; i < normalizedScenes.length; i++) {
+      if (normalizedScenes[i].endPercent <= globalProgress) prevIdx = i
+      if (normalizedScenes[i].startPercent > globalProgress && nextIdx === -1) nextIdx = i
     }
 
     if (prevIdx >= 0 && nextIdx >= 0) {
-      const prevScene = scenes[prevIdx]
-      const nextScene = scenes[nextIdx]
+      const prevScene = normalizedScenes[prevIdx]
+      const nextScene = normalizedScenes[nextIdx]
       const gapStart = prevScene.endPercent
       const gapEnd = nextScene.startPercent
       const gapT = gapEnd > gapStart ? (globalProgress - gapStart) / (gapEnd - gapStart) : 0.5
@@ -338,7 +359,7 @@ export function computeCameraForProgress(
     }
   }
 
-  const scene = scenes[sceneIdx]
+  const scene = normalizedScenes[sceneIdx]
   const sceneDuration = scene.endPercent - scene.startPercent
   const localProgress = sceneDuration > 0
     ? Math.max(0, Math.min(1, (globalProgress - scene.startPercent) / sceneDuration))
@@ -350,14 +371,14 @@ export function computeCameraForProgress(
   const halfTrans = transitionDuration / 2
 
   if (sceneIdx > 0 && sceneDuration > 0 && localProgress < halfTrans / sceneDuration) {
-    const prevScene = scenes[sceneIdx - 1]
+    const prevScene = normalizedScenes[sceneIdx - 1]
     const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
     const blendT = (localProgress * sceneDuration) / halfTrans
     return lerpCamera(prevCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
   }
 
-  if (sceneIdx < scenes.length - 1 && sceneDuration > 0 && localProgress > 1 - halfTrans / sceneDuration) {
-    const nextScene = scenes[sceneIdx + 1]
+  if (sceneIdx < normalizedScenes.length - 1 && sceneDuration > 0 && localProgress > 1 - halfTrans / sceneDuration) {
+    const nextScene = normalizedScenes[sceneIdx + 1]
     const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
     const blendT = ((1 - localProgress) * sceneDuration) / halfTrans
     return lerpCamera(nextCamera, mainCamera, Math.max(0, Math.min(1, blendT)))

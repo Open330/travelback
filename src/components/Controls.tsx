@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Play, Pause } from 'lucide-react'
 import type { Track } from '@/types'
 import { formatDistance, formatDuration, totalDistance } from '@/lib/interpolate'
@@ -37,7 +37,7 @@ export default function Controls({
   onFollowCameraToggle,
 }: ControlsProps) {
   const { t } = useLocale()
-  const total = totalDistance(track.points)
+  const total = useMemo(() => totalDistance(track.points), [track])
   const traveled = total * progress
   const elapsed = duration * progress
 

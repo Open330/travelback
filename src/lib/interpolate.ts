@@ -11,11 +11,15 @@ function haversineDistance(a: TrackPoint, b: TrackPoint): number {
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-export function computeCumulativeDistances(points: TrackPoint[]): number[] {
+export function computeCumulativeDistances(points: TrackPoint[], segmentStartIndices: number[] = []): number[] {
   if (points.length === 0) return []
+  const segmentStarts = new Set(segmentStartIndices)
   const distances = [0]
   for (let i = 1; i < points.length; i++) {
-    distances.push(distances[i - 1] + haversineDistance(points[i - 1], points[i]))
+    const segmentDistance = segmentStarts.has(i)
+      ? 0
+      : haversineDistance(points[i - 1], points[i])
+    distances.push(distances[i - 1] + segmentDistance)
   }
   return distances
 }

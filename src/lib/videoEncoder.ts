@@ -57,7 +57,7 @@ export async function exportVideo(
 
   const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))
   const frameDuration = 1 / safeFps
-  const cumulDist = computeCumulativeDistances(track.points)
+  const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
 
   const mbCodec = toMediabunnyCodec(codec)
 

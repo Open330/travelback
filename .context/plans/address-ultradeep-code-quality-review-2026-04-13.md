@@ -8,22 +8,23 @@
 ## Progress update
 
 - [x] Phase A — isolate track-scoped session state
-- [ ] Phase B — scene runtime correctness
-- [ ] Phase C — parser and route-model fidelity
-- [ ] Phase D — performance and async reliability
+- [x] Phase B — scene runtime correctness
+- [x] Phase C — parser and route-model fidelity
+- [x] Phase D — performance and async reliability
 - [ ] Phase E — release hygiene and docs consistency
 
 Completed so far:
 - new track sessions now reset scene/editor/export UI state instead of leaking configuration across trips
 - timeline trimming now remounts per track session so trim state does not bleed into newly loaded trips
 - same-file upload retries are deterministic because the file input is reset after use
+- scenes are normalized before storage/runtime use and percentage inputs no longer write `NaN` into scene state
+- GPX/KML segment boundaries are preserved through flattened-track metadata and used to avoid fake straight-line route rendering
+- untimed Google points now preserve source-order instead of being reordered to the start of the route
+- playback no longer recomputes full-track distance on every render
+- JourneyCreator search now cancels/ignores stale requests and rebuilds overlays after style reloads
 
 Still open in this plan:
-- scene normalization / invalid-scene-state guards
-- segmented GPX/KML fidelity and untimed Google ordering
-- hot-path distance recomputation removal
-- JourneyCreator race/style-reload resilience
-- CI/docs cleanup tasks that belong to the deeper quality lane
+- remaining release-hygiene/doc tasks under Phase E
 
 ---
 

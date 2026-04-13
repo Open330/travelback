@@ -3,66 +3,74 @@ import type { Track, TrackPoint } from '@/types'
 
 const MAX_TRACK_POINTS = 250_000
 
-function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): TrackPoint[] {
+function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
   const points: TrackPoint[] = []
+  const segmentStartIndices: number[] = []
+
+  const pushSegment = (coordinates: number[][], times?: string[]) => {
+    if (coordinates.length === 0) return
+    if (points.length > 0) {
+      segmentStartIndices.push(points.length)
+    }
+    for (let i = 0; i < coordinates.length; i++) {
+      const [lng, lat, ele] = coordinates[i]
+      points.push({
+        lng, lat,
+        ele: ele ?? undefined,
+        time: times?.[i] ? new Date(times[i]) : undefined,
+      })
+    }
+  }
 
   for (const feature of geojson.features) {
     const geometry = feature.geometry
     const props = feature.properties ?? {}
 
     if (geometry.type === 'LineString') {
-      const times: string[] | undefined = props.coordinateProperties?.times
-      for (let i = 0; i < geometry.coordinates.length; i++) {
-        const [lng, lat, ele] = geometry.coordinates[i]
-        points.push({
-          lng, lat,
-          ele: ele ?? undefined,
-          time: times?.[i] ? new Date(times[i]) : undefined,
-        })
-      }
+      pushSegment(geometry.coordinates, props.coordinateProperties?.times as string[] | undefined)
     } else if (geometry.type === 'MultiLineString') {
       const times: string[][] | undefined = props.coordinateProperties?.times
       for (let s = 0; s < geometry.coordinates.length; s++) {
-        for (let i = 0; i < geometry.coordinates[s].length; i++) {
-          const [lng, lat, ele] = geometry.coordinates[s][i]
-          points.push({
-            lng, lat,
-            ele: ele ?? undefined,
-            time: times?.[s]?.[i] ? new Date(times[s][i]) : undefined,
-          })
-        }
+        pushSegment(geometry.coordinates[s], times?.[s])
       }
     } else if (geometry.type === 'Point') {
       const [lng, lat, ele] = geometry.coordinates
-      points.push({
-        lng, lat,
-        ele: ele ?? undefined,
-        time: props.time ? new Date(props.time) : undefined,
-      })
+      pushSegment([[lng, lat, ele]], props.time ? [props.time] : undefined)
     }
   }
 
-  return points
+  return {
+    points,
+    segmentStartIndices,
+  }
 }
 
 function parseGPX(text: string): Track {
   const doc = new DOMParser().parseFromString(text, 'application/xml')
   const geojson = gpx(doc)
-  const points = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
+  const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
   const name = doc.querySelector('trk > name')?.textContent
     ?? doc.querySelector('metadata > name')?.textContent
     ?? 'GPX Track'
-  return { name, points }
+  return {
+    name,
+    points,
+    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
+  }
 }
 
 function parseKML(text: string): Track {
   const doc = new DOMParser().parseFromString(text, 'application/xml')
   const geojson = kml(doc)
-  const points = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
+  const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
   const name = doc.querySelector('Document > name')?.textContent
     ?? doc.querySelector('Placemark > name')?.textContent
     ?? 'KML Track'
-  return { name, points }
+  return {
+    name,
+    points,
+    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -232,14 +240,22 @@ function parseGoogleLocationHistory(text: string): Track {
 
   // De-duplicate identical lat/lng/time combos that may come from multiple branches
   const seen = new Set<string>()
-  const unique: TrackPoint[] = []
-  for (const p of points) {
+  const unique: Array<{ point: TrackPoint; order: number }> = []
+  for (const [order, p] of points.entries()) {
     const key = `${p.lat},${p.lng},${p.time?.getTime() ?? ''}`
-    if (!seen.has(key)) { seen.add(key); unique.push(p) }
+    if (!seen.has(key)) {
+      seen.add(key)
+      unique.push({ point: p, order })
+    }
   }
 
-  unique.sort((a, b) => (a.time?.getTime() ?? 0) - (b.time?.getTime() ?? 0))
-  return { name: 'Google Location History', points: unique }
+  unique.sort((a, b) => {
+    const aTime = a.point.time?.getTime()
+    const bTime = b.point.time?.getTime()
+    if (aTime != null && bTime != null) return aTime - bTime
+    return a.order - b.order
+  })
+  return { name: 'Google Location History', points: unique.map(({ point }) => point) }
 }
 
 function isGoogleLocationJSON(text: string): boolean {

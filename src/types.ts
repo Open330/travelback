@@ -8,6 +8,7 @@ export interface TrackPoint {
 export interface Track {
   name: string
   points: TrackPoint[]
+  segmentStartIndices?: number[]
 }
 
 export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'

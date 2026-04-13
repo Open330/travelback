@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { Track, MapStyleKey, Scene } from '@/types'
+import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
 import { computeCameraForProgress } from '@/lib/camera'
@@ -70,6 +70,64 @@ function smoothCameraState(previous: CameraState, target: CameraState, factor: n
     zoom: previous.zoom + (target.zoom - previous.zoom) * factor,
     pitch: previous.pitch + (target.pitch - previous.pitch) * factor,
     bearing: smoothAngle(previous.bearing, target.bearing, bearingFactor ?? factor),
+  }
+}
+
+function normalizeSegmentStarts(pointCount: number, segmentStartIndices: number[] = []): number[] {
+  return [...new Set(
+    segmentStartIndices
+      .filter((index) => Number.isInteger(index) && index > 0 && index < pointCount)
+      .sort((a, b) => a - b)
+  )]
+}
+
+function buildSegmentRanges(pointCount: number, segmentStartIndices: number[] = []): Array<{ start: number; end: number }> {
+  const starts = [0, ...normalizeSegmentStarts(pointCount, segmentStartIndices)]
+  return starts.map((start, index) => ({
+    start,
+    end: (starts[index + 1] ?? pointCount) - 1,
+  }))
+}
+
+function buildTrackGeometry(
+  points: Track['points'],
+  segmentStartIndices: number[] = [],
+  uptoIndex?: number,
+  interpolatedPoint?: TrackPoint,
+): GeoJSON.LineString | GeoJSON.MultiLineString {
+  const ranges = buildSegmentRanges(points.length, segmentStartIndices)
+  const segments: [number, number][][] = []
+
+  for (const range of ranges) {
+    if (uptoIndex != null && range.start > uptoIndex) break
+
+    const segmentPoints = points
+      .slice(range.start, uptoIndex != null ? Math.min(range.end, uptoIndex) + 1 : range.end + 1)
+      .map((point) => [point.lng, point.lat] as [number, number])
+
+    if (uptoIndex != null && range.start <= uptoIndex && uptoIndex <= range.end && interpolatedPoint) {
+      segmentPoints.push([interpolatedPoint.lng, interpolatedPoint.lat])
+    }
+
+    if (segmentPoints.length === 1) {
+      segmentPoints.push([...segmentPoints[0]] as [number, number])
+    }
+
+    if (segmentPoints.length >= 2) {
+      segments.push(segmentPoints)
+    }
+  }
+
+  if (segments.length <= 1) {
+    return {
+      type: 'LineString',
+      coordinates: segments[0] ?? points.slice(0, 1).map((point) => [point.lng, point.lat] as [number, number]),
+    }
+  }
+
+  return {
+    type: 'MultiLineString',
+    coordinates: segments,
   }
 }
 
@@ -307,14 +365,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [mapStyleKey, track])
 
   const addTrackLayers = useCallback((map: maplibregl.Map, t: Track) => {
-    const coords = t.points.map((p) => [p.lng, p.lat] as [number, number])
+    const routeGeometry = buildTrackGeometry(t.points, t.segmentStartIndices)
+    const initialTrailGeometry = buildTrackGeometry(t.points, t.segmentStartIndices, 0, t.points[0])
 
     // Full route line
     if (map.getSource('route')) {
       (map.getSource('route') as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: coords },
+        geometry: routeGeometry,
       })
     } else {
       map.addSource('route', {
@@ -322,7 +381,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         data: {
           type: 'Feature',
           properties: {},
-          geometry: { type: 'LineString', coordinates: coords },
+          geometry: routeGeometry,
         },
       })
       map.addLayer({
@@ -343,7 +402,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       (map.getSource('trail') as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: coords.slice(0, 1) },
+        geometry: initialTrailGeometry,
       })
     } else {
       map.addSource('trail', {
@@ -351,7 +410,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         data: {
           type: 'Feature',
           properties: {},
-          geometry: { type: 'LineString', coordinates: coords.slice(0, 1) },
+          geometry: initialTrailGeometry,
         },
       })
       map.addLayer({
@@ -397,7 +456,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const map = mapRef.current
     if (!map || !track) return
 
-    cumulDistRef.current = computeCumulativeDistances(track.points)
+    cumulDistRef.current = computeCumulativeDistances(track.points, track.segmentStartIndices)
 
     const attachTrackToReadyStyle = () => {
       if (!map.isStyleLoaded()) {
@@ -467,16 +526,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     markerRef.current?.setLngLat([point.lng, point.lat])
 
     // Update trail
-    const trailCoords = track.points
-      .slice(0, segmentIndex + 1)
-      .map((p) => [p.lng, p.lat] as [number, number])
-    trailCoords.push([point.lng, point.lat])
-
     const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
     trailSource?.setData({
       type: 'Feature',
       properties: {},
-      geometry: { type: 'LineString', coordinates: trailCoords },
+      geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
     })
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow

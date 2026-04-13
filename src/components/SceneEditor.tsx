@@ -4,7 +4,7 @@ import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
-import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from '@/lib/camera'
+import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, normalizeScenes } from '@/lib/camera'
 import { useLocale, type TranslationKey } from '@/lib/i18n'
 
 const SCENE_COLORS = [
@@ -48,6 +48,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const commitScenes = useCallback((nextScenes: Scene[]) => {
+    onChange(normalizeScenes(nextScenes))
+  }, [onChange])
+
   // Swipe-left to dismiss
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -82,26 +86,26 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       endPercent: end,
       params: { ...DEFAULT_CAMERA_PARAMS.flyover },
     }
-    onChange([...scenes, newScene])
-  }, [scenes, onChange, t])
+    commitScenes([...scenes, newScene])
+  }, [commitScenes, scenes, t])
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
     if (idx >= 0) setDeletedScene({ scene: scenes[idx], index: idx })
-    onChange(scenes.filter(s => s.id !== id))
-  }, [scenes, onChange])
+    commitScenes(scenes.filter(s => s.id !== id))
+  }, [commitScenes, scenes])
 
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
     const restored = [...scenes]
     restored.splice(deletedScene.index, 0, deletedScene.scene)
-    onChange(restored)
+    commitScenes(restored)
     setDeletedScene(null)
-  }, [deletedScene, scenes, onChange])
+  }, [commitScenes, deletedScene, scenes])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null
-    onChange(scenes.map(s => {
+    commitScenes(scenes.map(s => {
       if (s.id !== id) return s
       const updated = { ...s, ...patch }
       // If camera mode changed, reset params to defaults
@@ -113,7 +117,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       return updated
     }))
     if (previewTarget && onPreviewScene) onPreviewScene(previewTarget)
-  }, [scenes, onChange, onPreviewScene])
+  }, [commitScenes, scenes, onPreviewScene])
 
   const clearPreview = useCallback(() => {
     onPreviewScene?.(null)
@@ -159,19 +163,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button onClick={() => onChange(generateDefaultScenes())}
+        <button onClick={() => commitScenes(generateDefaultScenes())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button onClick={() => onChange(generateSimpleFlyover())}
+        <button onClick={() => commitScenes(generateSimpleFlyover())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button onClick={() => onChange(generateBirdeyeFlyover())}
+        <button onClick={() => commitScenes(generateBirdeyeFlyover())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button onClick={() => onChange(generateDynamicScenes())}
+        <button onClick={() => commitScenes(generateDynamicScenes())}
           className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
@@ -257,14 +261,22 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                 <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.startPct')}</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.startPercent * 100)}
-                  onChange={e => updateScene(scene.id, { startPercent: parseInt(e.target.value) / 100 })}
+                  onChange={e => {
+                    const nextValue = Number.parseInt(e.target.value, 10)
+                    if (!Number.isFinite(nextValue)) return
+                    updateScene(scene.id, { startPercent: nextValue / 100 })
+                  }}
                   className="vitro-input w-full text-xs px-2 py-1" />
               </label>
               <label className="flex-1">
                 <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.endPct')}</span>
                 <input type="number" min={0} max={100} step={1}
                   value={Math.round(scene.endPercent * 100)}
-                  onChange={e => updateScene(scene.id, { endPercent: parseInt(e.target.value) / 100 })}
+                  onChange={e => {
+                    const nextValue = Number.parseInt(e.target.value, 10)
+                    if (!Number.isFinite(nextValue)) return
+                    updateScene(scene.id, { endPercent: nextValue / 100 })
+                  }}
                   className="vitro-input w-full text-xs px-2 py-1" />
               </label>
             </div>

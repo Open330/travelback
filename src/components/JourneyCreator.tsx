@@ -67,6 +67,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   const [searching, setSearching] = useState(false)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchAbortRef = useRef<AbortController | null>(null)
+  const searchRequestIdRef = useRef(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
 
   // Track whether layers have been added to the map
@@ -187,8 +189,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
     }
 
     // Set up layers and event handlers
-    const setupListeners = () => {
+    const bindListeners = () => {
+      if (cleanupRef.current) {
+        cleanupRef.current()
+      }
+
       addLayers(map)
+      updateMapData()
 
       // --- Click to add waypoint ---
       const onClick = (e: maplibregl.MapMouseEvent) => {
@@ -273,10 +280,20 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
       }
     }
 
+    const handleStyleReload = () => {
+      layersAddedRef.current = false
+      bindListeners()
+    }
+
+    const handleInitialStyleLoad = () => {
+      bindListeners()
+      map.on('style.load', handleStyleReload)
+    }
+
     if (map.isStyleLoaded()) {
-      setupListeners()
+      handleInitialStyleLoad()
     } else {
-      map.once('style.load', setupListeners)
+      map.once('style.load', handleInitialStyleLoad)
     }
 
     return () => {
@@ -284,7 +301,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
         cleanupRef.current()
         cleanupRef.current = null
       }
+      map.off('style.load', handleInitialStyleLoad)
+      map.off('style.load', handleStyleReload)
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort()
+        searchAbortRef.current = null
+      }
       removeLayers(map)
       waypointsRef.current = []
       setPointCount(0)
@@ -309,15 +332,41 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query)
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    if (!query.trim()) { setSearchResults([]); return }
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort()
+      searchAbortRef.current = null
+    }
+    if (!query.trim()) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
     searchTimerRef.current = setTimeout(async () => {
+      const requestId = searchRequestIdRef.current + 1
+      searchRequestIdRef.current = requestId
+      const abortController = new AbortController()
+      searchAbortRef.current = abortController
       setSearching(true)
       try {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=5`
-        const res = await fetch(url, { headers: { 'User-Agent': 'Travelback/1.0 (https://github.com/Open330/travelback)' } })
-        if (res.ok) setSearchResults(await res.json())
-      } catch { /* ignore network errors */ }
-      setSearching(false)
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Travelback/1.0 (https://github.com/Open330/travelback)' },
+          signal: abortController.signal,
+        })
+        if (res.ok && requestId === searchRequestIdRef.current) {
+          setSearchResults(await res.json())
+        }
+      } catch (err) {
+        if (abortController.signal.aborted) return
+        console.warn('[Travelback] Place search failed:', err)
+      } finally {
+        if (searchAbortRef.current === abortController) {
+          searchAbortRef.current = null
+        }
+        if (requestId === searchRequestIdRef.current) {
+          setSearching(false)
+        }
+      }
     }, 1000) // 1 req/sec rate limit per Nominatim policy
   }, [])
 

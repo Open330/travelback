@@ -413,7 +413,7 @@ function HomeInner() {
 
   const handlePreviewScene = useCallback((scene: Scene | null) => {
     if (!scene || !track) return
-    const cumulDist = computeCumulativeDistances(track.points)
+    const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
     const cameraState = computeCameraForScene(track, cumulDist, scene, 0.5, 0)
     mapViewRef.current?.applyCameraState(cameraState)
   }, [track])
