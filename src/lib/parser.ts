@@ -1,6 +1,8 @@
 import { gpx, kml } from '@tmcw/togeojson'
 import type { Track, TrackPoint } from '@/types'
 
+const MAX_TRACK_POINTS = 250_000
+
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): TrackPoint[] {
   const points: TrackPoint[] = []
 
@@ -283,6 +285,9 @@ export function parseTrackFile(file: File): Promise<Track> {
 
         if (track.points.length < 2) {
           throw new Error('Track must contain at least 2 points')
+        }
+        if (track.points.length > MAX_TRACK_POINTS) {
+          throw new Error('Track contains too many points')
         }
 
         resolve(track)

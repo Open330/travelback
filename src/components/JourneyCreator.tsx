@@ -385,6 +385,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef 
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
           )}
         </div>
+        <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
+          {t('journey.searchPrivacy')}
+        </p>
         {searchResults.length > 0 && (
           <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
             style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>

@@ -91,10 +91,19 @@ interface CameraState {
 ## Key Design Decisions
 
 ### Client-Side Only
-All processing happens in the browser. No server-side track parsing or video encoding. This means:
-- No file size limits from server
-- No privacy concerns (tracks never leave the device)
-- Works offline after initial page load
+All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. This means:
+- No server-side file upload step for track parsing/export
+- Raw track files stay local to the browser runtime
+- Works offline after initial page load **except** for third-party map/style and optional geocoding requests
+
+Privacy/trust-boundary note:
+- Displayed maps use third-party basemap/style providers (CARTO / OpenFreeMap)
+- Journey Creator search uses OpenStreetMap Nominatim
+- Users with strict privacy requirements should avoid geocoding and may prefer self-hosted map assets in future deployments
+
+Security hardening note:
+- The app ships with a CSP and now blocks `object-src`, `base-uri`, and framing by default
+- `script-src 'unsafe-inline'` is still retained because Next.js static export emits inline hydration data scripts that would otherwise be blocked
 
 ### Distance-Based Interpolation
 Animation progress is mapped to distance traveled (not point index). This ensures uniform visual speed regardless of point density in the track.

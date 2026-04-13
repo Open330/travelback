@@ -24,7 +24,7 @@ export const translations = {
     'fileUpload.importGuideLink': 'Need help finding your file?',
     'fileUpload.iosTip': 'On iPhone, downloaded files are in Files app → Browse → Downloads',
     'fileUpload.parseFailed': 'Failed to parse file',
-    'fileUpload.fileTooLarge': 'File is too large (max 500 MB)',
+    'fileUpload.fileTooLarge': 'File is too large (max 200 MB)',
     'fileUpload.drawRoute': 'Draw a route on the map',
     'fileUpload.previewAlt': 'Animated route preview',
     'fileUpload.whereToFind': 'Where do I find my travel file?',
@@ -32,6 +32,7 @@ export const translations = {
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails, and more',
     'fileUpload.unsupportedFormat': 'Unsupported file format',
     'fileUpload.tooFewPoints': 'Track must contain at least 2 points',
+    'fileUpload.tooManyPoints': 'Track contains too many points',
     'fileUpload.readFailed': 'Failed to read file',
 
     // Controls
@@ -227,6 +228,7 @@ export const translations = {
     'journey.confirmCreate': 'Create Route',
     'journey.confirmEdit': 'Keep Editing',
     'journey.searchPlaceholder': 'Search for a place',
+    'journey.searchPrivacy': 'Place search uses OpenStreetMap Nominatim.',
     'journey.defaultName': 'Custom Journey',
     'journey.subtitle': 'Plan a new route or recreate one from memory',
     'journey.instructionTitle': 'Click on the map to trace your route',
@@ -324,7 +326,7 @@ export const translations = {
     'fileUpload.importGuideLink': '파일을 찾는 데 도움이 필요하세요?',
     'fileUpload.iosTip': 'iPhone에서는 파일 앱 → 탐색 → 다운로드에서 찾을 수 있습니다',
     'fileUpload.parseFailed': '파일을 분석할 수 없습니다',
-    'fileUpload.fileTooLarge': '파일이 너무 큽니다 (최대 500 MB)',
+    'fileUpload.fileTooLarge': '파일이 너무 큽니다 (최대 200 MB)',
     'fileUpload.drawRoute': '지도에 경로 그리기',
     'fileUpload.previewAlt': '경로 애니메이션 미리보기',
     'fileUpload.whereToFind': '여행 파일은 어디에 있나요?',
@@ -332,6 +334,7 @@ export const translations = {
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails 등',
     'fileUpload.unsupportedFormat': '지원하지 않는 파일 형식입니다',
     'fileUpload.tooFewPoints': '트랙에 최소 2개의 지점이 필요합니다',
+    'fileUpload.tooManyPoints': '트랙에 포인트가 너무 많습니다',
     'fileUpload.readFailed': '파일을 읽지 못했습니다',
 
     // Controls
@@ -527,6 +530,7 @@ export const translations = {
     'journey.confirmCreate': '경로 생성',
     'journey.confirmEdit': '계속 편집',
     'journey.searchPlaceholder': '장소 검색',
+    'journey.searchPrivacy': '장소 검색은 OpenStreetMap Nominatim을 사용합니다.',
     'journey.defaultName': '사용자 여행',
     'journey.subtitle': '새 경로를 계획하거나 기억으로 재현하세요',
     'journey.instructionTitle': '지도를 클릭하여 경로를 그려보세요',
@@ -624,7 +628,7 @@ export const translations = {
     'fileUpload.importGuideLink': 'ファイルの場所がわかりませんか？',
     'fileUpload.iosTip': 'iPhoneでは、ダウンロードしたファイルはファイルアプリ → ブラウズ → ダウンロードにあります',
     'fileUpload.parseFailed': 'ファイルの解析に失敗しました',
-    'fileUpload.fileTooLarge': 'ファイルが大きすぎます（最大500MB）',
+    'fileUpload.fileTooLarge': 'ファイルが大きすぎます（最大200MB）',
     'fileUpload.drawRoute': '地図にルートを描く',
     'fileUpload.previewAlt': 'アニメーションルートプレビュー',
     'fileUpload.whereToFind': '旅行ファイルはどこにありますか？',
@@ -632,6 +636,7 @@ export const translations = {
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails など',
     'fileUpload.unsupportedFormat': '対応していないファイル形式です',
     'fileUpload.tooFewPoints': 'トラックには最低2つのポイントが必要です',
+    'fileUpload.tooManyPoints': 'トラックのポイント数が多すぎます',
     'fileUpload.readFailed': 'ファイルの読み取りに失敗しました',
 
     // Controls
@@ -827,6 +832,7 @@ export const translations = {
     'journey.confirmCreate': 'ルートを作成',
     'journey.confirmEdit': '編集を続ける',
     'journey.searchPlaceholder': '場所を検索',
+    'journey.searchPrivacy': '場所検索は OpenStreetMap Nominatim を使用します。',
     'journey.defaultName': 'カスタムジャーニー',
     'journey.subtitle': '新しいルートを計画、または記憶からルートを再現',
     'journey.instructionTitle': '地図をクリックしてルートをトレース',
@@ -924,7 +930,7 @@ export const translations = {
     'fileUpload.importGuideLink': '找不到文件？',
     'fileUpload.iosTip': '在 iPhone 上，下载的文件在"文件"应用 → 浏览 → 下载中',
     'fileUpload.parseFailed': '文件解析失败',
-    'fileUpload.fileTooLarge': '文件过大（最大 500 MB）',
+    'fileUpload.fileTooLarge': '文件过大（最大 200 MB）',
     'fileUpload.drawRoute': '在地图上绘制路线',
     'fileUpload.previewAlt': '动画路线预览',
     'fileUpload.whereToFind': '旅行文件在哪里？',
@@ -932,6 +938,7 @@ export const translations = {
     'fileUpload.fromOtherApps': 'Strava、Garmin、AllTrails 等',
     'fileUpload.unsupportedFormat': '不支持的文件格式',
     'fileUpload.tooFewPoints': '轨迹至少需要2个点',
+    'fileUpload.tooManyPoints': '轨迹点数量过多',
     'fileUpload.readFailed': '文件读取失败',
 
     // Controls
@@ -1127,6 +1134,7 @@ export const translations = {
     'journey.confirmCreate': '创建路线',
     'journey.confirmEdit': '继续编辑',
     'journey.searchPlaceholder': '搜索地点',
+    'journey.searchPrivacy': '地点搜索使用 OpenStreetMap Nominatim。',
     'journey.defaultName': '自定义旅程',
     'journey.subtitle': '规划新路线或从记忆中重建',
     'journey.instructionTitle': '点击地图描绘路线',
@@ -1224,7 +1232,7 @@ export const translations = {
     'fileUpload.importGuideLink': '¿No encuentras tu archivo?',
     'fileUpload.iosTip': 'En iPhone, los archivos descargados están en Archivos → Explorar → Descargas',
     'fileUpload.parseFailed': 'Error al analizar el archivo',
-    'fileUpload.fileTooLarge': 'El archivo es demasiado grande (máx. 500 MB)',
+    'fileUpload.fileTooLarge': 'El archivo es demasiado grande (máx. 200 MB)',
     'fileUpload.drawRoute': 'Dibuja una ruta en el mapa',
     'fileUpload.previewAlt': 'Vista previa animada de la ruta',
     'fileUpload.whereToFind': '¿Dónde encuentro mi archivo de viaje?',
@@ -1232,6 +1240,7 @@ export const translations = {
     'fileUpload.fromOtherApps': 'Strava, Garmin, AllTrails y más',
     'fileUpload.unsupportedFormat': 'Formato de archivo no compatible',
     'fileUpload.tooFewPoints': 'La ruta debe tener al menos 2 puntos',
+    'fileUpload.tooManyPoints': 'La ruta contiene demasiados puntos',
     'fileUpload.readFailed': 'Error al leer el archivo',
 
     // Controls
@@ -1427,6 +1436,7 @@ export const translations = {
     'journey.confirmCreate': 'Crear ruta',
     'journey.confirmEdit': 'Seguir editando',
     'journey.searchPlaceholder': 'Buscar un lugar',
+    'journey.searchPrivacy': 'La búsqueda de lugares usa OpenStreetMap Nominatim.',
     'journey.defaultName': 'Viaje personalizado',
     'journey.subtitle': 'Planifica una nueva ruta o recrea una de memoria',
     'journey.instructionTitle': 'Haz clic en el mapa para trazar tu ruta',

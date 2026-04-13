@@ -203,7 +203,16 @@ Static output is generated in `out/` for deployment.
 
 ## Deploy
 
-Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/deploy.yml`.
+Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/deploy-pages.yml`.
+
+## Privacy & Network Behavior
+
+- **Track files are parsed locally in your browser.** Travelback does not upload your GPX, KML, or Google Timeline files to an app-owned backend.
+- **Map rendering still uses third-party providers at runtime.** Basemap/style requests go to CARTO and OpenFreeMap while the map is displayed.
+- **Place search is optional and uses OpenStreetMap Nominatim.** If you use Journey Creator search, your query is sent to `nominatim.openstreetmap.org`.
+- **Large files are bounded for browser safety.** The uploader rejects very large files and extremely high point-count tracks to reduce tab-freeze risk from pathological inputs.
+
+If you need a stricter privacy posture, avoid place search and consider self-hosting map/style assets in a future deployment.
 
 ## Acknowledgements
 

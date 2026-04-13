@@ -5,6 +5,24 @@
 
 ---
 
+## Progress update
+
+- [x] Phase A — dependency remediation and CI audit policy
+- [x] Phase B — first-pass CSP/browser hardening plus explicit trade-off documentation
+- [x] Phase C — privacy and trust-boundary messaging
+- [x] Phase D — bounded client-side abuse resistance for file parsing
+- [x] Phase E — explicit remote-style trust policy/documentation decision
+
+Completed in this implementation pass:
+- upgraded the vulnerable dependency set and refreshed the lockfile
+- added `npm audit --audit-level=high` to deploy verification
+- tightened the CSP with `object-src`, `base-uri`, and `frame-ancestors`, and removed `unsafe-eval`
+- corrected README / architecture privacy language
+- added an in-product note that place search uses OpenStreetMap Nominatim
+- lowered the uploader size cap and added a maximum point-count guard
+
+---
+
 ## Findings-to-workstream mapping
 
 | Review ID | Theme |

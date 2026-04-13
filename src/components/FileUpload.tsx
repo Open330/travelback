@@ -14,7 +14,7 @@ interface FileUploadProps {
   onCreateJourney?: () => void
 }
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024
+const MAX_FILE_SIZE = 200 * 1024 * 1024
 const WARN_FILE_SIZE = 100 * 1024 * 1024
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
@@ -47,6 +47,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const parserErrorMap: Record<string, string> = {
         'Unsupported file format': 'fileUpload.unsupportedFormat',
         'Track must contain at least 2 points': 'fileUpload.tooFewPoints',
+        'Track contains too many points': 'fileUpload.tooManyPoints',
         'Failed to read file': 'fileUpload.readFailed',
       }
       const matchedKey = Object.keys(parserErrorMap).find(m => message.includes(m))
@@ -61,6 +62,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       }
     } finally {
       setLoading(false)
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
     }
   }, [onTrackLoaded, t])
 
