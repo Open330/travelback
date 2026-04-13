@@ -3,15 +3,15 @@
 ## Component Architecture
 
 ```
-page.tsx (Client Component — state orchestrator)
-├── MapView             — MapLibre GL map rendering (forwardRef for canvas/camera access)
-├── FileUpload          — File input + drag-and-drop parsing
-├── JourneyCreator      — Manual route creation by clicking on map
-├── TimelineSelector    — Drag-based time range filter with density histogram
-├── Controls            — Playback UI (play/pause, speed, seek, follow toggle)
-├── SceneEditor         — Define camera modes per track segment
-├── ExportPanel         — Video export settings (resolution, codec, FPS, bitrate)
-└── GoogleGuide         — Google Takeout import guide modal
+page.tsx (Client Component — app shell / track-session boundary)
+├── usePlaybackController — Animation loop, seek state, keyboard shortcuts
+├── useExportController   — Export lifecycle, canvas resize, preview cleanup
+├── MapView               — MapLibre GL map rendering (forwardRef for canvas/camera access)
+├── FileUpload            — File input + drag-and-drop parsing
+├── JourneyCreator        — Manual route creation by clicking on map
+├── TrackWorkspace        — Loaded-track UI (trim + scenes + playback chrome)
+├── ExportPanel           — Video export settings (resolution, codec, FPS, bitrate)
+└── GoogleGuide           — Google Takeout import guide modal
 ```
 
 ## Data Flow
@@ -19,11 +19,11 @@ page.tsx (Client Component — state orchestrator)
 ```
 File Upload / Journey Creator → parser.ts → Track { name, points: TrackPoint[] }
                                                 ↓
-                              TimelineSelector (optional filtering)
+                          page.tsx (track-session boundary + modal state)
                                                 ↓
-                              page.tsx (state: fullTrack, track, progress, scenes, etc.)
+                        TrackWorkspace / TimelineSelector (optional filtering)
                                                 ↓
-                              Animation Loop (requestAnimationFrame)
+                     usePlaybackController (progress, seek, follow, hotkeys)
                                                 ↓
                     ┌───────────────────────────────────────────┐
                     │ interpolate.ts → position, bearing        │
@@ -38,7 +38,7 @@ File Upload / Journey Creator → parser.ts → Track { name, points: TrackPoint
 ```
 ExportPanel (config: resolution, codec, fps, bitrate, duration)
     ↓
-page.tsx handleExport()
+useExportController.exportTrack()
     ↓
 MapView.resize(width, height)  →  Resize map to export resolution
     ↓
@@ -116,17 +116,14 @@ Video export uses WebCodecs API via mediabunny for proper MP4 encoding with H.26
 During export, the map container is resized to the target resolution (e.g., 1920x1080). After export completes, the original size is restored. This ensures pixel-perfect output regardless of viewport size.
 
 ### State Architecture
-All animation state lives in `page.tsx` as the single source of truth:
-- `fullTrack` — original parsed track data
-- `track` — filtered subset (after timeline selection)
-- `progress` (0–1) — current animation position
-- `speed` — playback speed multiplier
-- `duration` — total animation length in seconds
-- `isPlaying` — animation running state
-- `followCamera` — whether camera tracks the marker
-- `scenes` — array of Scene definitions for camera behavior
+`page.tsx` still owns the high-level session boundary, but the most error-prone sub-concerns are now isolated:
+- `fullTrack` / `track` / `trackSessionKey` — track-session boundary and trim lifecycle
+- `scenes`, `transitionDuration`, `showSceneEditor` — scene authoring state
+- `showExport`, `showGoogleGuide`, `isCreatingJourney`, `showKeyboardHelp` — modal / panel orchestration
+- `usePlaybackController` — `progress`, `isPlaying`, `speed`, `duration`, `followCamera`, `seekNonce`, RAF loop, hotkeys
+- `useExportController` — export progress/state, abort handling, blob URL cleanup, map resize / idle waiting
 
-A `progressRef` keeps the animation loop in sync without re-triggering effects on every frame.
+`loadTrackIntoSession()` and `startFreshJourneySession()` centralize the reset paths that previously tended to drift.
 
 ## Map Layers
 

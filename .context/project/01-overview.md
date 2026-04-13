@@ -40,7 +40,7 @@ npm run lint     # ESLint
 src/
 ├── app/
 │   ├── layout.tsx              # Root layout with SEO/OG metadata and fonts
-│   ├── page.tsx                # Main page — orchestrates all state and components
+│   ├── page.tsx                # App shell — track-session boundary, modal wiring, map integration
 │   └── globals.css             # Tailwind imports, MapLibre CSS, custom animations
 ├── components/
 │   ├── MapView.tsx             # MapLibre GL map with route, trail, marker, scene-based camera
@@ -48,6 +48,7 @@ src/
 │   ├── Controls.tsx            # Playback controls (play/pause, speed, progress, follow)
 │   ├── ExportPanel.tsx         # Video export settings (resolution, codec, FPS, bitrate)
 │   ├── TimelineSelector.tsx    # Drag-based time range selector with density histogram
+│   ├── TrackWorkspace.tsx      # Loaded-track workspace (trim, scenes, playback, export entry points)
 │   ├── JourneyCreator.tsx      # Manual route creator (click-to-add waypoints on map)
 │   ├── SceneEditor.tsx         # Scene editor panel (camera mode, start/end %, params)
 │   └── GoogleGuide.tsx         # Google Takeout import guide modal
@@ -55,6 +56,8 @@ src/
 │   ├── parser.ts               # GPX/KML/Google JSON parsing to Track
 │   ├── interpolate.ts          # Haversine distance, position interpolation, formatting
 │   ├── camera.ts               # Camera state computation, scene blending, defaults
+│   ├── usePlaybackController.ts # Playback animation loop + keyboard shortcuts
+│   ├── useExportController.ts   # Export lifecycle, resize/idle waits, preview cleanup
 │   └── videoEncoder.ts         # WebCodecs MP4 encoding via mediabunny
 └── types.ts                    # Shared types (Track, CameraMode, Scene, ExportConfig, etc.)
 ```

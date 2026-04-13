@@ -174,6 +174,27 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('カメラ', { exact: true })).toBeVisible()
   })
 
+
+  test('language picker applies Chinese landing copy across primary actions', async ({ page }) => {
+    await page.getByTestId('global-toolbar').locator('select').selectOption('zh')
+    await expect(page.getByRole('button', { name: '选择要上传的文件' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('选择文件', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '在地图上绘制路线' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '找不到文件？' })).toBeVisible()
+  })
+
+  test('language picker applies Spanish labels throughout the export flow', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByTestId('global-toolbar').locator('select').selectOption('es')
+
+    const trackToolbar = page.getByTestId('track-toolbar')
+    await expect(trackToolbar.getByRole('button', { name: 'Exportar', exact: true })).toBeVisible({ timeout: 10_000 })
+    await expect(trackToolbar.getByRole('button', { name: 'Cámara', exact: true })).toBeVisible()
+
+    await trackToolbar.getByRole('button', { name: 'Exportar', exact: true }).click({ force: true })
+    await expect(page.getByRole('heading', { name: 'Exportar video' })).toBeVisible({ timeout: 10_000 })
+  })
+
   test('loads sample trip from landing CTA', async ({ page }) => {
     const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
     await expect(sampleBtn).toBeVisible({ timeout: 10_000 })

@@ -112,7 +112,7 @@ travelback/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx               # Root layout — Vitro data attributes, mesh/noise layers
-│   │   ├── page.tsx                  # Main app — state management, animation loop, keyboard shortcuts
+│   │   ├── page.tsx                  # Main app shell — track/session boundary, toolbar modals, map wiring
 │   │   └── globals.css              # Tailwind + Vitro imports, glass button/input helpers
 │   │
 │   ├── components/
@@ -125,6 +125,7 @@ travelback/
 │   │   ├── ElevationProfile.tsx     # SVG elevation chart synced to playback
 │   │   ├── JourneyCreator.tsx       # Manual route drawing via map clicks
 │   │   ├── GoogleGuide.tsx          # Google Takeout export instructions
+│   │   ├── TrackWorkspace.tsx       # Loaded-track workspace — trim, scenes, playback, export entry points
 │   │   ├── ThemeToggle.tsx          # Light/dark mode toggle
 │   │   ├── Toast.tsx                # Notification toasts (error/success/info)
 │   │   └── ErrorBoundary.tsx        # React error boundary with reload UI
