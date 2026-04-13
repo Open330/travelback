@@ -15,16 +15,13 @@ This directory contains project context, conventions, and guidelines for AI assi
 ├── development/
 │   └── 01-conventions.md              # Naming, code style, git rules, testing, dependencies
 ├── plans/
-│   ├── archive/                      # Completed/superseded plans
-│   │   └── ux-overhaul-non-technical-traveler.md  # Archived: fully implemented UX overhaul plan
-│   ├── address-post-remediation-reviews-2026-04-13.md  # Current follow-up plan for residual issues
-│   ├── address-comprehensive-code-review-2026-04-13.md  # Comprehensive review remediation
-│   ├── address-ultradeep-code-quality-review-2026-04-13.md  # Deep quality remediation
-│   ├── address-ultradeep-security-review-2026-04-13.md  # Deep security remediation
-│   ├── address-open-ux-review-items-2026-04-13.md  # Consolidated remaining UX follow-ups
-│   └── ...                           # Additional active implementation plans
+│   ├── address-comprehensive-deep-code-review-post-remediation-2026-04-13.md
+│   ├── address-ultradeep-security-review-post-remediation-2026-04-13.md
+│   └── archive/                       # Completed/superseded implementation-plan waves
 └── reviews/
-    └── ux-review-non-technical-traveler.md    # UX review from traveler perspective
+    ├── comprehensive-deep-code-review-post-remediation-2026-04-13.md
+    ├── ultradeep-code-quality-review-post-remediation-2026-04-13.md
+    └── ultradeep-security-review-post-remediation-2026-04-13.md
 ```
 
 ## Purpose
