@@ -138,6 +138,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
               <button
                 type="button"
                 onClick={onLoadSample}
+                aria-label={t('fileUpload.previewTitle')}
+                title={t('fileUpload.previewTitle')}
                 className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg"
               >
                 <Image
