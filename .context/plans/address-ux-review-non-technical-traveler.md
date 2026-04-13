@@ -1,7 +1,7 @@
 # Implementation Plan: Address Remaining Issues from UX Review (Non-Technical Traveler)
 
 **Source:** `.context/reviews/ux-review-non-technical-traveler.md`
-**Previous plan:** `.context/plans/ux-overhaul-non-technical-traveler.md` (fully implemented as `9019e14`)
+**Previous plan:** `.context/plans/archive/ux-overhaul-non-technical-traveler.md` (fully implemented as `9019e14` and archived)
 **Goal:** Address the remaining issues that were NOT resolved by the previous UX overhaul.
 
 ---

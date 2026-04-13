@@ -15,7 +15,9 @@ This directory contains project context, conventions, and guidelines for AI assi
 ├── development/
 │   └── 01-conventions.md              # Naming, code style, git rules, testing, dependencies
 ├── plans/
-│   └── ux-overhaul-non-technical-traveler.md  # UX overhaul implementation plan
+│   ├── archive/                      # Completed/superseded plans
+│   │   └── ux-overhaul-non-technical-traveler.md  # Archived: fully implemented UX overhaul plan
+│   └── ...                           # Active implementation plans
 └── reviews/
     └── ux-review-non-technical-traveler.md    # UX review from traveler perspective
 ```
