@@ -10,17 +10,18 @@ import SceneEditor from '@/components/SceneEditor'
 import TimelineSelector from '@/components/TimelineSelector'
 import JourneyCreator from '@/components/JourneyCreator'
 import GoogleGuide from '@/components/GoogleGuide'
+import GlobalToolbar from '@/components/GlobalToolbar'
+import KeyboardHelp from '@/components/KeyboardHelp'
 import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ElevationProfile from '@/components/ElevationProfile'
-import ThemeToggle from '@/components/ThemeToggle'
 import { Plus } from 'lucide-react'
 import { MAP_STYLES } from '@/types'
 import { generateDefaultScenes, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 import { parseTrackFile } from '@/lib/parser'
-import { LocaleProvider, useLocale, type Locale } from '@/lib/i18n'
+import { LocaleProvider, useLocale } from '@/lib/i18n'
 
 export default function Home() {
   return (
@@ -498,87 +499,20 @@ function HomeInner() {
         />
       )}
 
-      {/* Theme toggle + Language picker */}
-      <div data-testid="global-toolbar" className="absolute top-4 right-4 z-10 flex items-center gap-2">
-        <div className="gi inline-flex items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
-          <button
-            type="button"
-            onClick={() => handleUnitsChange('metric')}
-            className="px-2 py-1.5 cursor-pointer"
-            style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
-            aria-label={t('units.metric')}
-            title={t('units.metric')}
-          >
-            km
-          </button>
-          <button
-            type="button"
-            onClick={() => handleUnitsChange('imperial')}
-            className="px-2 py-1.5 cursor-pointer"
-            style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
-            aria-label={t('units.imperial')}
-            title={t('units.imperial')}
-          >
-            mi
-          </button>
-        </div>
-        <select
-          value={locale}
-          onChange={e => setLocale(e.target.value as Locale)}
-          aria-label={t('locale.label')}
-          className="gi px-2 py-1.5 text-xs font-medium cursor-pointer appearance-none text-center"
-          style={{ color: 'var(--t2)', minWidth: '3.5rem' }}
-        >
-          <option value="en">EN</option>
-          <option value="ko">KO</option>
-          <option value="ja">JA</option>
-          <option value="zh">ZH</option>
-          <option value="es">ES</option>
-        </select>
-        <div className="gi flex items-center gap-1.5 px-1.5 py-1">
-          <span className="hidden text-[10px] font-medium sm:inline" style={{ color: 'var(--t4)' }}>
-            {t('theme.label')}
-          </span>
-          <ThemeToggle onModeChange={handleModeChange} />
-        </div>
-      </div>
+      <GlobalToolbar
+        locale={locale}
+        setLocale={setLocale}
+        units={units}
+        onUnitsChange={handleUnitsChange}
+        onModeChange={handleModeChange}
+      />
 
-      {/* Keyboard help button — hidden on touch devices */}
-      {track && (
-        <button
-          onClick={() => setShowKeyboardHelp(h => !h)}
-          aria-label={t('shortcuts.title')}
-          className="absolute bottom-4 right-4 z-10 gi w-8 h-8 text-sm font-bold cursor-pointer hidden sm:flex items-center justify-center"
-          style={{ color: 'var(--t4)', borderRadius: '50%' }}
-        >?</button>
-      )}
-
-      {/* Keyboard shortcuts overlay */}
-      {showKeyboardHelp && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center"
-          onClick={() => setShowKeyboardHelp(false)}>
-          <div className="go p-6 max-w-xs w-full mx-4" style={{ borderRadius: 'var(--r-glass)' }}
-            onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--t1)' }}>{t('shortcuts.title')}</h3>
-            <div className="space-y-2 text-xs" style={{ color: 'var(--t3)' }}>
-              {([
-                ['Space', t('shortcuts.playPause')],
-                ['← →', t('shortcuts.seek')],
-                ['F', t('shortcuts.follow')],
-                ['E', t('shortcuts.export')],
-                ['Esc', t('shortcuts.close')],
-                ['?', t('shortcuts.help')],
-              ] as const).map(([key, desc]) => (
-                <div key={key} className="flex items-center gap-3">
-                  <kbd className="gi px-2 py-0.5 text-[10px] font-mono font-bold shrink-0"
-                    style={{ color: 'var(--t2)', minWidth: '2.5rem', textAlign: 'center' }}>{key}</kbd>
-                  <span>{desc}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <KeyboardHelp
+        isOpen={showKeyboardHelp}
+        hasTrack={Boolean(track)}
+        onToggle={() => setShowKeyboardHelp(h => !h)}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
 
 
       {!track && isCreatingJourney && (

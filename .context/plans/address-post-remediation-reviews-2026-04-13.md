@@ -31,7 +31,7 @@
 - [x] Phase B — toolchain, workflow, and plan hygiene
 - [x] Phase C — Journey Creator privacy and search hardening
 - [x] Phase D — style trust reduction and residual privacy copy cleanup
-- [ ] Phase E — bounded maintainability cleanup and final verification
+- [x] Phase E — bounded maintainability cleanup and final verification
 
 Completed so far:
 - follow-up reviews and plan captured and committed
@@ -40,6 +40,8 @@ Completed so far:
 - Journey Creator now requires a minimum query length and no longer attempts to set a forbidden browser `User-Agent` header
 - map style JSON files are now vendored locally, reducing remote style-definition mutability at runtime
 - the README closing tagline now matches the documented privacy/network behavior
+- `SceneRangeEditor` no longer keeps always-on per-scene global pointer listeners while idle
+- `page.tsx` had unrelated global-toolbar and keyboard-help UI extracted into dedicated components to reduce orchestration coupling
 
 ---
 
