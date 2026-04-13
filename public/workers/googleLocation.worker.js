@@ -73,11 +73,31 @@ function parseSemanticSegments(segments, out) {
 function parseGoogleLocationHistory(text) {
   const data = JSON.parse(text)
   const points = []
-  if (Array.isArray(data)) parseRecords(data, points)
-  else if (Array.isArray(data.locations)) parseRecords(data.locations, points)
-  if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) parseTimelineObjects(data.timelineObjects, points)
-  if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) parseTimelineEdits(data.timelineEdits, points)
-  if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) parseSemanticSegments(data.semanticSegments, points)
+  let recognizedFormat = false
+  if (Array.isArray(data)) {
+    recognizedFormat = true
+    parseRecords(data, points)
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.locations)) {
+      recognizedFormat = true
+      parseRecords(data.locations, points)
+    }
+    if (Array.isArray(data.timelineObjects)) {
+      recognizedFormat = true
+      parseTimelineObjects(data.timelineObjects, points)
+    }
+    if (Array.isArray(data.timelineEdits)) {
+      recognizedFormat = true
+      parseTimelineEdits(data.timelineEdits, points)
+    }
+    if (Array.isArray(data.semanticSegments)) {
+      recognizedFormat = true
+      parseSemanticSegments(data.semanticSegments, points)
+    }
+  }
+  if (!recognizedFormat) {
+    throw new Error('Unsupported Google Location History format')
+  }
   const seen = new Set()
   const unique = []
   for (const [order, point] of points.entries()) {

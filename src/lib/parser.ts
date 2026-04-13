@@ -241,26 +241,36 @@ interface GoogleLocationData {
 export function parseGoogleLocationHistory(text: string): Track {
   const data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
   const points: TrackPoint[] = []
+  let recognizedFormat = false
 
   // Flat array: [{ latitudeE7, ... }]
   if (Array.isArray(data)) {
+    recognizedFormat = true
     parseRecords(data, points)
   }
   // Records.json / Location History.json: { locations: [...] }
   else if (Array.isArray(data.locations)) {
+    recognizedFormat = true
     parseRecords(data.locations, points)
   }
   // Semantic Location History (monthly): { timelineObjects: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
+    recognizedFormat = true
     parseTimelineObjects(data.timelineObjects, points)
   }
   // Timeline Edits.json: { timelineEdits: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
+    recognizedFormat = true
     parseTimelineEdits(data.timelineEdits, points)
   }
   // Phone export / new format: { semanticSegments: [...] }
   if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
+    recognizedFormat = true
     parseSemanticSegments(data.semanticSegments, points)
+  }
+
+  if (!recognizedFormat) {
+    throw new Error('Unsupported Google Location History format')
   }
 
   // De-duplicate identical lat/lng/time combos that may come from multiple branches
@@ -281,27 +291,6 @@ export function parseGoogleLocationHistory(text: string): Track {
     return a.order - b.order
   })
   return { name: 'Google Location History', points: unique.map(({ point }) => point) }
-}
-
-export function isGoogleLocationJSON(text: string): boolean {
-  try {
-    const data: unknown = JSON.parse(text)
-    if (Array.isArray(data)) {
-      const first = data[0] as Record<string, unknown> | undefined
-      return !!first && ('latitudeE7' in first || 'latitude' in first)
-    }
-    if (typeof data === 'object' && data !== null) {
-      return (
-        'locations' in data ||
-        'semanticSegments' in data ||
-        'timelineObjects' in data ||
-        'timelineEdits' in data
-      )
-    }
-    return false
-  } catch {
-    return false
-  }
 }
 
 async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> {
@@ -355,7 +344,7 @@ export function parseTrackFile(file: File): Promise<Track> {
           track = parseGPX(text)
         } else if (ext === 'kml') {
           track = parseKML(text)
-        } else if (ext === 'json' && isGoogleLocationJSON(text)) {
+        } else if (ext === 'json') {
           track = await parseGoogleLocationHistoryInWorker(text)
         } else {
           throw new Error(`Unsupported file format: .${ext}`)

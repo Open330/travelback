@@ -34,10 +34,10 @@ Out of scope for this plan:
 Completed so far:
 - timeline trimming now enforces a 2-point minimum after index conversion rather than relying only on ratio gap
 - export filename sanitization preserves non-Latin names while still removing filesystem-hostile characters
-- deploy CI now runs the static Playwright suite in addition to lint/typecheck/build/smoke
+- deploy CI now installs Playwright Chromium explicitly before running the static Playwright gate in addition to lint/typecheck/build/smoke
 - regression coverage now includes non-English locale switching and imperial-unit behavior
 - `.context` structure docs and architecture docs were refreshed to match the current runtime and archive topology
-- Google Location History JSON parsing now runs in a Web Worker path when available instead of always blocking the main thread
+- Google Location History JSON parsing now routes `.json` uploads directly into the worker path (with worker-side format validation) instead of pre-parsing the full payload on the main thread
 - `page.tsx` was further decomposed by extracting the track toolbar from the main orchestration component
 
 ---
