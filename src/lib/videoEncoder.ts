@@ -122,7 +122,13 @@ export async function exportVideo(
     throw new Error('Video encoding failed: no output buffer')
   }
 
-  const sanitizedName = track.name.replace(/[^a-zA-Z0-9\s\-]/g, '').trim().slice(0, 64) || 'Journey'
+  const sanitizedName = track.name
+    .normalize('NFKC')
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/g, '')
+    .trim()
+    .slice(0, 64) || 'Journey'
   return {
     buffer,
     filename: `Travelback - ${sanitizedName}.mp4`,

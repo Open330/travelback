@@ -11,7 +11,7 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 - **Map**: MapLibre GL JS v5 (open-source, no API key required)
 - **Track Parsing**: @tmcw/togeojson (GPX/KML), custom parser (Google Location History JSON)
 - **Video Export**: mediabunny (WebCodecs-based MP4 encoding with H.264, H.265, AV1)
-- **Map Tiles**: CARTO free vector tiles (Voyager, Positron, Dark Matter)
+- **Map Assets**: Locally vendored style JSON, with runtime tiles/glyphs/sprites still loaded from CARTO and OpenFreeMap providers
 - **Testing**: Playwright (E2E)
 
 ## Build & Run

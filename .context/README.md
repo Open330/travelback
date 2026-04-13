@@ -4,7 +4,7 @@ This directory contains project context, conventions, and guidelines for AI assi
 
 ## Structure
 
-```
+``` 
 .context/
 ├── README.md                          # This file
 ├── agents/
@@ -21,7 +21,8 @@ This directory contains project context, conventions, and guidelines for AI assi
 └── reviews/
     ├── comprehensive-deep-code-review-post-remediation-2026-04-13.md
     ├── ultradeep-code-quality-review-post-remediation-2026-04-13.md
-    └── ultradeep-security-review-post-remediation-2026-04-13.md
+    ├── ultradeep-security-review-post-remediation-2026-04-13.md
+    └── ...                            # Historical review waves retained for traceability
 ```
 
 ## Purpose

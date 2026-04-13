@@ -68,6 +68,7 @@ MapView.resetSize() → Restore original dimensions
 | Orbit | 14 | 60° | Fast rotation (36°/s) | Orbits around current position |
 | Ground | 15.5 | 70° | Track direction | Low-altitude chase |
 | Closeup | 17 | 30° | Track direction | Street-level view |
+| Bird's Eye | 11 | 65° | Look-ahead bearing + drift | High-altitude tilted overview |
 
 ### Scene System
 
@@ -75,7 +76,7 @@ Scenes divide the animation into segments, each with its own camera mode. Key co
 - `startPercent` / `endPercent` (0–1) define the track portion
 - Each scene has configurable `CameraParams` (zoom, pitch, bearingOffset, rotationSpeed)
 - Transitions use smoothstep blending (`3t² - 2t³`) at scene boundaries
-- Default scenes auto-generated if none defined: Opening Overview → Flyover → Orbit → Ground → Closing Overview
+- Default scenes auto-generated if none defined: Opening Overview → Bird's Eye → Flyover → Orbit → Ground → Closing Overview
 
 ### Camera State
 

@@ -26,10 +26,17 @@ Out of scope for this plan:
 
 ## Progress update
 
-- [ ] Phase A — correctness edge cases
-- [ ] Phase B — CI and regression coverage
-- [ ] Phase C — documentation alignment
+- [x] Phase A — correctness edge cases
+- [x] Phase B — CI and regression coverage
+- [x] Phase C — documentation alignment
 - [ ] Phase D — parsing resilience and maintainability cleanup
+
+Completed so far:
+- timeline trimming now enforces a 2-point minimum after index conversion rather than relying only on ratio gap
+- export filename sanitization preserves non-Latin names while still removing filesystem-hostile characters
+- deploy CI now runs the static Playwright suite in addition to lint/typecheck/build/smoke
+- regression coverage now includes non-English locale switching and imperial-unit behavior
+- `.context` structure docs and architecture docs were refreshed to match the current runtime and archive topology
 
 ---
 

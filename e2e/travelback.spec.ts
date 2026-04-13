@@ -10,6 +10,7 @@ const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-seman
 const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
 const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
+const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -158,6 +159,12 @@ test.describe('Travelback App', () => {
   test('shows file upload area on initial load', async ({ page }) => {
     // The file upload drop zone should be visible
     await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('language picker can switch the landing UI away from English', async ({ page }) => {
+    await page.getByRole('combobox', { name: 'Language' }).selectOption('ko')
+    await expect(page.getByRole('button', { name: '파일 선택' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: '샘플 여행으로 체험하기', exact: true })).toBeVisible()
   })
 
   test('loads sample trip from landing CTA', async ({ page }) => {
@@ -365,6 +372,24 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
   })
 
+  test('timeline trimming never collapses to a one-point track', async ({ page }) => {
+    await page.locator('input[type=\"file\"]').setInputFiles(TINY_TRIM_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Tiny Trim Track')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('text=/3 \\/ 3 locations/').first()).toBeVisible()
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const timeline = page.getByTestId('timeline-selector')
+    const [handleBox, timelineBox] = await Promise.all([endHandle.boundingBox(), timeline.boundingBox()])
+    if (!handleBox || !timelineBox) throw new Error('Missing timeline geometry for trim test')
+
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.42, handleBox.y + handleBox.height / 2, { steps: 12 })
+    await page.mouse.up()
+
+    await expect(page.locator('text=/2 \\/ 3 locations/').first()).toBeVisible({ timeout: 10_000 })
+  })
+
   test('mobile scene editor panel stays below the stacked header controls', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
@@ -486,6 +511,12 @@ test.describe('Travelback App', () => {
     )
 
     await expect(page.getByTestId('playback-stats')).toContainText(`/ ${expectedMeters} m`)
+  })
+
+  test('imperial unit toggle updates playback stats', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByRole('button', { name: /imperial units/i }).click({ force: true })
+    await expect(page.getByTestId('playback-stats')).toContainText(/ft|mi/)
   })
 
   test('map camera movement stays stable during playback', async ({ page }) => {

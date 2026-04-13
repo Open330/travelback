@@ -77,20 +77,29 @@ function TimelineSelector({
 
   const maxBucket = useMemo(() => Math.max(...buckets, 1), [buckets])
 
-  // Convert ratio -> point index
-  const ratioToIdx = useCallback(
-    (ratio: number) => {
-      const clamped = Math.max(0, Math.min(1, ratio))
-      return Math.round(clamped * (points.length - 1))
-    },
-    [points.length]
-  )
+  const resolveRangeIndexes = useCallback(() => {
+    const lastIndex = points.length - 1
+    if (lastIndex <= 0) return { startIdx: 0, endIdx: 0 }
+
+    let startIdx = Math.floor(Math.max(0, Math.min(1, startRatio)) * lastIndex)
+    let endIdx = Math.ceil(Math.max(0, Math.min(1, endRatio)) * lastIndex)
+
+    if (startIdx >= lastIndex) {
+      startIdx = lastIndex - 1
+    }
+    if (endIdx <= startIdx) {
+      endIdx = Math.min(lastIndex, startIdx + 1)
+    }
+
+    return { startIdx, endIdx }
+  }, [endRatio, points.length, startRatio])
 
   // Notify parent whenever ratios change
   useEffect(() => {
     if (points.length === 0) return
-    onRangeChange(ratioToIdx(startRatio), ratioToIdx(endRatio))
-  }, [startRatio, endRatio, ratioToIdx, onRangeChange, points.length])
+    const { startIdx, endIdx } = resolveRangeIndexes()
+    onRangeChange(startIdx, endIdx)
+  }, [onRangeChange, points.length, resolveRangeIndexes])
 
   // Get container width in pixels
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
@@ -180,8 +189,7 @@ function TimelineSelector({
   if (points.length === 0) return null
 
   // Dates for display
-  const startIdx = ratioToIdx(startRatio)
-  const endIdx = ratioToIdx(endRatio)
+  const { startIdx, endIdx } = resolveRangeIndexes()
   const startDate = points[startIdx]?.time
   const endDate = points[endIdx]?.time
 
@@ -232,6 +240,7 @@ function TimelineSelector({
 
         {/* Selected region overlay - draggable */}
         <div
+          data-testid="timeline-selected-region"
           className="absolute top-0 bottom-0 cursor-grab active:cursor-grabbing"
           style={{
             left: `${startRatio * 100}%`,
@@ -252,6 +261,7 @@ function TimelineSelector({
 
         {/* Start handle — 44px min touch target */}
         <div
+          data-testid="timeline-start-handle"
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
           style={{
             left: `calc(${startRatio * 100}% - ${HANDLE_RADIUS}px)`,
@@ -281,6 +291,7 @@ function TimelineSelector({
 
         {/* End handle — 44px min touch target */}
         <div
+          data-testid="timeline-end-handle"
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
           style={{
             left: `calc(${endRatio * 100}% - ${HANDLE_RADIUS}px)`,
