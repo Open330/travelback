@@ -141,7 +141,7 @@ travelback/
 │   └── types.ts                    # TrackPoint, Scene, CameraMode, ExportConfig, resolution presets
 │
 ├── e2e/
-│   ├── travelback.spec.ts          # 32 Playwright E2E tests
+│   ├── travelback.spec.ts          # 34 Playwright E2E tests
 │   └── fixtures/                   # GPX, KML, JSON test fixtures
 │
 ├── public/                         # Static assets

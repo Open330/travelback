@@ -24,9 +24,11 @@ export function computeCumulativeDistances(points: TrackPoint[], segmentStartInd
   return distances
 }
 
-export function totalDistance(points: TrackPoint[]): number {
+export function totalDistance(points: TrackPoint[], segmentStartIndices: number[] = []): number {
+  const segmentStarts = new Set(segmentStartIndices)
   let d = 0
   for (let i = 1; i < points.length; i++) {
+    if (segmentStarts.has(i)) continue
     d += haversineDistance(points[i - 1], points[i])
   }
   return d

@@ -23,6 +23,7 @@ Completed so far:
 - the route-line is visible at low opacity to match docs and feature expectations
 - the preview server now reserves immutable caching for fingerprinted build assets only
 - stale review-facing docs were updated to reflect the current test count and feature counts
+- entering “New Route” now clears prior trip map artifacts instead of leaving the old route behind
 
 ---
 

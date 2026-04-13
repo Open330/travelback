@@ -22,6 +22,8 @@ Completed so far:
 - untimed Google points now preserve source-order instead of being reordered to the start of the route
 - playback no longer recomputes full-track distance on every render
 - JourneyCreator search now cancels/ignores stale requests and rebuilds overlays after style reloads
+- “New Route” now clears the previous trip’s route/trail/marker artifacts from the map
+- playback stats now honor segment gaps instead of counting nonexistent jump distances
 - deploy verification now includes lint, typecheck, audit, build, and static smoke checks
 - stale factual docs were updated to match the current feature and test surface
 

@@ -9,6 +9,7 @@ const JSON_RECORDS_FIXTURE = path.resolve(__dirname, 'fixtures/google-records.js
 const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-location.json')
 const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
+const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -21,6 +22,17 @@ function boxesOverlap(a: { x: number; y: number; width: number; height: number }
 
 function shortestAngleDelta(from: number, to: number) {
   return Math.abs(((to - from + 540) % 360) - 180)
+}
+
+function haversineDistanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371000
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const sinLat = Math.sin(dLat / 2)
+  const sinLng = Math.sin(dLng / 2)
+  const h = sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng
+  return 2 * R * Math.asin(Math.sqrt(h))
 }
 
 async function collectCameraSamples(page: Page) {
@@ -407,6 +419,73 @@ test.describe('Travelback App', () => {
       hasTrailLayer: true,
       hasMarker: true,
     })
+  })
+
+  test('starting a new route clears prior trip map artifacts', async ({ page }) => {
+    await uploadGpx(page)
+    await page.waitForTimeout(750)
+
+    await expect.poll(async () => page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getMapState: () => {
+            hasRouteSource: boolean
+            hasTrailSource: boolean
+            hasRouteLayer: boolean
+            hasTrailLayer: boolean
+            hasMarker: boolean
+          } | null
+        }
+      }
+
+      const debugWindow = window as DebugWindow
+      return debugWindow.__travelbackDebug?.getMapState() ?? null
+    }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
+      hasRouteSource: true,
+      hasTrailSource: true,
+      hasRouteLayer: true,
+      hasTrailLayer: true,
+      hasMarker: true,
+    })
+
+    await page.getByText('New Route', { exact: true }).click({ force: true })
+    await expect(page.getByTestId('journey-creator-panel')).toBeVisible({ timeout: 10_000 })
+
+    await expect.poll(async () => page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getMapState: () => {
+            hasRouteSource: boolean
+            hasTrailSource: boolean
+            hasRouteLayer: boolean
+            hasTrailLayer: boolean
+            hasMarker: boolean
+          } | null
+        }
+      }
+
+      const debugWindow = window as DebugWindow
+      return debugWindow.__travelbackDebug?.getMapState() ?? null
+    }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
+      hasRouteSource: false,
+      hasTrailSource: false,
+      hasRouteLayer: false,
+      hasTrailLayer: false,
+      hasMarker: false,
+    })
+  })
+
+  test('segmented tracks do not count the gap in playback stats', async ({ page }) => {
+    await page.getByRole('button', { name: /metric units/i }).click({ force: true })
+    await page.locator('input[type="file"]').setInputFiles(SEGMENTED_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Segmented City Hop')).toBeVisible({ timeout: 15_000 })
+
+    const expectedMeters = Math.round(
+      haversineDistanceMeters({ lat: 37.5665, lng: 126.9780 }, { lat: 37.5669, lng: 126.9784 })
+      + haversineDistanceMeters({ lat: 35.6895, lng: 139.6917 }, { lat: 35.6899, lng: 139.6921 })
+    )
+
+    await expect(page.getByTestId('playback-stats')).toContainText(`/ ${expectedMeters} m`)
   })
 
   test('map camera movement stays stable during playback', async ({ page }) => {

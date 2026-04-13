@@ -175,6 +175,13 @@ function HomeInner() {
     const filtered = {
       name: fullTrack.name,
       points: fullTrack.points.slice(startIdx, endIdx + 1),
+      ...(fullTrack.segmentStartIndices
+        ? {
+            segmentStartIndices: fullTrack.segmentStartIndices
+              .filter((index) => index > startIdx && index <= endIdx)
+              .map((index) => index - startIdx),
+          }
+        : {}),
     }
     setTrack(filtered)
     setProgress(0)
@@ -202,6 +209,7 @@ function HomeInner() {
 
   const handleTrackLoaded = useCallback((t: Track) => {
     resetTrackSessionUi()
+    mapViewRef.current?.clearTrackArtifacts()
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
@@ -212,6 +220,7 @@ function HomeInner() {
 
   const handleJourneyComplete = useCallback((t: Track) => {
     resetTrackSessionUi()
+    mapViewRef.current?.clearTrackArtifacts()
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
@@ -263,6 +272,7 @@ function HomeInner() {
 
   const handleStartNewTrack = useCallback(() => {
     resetTrackSessionUi()
+    mapViewRef.current?.clearTrackArtifacts()
     setTrack(null)
     setFullTrack(null)
     setProgress(0)

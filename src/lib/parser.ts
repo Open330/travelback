@@ -47,8 +47,33 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
 
 function parseGPX(text: string): Track {
   const doc = new DOMParser().parseFromString(text, 'application/xml')
-  const geojson = gpx(doc)
-  const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
+  const segments = Array.from(doc.getElementsByTagName('trkseg'))
+    .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
+      .map<TrackPoint | null>((point) => {
+        const lat = Number(point.getAttribute('lat'))
+        const lng = Number(point.getAttribute('lon'))
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        const elevationText = point.getElementsByTagName('ele')[0]?.textContent
+        const timeText = point.getElementsByTagName('time')[0]?.textContent
+        return {
+          lat,
+          lng,
+          ele: elevationText != null ? Number(elevationText) : undefined,
+          time: timeText ? new Date(timeText) : undefined,
+        }
+      })
+      .filter((point): point is TrackPoint => point !== null))
+    .filter((segment) => segment.length > 0)
+
+  const { points, segmentStartIndices } = segments.length > 0
+    ? segments.reduce<{ points: TrackPoint[]; segmentStartIndices: number[] }>((acc, segment) => {
+        if (acc.points.length > 0) {
+          acc.segmentStartIndices.push(acc.points.length)
+        }
+        acc.points.push(...segment)
+        return acc
+      }, { points: [], segmentStartIndices: [] })
+    : extractPointsFromGeoJSON(gpx(doc) as GeoJSON.FeatureCollection)
   const name = doc.querySelector('trk > name')?.textContent
     ?? doc.querySelector('metadata > name')?.textContent
     ?? 'GPX Track'

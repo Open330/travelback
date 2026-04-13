@@ -25,6 +25,7 @@ export interface MapViewHandle {
   getMap: () => maplibregl.Map | null
   getCanvas: () => HTMLCanvasElement | null
   applyCameraState: (state: CameraState) => void
+  clearTrackArtifacts: () => void
   resize: (width: number, height: number) => void
   resetSize: () => void
   waitForIdle: (signal?: AbortSignal) => Promise<boolean>
@@ -131,6 +132,13 @@ function buildTrackGeometry(
   }
 }
 
+function removeTrackArtifacts(map: maplibregl.Map) {
+  if (map.getLayer('trail-line')) map.removeLayer('trail-line')
+  if (map.getLayer('route-line')) map.removeLayer('route-line')
+  if (map.getSource('trail')) map.removeSource('trail')
+  if (map.getSource('route')) map.removeSource('route')
+}
+
 type TravelbackDebugWindow = Window & {
   __travelbackDebug?: {
     getCamera: () => CameraState | null
@@ -186,6 +194,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         pitch: state.pitch,
         bearing: state.bearing,
       })
+    },
+    clearTrackArtifacts: () => {
+      const map = mapRef.current
+      if (!map) return
+      removeTrackArtifacts(map)
+      markerRef.current?.remove()
+      markerRef.current = null
+      lastCameraStateRef.current = null
+      cumulDistRef.current = []
     },
     resize: (width: number, height: number) => {
       const map = mapRef.current
@@ -454,7 +471,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   // Load track onto map
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !track) return
+    if (!map) return
+
+    if (!track) {
+      removeTrackArtifacts(map)
+      markerRef.current?.remove()
+      markerRef.current = null
+      lastCameraStateRef.current = null
+      cumulDistRef.current = []
+      return
+    }
 
     cumulDistRef.current = computeCumulativeDistances(track.points, track.segmentStartIndices)
 

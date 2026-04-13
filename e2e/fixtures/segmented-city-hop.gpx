@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="travelback-test">
+  <trk>
+    <name>Segmented City Hop</name>
+    <trkseg>
+      <trkpt lat="37.5665" lon="126.9780"><time>2025-01-01T09:00:00Z</time></trkpt>
+      <trkpt lat="37.5669" lon="126.9784"><time>2025-01-01T09:05:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="35.6895" lon="139.6917"><time>2025-01-02T09:00:00Z</time></trkpt>
+      <trkpt lat="35.6899" lon="139.6921"><time>2025-01-02T09:05:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
