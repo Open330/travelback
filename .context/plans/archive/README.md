@@ -36,3 +36,13 @@ This directory contains implementation plans that are considered **fully impleme
 - `review-implementation-backlog-2026-04-13.md`
   - Archived on 2026-04-13.
   - Reason: superseded by `review-remediation-gap-analysis-2026-04-13.md`.
+
+- `address-comprehensive-deep-code-review-post-remediation-2026-04-13.md`
+  - Archived on 2026-04-13.
+  - Reason: fully implemented during the final post-remediation quality follow-up wave.
+- `address-ultradeep-security-review-post-remediation-2026-04-13.md`
+  - Archived on 2026-04-13.
+  - Reason: fully implemented during the final post-remediation security follow-up wave.
+- `review-remediation-gap-analysis-2026-04-13.md`
+  - Archived on 2026-04-13.
+  - Reason: superseded after all gap-analysis follow-up plans were completed.

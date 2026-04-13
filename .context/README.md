@@ -15,9 +15,7 @@ This directory contains project context, conventions, and guidelines for AI assi
 ├── development/
 │   └── 01-conventions.md              # Naming, code style, git rules, testing, dependencies
 ├── plans/
-│   ├── address-comprehensive-deep-code-review-post-remediation-2026-04-13.md
-│   ├── address-ultradeep-security-review-post-remediation-2026-04-13.md
-│   └── archive/                       # Completed/superseded implementation-plan waves
+│   └── archive/                       # Completed/superseded implementation-plan waves (no active plans currently)
 └── reviews/
     ├── comprehensive-deep-code-review-post-remediation-2026-04-13.md
     ├── ultradeep-code-quality-review-post-remediation-2026-04-13.md
