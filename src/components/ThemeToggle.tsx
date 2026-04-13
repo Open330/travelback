@@ -14,8 +14,9 @@ function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean
     return { mode: current, hadExplicitMode: true }
   }
 
-  document.documentElement.setAttribute('data-mode', 'light')
-  return { mode: 'light', hadExplicitMode: false }
+  const inferredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  document.documentElement.setAttribute('data-mode', inferredMode)
+  return { mode: inferredMode, hadExplicitMode: false }
 }
 
 export default function ThemeToggle({ onModeChange }: { onModeChange?: (mode: 'dark' | 'light') => void }) {

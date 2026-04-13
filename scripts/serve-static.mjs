@@ -59,6 +59,13 @@ function resolveContentType(filePath) {
   return mimeTypes.get(path.extname(filePath).toLowerCase()) ?? 'application/octet-stream'
 }
 
+function resolveCacheControl(filePath) {
+  const relativePath = path.relative(outDir, filePath).split(path.sep).join('/')
+  if (relativePath.endsWith('.html')) return 'no-cache'
+  if (relativePath.startsWith('_next/static/')) return 'public, max-age=31536000, immutable'
+  return 'public, max-age=3600'
+}
+
 async function resolveFile(urlPathname) {
   if (basePath !== '/') {
     if (urlPathname === '/' || urlPathname === '') {
@@ -135,7 +142,7 @@ const server = createServer(async (req, res) => {
     const body = await readFile(resolved.absolutePath)
     res.writeHead(200, {
       'Content-Type': resolveContentType(resolved.absolutePath),
-      'Cache-Control': resolved.absolutePath.endsWith('.html') ? 'no-cache' : 'public, max-age=31536000, immutable',
+      'Cache-Control': resolveCacheControl(resolved.absolutePath),
     })
 
     if (method === 'HEAD') {

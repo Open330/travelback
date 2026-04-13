@@ -27,7 +27,7 @@ export interface MapViewHandle {
   applyCameraState: (state: CameraState) => void
   resize: (width: number, height: number) => void
   resetSize: () => void
-  waitForIdle: (signal?: AbortSignal) => Promise<void>
+  waitForIdle: (signal?: AbortSignal) => Promise<boolean>
 }
 
 const ROUTE_COLOR = '#06b6d4'
@@ -150,22 +150,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.resize()
     },
     waitForIdle: (signal?: AbortSignal) => {
-      return new Promise<void>(resolve => {
+      return new Promise<boolean>((resolve, reject) => {
         const map = mapRef.current
-        if (!map) { resolve(); return }
+        if (!map) { resolve(true); return }
 
         let settled = false
         let timeoutId: ReturnType<typeof setTimeout> | null = null
 
         const onAbort = () => {
-          finish()
+          finishAbort()
         }
 
         const onIdle = () => {
-          finish()
+          finish(true)
         }
 
-        const finish = () => {
+        const finish = (didIdle: boolean) => {
           if (settled) return
           settled = true
           if (timeoutId != null) {
@@ -173,20 +173,31 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
           map.off('idle', onIdle)
           signal?.removeEventListener('abort', onAbort)
-          resolve()
+          resolve(didIdle)
         }
 
-        timeoutId = setTimeout(finish, WAIT_FOR_IDLE_TIMEOUT_MS)
+        const finishAbort = () => {
+          if (settled) return
+          settled = true
+          if (timeoutId != null) {
+            clearTimeout(timeoutId)
+          }
+          map.off('idle', onIdle)
+          signal?.removeEventListener('abort', onAbort)
+          reject(new DOMException('Export cancelled', 'AbortError'))
+        }
+
+        timeoutId = setTimeout(() => finish(false), WAIT_FOR_IDLE_TIMEOUT_MS)
 
         if (signal?.aborted) {
-          finish()
+          finishAbort()
           return
         }
 
         signal?.addEventListener('abort', onAbort, { once: true })
 
         if (!map.isMoving() && map.areTilesLoaded()) {
-          finish()
+          finish(true)
           return
         }
 
@@ -322,7 +333,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         paint: {
           'line-color': ROUTE_COLOR,
           'line-width': 5,
-          'line-opacity': 0,
+          'line-opacity': 0.25,
         },
       })
     }

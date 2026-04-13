@@ -47,6 +47,16 @@ async function assertStatus(url, expected) {
   if (res.status !== expected) {
     throw new Error(`${url} returned ${res.status}, expected ${expected}`)
   }
+  return res
+}
+
+async function assertCacheControl(url, expectedSubstring, { invert = false } = {}) {
+  const res = await fetch(url, { redirect: 'manual' })
+  const cacheControl = res.headers.get('cache-control') ?? ''
+  const matches = cacheControl.includes(expectedSubstring)
+  if ((!invert && !matches) || (invert && matches)) {
+    throw new Error(`${url} cache-control was "${cacheControl}", expected ${invert ? 'not ' : ''}to contain "${expectedSubstring}"`)
+  }
 }
 
 async function findChunkAssetUrl() {
@@ -67,9 +77,12 @@ let failed = false
 try {
   await waitForReady(`http://127.0.0.1:${port}/travelback/`)
   await assertStatus(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 200)
-  await assertStatus(await findChunkAssetUrl(), 200)
+  const chunkUrl = await findChunkAssetUrl()
+  await assertStatus(chunkUrl, 200)
   await assertStatus(`http://127.0.0.1:${port}/travelback/_not-found.html`, 200)
   await assertStatus(`http://127.0.0.1:${port}/sample-trip.gpx`, 404)
+  await assertCacheControl(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 'immutable', { invert: true })
+  await assertCacheControl(chunkUrl, 'immutable')
   console.log('[smoke-static] OK')
 } catch (err) {
   failed = true

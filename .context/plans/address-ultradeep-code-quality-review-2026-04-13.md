@@ -5,6 +5,28 @@
 
 ---
 
+## Progress update
+
+- [x] Phase A — isolate track-scoped session state
+- [ ] Phase B — scene runtime correctness
+- [ ] Phase C — parser and route-model fidelity
+- [ ] Phase D — performance and async reliability
+- [ ] Phase E — release hygiene and docs consistency
+
+Completed so far:
+- new track sessions now reset scene/editor/export UI state instead of leaking configuration across trips
+- timeline trimming now remounts per track session so trim state does not bleed into newly loaded trips
+- same-file upload retries are deterministic because the file input is reset after use
+
+Still open in this plan:
+- scene normalization / invalid-scene-state guards
+- segmented GPX/KML fidelity and untimed Google ordering
+- hot-path distance recomputation removal
+- JourneyCreator race/style-reload resilience
+- CI/docs cleanup tasks that belong to the deeper quality lane
+
+---
+
 ## Workstream summary
 
 | Review ID | Theme |

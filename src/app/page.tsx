@@ -58,6 +58,7 @@ function HomeInner() {
   const [transitionDuration, setTransitionDuration] = useState(0.03)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [seekNonce, setSeekNonce] = useState(0)
+  const [trackSessionKey, setTrackSessionKey] = useState(0)
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   const mapViewRef = useRef<MapViewHandle>(null)
@@ -67,11 +68,20 @@ function HomeInner() {
   const speedRef = useRef(speed)
   const durationRef = useRef(duration)
   const exportAbortRef = useRef<AbortController | null>(null)
+  const exportedVideoUrlRef = useRef<string | null>(null)
 
   // Keep refs in sync without restarting the animation loop
   useEffect(() => { progressRef.current = progress }, [progress])
   useEffect(() => { speedRef.current = speed }, [speed])
   useEffect(() => { durationRef.current = duration }, [duration])
+  useEffect(() => { exportedVideoUrlRef.current = exportedVideoUrl }, [exportedVideoUrl])
+  useEffect(() => {
+    return () => {
+      if (exportedVideoUrlRef.current) {
+        URL.revokeObjectURL(exportedVideoUrlRef.current)
+      }
+    }
+  }, [])
 
   // Animation loop — only restarts on play/pause or track change
   useEffect(() => {
@@ -170,22 +180,45 @@ function HomeInner() {
     progressRef.current = 0
   }, [fullTrack])
 
+  const revokeExportedVideoUrl = useCallback(() => {
+    setExportedVideoUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev)
+      }
+      return null
+    })
+  }, [])
+
+  const resetTrackSessionUi = useCallback(() => {
+    setShowExport(false)
+    setShowSceneEditor(false)
+    setScenes([])
+    setTransitionDuration(0.03)
+    setExportState('idle')
+    setExportProgress(0)
+    revokeExportedVideoUrl()
+  }, [revokeExportedVideoUrl])
+
   const handleTrackLoaded = useCallback((t: Track) => {
+    resetTrackSessionUi()
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
     progressRef.current = 0
     setIsPlaying(false)
-  }, [])
+    setTrackSessionKey((key) => key + 1)
+  }, [resetTrackSessionUi])
 
   const handleJourneyComplete = useCallback((t: Track) => {
+    resetTrackSessionUi()
     setFullTrack(t)
     setTrack(t)
     setProgress(0)
     progressRef.current = 0
     setIsPlaying(false)
     setIsCreatingJourney(false)
-  }, [])
+    setTrackSessionKey((key) => key + 1)
+  }, [resetTrackSessionUi])
 
   const handleOpenGoogleGuide = useCallback(() => {
     setShowGoogleGuide(true)
@@ -216,18 +249,27 @@ function HomeInner() {
   }, [])
 
   const handleCloseExport = useCallback(() => {
+    if (exportState === 'done') {
+      revokeExportedVideoUrl()
+      setExportState('idle')
+    }
     setShowExport(false)
-  }, [])
+  }, [exportState, revokeExportedVideoUrl])
 
   const handleToggleFollowCamera = useCallback(() => {
     setFollowCamera((f) => !f)
   }, [])
 
   const handleStartNewTrack = useCallback(() => {
+    resetTrackSessionUi()
     setTrack(null)
     setFullTrack(null)
+    setProgress(0)
+    progressRef.current = 0
+    setIsPlaying(false)
     setIsCreatingJourney(true)
-  }, [])
+    setTrackSessionKey((key) => key + 1)
+  }, [resetTrackSessionUi])
 
   const handleTogglePlay = useCallback(() => {
     if (progress >= 1) {
@@ -253,6 +295,8 @@ function HomeInner() {
     const abortController = new AbortController()
     exportAbortRef.current = abortController
 
+    revokeExportedVideoUrl()
+
     setIsExporting(true)
     setExportState('exporting')
     setExportProgress(0)
@@ -271,7 +315,24 @@ function HomeInner() {
 
       // Wait for resize to settle then wait for map idle
       await new Promise(r => setTimeout(r, 200))
-      await mapHandle.waitForIdle(abortController.signal)
+      const mapSettledAfterResize = await mapHandle.waitForIdle(abortController.signal)
+      if (!mapSettledAfterResize) {
+        throw new Error('Map did not finish rendering after resize')
+      }
+
+      let consecutiveIdleTimeouts = 0
+      const waitForStableMap = async () => {
+        const didIdle = await mapHandle.waitForIdle(abortController.signal)
+        if (didIdle) {
+          consecutiveIdleTimeouts = 0
+          return
+        }
+
+        consecutiveIdleTimeouts += 1
+        if (consecutiveIdleTimeouts >= 2) {
+          throw new Error('Map did not finish rendering in time for export')
+        }
+      }
 
       const result = await exportVideo(
         canvas,
@@ -284,7 +345,7 @@ function HomeInner() {
           progressRef.current = progress
         },
         (p) => setExportProgress(p),
-        () => mapHandle.waitForIdle(abortController.signal),
+        waitForStableMap,
         abortController.signal,
       )
 
@@ -315,16 +376,13 @@ function HomeInner() {
       setIsExporting(false)
       setExportProgress(0)
     }
-  }, [track, scenes, addToast, t])
+  }, [track, scenes, addToast, revokeExportedVideoUrl, t])
 
   const handleResetExport = useCallback(() => {
-    if (exportedVideoUrl) {
-      URL.revokeObjectURL(exportedVideoUrl)
-    }
-    setExportedVideoUrl(null)
+    revokeExportedVideoUrl()
     setExportState('idle')
     setShowExport(false)
-  }, [exportedVideoUrl])
+  }, [revokeExportedVideoUrl])
 
   const handleLoadSample = useCallback(async () => {
     const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
@@ -563,6 +621,7 @@ function HomeInner() {
       {fullTrack && fullTrack.points.length > 2 && (
         <div className="absolute bottom-44 sm:bottom-36 left-0 right-0 z-10 px-4">
           <TimelineSelector
+            key={trackSessionKey}
             track={fullTrack}
             onRangeChange={handleRangeChange}
           />

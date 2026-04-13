@@ -5,6 +5,26 @@
 
 ---
 
+## Progress update
+
+- [x] A.1 Fix first-load system theme synchronization
+- [x] A.2 Make ErrorBoundary honor the active app locale
+- [x] B.1 Make same-file re-upload deterministic
+- [x] B.2 Add explicit export idle-timeout failure policy
+- [x] C.1 Decide and implement visible full-route behavior
+- [x] C.2 Fix preview-server caching for non-fingerprinted public assets
+- [ ] D.1 Update doc drift explicitly called out by the comprehensive review
+
+Completed so far:
+- bootstrap theme/map-style now follow the real initial color-scheme instead of hardcoded light mode
+- ErrorBoundary now renders using the active app locale
+- file inputs are reset so same-file reloads are reliable
+- export now fails cleanly after repeated map-idle timeout fallback instead of degrading indefinitely
+- the route-line is visible at low opacity to match docs and feature expectations
+- the preview server now reserves immutable caching for fingerprinted build assets only
+
+---
+
 ## Triage: unique vs overlapping findings
 
 | Review ID | Finding | Coverage |
