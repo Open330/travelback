@@ -95,16 +95,16 @@ interface CameraState {
 All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. This means:
 - No server-side file upload step for track parsing/export
 - Raw track files stay local to the browser runtime
-- Works offline after initial page load **except** for third-party tile/glyph/sprite requests and optional geocoding requests
+- Works offline after initial page load **except** for third-party vector tile requests and optional geocoding requests
 
 Privacy/trust-boundary note:
-- Local style JSON is vendored with the app, but displayed maps still rely on third-party tile/glyph/sprite providers (CARTO / OpenFreeMap)
+- Local style JSON, palette choices, and layer definitions are bundled with the app. Runtime map traffic is now limited to pinned CARTO vector tile endpoints.
 - Journey Creator search uses OpenStreetMap Nominatim
-- Users with strict privacy requirements should avoid geocoding and may prefer self-hosted map assets in future deployments
+- Users with strict privacy requirements should still avoid geocoding and may prefer self-hosted vector tiles in future deployments
 
 Security hardening note:
-- The app ships with a CSP and now blocks `object-src`, `base-uri`, and framing by default
-- `script-src 'unsafe-inline'` is still retained because Next.js static export emits inline hydration data scripts that would otherwise be blocked
+- The app ships with a CSP and blocks `object-src`, `base-uri`, framing, and inline script attributes by default
+- Static exports are post-processed to replace the development `unsafe-inline` placeholder with hash-based `script-src` directives for the emitted inline Next.js bootstrap scripts
 
 ### Distance-Based Interpolation
 Animation progress is mapped to distance traveled (not point index). This ensures uniform visual speed regardless of point density in the track.

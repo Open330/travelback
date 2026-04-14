@@ -41,7 +41,7 @@ map styles, export presets, or improve the scene editor.
 
 **Multi-Format Import** — GPX, KML, and all Google Maps Location History JSON variants (Takeout). Drag-and-drop or browse.
 
-**Interactive Map** — Pan, zoom, rotate with MapLibre GL JS on OSM-based vector tiles. 5 map styles: Voyager, Light, Dark (CARTO), Liberty, Bright (OpenFreeMap).
+**Interactive Map** — Pan, zoom, rotate with MapLibre GL JS on CARTO-hosted OSM vector tiles. 5 bundled minimalist styles: Voyager, Light, Dark, Liberty, Bright.
 
 **Route Animation** — Animated trail with a pulsing marker following the track. Seekable progress bar with 6 speed levels (0.5×–16×).
 
@@ -209,7 +209,7 @@ Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/
 ## Privacy & Network Behavior
 
 - **Track files are parsed locally in your browser.** Travelback does not upload your GPX, KML, or Google Timeline files to an app-owned backend.
-- **Map rendering still uses third-party providers at runtime.** Style JSON is bundled locally, but the displayed basemap tiles, glyphs, and sprites still come from CARTO and OpenFreeMap while the map is displayed.
+- **Map rendering still uses a third-party provider at runtime.** Style JSON, layer definitions, and theme variants are bundled locally and no longer depend on remote glyph/sprite manifests, but the displayed basemap vector tiles still come from pinned CARTO tile endpoints while the map is displayed.
 - **Place search is optional and uses OpenStreetMap Nominatim.** If you use Journey Creator search, your query is sent to `nominatim.openstreetmap.org`.
 - **Large files are bounded for browser safety.** The uploader rejects very large files and extremely high point-count tracks to reduce tab-freeze risk from pathological inputs.
 
@@ -219,7 +219,7 @@ If you need a stricter privacy posture, avoid place search and consider self-hos
 
 - **[Vitro](https://github.com/circle-oo/vitro)** by [Won Park](https://github.com/circle-oo) — Liquid glass design system. Glass material layers, mesh background animations, and color system adapted into a Travelback service theme. MIT License.
 - **[MapLibre GL JS](https://maplibre.org/)** — Open-source WebGL map rendering engine.
-- **[CARTO](https://carto.com/basemaps/)** and **[OpenFreeMap](https://openfreemap.org/)** — Vector tile basemaps built on OpenStreetMap data.
+- **[CARTO](https://carto.com/basemaps/)** — Pinned vector tile endpoints built on OpenStreetMap data.
 - **[mediabunny](https://github.com/nicosh/mediabunny)** — Browser-side video encoding via the WebCodecs API.
 
 ## License

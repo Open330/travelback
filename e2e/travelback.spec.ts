@@ -641,14 +641,29 @@ test.describe('Travelback App', () => {
     await expect(modeSelect).toHaveValue('orbit')
   })
 
-  test('map style cycling works', async ({ page }) => {
+  test('map style cycling works across all bundled themes without breaking the map', async ({ page }) => {
     await uploadGpx(page)
 
     const styleBtn = page.getByTestId('map-style-button')
     await expect(styleBtn).toBeVisible({ timeout: 10_000 })
-    const before = (await styleBtn.textContent())?.trim()
-    await styleBtn.click({ force: true })
-    await expect(styleBtn).not.toHaveText(before ?? '', { timeout: 5_000 })
+
+    for (const label of ['Light', 'Dark', 'Liberty', 'Bright', 'Voyager']) {
+      await styleBtn.click({ force: true })
+      await expect(styleBtn).toHaveText(new RegExp(`Map:\\s*${label}`), { timeout: 10_000 })
+      await expect(page.getByTestId('map-error')).toHaveCount(0)
+      await expect.poll(async () => {
+        return page.evaluate(() => {
+          type DebugWindow = Window & {
+            __travelbackDebug?: {
+              getMapState: () => { hasRouteLayer: boolean; hasTrailLayer: boolean } | null
+            }
+          }
+
+          const state = (window as DebugWindow).__travelbackDebug?.getMapState()
+          return Boolean(state?.hasRouteLayer && state?.hasTrailLayer)
+        })
+      }, { timeout: 10_000, intervals: [200, 400, 800] }).toBe(true)
+    }
   })
 
   test('map style defaults to dark when app theme starts dark', async ({ page }) => {

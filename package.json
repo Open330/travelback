@@ -13,7 +13,8 @@
     "test:e2e:dev": "playwright test -c playwright.config.ts",
     "test:e2e:static:ci": "playwright test -c playwright.static.config.ts",
     "test:e2e:static": "npm run build && playwright test -c playwright.static.config.ts",
-    "smoke:static": "node scripts/smoke-static.mjs"
+    "smoke:static": "node scripts/smoke-static.mjs",
+    "postbuild": "node scripts/harden-static-export.mjs"
   },
   "dependencies": {
     "@tmcw/togeojson": "^7.1.2",

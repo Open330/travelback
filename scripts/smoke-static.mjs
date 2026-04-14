@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { access, readdir } from 'node:fs/promises'
+import { access, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 
@@ -72,6 +72,61 @@ async function findChunkAssetUrl() {
   return `http://127.0.0.1:${port}/travelback/_next/static/chunks/${chunkFiles[0]}`
 }
 
+async function assertStaticCspWasHardened() {
+  const html = await readFile(path.resolve(cwd, 'out', 'index.html'), 'utf8')
+  const cspMatch = html.match(/<meta\s+http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/i)
+  if (!cspMatch) {
+    throw new Error('Missing Content-Security-Policy meta tag in out/index.html')
+  }
+
+  const csp = cspMatch[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&amp;/g, '&')
+
+  if (csp.includes("script-src 'self' 'unsafe-inline'")) {
+    throw new Error('Static CSP still allows unsafe-inline scripts')
+  }
+
+  if (!/script-src 'self' [^;]*'sha256-/.test(csp)) {
+    throw new Error('Static CSP does not include script hashes')
+  }
+
+  if (!csp.includes("connect-src 'self' https://tiles-a.basemaps.cartocdn.com")) {
+    throw new Error('Static CSP did not retain the pinned CARTO tile hosts')
+  }
+}
+
+async function assertMapStylesPinnedLocally() {
+  const stylesDir = path.resolve(cwd, 'out', 'map-styles')
+  const styleFiles = (await readdir(stylesDir)).filter((name) => name.endsWith('.json'))
+
+  if (styleFiles.length === 0) {
+    throw new Error(`No map styles found in ${stylesDir}`)
+  }
+
+  for (const file of styleFiles) {
+    const content = JSON.parse(await readFile(path.join(stylesDir, file), 'utf8'))
+    if ('sprite' in content || 'glyphs' in content) {
+      throw new Error(`${file} still depends on remote sprite/glyph assets`)
+    }
+
+    const source = content.sources?.carto
+    if (!source || !Array.isArray(source.tiles) || source.tiles.length === 0) {
+      throw new Error(`${file} does not pin vector tiles directly`)
+    }
+
+    if ('url' in source) {
+      throw new Error(`${file} still depends on a remote TileJSON indirection`)
+    }
+
+    const hasSymbols = Array.isArray(content.layers) && content.layers.some((layer) => layer.type === 'symbol')
+    if (hasSymbols) {
+      throw new Error(`${file} still includes symbol layers that require glyph or sprite assets`)
+    }
+  }
+}
+
 let failed = false
 
 try {
@@ -83,6 +138,8 @@ try {
   await assertStatus(`http://127.0.0.1:${port}/sample-trip.gpx`, 404)
   await assertCacheControl(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 'immutable', { invert: true })
   await assertCacheControl(chunkUrl, 'immutable')
+  await assertStaticCspWasHardened()
+  await assertMapStylesPinnedLocally()
   console.log('[smoke-static] OK')
 } catch (err) {
   failed = true

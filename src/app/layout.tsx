@@ -1,5 +1,8 @@
-import type { Metadata } from "next"
-import "./globals.css"
+import type { Metadata } from 'next'
+import Script from 'next/script'
+import './globals.css'
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
 export const metadata: Metadata = {
   title: {
@@ -45,16 +48,15 @@ export default function RootLayout({
   return (
     <html lang="en" data-svc="travelback" data-mesh="on" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var isDark=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme: dark)').matches;var mode=isDark?'dark':'light';if(!d.getAttribute('data-mode'))d.setAttribute('data-mode',mode);if(!d.getAttribute('data-mapstyle'))d.setAttribute('data-mapstyle',isDark?'dark':'voyager')}catch(e){}})()`,
-          }}
-        />
-        {/* Next.js static export emits inline hydration/bootstrap scripts, so `script-src 'unsafe-inline'`
-            remains a bounded residual requirement until a nonce/hash-compatible path is feasible. */}
+        <Script src={`${basePath}/theme-init.js`} strategy="beforeInteractive" />
+        {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
+            `npm run build` then runs `scripts/harden-static-export.mjs`, which replaces this
+            placeholder with a hash-based static CSP and removes the production `unsafe-inline`
+            script allowance from the emitted HTML. */}
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data: https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; connect-src 'self' https://*.cartocdn.com https://*.openfreemap.org https://*.openstreetmap.org; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none';"
+          data-travelback-csp="placeholder"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data:; connect-src 'self' https://tiles-a.basemaps.cartocdn.com https://tiles-b.basemaps.cartocdn.com https://tiles-c.basemaps.cartocdn.com https://tiles-d.basemaps.cartocdn.com https://nominatim.openstreetmap.org; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
         />
         <link
           rel="stylesheet"

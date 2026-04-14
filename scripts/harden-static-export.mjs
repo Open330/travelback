@@ -1,0 +1,88 @@
+import { readFile, writeFile, readdir, stat } from 'node:fs/promises'
+import path from 'node:path'
+import crypto from 'node:crypto'
+
+const outDir = path.resolve(process.cwd(), 'out')
+const htmlFiles = []
+
+const CARTO_TILE_HOSTS = [
+  'https://tiles-a.basemaps.cartocdn.com',
+  'https://tiles-b.basemaps.cartocdn.com',
+  'https://tiles-c.basemaps.cartocdn.com',
+  'https://tiles-d.basemaps.cartocdn.com',
+]
+
+const STYLE_POLICY = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src __SCRIPT_HASHES__",
+  "script-src-attr 'none'",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "font-src 'self' https://cdn.jsdelivr.net",
+  "img-src 'self' blob: data:",
+  `connect-src 'self' ${CARTO_TILE_HOSTS.join(' ')} https://nominatim.openstreetmap.org`,
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
+  "media-src 'self' blob:",
+  'upgrade-insecure-requests',
+].join('; ')
+
+async function walk(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const absolutePath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      await walk(absolutePath)
+      continue
+    }
+
+    if (entry.isFile() && absolutePath.endsWith('.html')) {
+      htmlFiles.push(absolutePath)
+    }
+  }
+}
+
+function computeScriptHashes(html) {
+  const hashes = new Set()
+  const scriptPattern = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
+
+  for (const match of html.matchAll(scriptPattern)) {
+    const scriptContent = match[1]
+    if (!scriptContent || scriptContent.trim() === '') continue
+    const hash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
+    hashes.add(`'sha256-${hash}'`)
+  }
+
+  return [...hashes].sort()
+}
+
+function replaceCspMeta(html, csp) {
+  const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  return html.replace(
+    /<meta\s+http-equiv="Content-Security-Policy"[^>]*content="[^"]*"[^>]*>/i,
+    `<meta http-equiv="Content-Security-Policy" data-travelback-csp="static-export" content="${contentAttribute}"/>`,
+  )
+}
+
+await stat(outDir)
+await walk(outDir)
+
+if (htmlFiles.length === 0) {
+  throw new Error(`No static HTML files found in ${outDir}`)
+}
+
+for (const htmlFile of htmlFiles) {
+  const html = await readFile(htmlFile, 'utf8')
+  const hashes = computeScriptHashes(html)
+  if (hashes.length === 0) {
+    throw new Error(`No inline scripts found to hash in ${htmlFile}`)
+  }
+
+  const csp = STYLE_POLICY.replace('__SCRIPT_HASHES__', [`'self'`, ...hashes].join(' '))
+  const nextHtml = replaceCspMeta(html, csp)
+  await writeFile(htmlFile, nextHtml)
+}
+
+console.log(`[harden-static-export] Hardened CSP across ${htmlFiles.length} HTML file(s)`)
