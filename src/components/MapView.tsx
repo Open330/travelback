@@ -45,6 +45,17 @@ const MIN_CAMERA_MOVE_METERS = 0.5
 const MIN_CAMERA_BEARING_DELTA = 0.75
 const MIN_CAMERA_ZOOM_DELTA = 0.01
 const MIN_CAMERA_PITCH_DELTA = 0.1
+const REFERENCE_GRID_SOURCE = 'reference-grid'
+const REFERENCE_GRID_MINOR_LAYER = 'reference-grid-minor'
+const REFERENCE_GRID_MAJOR_LAYER = 'reference-grid-major'
+
+const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }> = {
+  voyager: { minor: 'rgba(120, 130, 120, 0.16)', major: 'rgba(120, 130, 120, 0.28)' },
+  positron: { minor: 'rgba(140, 140, 140, 0.14)', major: 'rgba(120, 120, 120, 0.26)' },
+  dark: { minor: 'rgba(148, 163, 184, 0.18)', major: 'rgba(148, 163, 184, 0.34)' },
+  liberty: { minor: 'rgba(139, 116, 93, 0.16)', major: 'rgba(139, 116, 93, 0.28)' },
+  bright: { minor: 'rgba(173, 150, 120, 0.16)', major: 'rgba(173, 150, 120, 0.3)' },
+}
 
 function smoothAngle(from: number, to: number, factor: number): number {
   const diff = ((to - from + 540) % 360) - 180
@@ -139,6 +150,84 @@ function removeTrackArtifacts(map: maplibregl.Map) {
   if (map.getSource('route')) map.removeSource('route')
 }
 
+function buildReferenceGridData(): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = []
+
+  for (let longitude = -150; longitude <= 150; longitude += 30) {
+    features.push({
+      type: 'Feature',
+      properties: { major: longitude === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [longitude, -80],
+          [longitude, 80],
+        ],
+      },
+    })
+  }
+
+  for (let latitude = -60; latitude <= 60; latitude += 30) {
+    features.push({
+      type: 'Feature',
+      properties: { major: latitude === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-180, latitude],
+          [180, latitude],
+        ],
+      },
+    })
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  }
+}
+
+const REFERENCE_GRID_DATA = buildReferenceGridData()
+
+function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey) {
+  const gridPaint = GRID_PAINT_BY_STYLE[mapStyleKey]
+
+  if (!map.getSource(REFERENCE_GRID_SOURCE)) {
+    map.addSource(REFERENCE_GRID_SOURCE, {
+      type: 'geojson',
+      data: REFERENCE_GRID_DATA,
+    })
+  }
+
+  if (!map.getLayer(REFERENCE_GRID_MINOR_LAYER)) {
+    map.addLayer({
+      id: REFERENCE_GRID_MINOR_LAYER,
+      type: 'line',
+      source: REFERENCE_GRID_SOURCE,
+      filter: ['!=', ['get', 'major'], 1],
+      layout: { 'line-cap': 'round' },
+      paint: {
+        'line-color': gridPaint.minor,
+        'line-width': 1,
+      },
+    })
+  }
+
+  if (!map.getLayer(REFERENCE_GRID_MAJOR_LAYER)) {
+    map.addLayer({
+      id: REFERENCE_GRID_MAJOR_LAYER,
+      type: 'line',
+      source: REFERENCE_GRID_SOURCE,
+      filter: ['==', ['get', 'major'], 1],
+      layout: { 'line-cap': 'round' },
+      paint: {
+        'line-color': gridPaint.major,
+        'line-width': 1.4,
+      },
+    })
+  }
+}
+
 type TravelbackDebugWindow = Window & {
   __travelbackDebug?: {
     getCamera: () => CameraState | null
@@ -148,6 +237,7 @@ type TravelbackDebugWindow = Window & {
       hasRouteLayer: boolean
       hasTrailLayer: boolean
       hasMarker: boolean
+      hasReferenceGridLayer: boolean
     } | null
   }
 }
@@ -325,6 +415,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
               hasTrailLayer: Boolean(currentMap.getLayer('trail-line')),
               hasMarker: Boolean(markerRef.current),
+              hasReferenceGridLayer: Boolean(currentMap.getLayer(REFERENCE_GRID_MINOR_LAYER) && currentMap.getLayer(REFERENCE_GRID_MAJOR_LAYER)),
             }
           },
         }
@@ -332,6 +423,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       const onGlobalStyleLoad = () => {
         const activeTrack = trackRef.current
+        addReferenceGridLayers(map, styleKeyRef.current)
         if (!activeTrack) return
         addTrackLayers(map, activeTrack)
       }
@@ -371,10 +463,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     // Re-add sources/layers after style loads
     let styleHandler: (() => void) | null = null
-    if (track) {
-      styleHandler = () => addTrackLayers(map, track)
-      map.once('style.load', styleHandler)
+    styleHandler = () => {
+      addReferenceGridLayers(map, mapStyleKey)
+      if (track) {
+        addTrackLayers(map, track)
+      }
     }
+    map.once('style.load', styleHandler)
     return () => {
       if (styleHandler) map.off('style.load', styleHandler)
     }

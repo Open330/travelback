@@ -229,32 +229,17 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('journey-icon-train')).toBeVisible()
   })
 
-  test('journey creator search stays local until place search is explicitly enabled and submitted', async ({ page }) => {
-    let requests = 0
-    await page.route('https://nominatim.openstreetmap.org/**', async (route) => {
-      requests += 1
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ display_name: 'Seoul, South Korea', lat: '37.5665', lon: '126.9780' }]),
-      })
-    })
-
+  test('journey creator coordinate jump stays local and accepts pasted coordinates', async ({ page }) => {
     await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
     await expect(page.getByTestId('journey-enable-search')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByPlaceholder('Search for a place')).toHaveCount(0)
-    await page.waitForTimeout(1500)
-    expect(requests).toBe(0)
+    await expect(page.getByTestId('journey-creator-panel').getByRole('textbox')).toHaveCount(0)
 
     await page.getByTestId('journey-enable-search').click({ force: true })
-    const searchInput = page.getByPlaceholder('Search for a place')
-    await searchInput.fill('Seoul')
-    await page.waitForTimeout(1500)
-    expect(requests).toBe(0)
-
+    const searchInput = page.getByTestId('journey-creator-panel').getByRole('textbox')
+    await searchInput.fill('37.5665, 126.9780')
     await page.getByTestId('journey-search-submit').click({ force: true })
-    await expect.poll(() => requests, { timeout: 10_000, intervals: [200, 400, 800] }).toBe(1)
-    await expect(page.getByText('Seoul, South Korea')).toBeVisible({ timeout: 10_000 })
+
+    await expect(page.getByText('37.56650, 126.97800')).toBeVisible({ timeout: 10_000 })
   })
 
   test('playback controls work after importing track', async ({ page }) => {
@@ -661,12 +646,12 @@ test.describe('Travelback App', () => {
         return page.evaluate(() => {
           type DebugWindow = Window & {
             __travelbackDebug?: {
-              getMapState: () => { hasRouteLayer: boolean; hasTrailLayer: boolean } | null
+              getMapState: () => { hasRouteLayer: boolean; hasTrailLayer: boolean; hasReferenceGridLayer: boolean } | null
             }
           }
 
           const state = (window as DebugWindow).__travelbackDebug?.getMapState()
-          return Boolean(state?.hasRouteLayer && state?.hasTrailLayer)
+          return Boolean(state?.hasRouteLayer && state?.hasTrailLayer && state?.hasReferenceGridLayer)
         })
       }, { timeout: 10_000, intervals: [200, 400, 800] }).toBe(true)
     }

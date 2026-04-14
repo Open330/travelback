@@ -210,7 +210,7 @@ Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/
 
 - **Track files are parsed locally in your browser.** Travelback does not upload your GPX, KML, or Google Timeline files to an app-owned backend.
 - **Map rendering is now fully local at runtime.** Style JSON, theme variants, and route rendering no longer depend on third-party basemap, glyph, sprite, or tile requests while the map is displayed.
-- **Place search is optional and uses OpenStreetMap Nominatim.** If you use Journey Creator search, your query is sent to `nominatim.openstreetmap.org`.
+- **Journey Creator now uses a local-only coordinate jump tool.** You can paste coordinates or supported map links without sending any network request.
 - **Large files are bounded for browser safety.** The uploader rejects very large files and extremely high point-count tracks to reduce tab-freeze risk from pathological inputs.
 
 If you need a stricter privacy posture, avoid place search and consider self-hosting map/style assets in a future deployment.
@@ -219,7 +219,7 @@ If you need a stricter privacy posture, avoid place search and consider self-hos
 
 - **[Vitro](https://github.com/circle-oo/vitro)** by [Won Park](https://github.com/circle-oo) — Liquid glass design system. Glass material layers, mesh background animations, and color system adapted into a Travelback service theme. MIT License.
 - **[MapLibre GL JS](https://maplibre.org/)** — Open-source WebGL map rendering engine.
-- **Optional place search** still uses [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/) only after the user explicitly enables it in Journey Creator.
+- **Journey Creator jump tool** accepts pasted coordinates and supported map links entirely in-browser; no geocoding provider is required.
 - **[mediabunny](https://github.com/nicosh/mediabunny)** — Browser-side video encoding via the WebCodecs API.
 
 ## License
@@ -229,5 +229,5 @@ MIT
 ---
 
 <p align="center">
-  <sub>Built with Next.js, React, MapLibre GL, and WebCodecs. Your track files stay local in the browser while maps and optional place search use third-party providers.</sub>
+  <sub>Built with Next.js, React, MapLibre GL, and WebCodecs. Your track files, map display, and coordinate jumps stay local in the browser.</sub>
 </p>

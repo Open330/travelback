@@ -23,6 +23,12 @@ const LAYER_POINTS = 'journey-points'
 const LAYER_LABELS = 'journey-points-labels'
 const MIN_SEARCH_QUERY_LENGTH = 3
 
+interface ParsedLocationResult {
+  display_name: string
+  lat: string
+  lon: string
+}
+
 const TRAVEL_ICON_OPTIONS = [
   { id: 'walk', symbol: '🚶', labelKey: 'journey.iconWalk' },
   { id: 'car', symbol: '🚗', labelKey: 'journey.iconCar' },
@@ -56,6 +62,44 @@ function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
   }
 }
 
+function parseCoordinateQuery(query: string): ParsedLocationResult | null {
+  const trimmedQuery = query.trim()
+  if (trimmedQuery.length === 0) return null
+
+  let decoded = trimmedQuery
+  try {
+    decoded = decodeURIComponent(trimmedQuery)
+  } catch {
+    decoded = trimmedQuery
+  }
+
+  const patterns = [
+    /geo:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
+    /@(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+    /[?&#](?:q|ll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
+    /#map=\d+(?:\.\d+)?\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)/i,
+    /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+  ]
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern)
+    if (!match) continue
+
+    const lat = Number.parseFloat(match[1])
+    const lon = Number.parseFloat(match[2])
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue
+
+    return {
+      display_name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+      lat: String(lat),
+      lon: String(lon),
+    }
+  }
+
+  return null
+}
+
 export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef, units }: JourneyCreatorProps) {
   const { t } = useLocale()
   // Use refs for waypoints to avoid stale closure issues in map event handlers
@@ -66,11 +110,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [showConfirm, setShowConfirm] = useState(false)
   const [searchEnabled, setSearchEnabled] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([])
-  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<ParsedLocationResult[]>([])
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
-  const searchAbortRef = useRef<AbortController | null>(null)
-  const searchRequestIdRef = useRef(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
 
   // Track whether layers have been added to the map
@@ -305,10 +347,6 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
       map.off('style.load', handleInitialStyleLoad)
       map.off('style.load', handleStyleReload)
-      if (searchAbortRef.current) {
-        searchAbortRef.current.abort()
-        searchAbortRef.current = null
-      }
       removeLayers(map)
       waypointsRef.current = []
       setPointCount(0)
@@ -330,58 +368,37 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     syncUI()
   }, [updateMapData, syncUI])
 
-  const runSearch = useCallback(async (query: string) => {
-    if (searchAbortRef.current) {
-      searchAbortRef.current.abort()
-      searchAbortRef.current = null
-    }
+  const runSearch = useCallback((query: string) => {
     const trimmedQuery = query.trim()
     if (trimmedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([])
-      setSearching(false)
+      setSearchError(null)
       return
     }
-    const requestId = searchRequestIdRef.current + 1
-    searchRequestIdRef.current = requestId
-    const abortController = new AbortController()
-    searchAbortRef.current = abortController
-    setSearching(true)
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmedQuery)}&format=json&limit=5`
-      const res = await fetch(url, {
-        signal: abortController.signal,
-      })
-      if (res.ok && requestId === searchRequestIdRef.current) {
-        setSearchResults(await res.json())
-      }
-    } catch (err) {
-      if (abortController.signal.aborted) return
-      console.warn('[Travelback] Place search failed:', err)
-    } finally {
-      if (searchAbortRef.current === abortController) {
-        searchAbortRef.current = null
-      }
-      if (requestId === searchRequestIdRef.current) {
-        setSearching(false)
-      }
+
+    const parsedResult = parseCoordinateQuery(trimmedQuery)
+    if (!parsedResult) {
+      setSearchResults([])
+      setSearchError(t('journey.searchInvalid'))
+      return
     }
-  }, [])
+
+    setSearchResults([parsedResult])
+    setSearchError(null)
+  }, [t])
 
   const handleSearchInputChange = useCallback((query: string) => {
     setSearchQuery(query)
+    setSearchError(null)
+    setSearchResults([])
     if (query.trim().length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([])
-      if (searchAbortRef.current) {
-        searchAbortRef.current.abort()
-        searchAbortRef.current = null
-      }
-      setSearching(false)
     }
   }, [])
 
   const handleSearchSubmit = useCallback(() => {
     if (!searchEnabled) return
-    void runSearch(searchQuery)
+    runSearch(searchQuery)
   }, [runSearch, searchEnabled, searchQuery])
 
   const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -403,13 +420,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       const nextEnabled = !enabled
 
       if (!nextEnabled) {
-        if (searchAbortRef.current) {
-          searchAbortRef.current.abort()
-          searchAbortRef.current = null
-        }
-        setSearching(false)
         setSearchQuery('')
         setSearchResults([])
+        setSearchError(null)
       }
 
       return nextEnabled
@@ -495,14 +508,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 style={{ background: 'var(--bg2)', color: 'var(--t1)', border: '1px solid var(--div)' }}
               />
               <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1">
-                {searching && (
-                  <span className="text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
-                )}
                 <button
                   type="button"
                   data-testid="journey-search-submit"
                   onClick={handleSearchSubmit}
-                  disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH || searching}
+                  disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH}
                   aria-label={t('journey.searchAction')}
                   title={t('journey.searchAction')}
                   className="rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -523,6 +533,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
               {t('journey.searchPrivacy')}
             </p>
+            {searchError && (
+              <p className="mt-1 text-[10px]" style={{ color: 'var(--err)' }}>
+                {searchError}
+              </p>
+            )}
             {searchResults.length > 0 && (
               <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
                 style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>

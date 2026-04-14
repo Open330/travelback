@@ -92,8 +92,12 @@ async function assertStaticCspWasHardened() {
     throw new Error('Static CSP does not include script hashes')
   }
 
-  if (!csp.includes("connect-src 'self' https://nominatim.openstreetmap.org")) {
-    throw new Error('Static CSP did not retain the optional geocoding endpoint')
+  if (!csp.includes("connect-src 'self'")) {
+    throw new Error('Static CSP is missing connect-src self')
+  }
+
+  if (csp.includes('nominatim.openstreetmap.org')) {
+    throw new Error('Static CSP still allows Nominatim requests')
   }
 }
 

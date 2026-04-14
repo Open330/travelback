@@ -16,7 +16,7 @@ const STYLE_POLICY = [
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
   "font-src 'self' https://cdn.jsdelivr.net",
   "img-src 'self' blob: data:",
-  "connect-src 'self' https://nominatim.openstreetmap.org",
+  "connect-src 'self'",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "media-src 'self' blob:",
