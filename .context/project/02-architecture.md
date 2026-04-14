@@ -95,12 +95,12 @@ interface CameraState {
 All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. This means:
 - No server-side file upload step for track parsing/export
 - Raw track files stay local to the browser runtime
-- Works offline after initial page load **except** for third-party vector tile requests and optional geocoding requests
+- Works offline after initial page load **except** for optional geocoding requests when place search is explicitly enabled
 
 Privacy/trust-boundary note:
-- Local style JSON, palette choices, and layer definitions are bundled with the app. Runtime map traffic is now limited to pinned CARTO vector tile endpoints.
-- Journey Creator search uses OpenStreetMap Nominatim
-- Users with strict privacy requirements should still avoid geocoding and may prefer self-hosted vector tiles in future deployments
+- Local style JSON, palette choices, and layer definitions are bundled with the app, so normal map display no longer needs any third-party map requests.
+- Journey Creator search uses OpenStreetMap Nominatim only after the user explicitly enables place search.
+- Users with strict privacy requirements can leave place search disabled and still plan routes locally by clicking on the map
 
 Security hardening note:
 - The app ships with a CSP and blocks `object-src`, `base-uri`, framing, and inline script attributes by default

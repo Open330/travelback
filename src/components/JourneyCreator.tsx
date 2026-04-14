@@ -64,6 +64,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [pointCount, setPointCount] = useState(0)
   const [distanceMeters, setDistanceMeters] = useState(0)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [searchEnabled, setSearchEnabled] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([])
   const [searching, setSearching] = useState(false)
@@ -379,8 +380,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [])
 
   const handleSearchSubmit = useCallback(() => {
+    if (!searchEnabled) return
     void runSearch(searchQuery)
-  }, [runSearch, searchQuery])
+  }, [runSearch, searchEnabled, searchQuery])
 
   const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -395,6 +397,24 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setSearchResults([])
     setSearchQuery('')
   }, [mapRef])
+
+  const handleToggleSearch = useCallback(() => {
+    setSearchEnabled((enabled) => {
+      const nextEnabled = !enabled
+
+      if (!nextEnabled) {
+        if (searchAbortRef.current) {
+          searchAbortRef.current.abort()
+          searchAbortRef.current = null
+        }
+        setSearching(false)
+        setSearchQuery('')
+        setSearchResults([])
+      }
+
+      return nextEnabled
+    })
+  }, [])
 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
@@ -439,47 +459,83 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       {/* Search bar */}
       <div className="relative px-4 pt-2 pb-1">
-        <div className="relative">
-          <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--t4)' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => handleSearchInputChange(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder={t('journey.searchPlaceholder')}
-            className="w-full text-xs pl-7 pr-16 py-1.5 rounded-lg outline-none"
-            style={{ background: 'var(--bg2)', color: 'var(--t1)', border: '1px solid var(--div)' }}
-          />
-          <button
-            type="button"
-            data-testid="journey-search-submit"
-            onClick={handleSearchSubmit}
-            disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH || searching}
-            aria-label={t('journey.searchAction')}
-            title={t('journey.searchAction')}
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            style={{ color: 'rgb(var(--gl))' }}
-          >
-            {t('journey.searchAction')}
-          </button>
-          {searching && (
-            <span className="absolute right-14 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
-          )}
-        </div>
-        <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
-          {t('journey.searchPrivacy')}
-        </p>
-        {searchResults.length > 0 && (
-          <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
-            style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
-            {searchResults.map((r, i) => (
-              <button key={i} onClick={() => handleSelectPlace(r.lat, r.lon)}
-                className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
-                style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
-                {r.display_name}
+        {!searchEnabled ? (
+          <div className="gi rounded-lg px-3 py-2" style={{ border: '1px solid var(--div)' }}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-medium" style={{ color: 'var(--t2)' }}>
+                  {t('journey.searchEnableTitle')}
+                </div>
+                <p className="mt-0.5 text-[10px]" style={{ color: 'var(--t4)' }}>
+                  {t('journey.searchDisabledPrivacy')}
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="journey-enable-search"
+                onClick={handleToggleSearch}
+                className="rounded-md px-2.5 py-1 text-[10px] font-medium cursor-pointer"
+                style={{ color: 'rgb(var(--gl))', border: '1px solid rgba(var(--gl), .35)' }}
+              >
+                {t('journey.searchEnableAction')}
               </button>
-            ))}
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="relative">
+              <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--t4)' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => handleSearchInputChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={t('journey.searchPlaceholder')}
+                className="w-full text-xs pl-7 pr-28 py-1.5 rounded-lg outline-none"
+                style={{ background: 'var(--bg2)', color: 'var(--t1)', border: '1px solid var(--div)' }}
+              />
+              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                {searching && (
+                  <span className="text-[10px]" style={{ color: 'var(--t4)' }}>…</span>
+                )}
+                <button
+                  type="button"
+                  data-testid="journey-search-submit"
+                  onClick={handleSearchSubmit}
+                  disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH || searching}
+                  aria-label={t('journey.searchAction')}
+                  title={t('journey.searchAction')}
+                  className="rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  style={{ color: 'rgb(var(--gl))' }}
+                >
+                  {t('journey.searchAction')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleSearch}
+                  className="rounded-md px-2 py-1 text-[10px] cursor-pointer"
+                  style={{ color: 'var(--t4)' }}
+                >
+                  {t('journey.searchDisableAction')}
+                </button>
+              </div>
+            </div>
+            <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
+              {t('journey.searchPrivacy')}
+            </p>
+            {searchResults.length > 0 && (
+              <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
+                style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
+                {searchResults.map((r, i) => (
+                  <button key={i} onClick={() => handleSelectPlace(r.lat, r.lon)}
+                    className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
+                    style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
+                    {r.display_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

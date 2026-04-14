@@ -229,7 +229,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('journey-icon-train')).toBeVisible()
   })
 
-  test('journey creator search waits for explicit submit before calling the provider', async ({ page }) => {
+  test('journey creator search stays local until place search is explicitly enabled and submitted', async ({ page }) => {
     let requests = 0
     await page.route('https://nominatim.openstreetmap.org/**', async (route) => {
       requests += 1
@@ -241,6 +241,12 @@ test.describe('Travelback App', () => {
     })
 
     await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    await expect(page.getByTestId('journey-enable-search')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByPlaceholder('Search for a place')).toHaveCount(0)
+    await page.waitForTimeout(1500)
+    expect(requests).toBe(0)
+
+    await page.getByTestId('journey-enable-search').click({ force: true })
     const searchInput = page.getByPlaceholder('Search for a place')
     await searchInput.fill('Seoul')
     await page.waitForTimeout(1500)

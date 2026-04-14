@@ -5,13 +5,6 @@ import crypto from 'node:crypto'
 const outDir = path.resolve(process.cwd(), 'out')
 const htmlFiles = []
 
-const CARTO_TILE_HOSTS = [
-  'https://tiles-a.basemaps.cartocdn.com',
-  'https://tiles-b.basemaps.cartocdn.com',
-  'https://tiles-c.basemaps.cartocdn.com',
-  'https://tiles-d.basemaps.cartocdn.com',
-]
-
 const STYLE_POLICY = [
   "default-src 'self'",
   "base-uri 'none'",
@@ -23,7 +16,7 @@ const STYLE_POLICY = [
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
   "font-src 'self' https://cdn.jsdelivr.net",
   "img-src 'self' blob: data:",
-  `connect-src 'self' ${CARTO_TILE_HOSTS.join(' ')} https://nominatim.openstreetmap.org`,
+  "connect-src 'self' https://nominatim.openstreetmap.org",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "media-src 'self' blob:",

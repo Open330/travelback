@@ -92,8 +92,8 @@ async function assertStaticCspWasHardened() {
     throw new Error('Static CSP does not include script hashes')
   }
 
-  if (!csp.includes("connect-src 'self' https://tiles-a.basemaps.cartocdn.com")) {
-    throw new Error('Static CSP did not retain the pinned CARTO tile hosts')
+  if (!csp.includes("connect-src 'self' https://nominatim.openstreetmap.org")) {
+    throw new Error('Static CSP did not retain the optional geocoding endpoint')
   }
 }
 
@@ -111,13 +111,9 @@ async function assertMapStylesPinnedLocally() {
       throw new Error(`${file} still depends on remote sprite/glyph assets`)
     }
 
-    const source = content.sources?.carto
-    if (!source || !Array.isArray(source.tiles) || source.tiles.length === 0) {
-      throw new Error(`${file} does not pin vector tiles directly`)
-    }
-
-    if ('url' in source) {
-      throw new Error(`${file} still depends on a remote TileJSON indirection`)
+    const sourceKeys = Object.keys(content.sources ?? {})
+    if (sourceKeys.length !== 0) {
+      throw new Error(`${file} still declares external basemap sources: ${sourceKeys.join(', ')}`)
     }
 
     const hasSymbols = Array.isArray(content.layers) && content.layers.some((layer) => layer.type === 'symbol')
