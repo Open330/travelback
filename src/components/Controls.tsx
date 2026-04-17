@@ -49,7 +49,7 @@ export default function Controls({
 
   return (
     <div>
-      <div className="gc nh mx-4 mb-3 sm:mb-4 p-3 sm:p-4" style={{ borderRadius: 'var(--r-glass)' }}>
+      <div className="gc nh mx-4 mb-2 p-2.5 sm:mb-4 sm:p-4" style={{ borderRadius: 'var(--r-glass)' }}>
         {/* Progress bar — thicker for touch */}
         <div className="mb-3">
           <input
@@ -67,7 +67,7 @@ export default function Controls({
               [&::-webkit-slider-thumb]:shadow-md
               [&::-webkit-slider-thumb]:cursor-pointer"
             style={{
-              background: 'rgba(var(--gl),.15)',
+              background: `linear-gradient(to right, rgb(var(--gl)) ${progress * 100}%, rgba(var(--gl),.15) ${progress * 100}%)`,
               accentColor: 'rgb(var(--gl))',
             }}
           />
@@ -80,7 +80,7 @@ export default function Controls({
               onClick={onTogglePlay}
               aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
               title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
-              className="w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-colors shrink-0"
+              className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer transition-colors shrink-0"
               style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
             >
               {isPlaying ? (
@@ -98,7 +98,7 @@ export default function Controls({
                 onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
                 aria-label={t('controls.playbackSpeed')}
                 title={t('controls.playbackSpeed')}
-                className="vitro-select px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs sm:text-sm font-medium"
+                className="vitro-select min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
               >
                 {SPEEDS.map((s) => (
                   <option key={s} value={s}>{s}x</option>
@@ -112,7 +112,7 @@ export default function Controls({
               onChange={(e) => onDurationChange(parseInt(e.target.value))}
               aria-label={t('controls.animationDuration')}
               title={t('controls.animationDuration')}
-              className="vitro-select px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs sm:text-sm font-medium"
+              className="vitro-select min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
             >
               {DURATIONS.map((d) => (
                 <option key={d} value={d}>{formatDuration(d)}</option>
@@ -124,20 +124,20 @@ export default function Controls({
               onClick={onFollowCameraToggle}
               aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
               title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
-              className="gi px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium cursor-pointer"
+              className="gi min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer"
               style={followCamera
                 ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
                 : { color: 'var(--t3)' }
               }
             >
               <span className="hidden [@media(pointer:coarse)]:inline">{followCamera ? t('controls.trackOn') : t('controls.trackOff')}</span>
-              <span className="[@media(pointer:coarse)]:hidden">{t('controls.follow')}</span>
+              <span className="[@media(pointer:coarse)]:hidden">{followCamera ? t('controls.following') : t('controls.follow')}</span>
             </button>
           </div>
 
           <div
             data-testid="playback-stats"
-            className="flex w-full items-center justify-between gap-3 text-[10px] sm:ml-auto sm:w-auto sm:justify-end sm:text-sm"
+            className="flex w-full items-center justify-between gap-3 text-xs sm:ml-auto sm:w-auto sm:justify-end sm:text-sm"
             style={{ color: 'var(--t3)' }}
           >
             <span>{formatDistance(traveled, units)} / {formatDistance(total, units)}</span>

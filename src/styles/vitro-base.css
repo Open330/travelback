@@ -35,7 +35,7 @@
   --r-interactive: calc(14px * var(--vitro-radius-scale));
   --r-chip: calc(10px * var(--vitro-radius-scale));
 
-  --focus-ring: 0 0 0 3px rgba(var(--gl), .24);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px rgba(var(--gl), .6);
   --vitro-enter-fade: fi .24s var(--ease) both;
   --vitro-sheet-fade: vitro-fade-in .18s var(--ease) both;
   --vitro-status-pulse: pul 2s ease-in-out infinite;
@@ -178,7 +178,7 @@ body {
   --t1: #050810;
   --t2: #1C2340;
   --t3: #424E6E;
-  --t4: #6E7A96;
+  --t4: #5A6578;
   --div: rgba(17, 24, 39, .07);
 
   --gs-bg: color-mix(in srgb, white 54%, transparent);
@@ -222,7 +222,7 @@ body {
   --t1: #FFFFFF;
   --t2: #D8E0F4;
   --t3: #A4B0CC;
-  --t4: #6E7C9A;
+  --t4: #8A93AE;
   --div: rgba(255, 255, 255, .09);
 
   --gs-bg: rgba(16, 20, 30, .52);

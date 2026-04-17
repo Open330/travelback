@@ -336,7 +336,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
               value={Math.round(transitionDuration * 100)}
               onChange={e => onTransitionDurationChange(parseInt(e.target.value) / 100)}
               aria-label={t('scenes.blendAria')}
-              className="flex-1 h-1 cursor-pointer"
+              className="flex-1 h-2 cursor-pointer"
               style={{ accentColor: 'rgb(var(--gl))' }} />
           </label>
         </div>
