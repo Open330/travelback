@@ -122,7 +122,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className="gc w-full max-w-lg mx-4 p-12 transition-all duration-200 text-center"
+        className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center"
         style={{
           borderRadius: 'var(--r-glass)',
           borderColor: isDragging ? 'rgb(var(--gl))' : undefined,

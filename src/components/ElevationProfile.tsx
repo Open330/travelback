@@ -15,7 +15,7 @@ interface ElevationProfileProps {
 export default function ElevationProfile({ track, progress, onSeek, units }: ElevationProfileProps) {
   const { t } = useLocale()
   const elevations = useMemo(() => {
-    return track.points.map(p => p.ele ?? null)
+    return track.points.map((point) => Number.isFinite(point.ele) ? point.ele ?? null : null)
   }, [track])
 
   const hasElevation = useMemo(() => {
@@ -61,14 +61,14 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between text-[9px] mb-0.5 px-1" style={{ color: 'var(--t4)' }}>
+      <div className="hidden items-center justify-between px-1 text-[9px] sm:flex" style={{ color: 'var(--t4)' }}>
         <span>{t('elevation.label')}</span>
         <span>{formatElevation(minEle, units)} — {formatElevation(maxEle, units)} ({formatElevation(elevRange, units)} Δ)</span>
       </div>
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="w-full h-8 sm:h-10 cursor-pointer rounded"
+        className="h-6 w-full rounded pointer-events-none sm:pointer-events-auto sm:cursor-pointer sm:h-10"
         onClick={handleClick}
         aria-label={t('elevation.profileAria')}
       >

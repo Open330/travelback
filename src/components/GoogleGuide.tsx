@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 import Image from 'next/image'
 import { useLocale } from '@/lib/i18n'
+import ModalDialog from '@/components/ModalDialog'
 
-/** Compact SVG illustrations for each guide tab */
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()
   const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
@@ -20,9 +20,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </defs>
   )
 
-  // Google Maps Phone — phone screen with profile → timeline → export flow
   if (tabIndex === 0) return (
-    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="56" height="48" {...box} rx={8} />
       <circle cx="32" cy="18" r="6" {...common} strokeWidth={1} />
@@ -38,9 +37,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // Google Takeout — web page flow
   if (tabIndex === 1) return (
-    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
       <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.takeout')}</text>
@@ -56,9 +54,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // Strava — profile → settings → archive
   if (tabIndex === 2) return (
-    <svg viewBox="0 0 280 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
       <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.profile')}</text>
@@ -73,9 +70,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // Garmin — activity → export
   if (tabIndex === 3) return (
-    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.activity')}</text>
@@ -87,9 +83,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // AllTrails — trail → export
   if (tabIndex === 4) return (
-    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.trailPage')}</text>
@@ -101,9 +96,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // Komoot — tour → download
   if (tabIndex === 5) return (
-    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.tourPage')}</text>
@@ -115,9 +109,8 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
     </svg>
   )
 
-  // Other — generic export
   if (tabIndex === 6) return (
-    <svg viewBox="0 0 220 60" className="w-full mb-2" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.anyApp')}</text>
@@ -140,6 +133,7 @@ interface GoogleGuideProps {
 export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   const { t } = useLocale()
   const [tab, setTab] = useState(0)
+  const tabsId = useId()
   const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
   const methods = [
@@ -254,23 +248,30 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   if (!isOpen) return null
 
   const active = methods[tab]
+  const panelId = `${tabsId}-panel-${tab}`
 
   return (
-    <div
-      className="absolute inset-0 z-20 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    <ModalDialog
+      open={isOpen}
+      onClose={onClose}
+      labelledBy="google-guide-title"
+      overlayClassName="z-20 flex items-center justify-center bg-black/35 backdrop-blur-md"
+      panelClassName="go mx-4 w-full max-w-md max-h-[90vh] overflow-y-auto"
     >
-      <div className="go w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto" style={{ borderRadius: 'var(--r-glass)' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 pb-3 sticky top-0 z-10"
-          style={{ background: 'inherit', borderRadius: 'var(--r-glass) var(--r-glass) 0 0' }}>
-          <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
-            {t('google.title')}
-          </h3>
+      <div data-disable-playback-hotkeys="true">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 py-4 pb-3" style={{ background: 'inherit', borderRadius: 'var(--r-glass) var(--r-glass) 0 0' }}>
+          <div>
+            <h3 id="google-guide-title" className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
+              {t('google.title')}
+            </h3>
+            <p className="mt-1 text-xs" style={{ color: 'var(--t4)' }}>
+              {t('app.guideSubtitle')}
+            </p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="transition-colors cursor-pointer flex-shrink-0"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors"
             style={{ color: 'var(--t4)' }}
             aria-label={t('google.close')}
           >
@@ -278,13 +279,17 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </button>
         </div>
 
-        {/* Method tabs — grid wrapping (4+3 on desktop, fluid on mobile) */}
-        <div className="px-5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 mb-3">
+        <div role="tablist" aria-label={t('google.title')} className="mb-3 flex gap-1.5 overflow-x-auto px-5 scrollbar-none sm:flex-wrap">
           {methods.map((m, i) => (
             <button
-              key={i}
+              key={m.label}
+              id={`${tabsId}-tab-${i}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === i}
+              aria-controls={`${tabsId}-panel-${i}`}
               onClick={() => setTab(i)}
-              className="px-2.5 py-1 text-[11px] font-medium rounded-full cursor-pointer transition-colors"
+              className="min-h-11 flex-shrink-0 whitespace-nowrap rounded-2xl px-3 py-2 text-[11px] font-medium cursor-pointer transition-colors"
               style={{
                 background: tab === i ? 'rgb(var(--gl))' : 'var(--bg-gi)',
                 color: tab === i ? '#fff' : 'var(--t3)',
@@ -295,74 +300,69 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           ))}
         </div>
 
-        {/* Illustration for active tab */}
-        <div className="px-5">
-          {guidePreviewImage ? (
-            <Image
-              src={guidePreviewImage}
-              alt={tab === 0 ? t('google.phoneTab') : t('google.takeoutTab')}
-              width={720}
-              height={420}
-              className="mb-3 w-full rounded-2xl border border-white/10 shadow-sm"
-            />
-          ) : (
-            <GuideIllustration tabIndex={tab} />
-          )}
-        </div>
+        <div id={panelId} role="tabpanel" aria-labelledby={`${tabsId}-tab-${tab}`} className="px-5 pb-5">
+          <div>
+            {guidePreviewImage ? (
+              <Image
+                src={guidePreviewImage}
+                alt={tab === 0 ? t('google.phoneTab') : t('google.takeoutTab')}
+                width={720}
+                height={420}
+                className="mb-3 w-full rounded-2xl border border-white/10 shadow-sm"
+              />
+            ) : (
+              <GuideIllustration tabIndex={tab} />
+            )}
+          </div>
 
-        {/* Steps for active tab */}
-        <div className="px-5 pb-3 space-y-2">
-          {active.steps.map((step) => (
-            <div
-              key={step.number}
-              className="gi flex gap-3 px-3 py-2.5" style={{ borderRadius: '10px' }}
-            >
-              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ background: 'rgb(var(--gl))' }}>
-                <span className="text-white text-sm font-bold">{step.number}</span>
+          <div className="space-y-2 pb-3">
+            {active.steps.map((step) => (
+              <div key={step.number} className="gi flex gap-3 px-3 py-3" style={{ borderRadius: '10px' }}>
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'rgb(var(--gl))' }}>
+                  <span className="text-sm font-bold text-white">{step.number}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 font-semibold" style={{ color: 'var(--t1)' }}>
+                    {step.title}
+                  </p>
+                  <ul className="space-y-1">
+                    {step.items.map((item, i) => (
+                      <li key={i} className="text-sm" style={{ color: 'var(--t3)' }}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                  {'action' in step && step.action && (
+                    <a
+                      href={step.action.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vitro-btn-primary mt-3 inline-flex min-h-11 items-center gap-1.5 px-4 py-2 text-sm font-medium"
+                    >
+                      {step.action.label}
+                      <ExternalLink size={14} strokeWidth={2} />
+                    </a>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold mb-1" style={{ color: 'var(--t1)' }}>
-                  {step.title}
-                </p>
-                <ul className="space-y-0.5">
-                  {step.items.map((item, i) => (
-                    <li key={i} className="text-sm" style={{ color: 'var(--t3)' }}>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                {'action' in step && step.action && (
-                  <a
-                    href={step.action.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="vitro-btn-primary inline-flex items-center gap-1.5 mt-3 px-4 py-2 text-sm font-medium"
-                  >
-                    {step.action.label}
-                    <ExternalLink size={14} strokeWidth={2} />
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tips */}
-        <div className="mx-5 mb-5 p-4 gi" style={{ borderRadius: '10px', borderLeft: '3px solid var(--warn)' }}>
-          <p className="text-sm font-semibold mb-2" style={{ color: 'var(--warn)' }}>
-            {t('google.tips')}
-          </p>
-          <ul className="space-y-1">
-            {tips.map((tip, i) => (
-              <li key={i} className="text-sm flex gap-2" style={{ color: 'var(--t3)' }}>
-                <Circle size={6} fill="currentColor" strokeWidth={0} className="flex-shrink-0 mt-1.5" />
-                <span>{tip}</span>
-              </li>
             ))}
-          </ul>
+          </div>
+
+          <div className="gi p-4" style={{ borderRadius: '10px', borderLeft: '3px solid var(--warn)' }}>
+            <p className="mb-2 text-sm font-semibold" style={{ color: 'var(--warn)' }}>
+              {t('google.tips')}
+            </p>
+            <ul className="space-y-1">
+              {tips.map((tip, i) => (
+                <li key={i} className="flex gap-2 text-sm" style={{ color: 'var(--t3)' }}>
+                  <Circle size={6} fill="currentColor" strokeWidth={0} className="mt-1.5 flex-shrink-0" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   )
 }

@@ -45,7 +45,7 @@ export default function TrackToolbar({
   useEffect(() => {
     if (!menuOpen) return
 
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current?.contains(event.target as Node)) return
       setMenuOpen(false)
     }
@@ -57,9 +57,11 @@ export default function TrackToolbar({
     }
 
     document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown, { passive: true })
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [menuOpen])
@@ -72,7 +74,7 @@ export default function TrackToolbar({
   return (
     <div
       data-testid="track-toolbar"
-      className="absolute top-4 right-4 z-10 flex items-center gap-1.5 sm:right-[18rem] sm:flex-wrap sm:justify-end sm:gap-2 sm:max-w-[calc(100vw-20rem)]"
+      className={`absolute top-4 right-4 z-10 flex items-center gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2 ${showSceneEditor ? 'sm:right-[18rem] sm:max-w-[calc(100vw-20rem)]' : 'sm:max-w-[calc(100vw-2rem)]'}`}
     >
       <button
         type="button"
