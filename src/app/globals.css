@@ -17,10 +17,9 @@ html, body, #__next {
 }
 
 /* Override Vitro font to Pretendard Variable (covers Latin + Korean).
-   Also override font-weight: 100 to 400 for readability. */
+   font-weight is left to vitro-base.css per-lang defaults (weight 100). */
 body, [lang] {
   font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-  font-weight: 400;
 }
 
 .lbl {
@@ -165,4 +164,35 @@ input[type="range"]::-moz-range-thumb {
 .map-has-track-controls .maplibregl-ctrl-top-left,
 .map-has-track-controls .maplibregl-ctrl-top-right {
   top: clamp(3.25rem, 8vw, 4.5rem);
+}
+
+
+.map-has-track-controls .maplibregl-ctrl-group,
+.map-has-track-controls .maplibregl-ctrl-attrib {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+
+.map-has-track-controls .maplibregl-ctrl-group button,
+.map-has-track-controls .maplibregl-ctrl-attrib-button,
+.map-has-track-controls .maplibregl-ctrl-attrib summary {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+.map-has-track-controls .maplibregl-ctrl-attrib-button .maplibregl-ctrl-icon {
+  background-size: 20px 20px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib {
+  font-size: 12px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib summary,
+.map-has-track-controls .maplibregl-ctrl-attrib-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
