@@ -16,9 +16,9 @@ interface TimelineSelectorProps {
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
 
-function formatDate(date: Date | undefined): string {
+function formatDate(date: Date | undefined, locale?: string): string {
   if (!date) return ''
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -31,7 +31,7 @@ function TimelineSelector({
   onRangeChange,
   className = '',
 }: TimelineSelectorProps) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
 
@@ -324,25 +324,25 @@ function TimelineSelector({
       {hasTime && (
         <div
           data-testid="timeline-date-row"
-          className="mt-1 flex items-center justify-between gap-3 px-1 text-[10px] sm:text-xs pointer-events-none"
+          className="mt-1 flex items-center justify-between gap-3 px-1 text-[10px] pointer-events-none sm:text-xs"
           style={{ color: 'var(--t4)' }}
         >
           <span data-testid="timeline-start-date" className="min-w-0 flex-1 truncate text-left">
-            {formatDate(startDate)}
+            {formatDate(startDate, locale)}
           </span>
           {endRatio - startRatio > 0.08 && (
             <span data-testid="timeline-end-date" className="min-w-0 flex-1 truncate text-right">
-              {formatDate(endDate)}
+              {formatDate(endDate, locale)}
             </span>
           )}
         </div>
       )}
 
       {/* Point count + histogram hint */}
-      <div className="text-xs mt-0.5 text-center" style={{ color: 'var(--t4)' }}>
+      <div className="mt-0.5 text-center text-[10px] sm:text-xs" style={{ color: 'var(--t4)' }}>
         {endIdx - startIdx + 1} / {points.length} {t('timeline.points')}
-        <span className="mx-1">·</span>
-        {t('timeline.histogramHint')}
+        <span className="mx-1 hidden sm:inline">·</span>
+        <span className="hidden sm:inline">{t('timeline.histogramHint')}</span>
       </div>
     </div>
   )
