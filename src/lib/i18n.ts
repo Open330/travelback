@@ -217,6 +217,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': 'locations',
     'timeline.histogramHint': 'Taller bars = more GPS data',
+    'timeline.reset': 'Reset timeline range',
     'timeline.dragHint': 'Drag the handles to select a date range',
 
     // JourneyCreator
@@ -538,6 +539,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': '위치',
     'timeline.histogramHint': '높은 막대 = GPS 데이터가 많은 구간',
+    'timeline.reset': '타임라인 범위 초기화',
     'timeline.dragHint': '핸들을 드래그하여 날짜 범위를 선택하세요',
 
     // JourneyCreator
@@ -859,6 +861,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': '地点',
     'timeline.histogramHint': '棒が高い = GPSデータが多い',
+    'timeline.reset': 'タイムライン範囲をリセット',
     'timeline.dragHint': 'ハンドルをドラッグして日付範囲を選択',
 
     // JourneyCreator
@@ -1180,6 +1183,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': '个地点',
     'timeline.histogramHint': '柱子越高 = GPS数据越多',
+    'timeline.reset': '重置时间线范围',
     'timeline.dragHint': '拖动手柄选择日期范围',
 
     // JourneyCreator
@@ -1501,6 +1505,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': 'ubicaciones',
     'timeline.histogramHint': 'Barras más altas = más datos GPS',
+    'timeline.reset': 'Restablecer rango del timeline',
     'timeline.dragHint': 'Arrastra los controles para seleccionar fechas',
 
     // JourneyCreator

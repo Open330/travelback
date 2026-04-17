@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useRef, useMemo } from 'react'
-import { ArrowRight, MapPin } from 'lucide-react'
+import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
@@ -72,9 +72,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
+    setTimeout(() => setIsDragging(false), 200)
   }, [handleFile])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -98,10 +98,12 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         data-testid="load-new-file-button"
         onClick={() => inputRef.current?.click()}
         aria-label={t('fileUpload.loadNewFileAria')}
-        className="absolute top-4 left-4 z-10 gi px-4 py-2 text-sm font-medium cursor-pointer"
+        title={t('fileUpload.loadNewFileAria')}
+        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 items-center justify-center gap-2 px-3 py-2 text-sm font-medium cursor-pointer sm:px-4"
         style={{ color: 'var(--t1)' }}
       >
-        {t('fileUpload.loadNewFile')}
+        <FolderOpen size={16} strokeWidth={2} />
+        <span className="hidden sm:inline">{t('fileUpload.loadNewFile')}</span>
         <input
           ref={inputRef}
           type="file"
@@ -138,8 +140,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
               <button
                 type="button"
                 onClick={onLoadSample}
-                aria-label={t('fileUpload.previewTitle')}
-                title={t('fileUpload.previewTitle')}
+                aria-label={t('fileUpload.trySample')}
+                title={t('fileUpload.trySample')}
                 className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg"
               >
                 <Image
@@ -188,7 +190,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           onClick={() => inputRef.current?.click()}
           disabled={loading}
           aria-label={t('fileUpload.browseAria')}
-          className="vitro-btn-primary px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
+          className="vitro-btn-primary min-h-11 px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
         >
           {loading ? t('fileUpload.parsing') : t('fileUpload.browse')}
         </button>
@@ -204,25 +206,25 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
             {t('fileUpload.iosTip')}
           </p>
         )}
-        <div className="mt-3 flex flex-col items-center gap-2">
-          {onLoadSample && (
-            <button onClick={onLoadSample} className="text-sm cursor-pointer transition-colors"
-              style={{ color: 'var(--t3)' }}>
-              {t('fileUpload.trySample')}
-            </button>
-          )}
-          {onCreateJourney && (
-            <button onClick={onCreateJourney} className="inline-flex items-center gap-1 text-sm cursor-pointer"
-              style={{ color: 'var(--t3)' }}>
+        {onCreateJourney && (
+          <div className="mt-4 flex w-full justify-center">
+            <button
+              onClick={onCreateJourney}
+              className="gi inline-flex min-h-11 w-full max-w-sm items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium cursor-pointer"
+              style={{ color: 'var(--t2)' }}
+            >
               <MapPin size={14} strokeWidth={2} />
               {t('fileUpload.drawRoute')}
             </button>
-          )}
-        </div>
+          </div>
+        )}
         {onShowGoogleGuide && (
-          <div className="mt-4">
-            <button onClick={onShowGoogleGuide} className="underline text-sm inline-flex items-center gap-1 cursor-pointer"
-              style={{ color: 'rgb(var(--gl))' }}>
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={onShowGoogleGuide}
+              className="gi inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer"
+              style={{ color: 'rgb(var(--gl))' }}
+            >
               {t('fileUpload.importGuideLink')}
               <ArrowRight size={14} strokeWidth={2} />
             </button>

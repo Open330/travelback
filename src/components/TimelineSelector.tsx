@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GripHorizontal } from 'lucide-react'
+import { GripHorizontal, RotateCcw } from 'lucide-react'
 import { Track } from '@/types'
 import { useLocale } from '@/lib/i18n'
 
@@ -339,10 +339,22 @@ function TimelineSelector({
       )}
 
       {/* Point count + histogram hint */}
-      <div className="mt-0.5 text-center text-[10px] sm:text-xs" style={{ color: 'var(--t4)' }}>
-        {endIdx - startIdx + 1} / {points.length} {t('timeline.points')}
+      <div className="mt-0.5 flex items-center justify-center gap-2 text-[10px] sm:text-xs" style={{ color: 'var(--t4)' }}>
+        <span>{endIdx - startIdx + 1} / {points.length} {t('timeline.points')}</span>
         <span className="mx-1 hidden sm:inline">·</span>
         <span className="hidden sm:inline">{t('timeline.histogramHint')}</span>
+        {(startRatio > 0.001 || endRatio < 0.999) && (
+          <button
+            type="button"
+            onClick={() => { setStartRatio(0); setEndRatio(1) }}
+            aria-label={t('timeline.reset')}
+            title={t('timeline.reset')}
+            className="inline-flex items-center gap-0.5 cursor-pointer"
+            style={{ color: 'rgb(var(--gl))' }}
+          >
+            <RotateCcw size={10} strokeWidth={2} />
+          </button>
+        )}
       </div>
     </div>
   )
