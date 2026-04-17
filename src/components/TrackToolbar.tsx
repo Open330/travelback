@@ -176,7 +176,7 @@ export default function TrackToolbar({
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer"
                   style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
                 >
-                  km
+                  {t('units.km')}
                 </button>
                 <button
                   type="button"
@@ -184,7 +184,7 @@ export default function TrackToolbar({
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer"
                   style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
                 >
-                  mi
+                  {t('units.mi')}
                 </button>
               </div>
             </div>

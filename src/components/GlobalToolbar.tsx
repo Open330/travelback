@@ -10,43 +10,48 @@ interface GlobalToolbarProps {
   locale: Locale
   setLocale: Dispatch<SetStateAction<Locale>> | ((locale: Locale) => void)
   units: UnitSystem
+  mode: 'dark' | 'light'
   onUnitsChange: (units: UnitSystem) => void
   onModeChange: (mode: 'dark' | 'light') => void
+  hasTrack: boolean
 }
 
-export default function GlobalToolbar({ locale, setLocale, units, onUnitsChange, onModeChange }: GlobalToolbarProps) {
+export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsChange, onModeChange, hasTrack }: GlobalToolbarProps) {
   const { t } = useLocale()
 
   return (
-    <div data-testid="global-toolbar" className="absolute top-4 right-4 z-10 flex items-center gap-2">
+    <div
+      data-testid="global-toolbar"
+      className={`absolute right-4 z-10 items-center gap-2 ${hasTrack ? 'hidden sm:flex sm:top-[4.75rem]' : 'top-4 flex'}`}
+    >
       <div className="gi inline-flex items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
         <button
           type="button"
           onClick={() => onUnitsChange('metric')}
-          className="px-2 py-1.5 cursor-pointer"
+          className="flex min-h-11 min-w-11 items-center justify-center px-2 py-1.5 cursor-pointer"
           style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
           aria-label={t('units.metric')}
           title={t('units.metric')}
         >
-          km
+          {t('units.km')}
         </button>
         <button
           type="button"
           onClick={() => onUnitsChange('imperial')}
-          className="px-2 py-1.5 cursor-pointer"
+          className="flex min-h-11 min-w-11 items-center justify-center px-2 py-1.5 cursor-pointer"
           style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
           aria-label={t('units.imperial')}
           title={t('units.imperial')}
         >
-          mi
+          {t('units.mi')}
         </button>
       </div>
       <select
         value={locale}
         onChange={e => setLocale(e.target.value as Locale)}
         aria-label={t('locale.label')}
-        className="gi px-2 py-1.5 text-xs font-medium cursor-pointer appearance-none text-center"
-        style={{ color: 'var(--t2)', minWidth: '3.5rem' }}
+        className="gi min-h-11 px-2 py-1.5 text-xs font-medium cursor-pointer appearance-none text-center"
+        style={{ color: 'var(--t2)', minWidth: '3.75rem' }}
       >
         <option value="en">EN</option>
         <option value="ko">KO</option>
@@ -54,11 +59,11 @@ export default function GlobalToolbar({ locale, setLocale, units, onUnitsChange,
         <option value="zh">ZH</option>
         <option value="es">ES</option>
       </select>
-      <div className="gi flex items-center gap-1.5 px-1.5 py-1">
+      <div className="gi flex min-h-11 items-center gap-1.5 px-1.5 py-1">
         <span className="hidden text-[10px] font-medium sm:inline" style={{ color: 'var(--t4)' }}>
           {t('theme.label')}
         </span>
-        <ThemeToggle onModeChange={onModeChange} />
+        <ThemeToggle mode={mode} onModeChange={onModeChange} />
       </div>
     </div>
   )

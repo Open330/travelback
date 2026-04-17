@@ -26,9 +26,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   const inputRef = useRef<HTMLInputElement>(null)
   const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
-  const isIOS = useMemo(() => {
-    if (typeof navigator === 'undefined') return false
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isTouchDevice = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0
   }, [])
 
   const handleFile = useCallback(async (file: File) => {
@@ -134,7 +134,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         <div className="mb-4 flex items-center justify-center">
           {loading ? (
             <div className="inline-block w-10 h-10 border-4 rounded-full animate-spin"
-              style={{ borderColor: 'rgb(var(--gl))', borderTopColor: 'transparent' }} />
+              style={{ borderColor: 'rgba(255,255,255,.3)', borderTopColor: 'rgb(var(--gl))' }} />
           ) : (
             onLoadSample ? (
               <button
@@ -201,7 +201,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           onChange={handleInputChange}
           className="hidden"
         />
-        {isIOS && (
+        {isTouchDevice && (
           <p className="mt-2 text-[10px]" style={{ color: 'var(--t4)' }}>
             {t('fileUpload.iosTip')}
           </p>
