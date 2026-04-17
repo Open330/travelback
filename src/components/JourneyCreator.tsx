@@ -114,11 +114,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
+  const selectedIconSymbolRef = useRef(selectedIconSymbol)
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
   // Track dragging state
   const draggingIndexRef = useRef<number | null>(null)
+  const dragMovedRef = useRef(false)
   // Store cleanup functions
   const cleanupRef = useRef<(() => void) | null>(null)
 
@@ -128,6 +130,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setDistanceMeters(pts.length >= 2 ? totalDistance(pts) : 0)
   }, [])
 
+  useEffect(() => {
+    selectedIconSymbolRef.current = selectedIconSymbol
+  }, [selectedIconSymbol])
+
   const updateMapData = useCallback(() => {
     const map = mapRef.current?.getMap()
     if (!map || !layersAddedRef.current) return
@@ -135,9 +141,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const pointsSrc = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
     const lineSrc = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
 
-    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbol))
+    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current))
     if (lineSrc) lineSrc.setData(buildLineGeoJSON(waypointsRef.current))
-  }, [mapRef, selectedIconSymbol])
+  }, [mapRef])
 
   const addLayers = useCallback((map: maplibregl.Map) => {
     if (layersAddedRef.current) return
@@ -167,8 +173,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     if (!map.getSource(SOURCE_POINTS)) {
       map.addSource(SOURCE_POINTS, {
         type: 'geojson',
-        data: buildPointsGeoJSON([], selectedIconSymbol),
+        data: buildPointsGeoJSON([], selectedIconSymbolRef.current),
       })
+    } else {
+      const source = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
+      source?.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current))
     }
     if (!map.getLayer(LAYER_POINTS)) {
       map.addLayer({
@@ -202,7 +211,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     }
 
     layersAddedRef.current = true
-  }, [selectedIconSymbol])
+  }, [])
 
   const removeLayers = useCallback((map: maplibregl.Map) => {
     if (!layersAddedRef.current) return
@@ -257,6 +266,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       const onPointClick = (e: maplibregl.MapLayerMouseEvent) => {
         e.preventDefault()
         if (draggingIndexRef.current !== null) return
+        if (dragMovedRef.current) {
+          dragMovedRef.current = false
+          return
+        }
         const feature = e.features?.[0]
         if (feature == null) return
         const idx = feature.properties?.index as number
@@ -268,35 +281,69 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
 
       // --- Drag waypoints ---
+      const startDrag = (index: number) => {
+        draggingIndexRef.current = index
+        dragMovedRef.current = false
+        map.getCanvas().style.cursor = 'grabbing'
+        map.dragPan.disable()
+      }
+
+      const updateDraggedPoint = (lng: number, lat: number) => {
+        if (draggingIndexRef.current === null) return
+        dragMovedRef.current = true
+        const pts = [...waypointsRef.current]
+        pts[draggingIndexRef.current] = { ...pts[draggingIndexRef.current], lng, lat }
+        waypointsRef.current = pts
+        updateMapData()
+        syncUI()
+      }
+
+      const stopDrag = () => {
+        draggingIndexRef.current = null
+        map.getCanvas().style.cursor = ''
+        map.dragPan.enable()
+      }
+
+      const onMouseMove = (ev: maplibregl.MapMouseEvent) => {
+        updateDraggedPoint(ev.lngLat.lng, ev.lngLat.lat)
+      }
+
+      const onMouseUp = () => {
+        stopDrag()
+        map.off('mousemove', onMouseMove)
+        map.off('mouseup', onMouseUp)
+      }
+
+      const onTouchMove = (ev: maplibregl.MapTouchEvent) => {
+        updateDraggedPoint(ev.lngLat.lng, ev.lngLat.lat)
+      }
+
+      const onTouchEnd = () => {
+        stopDrag()
+        map.off('touchmove', onTouchMove)
+        map.off('touchend', onTouchEnd)
+        map.off('touchcancel', onTouchEnd)
+      }
+
       const onMouseDownPoint = (e: maplibregl.MapLayerMouseEvent) => {
         e.preventDefault()
         const feature = e.features?.[0]
         if (feature == null) return
-        draggingIndexRef.current = feature.properties?.index as number
-
-        map.getCanvas().style.cursor = 'grabbing'
-        map.dragPan.disable()
-
-        const onMouseMove = (ev: maplibregl.MapMouseEvent) => {
-          if (draggingIndexRef.current === null) return
-          const { lng, lat } = ev.lngLat
-          const pts = [...waypointsRef.current]
-          pts[draggingIndexRef.current] = { ...pts[draggingIndexRef.current], lng, lat }
-          waypointsRef.current = pts
-          updateMapData()
-          syncUI()
-        }
-
-        const onMouseUp = () => {
-          draggingIndexRef.current = null
-          map.getCanvas().style.cursor = ''
-          map.dragPan.enable()
-          map.off('mousemove', onMouseMove)
-          map.off('mouseup', onMouseUp)
-        }
+        startDrag(feature.properties?.index as number)
 
         map.on('mousemove', onMouseMove)
         map.on('mouseup', onMouseUp)
+      }
+
+      const onTouchStartPoint = (e: maplibregl.MapLayerTouchEvent) => {
+        e.preventDefault()
+        const feature = e.features?.[0]
+        if (feature == null) return
+        startDrag(feature.properties?.index as number)
+
+        map.on('touchmove', onTouchMove)
+        map.on('touchend', onTouchEnd)
+        map.on('touchcancel', onTouchEnd)
       }
 
       const onMouseEnterPoint = () => {
@@ -310,6 +357,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       map.on('click', onClick)
       map.on('click', LAYER_POINTS, onPointClick)
       map.on('mousedown', LAYER_POINTS, onMouseDownPoint)
+      map.on('touchstart', LAYER_POINTS, onTouchStartPoint)
       map.on('mouseenter', LAYER_POINTS, onMouseEnterPoint)
       map.on('mouseleave', LAYER_POINTS, onMouseLeavePoint)
 
@@ -317,10 +365,18 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         map.off('click', onClick)
         map.off('click', LAYER_POINTS, onPointClick)
         map.off('mousedown', LAYER_POINTS, onMouseDownPoint)
+        map.off('touchstart', LAYER_POINTS, onTouchStartPoint)
         map.off('mouseenter', LAYER_POINTS, onMouseEnterPoint)
         map.off('mouseleave', LAYER_POINTS, onMouseLeavePoint)
+        map.off('mousemove', onMouseMove)
+        map.off('mouseup', onMouseUp)
+        map.off('touchmove', onTouchMove)
+        map.off('touchend', onTouchEnd)
+        map.off('touchcancel', onTouchEnd)
         map.getCanvas().style.cursor = ''
         map.dragPan.enable()
+        draggingIndexRef.current = null
+        dragMovedRef.current = false
       }
     }
 
@@ -357,6 +413,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
   const handleUndo = useCallback(() => {
     if (waypointsRef.current.length === 0) return
+    draggingIndexRef.current = null
     waypointsRef.current = waypointsRef.current.slice(0, -1)
     updateMapData()
     syncUI()
