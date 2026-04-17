@@ -6,6 +6,7 @@ import type { VideoCodec, ExportConfig } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
+import ModalDialog from '@/components/ModalDialog'
 
 type ExportState = 'idle' | 'exporting' | 'done'
 
@@ -35,6 +36,7 @@ interface ExportPanelProps {
   exportState: ExportState
   exportedVideoUrl?: string | null
   onResetExport: () => void
+  playbackDuration?: number
 }
 
 export default function ExportPanel({
@@ -46,12 +48,13 @@ export default function ExportPanel({
   exportState,
   exportedVideoUrl,
   onResetExport,
+  playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
   const [resolutionIdx, setResolutionIdx] = useState(0)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
-  const [duration, setDuration] = useState(30)
+  const [duration, setDuration] = useState(playbackDuration ?? 30)
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>({
@@ -60,7 +63,6 @@ export default function ExportPanel({
 
   const bitrate = QUALITY_MAP[quality] ?? 8
 
-  // Swipe-down to dismiss (mobile)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -73,17 +75,15 @@ export default function ExportPanel({
     if (dy > 80 && Math.abs(dx) < Math.abs(dy)) onClose()
   }, [onClose, isExporting])
 
-  // Estimate export time: base = duration * 0.5 for 1080p H.264, scaled by resolution and codec
   const resScale = (() => {
     const px = RESOLUTION_PRESETS[resolutionIdx].width * RESOLUTION_PRESETS[resolutionIdx].height
-    if (px <= 921600) return 0.6   // 720p or smaller
-    if (px <= 2073600) return 1.0  // 1080p
-    return 3.0                      // 4K
+    if (px <= 921600) return 0.6
+    if (px <= 2073600) return 1.0
+    return 3.0
   })()
   const codecScale = codec === 'av1' ? 2.5 : codec === 'h265' ? 1.5 : 1.0
   const estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)
 
-  // Check codec support on mount
   useEffect(() => {
     let cancelled = false
     const checkAll = async () => {
@@ -127,7 +127,6 @@ export default function ExportPanel({
 
   if (!isOpen) return null
 
-  // Determine platform tip based on resolution
   const platformTip = (() => {
     const r = RESOLUTION_PRESETS[resolutionIdx]
     if (r.width === 1080 && r.height === 1920) return t('export.tipTikTok')
@@ -138,56 +137,70 @@ export default function ExportPanel({
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
-      <div className="go p-6 w-full max-w-md mx-4" style={{ borderRadius: 'var(--r-glass)' }}
-        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold" style={{ color: 'var(--t1)' }}>{t('export.title')}</h3>
+    <ModalDialog
+      open={isOpen}
+      onClose={isExporting ? () => undefined : onClose}
+      labelledBy="export-panel-title"
+      overlayClassName="z-30 flex items-center justify-center bg-black/35 backdrop-blur-md"
+      panelClassName="go mx-4 w-full max-w-md max-h-[min(90vh,42rem)] overflow-y-auto p-6"
+      closeOnBackdrop={!isExporting}
+    >
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} data-disable-playback-hotkeys="true">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h3 id="export-panel-title" className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
+            {t('export.title')}
+          </h3>
           {!isExporting && (
-            <button onClick={onClose}
-              className="cursor-pointer" style={{ color: 'var(--t4)' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('app.closePanel')}
+              className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
+              style={{ color: 'var(--t4)' }}
+            >
               <X size={20} strokeWidth={2} />
             </button>
           )}
         </div>
 
-        {/* Success screen */}
         {exportState === 'done' ? (
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-              style={{ background: 'rgba(var(--gl),.15)' }}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(var(--gl),.15)' }}>
               <Check size={32} strokeWidth={2.5} style={{ color: 'rgb(var(--gl))' }} />
             </div>
-            <h4 className="text-lg font-bold mb-1" style={{ color: 'var(--t1)' }}>
+            <h4 className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>
               {t('export.success')}
             </h4>
-            <p className="text-sm mb-4" style={{ color: 'var(--t3)' }}>
+            <p className="mb-4 text-sm" style={{ color: 'var(--t3)' }}>
               {t('export.savedToDownloads')}
             </p>
 
-            {/* Video preview */}
             {exportedVideoUrl && (
-              <div className="mb-4 rounded-lg overflow-hidden" style={{ border: '1px solid var(--div)' }}>
+              <div className="mb-4 overflow-hidden rounded-lg" style={{ border: '1px solid var(--div)' }}>
                 <video src={exportedVideoUrl} controls playsInline preload="metadata" className="block w-full bg-black" style={{ maxHeight: '200px' }} />
               </div>
             )}
 
-            {/* Platform tip */}
-            <div className="gi p-3 mb-4 text-xs text-left" style={{ borderRadius: '10px', color: 'var(--t3)' }}>
+            <div className="gi mb-4 p-3 text-left text-xs" style={{ borderRadius: '10px', color: 'var(--t3)' }}>
               💡 {platformTip}
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={onResetExport}
-                className="flex-1 gi px-4 py-2.5 text-sm font-medium cursor-pointer inline-flex items-center justify-center gap-1.5"
-                style={{ color: 'var(--t1)' }}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={onResetExport}
+                className="gi inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer"
+                style={{ color: 'var(--t1)' }}
+              >
                 <RotateCcw size={14} strokeWidth={2} />
                 {t('export.exportAgain')}
               </button>
               {canShare && exportedVideoUrl && (
-                <button onClick={handleShare}
-                  className="vitro-btn-primary px-4 py-2.5 text-sm font-medium cursor-pointer inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="vitro-btn-primary inline-flex min-h-11 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer"
+                >
                   <Share2 size={14} strokeWidth={2} />
                   {t('export.share')}
                 </button>
@@ -199,43 +212,40 @@ export default function ExportPanel({
             <div className="mb-2 text-sm" style={{ color: 'var(--t3)' }}>
               {t('export.rendering')} {Math.round(exportProgress * 100)}%
             </div>
-            <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: 'var(--div)' }}>
-              <div className="h-full rounded-full transition-all duration-200"
-                style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))' }} />
+            <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
+              <div className="h-full rounded-full transition-all duration-200" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))' }} />
             </div>
-            <p className="text-xs mt-2" style={{ color: 'var(--t4)' }}>
+            <p className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.frame')} {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}
             </p>
           </div>
         ) : (
           <>
-            <div className="space-y-4 mb-6">
-              {/* Resolution */}
+            <div className="mb-6 space-y-4">
               <div>
-                <label className="vitro-label block text-sm font-medium mb-1">{t('export.resolution')}</label>
-                <select value={resolutionIdx}
-                  onChange={e => setResolutionIdx(parseInt(e.target.value))}
-                  className="vitro-select w-full px-3 py-2 text-sm">
+                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.resolution')}</label>
+                <select value={resolutionIdx} onChange={e => setResolutionIdx(parseInt(e.target.value))} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                   {RESOLUTION_PRESETS.map((_r, i) => (
                     <option key={i} value={i}>{t(RESOLUTION_KEYS[i] as 'resolution.youtube')}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Duration */}
               <div>
-                <label className="vitro-label block text-sm font-medium mb-1">{t('export.duration')}</label>
-                <input type="number" min={5} max={600} value={duration}
+                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.duration')}</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={duration}
                   onChange={e => setDuration(Math.max(5, Math.min(600, parseInt(e.target.value) || 30)))}
-                  className="vitro-input w-full px-3 py-2 text-sm" />
+                  className="vitro-input min-h-11 w-full px-3 py-2 text-sm"
+                />
               </div>
 
-              {/* Quality */}
               <div>
-                <label className="vitro-label block text-sm font-medium mb-1">{t('export.quality')}</label>
-                <select value={quality}
-                  onChange={e => setQuality(e.target.value)}
-                  className="vitro-select w-full px-3 py-2 text-sm">
+                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.quality')}</label>
+                <select value={quality} onChange={e => setQuality(e.target.value)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                   <option value="low">{t('export.qualityLow')}</option>
                   <option value="medium">{t('export.qualityMedium')}</option>
                   <option value="high">{t('export.qualityHigh')}</option>
@@ -243,24 +253,22 @@ export default function ExportPanel({
                 </select>
               </div>
 
-              {/* Advanced toggle */}
               <button
+                type="button"
                 onClick={() => setShowAdvanced(v => !v)}
-                className="text-xs inline-flex items-center gap-1 cursor-pointer"
+                className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer"
                 style={{ color: 'var(--t4)' }}
+                aria-expanded={showAdvanced}
               >
-                <ChevronDown size={12} strokeWidth={2} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} strokeWidth={2} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                 {t('export.advanced')}
               </button>
 
               {showAdvanced && (
                 <div className="space-y-4 pt-1">
-                  {/* Codec */}
                   <div>
-                    <label className="vitro-label block text-sm font-medium mb-1">{t('export.codec')}</label>
-                    <select value={codec}
-                      onChange={e => setCodec(e.target.value as VideoCodec)}
-                      className="vitro-select w-full px-3 py-2 text-sm">
+                    <label className="vitro-label mb-1 block text-sm font-medium">{t('export.codec')}</label>
+                    <select value={codec} onChange={e => setCodec(e.target.value as VideoCodec)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                       {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k]) => (
                         <option key={k} value={k} disabled={codecSupport[k] === false}>
                           {t(`codec.${k}Desc` as 'codec.h264Desc' | 'codec.h265Desc' | 'codec.av1Desc')}{codecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
@@ -269,49 +277,42 @@ export default function ExportPanel({
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* FPS */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="vitro-label block text-sm font-medium mb-1">{t('export.fps')}</label>
-                      <select value={fps} onChange={e => setFps(parseInt(e.target.value))}
-                        className="vitro-select w-full px-3 py-2 text-sm">
+                      <label className="vitro-label mb-1 block text-sm font-medium">{t('export.fps')}</label>
+                      <select value={fps} onChange={e => setFps(parseInt(e.target.value))} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                         <option value={24}>24</option>
                         <option value={30}>30</option>
                         <option value={60}>60</option>
                       </select>
                     </div>
-                    {/* Bitrate */}
                     <div>
-                      <label className="vitro-label block text-sm font-medium mb-1">{t('export.mbps')}</label>
-                      <input type="number" min={1} max={50} value={bitrate}
-                        className="vitro-input w-full px-3 py-2 text-sm"
-                        readOnly
-                      />
+                      <label className="vitro-label mb-1 block text-sm font-medium">{t('export.mbps')}</label>
+                      <input type="number" min={1} max={50} value={bitrate} className="vitro-input min-h-11 w-full px-3 py-2 text-sm" readOnly />
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <p className="text-xs mb-2" style={{ color: 'var(--t4)' }}>
+            <p className="mb-2 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
               {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
               {' '}· ~{((bitrate * duration) / 8).toFixed(0)} MB
             </p>
-            <p className="text-xs mb-4" style={{ color: 'var(--t4)' }}>
+            <p className="mb-4 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.estimatedTime')}{' '}
               {estimatedSeconds >= 60
                 ? t('export.minutes').replace('{n}', String(Math.round(estimatedSeconds / 60)))
                 : t('export.seconds').replace('{n}', String(estimatedSeconds))}
             </p>
 
-            <button onClick={handleExport}
-              className="vitro-btn-primary w-full py-3 font-medium cursor-pointer">
+            <button type="button" onClick={handleExport} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer">
               {t('export.startExport')}
             </button>
           </>
         )}
       </div>
-    </div>
+    </ModalDialog>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Track, MapStyleKey, Scene } from '@/types'
 import MapView, { type MapViewHandle } from '@/components/MapView'
 import FileUpload from '@/components/FileUpload'
@@ -32,6 +32,13 @@ function HomeInner() {
   const { t, locale, setLocale } = useLocale()
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
   const [track, setTrack] = useState<Track | null>(null)
+  const [colorMode, setColorMode] = useState<'dark' | 'light'>(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return 'light'
+    const currentMode = document.documentElement.getAttribute('data-mode')
+    if (currentMode === 'dark' || currentMode === 'light') return currentMode
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+  const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(false)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
     if (typeof document === 'undefined') return 'voyager'
     const mode = document.documentElement.getAttribute('data-mode')
@@ -233,34 +240,50 @@ function HomeInner() {
     mapViewRef.current?.applyCameraState(cameraState)
   }, [track])
 
-  const applyMapStyleTheme = useCallback((key: MapStyleKey) => {
-    const mode = key === 'dark' ? 'dark' : 'light'
+  const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-mode', mode)
+  }, [])
+
+  const applyDocumentMapStyle = useCallback((key: MapStyleKey) => {
     document.documentElement.setAttribute('data-mapstyle', key)
   }, [])
 
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
-    const key = mode === 'dark' ? 'dark' : 'voyager'
-    setMapStyleKey(key)
-    applyMapStyleTheme(key)
-  }, [applyMapStyleTheme])
+    setColorMode(mode)
+    applyDocumentMode(mode)
+
+    if (!hasExplicitMapStyleChoice) {
+      const key = mode === 'dark' ? 'dark' : 'voyager'
+      setMapStyleKey(key)
+      applyDocumentMapStyle(key)
+    }
+  }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice])
 
   const cycleStyle = useCallback(() => {
     const keys = Object.keys(MAP_STYLES) as MapStyleKey[]
     const currentIndex = keys.indexOf(mapStyleKey)
     const nextKey = keys[(currentIndex + 1) % keys.length]
+    const nextMode = nextKey === 'dark' ? 'dark' : 'light'
+    setHasExplicitMapStyleChoice(true)
     setMapStyleKey(nextKey)
-    applyMapStyleTheme(nextKey)
-  }, [applyMapStyleTheme, mapStyleKey])
+    setColorMode(nextMode)
+    applyDocumentMapStyle(nextKey)
+    applyDocumentMode(nextMode)
+  }, [applyDocumentMapStyle, applyDocumentMode, mapStyleKey])
 
   const handleUnitsChange = useCallback((nextUnits: UnitSystem) => {
     setUnitPreference(nextUnits)
     setUnits(nextUnits)
   }, [])
 
+  useEffect(() => {
+    applyDocumentMode(colorMode)
+    applyDocumentMapStyle(mapStyleKey)
+  }, [applyDocumentMapStyle, applyDocumentMode, colorMode, mapStyleKey])
+
   return (
     <ErrorBoundary>
-      <div className="relative w-screen h-screen overflow-hidden">
+      <div className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true">
         <MapView
           ref={mapViewRef}
           track={track}
@@ -306,8 +329,10 @@ function HomeInner() {
           locale={locale}
           setLocale={setLocale}
           units={units}
+          mode={colorMode}
           onUnitsChange={handleUnitsChange}
           onModeChange={handleModeChange}
+          hasTrack={track !== null}
         />
 
         <KeyboardHelp
@@ -337,6 +362,13 @@ function HomeInner() {
             mapStyleKey={mapStyleKey}
             showSceneEditor={showSceneEditor}
             scenes={scenes}
+            locale={locale}
+            setLocale={setLocale}
+            mode={colorMode}
+            onModeChange={handleModeChange}
+            units={units}
+            onUnitsChange={handleUnitsChange}
+            onOpenHelp={() => setShowKeyboardHelp(true)}
             onScenesChange={setScenes}
             transitionDuration={transitionDuration}
             onTransitionDurationChange={setTransitionDuration}
@@ -351,7 +383,6 @@ function HomeInner() {
             isPlaying={isPlaying}
             speed={speed}
             duration={duration}
-            units={units}
             followCamera={followCamera}
             onTogglePlay={togglePlay}
             onSeek={seekTo}
@@ -370,6 +401,7 @@ function HomeInner() {
           exportState={exportState}
           exportedVideoUrl={exportedVideoUrl}
           onResetExport={handleResetExport}
+          playbackDuration={duration}
         />
 
         <Toast messages={toasts} onDismiss={dismissToast} />
