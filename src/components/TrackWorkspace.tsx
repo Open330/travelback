@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { MapStyleKey, Scene, Track } from '@/types'
 import type { UnitSystem } from '@/lib/interpolate'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type Locale } from '@/lib/i18n'
 import Controls from '@/components/Controls'
 import ElevationProfile from '@/components/ElevationProfile'
 import SceneEditor from '@/components/SceneEditor'
@@ -17,6 +17,13 @@ interface TrackWorkspaceProps {
   mapStyleKey: MapStyleKey
   showSceneEditor: boolean
   scenes: Scene[]
+  locale: Locale
+  setLocale: Dispatch<SetStateAction<Locale>> | ((locale: Locale) => void)
+  mode: 'dark' | 'light'
+  onModeChange: (mode: 'dark' | 'light') => void
+  units: UnitSystem
+  onUnitsChange: (units: UnitSystem) => void
+  onOpenHelp: () => void
   onScenesChange: Dispatch<SetStateAction<Scene[]>>
   transitionDuration: number
   onTransitionDurationChange: (duration: number) => void
@@ -31,7 +38,6 @@ interface TrackWorkspaceProps {
   isPlaying: boolean
   speed: number
   duration: number
-  units: UnitSystem
   followCamera: boolean
   onTogglePlay: () => void
   onSeek: (progress: number) => void
@@ -47,6 +53,13 @@ export default function TrackWorkspace({
   mapStyleKey,
   showSceneEditor,
   scenes,
+  locale,
+  setLocale,
+  mode,
+  onModeChange,
+  units,
+  onUnitsChange,
+  onOpenHelp,
   onScenesChange,
   transitionDuration,
   onTransitionDurationChange,
@@ -61,7 +74,6 @@ export default function TrackWorkspace({
   isPlaying,
   speed,
   duration,
-  units,
   followCamera,
   onTogglePlay,
   onSeek,
@@ -76,6 +88,13 @@ export default function TrackWorkspace({
       <TrackToolbar
         mapStyleKey={mapStyleKey}
         showSceneEditor={showSceneEditor}
+        locale={locale}
+        setLocale={setLocale}
+        units={units}
+        mode={mode}
+        onUnitsChange={onUnitsChange}
+        onModeChange={onModeChange}
+        onOpenHelp={onOpenHelp}
         onStartNewTrack={onStartNewTrack}
         onToggleSceneEditor={onToggleSceneEditor}
         onCycleStyle={onCycleStyle}
@@ -95,14 +114,14 @@ export default function TrackWorkspace({
 
       <div
         data-testid="track-title"
-        className="hidden sm:block absolute left-4 right-4 top-36 z-10 gi px-4 py-2 text-sm font-medium text-center leading-tight sm:top-4 sm:left-36 sm:right-[34rem] sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap"
+        className="absolute left-36 right-[43rem] top-4 z-10 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center lg:block"
         style={{ color: 'var(--t1)' }}
       >
-        {track.name} — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}
+        {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}</span>
       </div>
 
       {fullTrack.points.length > 2 && (
-        <div className="absolute bottom-44 sm:bottom-36 left-0 right-0 z-10 px-4">
+        <div className="absolute bottom-40 left-0 right-0 z-10 px-4 sm:bottom-36">
           <TimelineSelector
             key={trackSessionKey}
             track={fullTrack}
@@ -112,15 +131,6 @@ export default function TrackWorkspace({
       )}
 
       <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="px-4 pb-0.5 sm:hidden">
-          <div
-            data-testid="track-title-mobile"
-            className="gi px-3 py-1.5 text-[10px] font-medium text-center leading-tight truncate"
-            style={{ color: 'var(--t1)' }}
-          >
-            {track.name}
-          </div>
-        </div>
         <div className="px-4 mb-1.5">
           <ElevationProfile track={track} progress={progress} onSeek={onSeek} units={units} />
         </div>
