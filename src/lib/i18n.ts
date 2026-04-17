@@ -58,6 +58,7 @@ export const translations = {
     'scenes.title': 'Camera',
     'scenes.add': '+ Add',
     'scenes.presets': 'Presets:',
+    'scenes.replaceConfirm': 'Replace all scenes?',
     'scenes.cinematic': 'Cinematic',
     'scenes.simple': 'Simple',
     'scenes.birdsEye': "Bird's Eye",
@@ -90,6 +91,7 @@ export const translations = {
     'scenes.pitchAria': 'Tilt for {name}',
     'scenes.bearingAria': 'Direction for {name}',
     'scenes.rotationAria': 'Orbit speed for {name}',
+    'scenes.deleteScene': 'Delete scene {name}',
 
     // ExportPanel
     'export.title': 'Export Video',
@@ -253,6 +255,12 @@ export const translations = {
     'theme.switchToLight': 'Switch to light mode',
     'theme.switchToDark': 'Switch to dark mode',
     'theme.label': 'Theme',
+    'units.label': 'Units',
+    'app.help': 'Help',
+    'app.closePanel': 'Close panel',
+    'app.helpPanelSubtitle': 'Use these shortcuts while previewing and editing your trip.',
+    'app.guideSubtitle': 'Bring in data from Google Maps, fitness apps, and GPS exports.',
+    'app.moreControls': 'More controls',
 
     // Toast
     'toast.dismiss': 'Dismiss notification',
@@ -371,6 +379,7 @@ export const translations = {
     'scenes.title': '카메라',
     'scenes.add': '+ 추가',
     'scenes.presets': '프리셋:',
+    'scenes.replaceConfirm': '모든 장면을 교체하시겠습니까?',
     'scenes.cinematic': '시네마틱',
     'scenes.simple': '심플',
     'scenes.birdsEye': '조감도',
@@ -403,6 +412,7 @@ export const translations = {
     'scenes.pitchAria': '{name}의 기울기',
     'scenes.bearingAria': '{name}의 방향',
     'scenes.rotationAria': '{name}의 회전 속도',
+    'scenes.deleteScene': '{name} 장면 삭제',
 
     // ExportPanel
     'export.title': '영상 내보내기',
@@ -566,6 +576,12 @@ export const translations = {
     'theme.switchToLight': '라이트 모드로 전환',
     'theme.switchToDark': '다크 모드로 전환',
     'theme.label': '테마',
+    'units.label': '단위',
+    'app.help': '도움말',
+    'app.closePanel': '패널 닫기',
+    'app.helpPanelSubtitle': '여행을 미리 보고 편집할 때 이 단축키를 사용할 수 있습니다.',
+    'app.guideSubtitle': 'Google 지도, 피트니스 앱, GPS 내보내기 파일에서 여행 데이터를 가져오세요.',
+    'app.moreControls': '추가 컨트롤',
 
     // Toast
     'toast.dismiss': '알림 닫기',
@@ -684,6 +700,7 @@ export const translations = {
     'scenes.title': 'カメラ',
     'scenes.add': '+ 追加',
     'scenes.presets': 'プリセット:',
+    'scenes.replaceConfirm': 'すべてのシーンを置き換えますか？',
     'scenes.cinematic': 'シネマティック',
     'scenes.simple': 'シンプル',
     'scenes.birdsEye': '俯瞰',
@@ -716,6 +733,7 @@ export const translations = {
     'scenes.pitchAria': '{name}の傾き',
     'scenes.bearingAria': '{name}の方向',
     'scenes.rotationAria': '{name}の回転速度',
+    'scenes.deleteScene': '{name} シーンを削除',
 
     // ExportPanel
     'export.title': '動画をエクスポート',
@@ -879,6 +897,12 @@ export const translations = {
     'theme.switchToLight': 'ライトモードに切り替え',
     'theme.switchToDark': 'ダークモードに切り替え',
     'theme.label': 'テーマ',
+    'units.label': '単位',
+    'app.help': 'ヘルプ',
+    'app.closePanel': 'パネルを閉じる',
+    'app.helpPanelSubtitle': '旅行をプレビューしたり編集したりするときに使えるショートカットです。',
+    'app.guideSubtitle': 'Google マップ、フィットネスアプリ、GPS エクスポートから旅行データを取り込みます。',
+    'app.moreControls': 'その他の操作',
 
     // Toast
     'toast.dismiss': '通知を閉じる',
@@ -997,6 +1021,7 @@ export const translations = {
     'scenes.title': '镜头',
     'scenes.add': '+ 添加',
     'scenes.presets': '预设:',
+    'scenes.replaceConfirm': '替换所有场景？',
     'scenes.cinematic': '电影感',
     'scenes.simple': '简单',
     'scenes.birdsEye': '鸟瞰',
@@ -1029,6 +1054,7 @@ export const translations = {
     'scenes.pitchAria': '{name}的倾斜',
     'scenes.bearingAria': '{name}的方向',
     'scenes.rotationAria': '{name}的旋转速度',
+    'scenes.deleteScene': '删除场景 {name}',
 
     // ExportPanel
     'export.title': '导出视频',
@@ -1192,6 +1218,12 @@ export const translations = {
     'theme.switchToLight': '切换到浅色模式',
     'theme.switchToDark': '切换到深色模式',
     'theme.label': '主题',
+    'units.label': '单位',
+    'app.help': '帮助',
+    'app.closePanel': '关闭面板',
+    'app.helpPanelSubtitle': '预览和编辑旅程时可使用这些快捷键。',
+    'app.guideSubtitle': '从 Google 地图、运动应用和 GPS 导出文件导入旅行数据。',
+    'app.moreControls': '更多控制',
 
     // Toast
     'toast.dismiss': '关闭通知',
@@ -1310,6 +1342,7 @@ export const translations = {
     'scenes.title': 'Cámara',
     'scenes.add': '+ Añadir',
     'scenes.presets': 'Presets:',
+    'scenes.replaceConfirm': '¿Reemplazar todas las escenas?',
     'scenes.cinematic': 'Cinemático',
     'scenes.simple': 'Simple',
     'scenes.birdsEye': 'Vista aérea',
@@ -1342,6 +1375,7 @@ export const translations = {
     'scenes.pitchAria': 'Inclinación de {name}',
     'scenes.bearingAria': 'Dirección de {name}',
     'scenes.rotationAria': 'Velocidad de giro de {name}',
+    'scenes.deleteScene': 'Eliminar escena {name}',
 
     // ExportPanel
     'export.title': 'Exportar video',
@@ -1505,6 +1539,12 @@ export const translations = {
     'theme.switchToLight': 'Cambiar a modo claro',
     'theme.switchToDark': 'Cambiar a modo oscuro',
     'theme.label': 'Tema',
+    'units.label': 'Unidades',
+    'app.help': 'Ayuda',
+    'app.closePanel': 'Cerrar panel',
+    'app.helpPanelSubtitle': 'Usa estos atajos mientras previsualizas y editas tu viaje.',
+    'app.guideSubtitle': 'Trae datos desde Google Maps, apps de deporte y exportaciones GPS.',
+    'app.moreControls': 'Más controles',
 
     // Toast
     'toast.dismiss': 'Cerrar notificación',

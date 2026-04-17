@@ -288,18 +288,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   }, [scenes, t])
 
   return (
-    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 top-48 bottom-36 z-20 w-auto gs flex flex-col overflow-hidden sm:right-auto sm:top-16 sm:w-72 sm:max-w-[calc(100vw-2rem)]"
+    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 top-44 bottom-32 z-20 w-auto gs flex flex-col overflow-hidden sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)]"
       style={{ borderRadius: 'var(--r-glass)' }}
       onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
         <div className="flex gap-2">
           <button onClick={addScene}
-            className="vitro-btn-primary text-xs px-2 py-1 cursor-pointer">
+            className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer">
             {t('scenes.add')}
           </button>
           <button onClick={onClose}
-            className="cursor-pointer" style={{ color: 'var(--t4)' }}>
+            aria-label={t('app.closePanel')}
+            className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer" style={{ color: 'var(--t4)' }}>
             <X size={16} strokeWidth={2} />
           </button>
         </div>
@@ -308,20 +309,20 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button onClick={() => commitScenes(generateDefaultScenes())}
-          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateDefaultScenes()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button onClick={() => commitScenes(generateSimpleFlyover())}
-          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateSimpleFlyover()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button onClick={() => commitScenes(generateBirdeyeFlyover())}
-          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateBirdeyeFlyover()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button onClick={() => commitScenes(generateDynamicScenes())}
-          className="gi text-[10px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateDynamicScenes()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
       </div>
@@ -383,7 +384,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                 onFocus={e => e.target.style.borderBottomColor = 'rgb(var(--gl))'}
                 onBlur={e => e.target.style.borderBottomColor = 'transparent'} />
               <button onClick={() => removeScene(scene.id)}
-                className="text-xs cursor-pointer flex items-center justify-center" style={{ color: 'var(--t4)' }}>
+                className="flex h-11 w-11 items-center justify-center rounded-full text-xs cursor-pointer" style={{ color: 'var(--t4)' }} aria-label={t('scenes.deleteScene').replace('{name}', scene.name)}>
                 <X size={14} strokeWidth={2} />
               </button>
             </div>
@@ -392,7 +393,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
               <span style={{ color: 'var(--t3)' }}><CameraModeIcon mode={scene.cameraMode} /></span>
               <select value={scene.cameraMode}
                 onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
-                className="vitro-select flex-1 text-xs px-2 py-1">
+                className="vitro-select min-h-11 flex-1 px-3 py-2 text-sm">
                 {MODES.map(m => (
                   <option key={m} value={m}>
                     {t(`camera.${m}` as TranslationKey)} — {t(`camera.${m}Desc` as TranslationKey)}
@@ -401,51 +402,56 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
               </select>
             </div>
 
-            <div className="flex gap-2">
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.startPct')}</span>
-                <input type="number" min={0} max={100} step={1}
-                  value={Math.round(scene.startPercent * 100)}
-                  onChange={e => {
-                    const nextValue = Number.parseInt(e.target.value, 10)
-                    if (!Number.isFinite(nextValue)) return
-                    updateScene(scene.id, { startPercent: nextValue / 100 })
-                  }}
-                  className="vitro-input w-full text-xs px-2 py-1" />
-              </label>
-              <label className="flex-1">
-                <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.endPct')}</span>
-                <input type="number" min={0} max={100} step={1}
-                  value={Math.round(scene.endPercent * 100)}
-                  onChange={e => {
-                    const nextValue = Number.parseInt(e.target.value, 10)
-                    if (!Number.isFinite(nextValue)) return
-                    updateScene(scene.id, { endPercent: nextValue / 100 })
-                  }}
-                  className="vitro-input w-full text-xs px-2 py-1" />
-              </label>
-            </div>
-
-            <SceneRangeEditor
-              sceneName={scene.name}
-              startPercent={scene.startPercent}
-              endPercent={scene.endPercent}
-              ariaLabel={`${scene.name} ${t('scenes.startPct')} / ${t('scenes.endPct')}`}
-              onChange={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
-            />
+            <p className="text-[11px]" style={{ color: 'var(--t4)' }}>
+              {t('scenes.startPct')} {Math.round(scene.startPercent * 100)}% · {t('scenes.endPct')} {Math.round(scene.endPercent * 100)}%
+            </p>
 
             {/* Collapsible parameters */}
             <button
               onClick={() => setExpandedSceneId(expandedSceneId === scene.id ? null : scene.id)}
-              className="text-[10px] inline-flex items-center gap-1 cursor-pointer"
+              className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer"
               style={{ color: 'var(--t4)' }}
+              aria-expanded={expandedSceneId === scene.id}
             >
-              <ChevronDown size={10} strokeWidth={2} className={`transition-transform ${expandedSceneId === scene.id ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} strokeWidth={2} className={`transition-transform ${expandedSceneId === scene.id ? 'rotate-180' : ''}`} />
               {t('scenes.customize')}
             </button>
 
             {expandedSceneId === scene.id && (
               <>
+                <div className="flex gap-2">
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.startPct')}</span>
+                    <input type="number" min={0} max={100} step={1}
+                      value={Math.round(scene.startPercent * 100)}
+                      onChange={e => {
+                        const nextValue = Number.parseInt(e.target.value, 10)
+                        if (!Number.isFinite(nextValue)) return
+                        updateScene(scene.id, { startPercent: nextValue / 100 })
+                      }}
+                      className="vitro-input min-h-11 w-full px-3 py-2 text-sm" />
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.endPct')}</span>
+                    <input type="number" min={0} max={100} step={1}
+                      value={Math.round(scene.endPercent * 100)}
+                      onChange={e => {
+                        const nextValue = Number.parseInt(e.target.value, 10)
+                        if (!Number.isFinite(nextValue)) return
+                        updateScene(scene.id, { endPercent: nextValue / 100 })
+                      }}
+                      className="vitro-input min-h-11 w-full px-3 py-2 text-sm" />
+                  </label>
+                </div>
+
+                <SceneRangeEditor
+                  sceneName={scene.name}
+                  startPercent={scene.startPercent}
+                  endPercent={scene.endPercent}
+                  ariaLabel={`${scene.name} ${t('scenes.startPct')} / ${t('scenes.endPct')}`}
+                  onChange={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
+                />
+
                 <div className="flex gap-2">
                   <label className="flex-1">
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
