@@ -516,7 +516,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             {t('journey.title')}
           </span>
           <button
-            onClick={onCancel}
+            onClick={() => { if (pointCount >= 1 && !confirm(t('journey.discardConfirm'))) return; onCancel() }}
             className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
           >
             {t('journey.cancel')}
@@ -722,6 +722,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             {t('journey.done')}
             <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
           </button>
+          {pointCount === 1 && (
+            <p className="text-[10px] mt-1 ml-2" style={{ color: 'rgb(var(--gl))' }}>
+              {t('journey.addOneMore')}
+            </p>
+          )}
         </div>
       )}
     </div>
