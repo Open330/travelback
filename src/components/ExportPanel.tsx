@@ -165,7 +165,7 @@ export default function ExportPanel({
 
         {exportState === 'done' ? (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(var(--gl),.15)' }}>
+            <div className="export-checkmark mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(var(--gl),.15)' }}>
               <Check size={32} strokeWidth={2.5} style={{ color: 'rgb(var(--gl))' }} />
             </div>
             <h4 className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>

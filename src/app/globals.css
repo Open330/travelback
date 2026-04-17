@@ -35,6 +35,26 @@ body, [lang] {
   animation: pulse-ring 1.5s ease-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .marker-pulse {
+    display: none;
+  }
+}
+
+@keyframes checkmark-in {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.export-checkmark {
+  animation: checkmark-in .3s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Darken landing preview in dark mode */
+[data-mode="dark"] .landing-preview-image {
+  filter: brightness(0.7) saturate(0.8);
+}
+
 /* Slider track fill for webkit */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;

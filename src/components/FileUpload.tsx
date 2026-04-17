@@ -149,7 +149,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                   alt={t('fileUpload.previewAlt')}
                   width={960}
                   height={540}
-                  className="block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
+                  className="landing-preview-image block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
                 />
                 <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
                   <div>

@@ -180,7 +180,7 @@ function SceneRangeEditor({
       </div>
       <div className="mt-1 flex justify-between text-[9px]" style={{ color: 'var(--t4)' }}>
         <span>0%</span>
-        <span>50%</span>
+        <span></span>
         <span>100%</span>
       </div>
     </div>
@@ -360,7 +360,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             ))}
           </div>
           <div className="flex justify-between text-[9px] mt-0.5" style={{ color: 'var(--t4)' }}>
-            <span>0%</span><span>50%</span><span>100%</span>
+            <span>0%</span><span></span><span>100%</span>
           </div>
           {warnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
