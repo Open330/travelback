@@ -38,7 +38,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const ext = file.name.split('.').pop()?.toLowerCase()
       const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : MAX_FILE_SIZE
       if (file.size > maxForType) {
-        throw new Error(t('fileUpload.fileTooLarge'))
+        throw new Error(t('fileUpload.fileTooLarge').replace('{max}', String(Math.round(maxForType / 1024 / 1024))))
       }
       if (file.size > WARN_FILE_SIZE) {
         console.warn(`[Travelback] Large file (${(file.size / 1024 / 1024).toFixed(0)} MB) — parsing may take a moment`)
@@ -51,7 +51,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         UNSUPPORTED_FORMAT: 'fileUpload.unsupportedFormat',
         TOO_FEW_POINTS: 'fileUpload.tooFewPoints',
         TOO_MANY_POINTS: 'fileUpload.tooManyPoints',
-        FILE_TOO_LARGE: 'fileUpload.fileTooLarge',
         XML_PARSE_ERROR: 'fileUpload.parseFailed',
         INVALID_GOOGLE_JSON: 'fileUpload.parseFailed',
         JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
@@ -60,11 +59,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const code = err instanceof ParseError ? err.code : ''
       const message = err instanceof Error ? err.message : ''
       const matchedKey = code && code in errorCodeMap ? code : ''
-      const isSafe = !!matchedKey || message === t('fileUpload.fileTooLarge')
+      // FILE_TOO_LARGE uses the parser's dynamic message (includes correct limit per file type)
+      const isFileTooLarge = code === 'FILE_TOO_LARGE' || message.includes('File is too large')
+      const isSafe = !!matchedKey || isFileTooLarge
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
       if (matchedKey) {
         setError(t(errorCodeMap[matchedKey] as Parameters<typeof t>[0]))
-      } else if (message === t('fileUpload.fileTooLarge')) {
+      } else if (isFileTooLarge) {
         setError(message)
       } else {
         setError(t('fileUpload.parseFailed'))
