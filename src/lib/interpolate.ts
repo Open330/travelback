@@ -151,7 +151,7 @@ export function formatDistance(meters: number, units?: UnitSystem): string {
   const u = units ?? getUnitPreference()
   if (u === 'imperial') {
     const feet = meters * 3.28084
-    if (feet < 5280) return `${Math.round(feet)} ft`
+    if (feet < 1000) return `${Math.round(feet)} ft`
     return `${(feet / 5280).toFixed(1)} mi`
   }
   if (meters < 1000) return `${Math.round(meters)} m`
