@@ -190,9 +190,9 @@ function SceneRangeEditor({
 
 function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
-  const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
+  const [deletedScene, setDeletedScene] = useState<{ scene: Scene; precedingSceneId: string | null } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
-  const [pendingPreset, setPendingPreset] = useState<(() => void) | null>(null)
+  const [pendingPresetType, setPendingPresetType] = useState<string | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -225,6 +225,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const addScene = useCallback(() => {
     const last = scenes[scenes.length - 1]
     const start = last ? last.endPercent : 0
+    if (start >= 1) return
     const end = Math.min(start + 0.15, 1)
     const newScene: Scene = {
       id: `scene-${crypto.randomUUID().slice(0, 8)}`,
@@ -239,14 +240,17 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
-    if (idx >= 0) setDeletedScene({ scene: scenes[idx], index: idx })
+    if (idx >= 0) setDeletedScene({ scene: scenes[idx], precedingSceneId: idx > 0 ? scenes[idx - 1].id : null })
     commitScenes(scenes.filter(s => s.id !== id))
   }, [commitScenes, scenes])
 
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
     const restored = [...scenes]
-    restored.splice(deletedScene.index, 0, deletedScene.scene)
+    const insertIdx = deletedScene.precedingSceneId
+      ? restored.findIndex(s => s.id === deletedScene.precedingSceneId) + 1
+      : 0
+    restored.splice(insertIdx, 0, deletedScene.scene)
     commitScenes(restored)
     setDeletedScene(null)
   }, [commitScenes, deletedScene, scenes])
@@ -312,19 +316,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateDefaultScenes())); else commitScenes(generateDefaultScenes()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('cinematic'); else commitScenes(generateDefaultScenes()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateSimpleFlyover())); else commitScenes(generateSimpleFlyover()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('simple'); else commitScenes(generateSimpleFlyover()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateBirdeyeFlyover())); else commitScenes(generateBirdeyeFlyover()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('birdeye'); else commitScenes(generateBirdeyeFlyover()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateDynamicScenes())); else commitScenes(generateDynamicScenes()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('dynamic'); else commitScenes(generateDynamicScenes()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
@@ -540,15 +544,23 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
         </div>
       )}
 
-      {pendingPreset && (
-        <ModalDialog open onClose={() => setPendingPreset(null)} labelledBy="scene-confirm-title">
+      {pendingPresetType && (
+        <ModalDialog open onClose={() => setPendingPresetType(null)} labelledBy="scene-confirm-title">
           <p id="scene-confirm-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('scenes.replaceConfirm')}</p>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setPendingPreset(null)}
+            <button onClick={() => setPendingPresetType(null)}
               className="gi px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
               {t('app.cancel')}
             </button>
-            <button onClick={() => { pendingPreset(); setPendingPreset(null) }}
+            <button onClick={() => {
+              switch (pendingPresetType) {
+                case 'cinematic': commitScenes(generateDefaultScenes()); break
+                case 'simple': commitScenes(generateSimpleFlyover()); break
+                case 'birdeye': commitScenes(generateBirdeyeFlyover()); break
+                case 'dynamic': commitScenes(generateDynamicScenes()); break
+              }
+              setPendingPresetType(null)
+            }}
               className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
               {t('app.replace')}
             </button>
