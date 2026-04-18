@@ -37,6 +37,9 @@ export function useExportController({
 
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
     exportedVideoUrlRef.current = exportedVideoUrl
@@ -155,8 +158,10 @@ export function useExportController({
       exportAbortRef.current = null
       mapViewRef.current?.resetSize()
       await new Promise((resolve) => setTimeout(resolve, 200))
-      setIsExporting(false)
-      setExportProgress(0)
+      if (mountedRef.current) {
+        setIsExporting(false)
+        setExportProgress(0)
+      }
     }
   }, [
     addToast,
