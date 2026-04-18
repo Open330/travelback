@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
 
@@ -18,19 +18,21 @@ interface ToastProps {
 function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: () => void }) {
   const { t } = useLocale()
   const [visible, setVisible] = useState(false)
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
     let dismissTimer: ReturnType<typeof setTimeout> | null = null
     const timer = setTimeout(() => {
       setVisible(false)
-      dismissTimer = setTimeout(onDismiss, 300)
+      dismissTimer = setTimeout(() => onDismissRef.current(), 300)
     }, 5000)
     return () => {
       clearTimeout(timer)
       if (dismissTimer != null) clearTimeout(dismissTimer)
     }
-  }, [onDismiss])
+  }, [])
 
   const statusColor = message.type === 'error'
     ? 'var(--err)'
