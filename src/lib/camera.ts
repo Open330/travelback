@@ -409,19 +409,19 @@ export function computeCameraForProgress(
   const mainCamera = computeCameraForScene(track, cumulDist, scene, localProgress, elapsedSec)
 
   // Transition blending at scene boundaries
-  const halfTrans = transitionDuration / 2
+  const effectiveHalfTrans = Math.min(transitionDuration / 2, sceneDuration / 2)
 
-  if (sceneIdx > 0 && sceneDuration > 0 && localProgress < halfTrans / sceneDuration) {
+  if (sceneIdx > 0 && sceneDuration > 0 && localProgress < effectiveHalfTrans / sceneDuration) {
     const prevScene = normalizedScenes[sceneIdx - 1]
     const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
-    const blendT = (localProgress * sceneDuration) / halfTrans
+    const blendT = (localProgress * sceneDuration) / effectiveHalfTrans
     return lerpCamera(prevCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
   }
 
-  if (sceneIdx < normalizedScenes.length - 1 && sceneDuration > 0 && localProgress > 1 - halfTrans / sceneDuration) {
+  if (sceneIdx < normalizedScenes.length - 1 && sceneDuration > 0 && localProgress > 1 - effectiveHalfTrans / sceneDuration) {
     const nextScene = normalizedScenes[sceneIdx + 1]
     const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
-    const blendT = ((1 - localProgress) * sceneDuration) / halfTrans
+    const blendT = ((1 - localProgress) * sceneDuration) / effectiveHalfTrans
     return lerpCamera(nextCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
   }
 
