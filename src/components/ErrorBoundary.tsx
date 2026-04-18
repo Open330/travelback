@@ -6,6 +6,7 @@ import { useLocale, t as translate, type Locale } from '@/lib/i18n'
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
+  resetKey: number
 }
 
 class ErrorBoundaryInner extends React.Component<
@@ -14,7 +15,7 @@ class ErrorBoundaryInner extends React.Component<
 > {
   constructor(props: { children: React.ReactNode; locale: Locale }) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, resetKey: 0 }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -31,7 +32,7 @@ class ErrorBoundaryInner extends React.Component<
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null })
+    this.setState((prev) => ({ hasError: false, error: null, resetKey: prev.resetKey + 1 }))
   }
 
   render() {
@@ -67,7 +68,7 @@ class ErrorBoundaryInner extends React.Component<
       )
     }
 
-    return this.props.children
+    return <div key={this.state.resetKey}>{this.props.children}</div>
   }
 }
 
