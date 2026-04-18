@@ -1,13 +1,321 @@
 {
   "version": 8,
   "name": "Bright",
-  "sources": {},
+  "sources": {
+    "carto": {
+      "type": "vector",
+      "tiles": [
+        "https://tiles-a.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt",
+        "https://tiles-b.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt",
+        "https://tiles-c.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt",
+        "https://tiles-d.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt"
+      ],
+      "minzoom": 0,
+      "maxzoom": 14,
+      "attribution": "&copy; <a href=\"https://carto.com/about-carto/\" target=\"_blank\" rel=\"noopener\">CARTO</a>, &copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap</a> contributors"
+    }
+  },
   "layers": [
     {
       "id": "background",
       "type": "background",
       "paint": {
         "background-color": "#fff9f2"
+      }
+    },
+    {
+      "id": "landcover",
+      "type": "fill",
+      "source": "carto",
+      "source-layer": "landcover",
+      "filter": [
+        "any",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "wood"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "grass"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "recreation_ground"
+        ]
+      ],
+      "paint": {
+        "fill-color": "#eef5da",
+        "fill-opacity": 0.9
+      }
+    },
+    {
+      "id": "park",
+      "type": "fill",
+      "source": "carto",
+      "source-layer": "park",
+      "paint": {
+        "fill-color": "#d8e8c8",
+        "fill-opacity": 0.78
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "carto",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#aecfe2"
+      }
+    },
+    {
+      "id": "waterway",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "waterway",
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "river",
+          "stream",
+          "canal"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#7db3d6",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.4,
+          12,
+          1.2,
+          16,
+          2.8
+        ]
+      }
+    },
+    {
+      "id": "boundary",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "boundary",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "admin_level"
+          ],
+          2
+        ],
+        [
+          "!=",
+          [
+            "get",
+            "maritime"
+          ],
+          1
+        ]
+      ],
+      "layout": {
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#a08f7e",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          1,
+          0.5,
+          5,
+          1,
+          9,
+          2
+        ]
+      }
+    },
+    {
+      "id": "road-minor",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "transportation",
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "minor",
+          "service",
+          "track"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#dbcdbd",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          0.4,
+          13,
+          0.8,
+          16,
+          2.4
+        ]
+      }
+    },
+    {
+      "id": "road-major",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "transportation",
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "motorway",
+          "trunk",
+          "primary",
+          "secondary",
+          "tertiary"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#e9ac77",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          5,
+          0.6,
+          9,
+          1.1,
+          13,
+          2.2,
+          16,
+          4.2
+        ]
+      }
+    },
+    {
+      "id": "rail",
+      "type": "line",
+      "source": "carto",
+      "source-layer": "transportation",
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "rail"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#9b958d",
+        "line-dasharray": [
+          2,
+          2
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.3,
+          14,
+          1.4
+        ]
+      }
+    },
+    {
+      "id": "building",
+      "type": "fill",
+      "source": "carto",
+      "source-layer": "building",
+      "minzoom": 12,
+      "paint": {
+        "fill-color": "#efe2d7",
+        "fill-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.1,
+          14,
+          0.45,
+          16,
+          0.7
+        ]
       }
     }
   ]

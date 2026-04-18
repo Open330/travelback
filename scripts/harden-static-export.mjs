@@ -17,7 +17,7 @@ const STYLE_POLICY = [
   "style-src-attr 'none'",
   "font-src 'self'",
   "img-src 'self' blob: data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://*.basemaps.cartocdn.com",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "media-src 'self' blob:",
