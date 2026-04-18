@@ -125,8 +125,9 @@ export default function ExportPanel({
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Travelback' })
       }
-    } catch {
-      // User cancelled or share not supported
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      console.error('Share failed:', err)
     }
   }, [exportedVideoBlob])
 
