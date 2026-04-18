@@ -38,6 +38,7 @@ export function normalizeScenes(scenes: Scene[]): Scene[] {
         endPercent,
       }
     })
+    .filter((scene) => scene.endPercent > scene.startPercent)
 }
 
 /**
