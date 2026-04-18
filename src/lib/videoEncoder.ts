@@ -55,6 +55,10 @@ export async function exportVideo(
   const safeFps = Math.max(1, Math.min(fps, 120))
   const safeBitrate = Math.max(1, Math.min(bitrate, 100))
 
+  if (safeDuration !== duration || safeFps !== fps || safeBitrate !== bitrate) {
+    console.warn(`[Travelback] Export config clamped: duration=${duration}->${safeDuration}, fps=${fps}->${safeFps}, bitrate=${bitrate}->${safeBitrate}`)
+  }
+
   const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))
   const frameDuration = 1 / safeFps
   const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
