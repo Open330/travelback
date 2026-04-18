@@ -260,7 +260,7 @@ self.onmessage = (event) => {
       throw new Error('Invalid worker message: missing or invalid text field')
     }
     if (data.text.length > MAX_MESSAGE_SIZE) {
-      throw new Error('Input too large: exceeds 200MB limit')
+      throw new Error('Input too large: exceeds 500MB limit')
     }
     checkJsonDepth(data.text)
 
