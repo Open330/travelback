@@ -17,6 +17,7 @@ interface FileUploadProps {
 }
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024
+const JSON_MAX_FILE_SIZE = 500 * 1024 * 1024
 const WARN_FILE_SIZE = 100 * 1024 * 1024
 const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
@@ -36,7 +37,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     setError(null)
     setLoading(true)
     try {
-      if (file.size > MAX_FILE_SIZE) {
+      const ext = file.name.split('.').pop()?.toLowerCase()
+      const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : MAX_FILE_SIZE
+      if (file.size > maxForType) {
         throw new Error(t('fileUpload.fileTooLarge'))
       }
       if (file.size > WARN_FILE_SIZE) {
@@ -50,6 +53,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         UNSUPPORTED_FORMAT: 'fileUpload.unsupportedFormat',
         TOO_FEW_POINTS: 'fileUpload.tooFewPoints',
         TOO_MANY_POINTS: 'fileUpload.tooManyPoints',
+        FILE_TOO_LARGE: 'fileUpload.fileTooLarge',
         XML_PARSE_ERROR: 'fileUpload.parseFailed',
         INVALID_GOOGLE_JSON: 'fileUpload.parseFailed',
         JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
