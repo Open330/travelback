@@ -81,14 +81,14 @@ export function interpolateAlongTrack(
   const total = cumulativeDistances[cumulativeDistances.length - 1]
   const targetDist = clampedProgress * total
 
-  let segIdx = 0
-  for (let i = 1; i < cumulativeDistances.length; i++) {
-    if (cumulativeDistances[i] >= targetDist) {
-      segIdx = i - 1
-      break
-    }
-    segIdx = i - 1
+  let lo = 0
+  let hi = cumulativeDistances.length - 1
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1
+    if (cumulativeDistances[mid] <= targetDist) lo = mid
+    else hi = mid
   }
+  const segIdx = lo
 
   const segStart = cumulativeDistances[segIdx]
   const segEnd = cumulativeDistances[segIdx + 1] ?? segStart
