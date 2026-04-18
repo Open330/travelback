@@ -341,7 +341,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
                       href={step.action.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="vitro-btn-primary mt-3 inline-flex min-h-11 items-center gap-1.5 px-4 py-2 text-sm font-medium"
+                      className="gi mt-3 inline-flex min-h-11 items-center gap-1.5 px-4 py-2 text-sm font-medium"
                     >
                       {step.action.label}
                       <ExternalLink size={14} strokeWidth={2} />
