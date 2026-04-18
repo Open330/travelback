@@ -69,6 +69,17 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
     onSeek(Math.max(0, Math.min(1, x)))
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    const step = 0.02
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      onSeek(Math.min(1, progress + step))
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      onSeek(Math.max(0, progress - step))
+    }
+  }
+
   const progressX = progress * 100
   const elevRange = maxEle - minEle
 
@@ -82,7 +93,9 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="h-10 w-full rounded cursor-pointer"
+        tabIndex={0}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
         aria-label={t('elevation.profileAria')}
       >
         <defs>
