@@ -2,7 +2,7 @@
 
 import { useMemo, useId } from 'react'
 import type { Track } from '@/types'
-import { formatElevation, type UnitSystem } from '@/lib/interpolate'
+import { formatElevation, computeCumulativeDistances, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface ElevationProfileProps {
@@ -19,6 +19,11 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
   const elevations = useMemo(() => {
     return track.points.map((point) => Number.isFinite(point.ele) ? point.ele ?? null : null)
   }, [track])
+
+  const cumulDist = useMemo(
+    () => computeCumulativeDistances(track.points, track.segmentStartIndices),
+    [track]
+  )
 
   const hasElevation = useMemo(() => {
     return elevations.some(e => e !== null)
@@ -42,8 +47,9 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
 
     const points: string[] = []
     const n = elevations.length
+    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
     for (let i = 0; i < n; i++) {
-      const x = (i / (n - 1)) * w
+      const x = totalDist > 0 ? (cumulDist[i] / totalDist) * w : (i / (n - 1)) * w
       const ele = elevations[i] ?? min
       const y = h - ((ele - min) / range) * h
       points.push(`${x.toFixed(2)},${y.toFixed(2)}`)
@@ -53,7 +59,7 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
     const areaD = `M0,${h} L${points.join(' L')} L${w},${h} Z`
 
     return { minEle: min, maxEle: max, pathD, areaD }
-  }, [elevations, hasElevation])
+  }, [elevations, hasElevation, cumulDist])
 
   if (!hasElevation) return null
 
