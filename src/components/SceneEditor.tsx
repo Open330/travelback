@@ -181,7 +181,7 @@ function SceneRangeEditor({
       </div>
       <div className="mt-1 flex justify-between text-[9px]" style={{ color: 'var(--t4)' }}>
         <span>0%</span>
-        <span></span>
+        <span aria-hidden="true" />
         <span>100%</span>
       </div>
     </div>
