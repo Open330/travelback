@@ -341,7 +341,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   const seen = new Set<string>()
   const unique: Array<{ point: TrackPoint; order: number }> = []
   for (const [order, p] of points.entries()) {
-    const key = `${p.lat},${p.lng},${p.time?.getTime() ?? ''}`
+    const key = `${p.lat.toFixed(7)},${p.lng.toFixed(7)},${p.time?.getTime() ?? ''}`
     if (!seen.has(key)) {
       seen.add(key)
       unique.push({ point: p, order })
