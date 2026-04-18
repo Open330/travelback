@@ -101,7 +101,7 @@ And add the i18n key to all 5 locales in `src/lib/i18n.ts`.
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
-- [ ] Camera stays in Pacific for antimeridian-crossing routes (NEW-1)
-- [ ] Oversized JSON files rejected with clear error (NEW-2)
+- [x] Camera stays in Pacific for antimeridian-crossing routes (NEW-1) — 99f291a
+- [x] Oversized JSON files rejected with clear error (NEW-2) — 91e7739

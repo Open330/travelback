@@ -162,10 +162,10 @@ document.addEventListener('mousedown', handlePointerDown, { passive: true })
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
-- [ ] ElevationProfile click seeks to correct position for non-uniform tracks (NEW-3)
-- [ ] SceneRangeEditor listeners stable across renders (NEW-4)
-- [ ] Non-localStorage empty catches log warnings (NEW-5)
-- [ ] eslint-disable comments have justification (NEW-6)
-- [ ] TrackToolbar mousedown listener is passive (NEW-7)
+- [x] ElevationProfile click seeks to correct position for non-uniform tracks (NEW-3) — 8babcee
+- [x] SceneRangeEditor listeners stable across renders (NEW-4) — a631c21
+- [x] Non-localStorage empty catches log warnings (NEW-5) — 666703f
+- [x] eslint-disable comments have justification (NEW-6) — bd06cc4
+- [x] TrackToolbar mousedown listener is passive (NEW-7) — 20dade7
