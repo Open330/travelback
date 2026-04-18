@@ -123,25 +123,26 @@ const server = createServer(async (req, res) => {
     return
   }
 
-  const requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
-  const resolved = await resolveFile(requestUrl.pathname)
-
-  if ('redirect' in resolved) {
-    res.writeHead(302, { Location: resolved.redirect })
-    res.end()
-    return
-  }
-
-  if (resolved.status !== 200 || !('absolutePath' in resolved)) {
-    res.writeHead(resolved.status, { 'Content-Type': 'text/plain; charset=utf-8' })
-    res.end(`${resolved.status}`)
-    return
-  }
-
   try {
+    const requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
+    const resolved = await resolveFile(requestUrl.pathname)
+
+    if ('redirect' in resolved) {
+      res.writeHead(302, { Location: resolved.redirect })
+      res.end()
+      return
+    }
+
+    if (resolved.status !== 200 || !('absolutePath' in resolved)) {
+      res.writeHead(resolved.status, { 'Content-Type': 'text/plain; charset=utf-8' })
+      res.end(resolved.status === 404 ? 'Not Found' : resolved.status === 403 ? 'Forbidden' : 'Bad Request')
+      return
+    }
+
     const body = await readFile(resolved.absolutePath)
     res.writeHead(200, {
       'Content-Type': resolveContentType(resolved.absolutePath),
+      'Content-Length': body.length,
       'Cache-Control': resolveCacheControl(resolved.absolutePath),
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
@@ -155,7 +156,9 @@ const server = createServer(async (req, res) => {
 
     res.end(body)
   } catch {
-    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })
+    }
     res.end('500')
   }
 })
