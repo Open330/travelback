@@ -110,7 +110,7 @@ export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraSta
   }
   return {
     center: [
-      a.center[0] + (b.center[0] - a.center[0]) * s,
+      a.center[0] + (((b.center[0] - a.center[0] + 540) % 360) - 180) * s,
       a.center[1] + (b.center[1] - a.center[1]) * s,
     ],
     zoom: a.zoom + (b.zoom - a.zoom) * s,
