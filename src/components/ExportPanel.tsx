@@ -7,8 +7,7 @@ import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
-
-type ExportState = 'idle' | 'exporting' | 'done'
+import type { ExportState } from '@/lib/useExportController'
 
 const QUALITY_MAP: Record<string, number> = {
   low: 2,

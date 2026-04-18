@@ -356,8 +356,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     scenesRef.current = scenes
     normalizedScenesRef.current = normalizeScenes(scenes ?? [])
   }, [scenes])
-  useEffect(() => { durationRef.current = duration }, [duration])
-  useEffect(() => { transitionDurationRef.current = transitionDuration }, [transitionDuration])
+  useEffect(() => {
+    durationRef.current = duration
+    transitionDurationRef.current = transitionDuration
+  }, [duration, transitionDuration])
 
   useEffect(() => {
     trackRef.current = track
@@ -581,9 +583,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapStyleKey, track])
 
-  const addTrackLayers = useCallback((map: maplibregl.Map, t: Track) => {
-    const routeGeometry = buildTrackGeometry(t.points, t.segmentStartIndices)
-    const initialTrailGeometry = buildTrackGeometry(t.points, t.segmentStartIndices, 0, t.points[0])
+  const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
+    const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
+    const initialTrailGeometry = buildTrackGeometry(track.points, track.segmentStartIndices, 0, track.points[0])
 
     // Full route line
     if (map.getSource('route')) {

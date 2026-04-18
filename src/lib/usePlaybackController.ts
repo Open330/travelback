@@ -31,19 +31,10 @@ export function usePlaybackController(track: Track | null) {
 
   useEffect(() => {
     isPlayingRef.current = isPlaying
-  }, [isPlaying])
-
-  useEffect(() => {
     progressRef.current = progress
-  }, [progress])
-
-  useEffect(() => {
     speedRef.current = speed
-  }, [speed])
-
-  useEffect(() => {
     durationRef.current = duration
-  }, [duration])
+  }, [isPlaying, progress, speed, duration])
 
   const setPlaybackProgress = useCallback((nextProgress: number) => {
     setProgress(nextProgress)

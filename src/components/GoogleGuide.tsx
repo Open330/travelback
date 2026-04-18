@@ -5,8 +5,7 @@ import { X, ExternalLink, Circle } from 'lucide-react'
 import Image from 'next/image'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
-
-const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+import { basePath } from '@/lib/env'
 
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()

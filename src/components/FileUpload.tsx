@@ -3,6 +3,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react'
 import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
+import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
 import { parseTrackFile } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
@@ -17,7 +18,7 @@ interface FileUploadProps {
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024
 const WARN_FILE_SIZE = 100 * 1024 * 1024
-const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
@@ -69,8 +70,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       }
     }
   }, [onTrackLoaded, t])
-
-  const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()

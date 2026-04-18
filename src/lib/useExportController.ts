@@ -8,7 +8,7 @@ import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 
-type ExportState = 'idle' | 'exporting' | 'done'
+export type ExportState = 'idle' | 'exporting' | 'done'
 
 interface UseExportControllerOptions {
   track: Track | null

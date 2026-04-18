@@ -86,11 +86,16 @@ function stripXmlEntities(text: string): string {
   return text.replace(/<!DOCTYPE[\s\S]*?>/gi, '').replace(/<!ENTITY[\s\S]*?>/gi, '')
 }
 
-function parseGPX(text: string): Track {
+function parseXml(text: string, formatName: string): Document {
   const safeText = stripXmlEntities(text)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error('Invalid GPX: XML parse error')
+  if (parseError) throw new Error(`Invalid ${formatName}: XML parse error`)
+  return doc
+}
+
+function parseGPX(text: string): Track {
+  const doc = parseXml(text, 'GPX')
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
     .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
       .map<TrackPoint | null>((point) => {
@@ -130,10 +135,7 @@ function parseGPX(text: string): Track {
 }
 
 function parseKML(text: string): Track {
-  const safeText = stripXmlEntities(text)
-  const doc = new DOMParser().parseFromString(safeText, 'application/xml')
-  const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error('Invalid KML: XML parse error')
+  const doc = parseXml(text, 'KML')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
   const name = doc.querySelector('Document > name')?.textContent

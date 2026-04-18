@@ -19,6 +19,7 @@ import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, useLocale } from '@/lib/i18n'
 import { useExportController } from '@/lib/useExportController'
 import { usePlaybackController, usePlaybackHotkeys } from '@/lib/usePlaybackController'
+import { basePath } from '@/lib/env'
 
 export default function Home() {
   return (
@@ -172,7 +173,6 @@ function HomeInner() {
   }, [loadTrackIntoSession])
 
   const handleLoadSample = useCallback(async () => {
-    const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
     const sampleUrl = `${basePath}/sample-trip.gpx`
     let responseStatus: number | null = null
 
