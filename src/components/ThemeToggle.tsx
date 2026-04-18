@@ -39,8 +39,8 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
       const newMode = e.matches ? 'dark' : 'light'
       if (controlledMode == null) {
         setMode(newMode)
+        onModeChange?.(newMode)
       }
-      onModeChange?.(newMode)
     }
     mql.addEventListener('change', handler)
     return () => mql.removeEventListener('change', handler)
