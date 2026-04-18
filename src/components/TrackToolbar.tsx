@@ -56,7 +56,7 @@ export default function TrackToolbar({
       }
     }
 
-    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('mousedown', handlePointerDown, { passive: true })
     document.addEventListener('touchstart', handlePointerDown, { passive: true })
     document.addEventListener('keydown', handleKeyDown)
     return () => {
