@@ -25,7 +25,7 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
   }, [elevations])
 
   const { minEle, maxEle, pathD, areaD } = useMemo(() => {
-    if (!hasElevation) return { minEle: 0, maxEle: 0, pathD: '', areaD: '' }
+    if (!hasElevation || elevations.length < 2) return { minEle: 0, maxEle: 0, pathD: '', areaD: '' }
 
     let min = Infinity
     let max = -Infinity
