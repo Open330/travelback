@@ -199,22 +199,16 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
-    const sorted = [...nextScenes].sort((a, b) => a.startPercent - b.startPercent)
+    const normalized = normalizeScenes(nextScenes)
+    const sorted = [...normalized].sort((a, b) => a.startPercent - b.startPercent)
     const w: string[] = []
     for (let i = 0; i < sorted.length; i++) {
       const s = sorted[i]
       if (s.startPercent >= s.endPercent) {
         w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
       }
-      if (i > 0) {
-        const prev = sorted[i - 1]
-        if (s.startPercent < prev.endPercent) {
-          w.push(`"${prev.name}" ${t('scenes.overlap')} "${s.name}" ${t('scenes.overlapSuffix')}`)
-        }
-      }
     }
     setNormalizationWarnings(w)
-    const normalized = normalizeScenes(nextScenes)
     onChange(normalized)
   }, [onChange, t])
 
