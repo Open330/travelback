@@ -222,7 +222,9 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
   const expandedMaxLat = Math.min(85, maxLat + latMargin)
 
   let longitudeIndex = 0
-  for (let longitude = Math.floor(expandedMinLng / step) * step; longitude <= expandedMaxLng + step / 2; longitude += step) {
+  const lngCount = Math.ceil((expandedMaxLng + step / 2 - Math.floor(expandedMinLng / step) * step) / step)
+  for (let i = 0; i < lngCount; i++) {
+    const longitude = Math.floor(expandedMinLng / step) * step + i * step
     features.push({
       type: 'Feature',
       properties: { major: longitudeIndex % majorEvery === 0 ? 1 : 0 },
@@ -238,7 +240,9 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
   }
 
   let latitudeIndex = 0
-  for (let latitude = Math.floor(expandedMinLat / step) * step; latitude <= expandedMaxLat + step / 2; latitude += step) {
+  const latCount = Math.ceil((expandedMaxLat + step / 2 - Math.floor(expandedMinLat / step) * step) / step)
+  for (let i = 0; i < latCount; i++) {
+    const latitude = Math.floor(expandedMinLat / step) * step + i * step
     features.push({
       type: 'Feature',
       properties: { major: latitudeIndex % majorEvery === 0 ? 1 : 0 },
