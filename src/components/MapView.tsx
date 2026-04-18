@@ -74,9 +74,21 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
 }
 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
+  // Longitude: detect antimeridian wrap and shift into [0,360) domain
+  // (same approach as lerpCamera in camera.ts)
+  const lngDiff = target.center[0] - previous.center[0]
+  let lngResult: number
+  if (Math.abs(lngDiff) > 180) {
+    const aShifted = ((previous.center[0] + 180) % 360 + 360) % 360
+    const bShifted = ((target.center[0] + 180) % 360 + 360) % 360
+    lngResult = aShifted + (bShifted - aShifted) * factor
+    lngResult = ((lngResult + 180) % 360) - 180
+  } else {
+    lngResult = previous.center[0] + lngDiff * factor
+  }
   return {
     center: [
-      previous.center[0] + (((target.center[0] - previous.center[0] + 540) % 360) - 180) * factor,
+      lngResult,
       previous.center[1] + (target.center[1] - previous.center[1]) * factor,
     ],
     zoom: previous.zoom + (target.zoom - previous.zoom) * factor,
