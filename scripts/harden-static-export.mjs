@@ -14,6 +14,7 @@ const STYLE_POLICY = [
   "script-src __SCRIPT_HASHES__",
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
+  "style-src-attr 'none'",
   "font-src 'self'",
   "img-src 'self' blob: data:",
   "connect-src 'self'",
