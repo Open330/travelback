@@ -695,7 +695,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             </button>
             <button onClick={handleConfirmCreate}
               className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer transition-colors"
-              style={{ background: '#f97316' }}>
+              style={{ background: 'rgb(var(--gl))' }}>
               {t('journey.confirmCreate')}
               <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
             </button>
@@ -726,7 +726,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             onClick={handleDone}
             disabled={pointCount < 2}
             className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            style={{ background: '#f97316' }}
+            style={{ background: 'rgb(var(--gl))' }}
           >
             {t('journey.done')}
             <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
