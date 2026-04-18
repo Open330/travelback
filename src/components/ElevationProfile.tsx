@@ -65,8 +65,23 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    onSeek(Math.max(0, Math.min(1, x)))
+    const clickFraction = (e.clientX - rect.left) / rect.width
+    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
+    if (totalDist <= 0 || track.points.length < 2) {
+      onSeek(Math.max(0, Math.min(1, clickFraction)))
+      return
+    }
+    // The x-axis is based on cumulative distance, not uniform point distribution.
+    // Binary search on cumulDist to convert distance fraction to point-index progress.
+    const targetDist = clickFraction * totalDist
+    let lo = 0, hi = cumulDist.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (cumulDist[mid] < targetDist) lo = mid + 1
+      else hi = mid
+    }
+    const seekProgress = lo / (track.points.length - 1)
+    onSeek(Math.max(0, Math.min(1, seekProgress)))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
