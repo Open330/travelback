@@ -159,7 +159,7 @@ export function useExportController({
       mapViewRef.current?.resetSize()
       // Wait for map to settle after resize instead of fixed timeout
       try {
-        await mapViewRef.current?.waitForIdle(exportAbortRef.current?.signal)
+        await mapViewRef.current?.waitForIdle()
       } catch {
         // Timeout or abort is acceptable during cleanup
       }
