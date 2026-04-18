@@ -291,7 +291,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
               onClick={() => setTab(i)}
               className="min-h-11 flex-shrink-0 whitespace-nowrap rounded-2xl px-3 py-2 text-[11px] font-medium cursor-pointer transition-colors"
               style={{
-                background: tab === i ? 'rgb(var(--gl))' : 'var(--bg-gi)',
+                background: tab === i ? 'rgb(var(--gl))' : 'var(--gi-bg)',
                 color: tab === i ? '#fff' : 'var(--t3)',
               }}
             >

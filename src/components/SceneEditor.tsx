@@ -6,6 +6,7 @@ import type { Scene, CameraMode } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, normalizeScenes } from '@/lib/camera'
 import { useLocale, type TranslationKey } from '@/lib/i18n'
+import ModalDialog from '@/components/ModalDialog'
 
 const SCENE_COLORS = [
   'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
@@ -191,6 +192,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
+  const [pendingPreset, setPendingPreset] = useState<(() => void) | null>(null)
+  const [focusedInput, setFocusedInput] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
@@ -224,7 +227,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     const start = last ? last.endPercent : 0
     const end = Math.min(start + 0.15, 1)
     const newScene: Scene = {
-      id: `scene-${Date.now()}`,
+      id: `scene-${crypto.randomUUID().slice(0, 8)}`,
       name: t('scenes.newSceneName').replace('{n}', String(scenes.length + 1)),
       cameraMode: 'flyover',
       startPercent: start,
@@ -288,7 +291,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   }, [scenes, t])
 
   return (
-    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 top-44 bottom-32 z-20 w-auto gs flex flex-col overflow-hidden sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)]"
+    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
       style={{ borderRadius: 'var(--r-glass)' }}
       onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
@@ -309,19 +312,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateDefaultScenes()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateDefaultScenes())); else commitScenes(generateDefaultScenes()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateSimpleFlyover()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateSimpleFlyover())); else commitScenes(generateSimpleFlyover()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateBirdeyeFlyover()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateBirdeyeFlyover())); else commitScenes(generateBirdeyeFlyover()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button onClick={() => { if (scenes.length > 0 && !confirm(t('scenes.replaceConfirm'))) return; commitScenes(generateDynamicScenes()) }}
+        <button onClick={() => { if (scenes.length > 0) setPendingPreset(() => () => commitScenes(generateDynamicScenes())); else commitScenes(generateDynamicScenes()) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
@@ -360,7 +363,6 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             ))}
           </div>
           <div className="flex justify-between text-[9px] mt-0.5" style={{ color: 'var(--t4)' }}>
-            <span>0%</span><span></span><span>100%</span>
           </div>
           {warnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
@@ -379,10 +381,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             <div className="flex items-center justify-between">
               <input value={scene.name}
                 onChange={e => updateScene(scene.id, { name: e.target.value })}
-                className="text-xs font-semibold bg-transparent w-32 outline-none border-b border-transparent"
-                style={{ color: 'var(--t1)', borderBottomColor: 'transparent' }}
-                onFocus={e => e.target.style.borderBottomColor = 'rgb(var(--gl))'}
-                onBlur={e => e.target.style.borderBottomColor = 'transparent'} />
+                className="text-xs font-semibold bg-transparent w-32 outline-none border-b"
+                style={{ color: 'var(--t1)', borderBottomColor: focusedInput === scene.id ? 'rgb(var(--gl))' : 'var(--div)', transition: 'border-color .15s ease' }}
+                onFocus={() => setFocusedInput(scene.id)}
+                onBlur={() => setFocusedInput(null)} />
               <button onClick={() => removeScene(scene.id)}
                 className="flex h-11 w-11 items-center justify-center rounded-full text-xs cursor-pointer" style={{ color: 'var(--t4)' }} aria-label={t('scenes.deleteScene').replace('{name}', scene.name)}>
                 <X size={14} strokeWidth={2} />
@@ -536,6 +538,22 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             {t('scenes.undo')}
           </button>
         </div>
+      )}
+
+      {pendingPreset && (
+        <ModalDialog open onClose={() => setPendingPreset(null)} labelledBy="scene-confirm-title">
+          <p id="scene-confirm-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('scenes.replaceConfirm')}</p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setPendingPreset(null)}
+              className="gi px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+              {t('app.cancel')}
+            </button>
+            <button onClick={() => { pendingPreset(); setPendingPreset(null) }}
+              className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
+              {t('app.replace')}
+            </button>
+          </div>
+        </ModalDialog>
       )}
     </div>
   )

@@ -7,6 +7,7 @@ import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
 import { totalDistance, formatDistance, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
+import ModalDialog from '@/components/ModalDialog'
 
 interface JourneyCreatorProps {
   isActive: boolean
@@ -108,6 +109,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [pointCount, setPointCount] = useState(0)
   const [distanceMeters, setDistanceMeters] = useState(0)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [searchEnabled, setSearchEnabled] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ParsedLocationResult[]>([])
@@ -516,7 +518,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             {t('journey.title')}
           </span>
           <button
-            onClick={() => { if (pointCount >= 1 && !confirm(t('journey.discardConfirm'))) return; onCancel() }}
+            onClick={() => { if (pointCount >= 1) setShowDiscardConfirm(true); else onCancel() }}
             className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
           >
             {t('journey.cancel')}
@@ -728,6 +730,22 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             </p>
           )}
         </div>
+      )}
+
+      {showDiscardConfirm && (
+        <ModalDialog open onClose={() => setShowDiscardConfirm(false)} labelledBy="journey-discard-title">
+          <p id="journey-discard-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('journey.discardConfirm')}</p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowDiscardConfirm(false)}
+              className="gi px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+              {t('app.cancel')}
+            </button>
+            <button onClick={() => { setShowDiscardConfirm(false); onCancel() }}
+              className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
+              {t('app.discard')}
+            </button>
+          </div>
+        </ModalDialog>
       )}
     </div>
   )

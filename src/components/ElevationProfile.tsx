@@ -73,7 +73,7 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="h-6 w-full rounded pointer-events-none sm:pointer-events-auto sm:cursor-pointer sm:h-10"
+        className="h-10 w-full rounded cursor-pointer"
         onClick={handleClick}
         aria-label={t('elevation.profileAria')}
       >
