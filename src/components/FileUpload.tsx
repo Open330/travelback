@@ -70,10 +70,19 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     }
   }, [onTrackLoaded, t])
 
+  const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    if (file) {
+      const ext = file.name.split('.').pop()?.toLowerCase()
+      if (!ext || !VALID_EXTENSIONS.has(ext)) {
+        setTimeout(() => setIsDragging(false), 200)
+        return
+      }
+      handleFile(file)
+    }
     setTimeout(() => setIsDragging(false), 200)
   }, [handleFile])
 
