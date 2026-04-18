@@ -100,6 +100,12 @@ function estimateOverviewZoom(points: TrackPoint[]): number {
   return Math.max(1, Math.min(18, z))
 }
 
+function computeOverviewCamera(track: Track, cumulDist: number[], elapsedSec: number): CameraState {
+  const center = trackCenter(track.points)
+  const zoom = estimateOverviewZoom(track.points)
+  return { center, zoom, pitch: 0, bearing: ((elapsedSec * 5) % 360 + 360) % 360 }
+}
+
 /**
  * Smoothly interpolate between two camera states with easing
  */
@@ -391,6 +397,13 @@ export function computeCameraForProgress(
       const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(prevCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
+    } else if (prevIdx === -1 && nextIdx >= 0) {
+      // Before first scene: interpolate from overview camera
+      const nextScene = normalizedScenes[nextIdx]
+      const gapT = nextScene.startPercent > 0 ? globalProgress / nextScene.startPercent : 1
+      const overviewCamera = computeOverviewCamera(track, cumulDist, elapsedSec)
+      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
+      return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {
       sceneIdx = prevIdx
     } else if (nextIdx >= 0) {
