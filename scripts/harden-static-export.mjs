@@ -38,12 +38,24 @@ async function walk(directory) {
   }
 }
 
+function decodeHtmlEntities(text) {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+}
+
 function computeScriptHashes(html) {
   const hashes = new Set()
   const scriptPattern = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
 
   for (const match of html.matchAll(scriptPattern)) {
-    const scriptContent = match[1]
+    const scriptContent = decodeHtmlEntities(match[1])
     if (!scriptContent || scriptContent.trim() === '') continue
     const hash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
     hashes.add(`'sha256-${hash}'`)
