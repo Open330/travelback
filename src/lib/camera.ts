@@ -53,7 +53,19 @@ function trackCenter(points: TrackPoint[]): [number, number] {
     if (p.lat < minLat) minLat = p.lat
     if (p.lat > maxLat) maxLat = p.lat
   }
-  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
+  const latCenter = (minLat + maxLat) / 2
+  // Antimeridian crossing: if span > 180°, shift longitudes before averaging
+  if (maxLng - minLng > 180) {
+    let minShifted = Infinity, maxShifted = -Infinity
+    for (const p of points) {
+      const shifted = ((p.lng + 180) % 360 + 360) % 360
+      if (shifted < minShifted) minShifted = shifted
+      if (shifted > maxShifted) maxShifted = shifted
+    }
+    const centerShifted = (minShifted + maxShifted) / 2
+    return [((centerShifted + 180) % 360) - 180, latCenter]
+  }
+  return [(minLng + maxLng) / 2, latCenter]
 }
 
 /**
@@ -69,7 +81,17 @@ function estimateOverviewZoom(points: TrackPoint[]): number {
     if (p.lat < minLat) minLat = p.lat
     if (p.lat > maxLat) maxLat = p.lat
   }
-  const dLng = maxLng - minLng
+  let dLng = maxLng - minLng
+  // Antimeridian crossing: if span > 180°, compute shifted span
+  if (dLng > 180) {
+    let minShifted = Infinity, maxShifted = -Infinity
+    for (const p of points) {
+      const shifted = ((p.lng + 180) % 360 + 360) % 360
+      if (shifted < minShifted) minShifted = shifted
+      if (shifted > maxShifted) maxShifted = shifted
+    }
+    dLng = maxShifted - minShifted
+  }
   const dLat = maxLat - minLat
   const maxSpan = Math.max(dLng, dLat)
   if (maxSpan === 0) return 14
