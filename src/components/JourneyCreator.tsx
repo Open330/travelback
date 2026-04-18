@@ -559,6 +559,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--t4)' }} />
               <input
                 type="text"
+                role="combobox"
+                aria-expanded={searchResults.length > 0}
+                aria-controls="journey-search-listbox"
+                aria-autocomplete="list"
                 value={searchQuery}
                 onChange={e => handleSearchInputChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -598,10 +602,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               </p>
             )}
             {searchResults.length > 0 && (
-              <div className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
+              <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
                 style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
                 {searchResults.map((r, i) => (
-                  <button key={i} onClick={() => handleSelectPlace(r.lat, r.lon)}
+                  <button key={i} role="option" onClick={() => handleSelectPlace(r.lat, r.lon)}
                     className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
                     style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
                     {r.display_name}
