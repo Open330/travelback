@@ -571,9 +571,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     // Re-add sources/layers after style loads
     let styleHandler: (() => void) | null = null
     styleHandler = () => {
-      addReferenceGridLayers(map, mapStyleKey, track)
-      if (track) {
-        addTrackLayers(map, track)
+      const currentTrack = trackRef.current
+      addReferenceGridLayers(map, mapStyleKey, currentTrack)
+      if (currentTrack) {
+        addTrackLayers(map, currentTrack)
       }
     }
     map.once('style.load', styleHandler)
