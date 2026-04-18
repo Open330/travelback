@@ -75,6 +75,9 @@ for (const htmlFile of htmlFiles) {
 
   const csp = STYLE_POLICY.replace('__SCRIPT_HASHES__', [`'self'`, ...hashes].join(' '))
   const nextHtml = replaceCspMeta(html, csp)
+  if (nextHtml === html) {
+    throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
+  }
   await writeFile(htmlFile, nextHtml)
 }
 

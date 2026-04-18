@@ -143,6 +143,9 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': resolveContentType(resolved.absolutePath),
       'Cache-Control': resolveCacheControl(resolved.absolutePath),
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
     })
 
     if (method === 'HEAD') {
