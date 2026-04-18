@@ -19,10 +19,11 @@ function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean
   return { mode: inferredMode, hadExplicitMode: false }
 }
 
-export default function ThemeToggle({ onModeChange }: { onModeChange?: (mode: 'dark' | 'light') => void }) {
+export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mode?: 'dark' | 'light'; onModeChange?: (mode: 'dark' | 'light') => void }) {
   const { t } = useLocale()
   const [initialMode] = useState(() => detectInitialMode())
   const [mode, setMode] = useState<'dark' | 'light'>(initialMode.mode)
+  const effectiveMode = controlledMode ?? mode
 
   useEffect(() => {
     if (!initialMode.hadExplicitMode) {
@@ -36,30 +37,32 @@ export default function ThemeToggle({ onModeChange }: { onModeChange?: (mode: 'd
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => {
       const newMode = e.matches ? 'dark' : 'light'
-      document.documentElement.setAttribute('data-mode', newMode)
-      setMode(newMode)
+      if (controlledMode == null) {
+        setMode(newMode)
+      }
       onModeChange?.(newMode)
     }
     mql.addEventListener('change', handler)
     return () => mql.removeEventListener('change', handler)
-  }, [onModeChange])
+  }, [controlledMode, onModeChange])
 
   const toggle = useCallback(() => {
-    const next = mode === 'dark' ? 'light' : 'dark'
-    document.documentElement.setAttribute('data-mode', next)
-    setMode(next)
+    const next = effectiveMode === 'dark' ? 'light' : 'dark'
+    if (controlledMode == null) {
+      setMode(next)
+    }
     onModeChange?.(next)
-  }, [mode, onModeChange])
+  }, [controlledMode, effectiveMode, onModeChange])
 
   return (
     <button
       onClick={toggle}
-      title={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
-      aria-label={mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
-      className="gi w-9 h-9 flex items-center justify-center cursor-pointer"
+      title={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      aria-label={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      className="gi flex h-11 w-11 items-center justify-center cursor-pointer"
       style={{ color: 'var(--t2)' }}
     >
-      {mode === 'dark' ? (
+      {effectiveMode === 'dark' ? (
         <Sun size={18} strokeWidth={2} />
       ) : (
         <Moon size={18} strokeWidth={2} />

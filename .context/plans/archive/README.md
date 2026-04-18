@@ -46,3 +46,11 @@ This directory contains implementation plans that are considered **fully impleme
 - `review-remediation-gap-analysis-2026-04-13.md`
   - Archived on 2026-04-13.
   - Reason: superseded after all gap-analysis follow-up plans were completed.
+
+- `address-comprehensive-ui-ux-review-2026-04-14.md`
+  - Archived on 2026-04-17.
+  - Reason: All 10 findings from the 2026-04-14 UI/UX review confirmed fixed in post-remediation verification (2026-04-15) and subsequent polish passes.
+
+- `address-comprehensive-deep-code-review-2026-04-15.md`
+  - Archived on 2026-04-17.
+  - Reason: 8 of 11 findings confirmed fixed. Remaining 3 items (F6 partial, F7, F8) carried forward to active plans `interaction-state-correctness-2026-04-17.md` and `code-quality-infrastructure-2026-04-17.md`.

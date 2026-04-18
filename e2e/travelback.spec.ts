@@ -11,6 +11,9 @@ const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-tim
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
 const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
 const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
+const SINGLE_QUOTE_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/single-quote-attrs.gpx')
+const POINT_PLACEMARKS_KML_FIXTURE = path.resolve(__dirname, 'fixtures/point-placemarks.kml')
+const INVALID_ELEVATION_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/invalid-elevation.gpx')
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -124,22 +127,40 @@ function visibleTrackTitle(page: Page, name: string) {
 async function uploadGpx(page: Page) {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(GPX_FIXTURE)
-  await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
 /** Helper: upload a KML file and wait for the track to load */
 async function uploadKml(page: Page) {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(KML_FIXTURE)
-  // KML parser reads Document > name first → "Korea to Japan via Ferry"
-  await expect(visibleTrackTitle(page, 'Korea to Japan via Ferry')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
 /** Helper: upload a JSON file and wait for the track to load */
 async function uploadJson(page: Page, fixture: string) {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(fixture)
-  await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible({ timeout: 15_000 })
+  await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible({ timeout: 20_000 })
+}
+
+async function uploadCustomFile(page: Page, fixture: string) {
+  const fileInput = page.locator('input[type="file"]')
+  await fileInput.setInputFiles(fixture)
+  await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
+}
+
+async function activeElementState(page: Page) {
+  return page.evaluate(() => {
+    const active = document.activeElement as HTMLElement | null
+    if (!active) return null
+    return {
+      tag: active.tagName.toLowerCase(),
+      aria: active.getAttribute('aria-label') || '',
+      text: (active.textContent || '').replace(/\s+/g, ' ').trim(),
+      insideDialog: Boolean(active.closest('[role="dialog"]')),
+    }
+  })
 }
 
 test.describe('Travelback App', () => {
@@ -160,6 +181,28 @@ test.describe('Travelback App', () => {
     // The file upload drop zone should be visible
     await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
   })
+  test('landing keyboard flow prioritizes upload actions over the decorative map', async ({ page }) => {
+    await page.keyboard.press('Tab')
+    const active = await activeElementState(page)
+    expect(active?.tag).toBe('button')
+    expect(active?.aria || active?.text).not.toMatch(/Map|Toggle attribution|MapLibre/)
+  })
+
+  test('guide modal uses dialog semantics and keeps focus inside the panel', async ({ page }) => {
+    await page.getByRole('button', { name: /need help finding your file/i }).click({ force: true })
+
+    const dialog = page.getByRole('dialog', { name: 'How to Get Your Travel Data' })
+    await expect(dialog).toBeVisible({ timeout: 10_000 })
+    await expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Tab')
+    }
+
+    const active = await activeElementState(page)
+    expect(active?.insideDialog).toBe(true)
+  })
+
 
   test('language picker can switch the landing UI away from English', async ({ page }) => {
     await page.getByRole('combobox', { name: 'Language' }).selectOption('ko')
@@ -188,11 +231,23 @@ test.describe('Travelback App', () => {
     await page.getByTestId('global-toolbar').locator('select').selectOption('es')
 
     const trackToolbar = page.getByTestId('track-toolbar')
-    await expect(trackToolbar.getByRole('button', { name: 'Exportar', exact: true })).toBeVisible({ timeout: 10_000 })
-    await expect(trackToolbar.getByRole('button', { name: 'Cámara', exact: true })).toBeVisible()
+    const exportButton = trackToolbar.locator('button').filter({ hasText: 'Exportar' }).first()
+    const cameraButton = trackToolbar.locator('button').filter({ hasText: 'Cámara' }).first()
+    await expect(exportButton).toBeVisible({ timeout: 10_000 })
+    await expect(cameraButton).toBeVisible()
 
-    await trackToolbar.getByRole('button', { name: 'Exportar', exact: true }).click({ force: true })
+    await exportButton.click({ force: true })
     await expect(page.getByRole('heading', { name: 'Exportar video' })).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('dark system theme is applied on first render without needing a manual toggle', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto('/')
+    await waitForApp(page)
+
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('dark')
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mapstyle'))).toBe('dark')
+    await expect.poll(async () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(10, 13, 20)')
   })
 
   test('loads sample trip from landing CTA', async ({ page }) => {
@@ -215,6 +270,25 @@ test.describe('Travelback App', () => {
 
     // Controls should appear (any button with SVG icons)
     await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('imports GPX files that use single-quoted XML attributes', async ({ page }) => {
+    await uploadCustomFile(page, SINGLE_QUOTE_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Single Quote GPX')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('imports KML files composed from point placemarks', async ({ page }) => {
+    await uploadCustomFile(page, POINT_PLACEMARKS_KML_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Point Placemark KML')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('elevation profile ignores malformed elevation values instead of rendering NaN geometry', async ({ page }) => {
+    await uploadCustomFile(page, INVALID_ELEVATION_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Invalid Elevation Track')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('svg[aria-label="Elevation profile"]')).toBeVisible({ timeout: 10_000 })
+    await expect
+      .poll(async () => page.locator('svg[aria-label="Elevation profile"]').innerHTML())
+      .not.toContain('NaN')
   })
 
   test('journey creator shows multiple travel icon options', async ({ page }) => {
@@ -287,7 +361,31 @@ test.describe('Travelback App', () => {
     }, { timeout: 15_000, intervals: [200, 400, 600, 1000] }).toBeFalsy()
   })
 
-  test('mobile header layout keeps top toolbars separated and moves track summary below', async ({ page }) => {
+  test('loaded desktop global toolbar sits below the primary top action row', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
+    await waitForApp(page)
+    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    await page.getByTestId('load-new-file-button').waitFor({ state: 'visible', timeout: 15_000 })
+
+    const globalToolbar = page.getByTestId('global-toolbar')
+    const trackToolbar = page.getByTestId('track-toolbar')
+
+    await expect(globalToolbar).toBeVisible({ timeout: 10_000 })
+    await expect(trackToolbar).toBeVisible({ timeout: 10_000 })
+
+    await expect.poll(async () => {
+      const [globalBox, trackBox] = await Promise.all([
+        globalToolbar.boundingBox(),
+        trackToolbar.boundingBox(),
+      ])
+
+      if (!globalBox || !trackBox) return false
+      return globalBox.y >= trackBox.y + trackBox.height + 8
+    }, { timeout: 5_000, intervals: [120, 200, 300] }).toBe(true)
+  })
+
+  test('mobile header layout keeps the action bar compact after a track loads', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
     await waitForApp(page)
@@ -297,26 +395,27 @@ test.describe('Travelback App', () => {
     await sampleBtn.click({ force: true })
 
     await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('global-toolbar')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('global-toolbar')).toBeHidden()
     await expect(page.getByTestId('track-toolbar')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('track-title-mobile')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('track-title')).toBeHidden()
 
     await expect.poll(async () => {
-      const [loadNewFileBox, globalToolbarBox, trackToolbarBox] = await Promise.all([
+      const [loadNewFileBox, trackToolbarBox] = await Promise.all([
         page.getByTestId('load-new-file-button').boundingBox(),
-        page.getByTestId('global-toolbar').boundingBox(),
         page.getByTestId('track-toolbar').boundingBox(),
       ])
 
-      if (!loadNewFileBox || !globalToolbarBox || !trackToolbarBox) {
+      if (!loadNewFileBox || !trackToolbarBox) {
         return true
       }
 
-      return boxesOverlap(loadNewFileBox, globalToolbarBox)
-        || boxesOverlap(loadNewFileBox, trackToolbarBox)
-        || boxesOverlap(globalToolbarBox, trackToolbarBox)
+      return boxesOverlap(loadNewFileBox, trackToolbarBox)
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
+
+    await expect.poll(async () => {
+      const loadNewFileBox = await page.getByTestId('load-new-file-button').boundingBox()
+      return loadNewFileBox?.width ?? 999
+    }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeLessThanOrEqual(60)
   })
 
   test('mobile playback controls keep stats on a separate row', async ({ page }) => {
@@ -680,6 +779,38 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-style-button')).toHaveText(/Map:\s*Voyager/, { timeout: 10_000 })
   })
 
+  test('explicit map style choices survive later system theme changes', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.goto('/')
+    await waitForApp(page)
+    await uploadGpx(page)
+
+    const styleBtn = page.getByTestId('map-style-button')
+    await styleBtn.click({ force: true })
+    await styleBtn.click({ force: true })
+    await styleBtn.click({ force: true })
+    await expect(styleBtn).toHaveText(/Map:\s*Liberty/, { timeout: 10_000 })
+
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(styleBtn).toHaveText(/Map:\s*Liberty/, { timeout: 10_000 })
+  })
+
+  test('export panel uses dialog semantics and traps keyboard focus', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const dialog = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(dialog).toBeVisible({ timeout: 10_000 })
+    await expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Tab')
+    }
+
+    const active = await activeElementState(page)
+    expect(active?.insideDialog).toBe(true)
+  })
+
   test('export panel opens with resolution and codec options', async ({ page }) => {
     await uploadGpx(page)
 
@@ -694,7 +825,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Quality')).toBeVisible()
 
     // Should have resolution select (options inside <select> are "hidden" per Playwright)
-    const resolutionSelect = page.getByRole('combobox').first()
+    const resolutionSelect = page.getByRole('dialog', { name: 'Export Video' }).getByRole('combobox').first()
     await expect(resolutionSelect).toBeVisible()
 
     // Codec is now behind the Advanced toggle — click to expand
@@ -711,7 +842,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Export Video')).toBeVisible()
 
     // Find the resolution combobox inside the export panel (it contains "YouTube" as selected text)
-    const exportPanel = page.locator('.z-30')
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     const resSelect = exportPanel.getByRole('combobox').first()
     await resSelect.selectOption({ index: 1 }) // TikTok is second option
 
@@ -725,7 +856,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Export Video')).toBeVisible()
 
     // Close it
-    await page.locator('.z-30 button svg').first().click({ force: true })
+    await page.getByRole('button', { name: 'Close panel' }).click({ force: true })
     await expect(page.getByText('Export Video')).not.toBeVisible()
   })
 

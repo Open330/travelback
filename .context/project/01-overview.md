@@ -47,6 +47,7 @@ src/
 │   ├── FileUpload.tsx          # Drag-and-drop file upload with format detection
 │   ├── Controls.tsx            # Playback controls (play/pause, speed, progress, follow)
 │   ├── ExportPanel.tsx         # Video export settings (resolution, codec, FPS, bitrate)
+│   ├── ModalDialog.tsx         # Shared dialog shell with focus management/inert background
 │   ├── TimelineSelector.tsx    # Drag-based time range selector with density histogram
 │   ├── TrackWorkspace.tsx      # Loaded-track workspace (trim, scenes, playback, export entry points)
 │   ├── JourneyCreator.tsx      # Manual route creator (click-to-add waypoints on map)

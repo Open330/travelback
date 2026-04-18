@@ -1,0 +1,178 @@
+{
+  "guideRoot": {
+    "role": null,
+    "ariaModal": null,
+    "x": 528,
+    "y": 45,
+    "w": 384,
+    "h": 810
+  },
+  "guideTabs": [
+    {
+      "tag": "button",
+      "aria": "Metric units",
+      "text": "km",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "Imperial units",
+      "text": "mi",
+      "insideRoot": false
+    },
+    {
+      "tag": "select",
+      "aria": "Language",
+      "text": "ENKOJAZHES",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "Switch to dark mode",
+      "text": "",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "Close",
+      "text": "",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Google Maps (Phone)",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Google Maps (Computer)",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Strava",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Garmin",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "AllTrails",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Komoot",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Other Apps",
+      "insideRoot": true
+    }
+  ],
+  "exportRoot": {
+    "role": null,
+    "ariaModal": null,
+    "x": 496,
+    "y": 218.84375,
+    "w": 448,
+    "h": 462.296875
+  },
+  "exportTabs": [
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Drag the handles to select a date range",
+      "insideRoot": false
+    },
+    {
+      "tag": "input",
+      "aria": "Playback progress",
+      "text": "",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "Play",
+      "text": "",
+      "insideRoot": false
+    },
+    {
+      "tag": "select",
+      "aria": "Playback speed",
+      "text": "0.5x1x2x4x8x16x",
+      "insideRoot": false
+    },
+    {
+      "tag": "select",
+      "aria": "Animation duration",
+      "text": "0:100:150:301:002:005:00",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "Disable camera tracking",
+      "text": "Track: ONTrack",
+      "insideRoot": false
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "",
+      "insideRoot": true
+    },
+    {
+      "tag": "select",
+      "aria": "",
+      "text": "YouTube / Landscape (1920×1080)TikTok / Shorts / Reels (1080×1920)Instagram Squa",
+      "insideRoot": true
+    },
+    {
+      "tag": "input",
+      "aria": "",
+      "text": "",
+      "insideRoot": true
+    },
+    {
+      "tag": "select",
+      "aria": "",
+      "text": "LowMediumHighMaximum",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Advanced",
+      "insideRoot": true
+    },
+    {
+      "tag": "button",
+      "aria": "",
+      "text": "Start Export",
+      "insideRoot": true
+    },
+    {
+      "tag": "body",
+      "aria": "",
+      "text": "MapLibreLoad New FilekmmiENKOJAZHESTheme? New RouteCameraMap: VoyagerExportNamsa",
+      "insideRoot": false
+    },
+    {
+      "tag": "canvas",
+      "aria": "Map",
+      "text": "",
+      "insideRoot": false
+    }
+  ]
+}

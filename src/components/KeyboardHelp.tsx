@@ -1,6 +1,8 @@
 'use client'
 
+import { X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
+import ModalDialog from '@/components/ModalDialog'
 
 interface KeyboardHelpProps {
   isOpen: boolean
@@ -16,37 +18,66 @@ export default function KeyboardHelp({ isOpen, hasTrack, onToggle, onClose }: Ke
     <>
       {hasTrack && (
         <button
+          type="button"
           onClick={onToggle}
           aria-label={t('shortcuts.title')}
-          className="absolute bottom-4 right-4 z-10 gi w-8 h-8 text-sm font-bold cursor-pointer hidden sm:flex items-center justify-center"
-          style={{ color: 'var(--t4)', borderRadius: '50%' }}
-        >?</button>
+          title={t('shortcuts.title')}
+          className="absolute bottom-24 right-4 z-10 hidden min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium cursor-pointer sm:inline-flex"
+          style={{ color: 'var(--t1)' }}
+        >
+          <span className="text-lg leading-none">?</span>
+          <span>{t('app.help')}</span>
+        </button>
       )}
 
-      {isOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-          <div className="go p-6 max-w-xs w-full mx-4" style={{ borderRadius: 'var(--r-glass)' }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--t1)' }}>{t('shortcuts.title')}</h3>
-            <div className="space-y-2 text-xs" style={{ color: 'var(--t3)' }}>
-              {([
-                ['Space', t('shortcuts.playPause')],
-                ['← →', t('shortcuts.seek')],
-                ['F', t('shortcuts.follow')],
-                ['E', t('shortcuts.export')],
-                ['Esc', t('shortcuts.close')],
-                ['?', t('shortcuts.help')],
-              ] as const).map(([key, desc]) => (
-                <div key={key} className="flex items-center gap-3">
-                  <kbd className="gi px-2 py-0.5 text-[10px] font-mono font-bold shrink-0" style={{ color: 'var(--t2)', minWidth: '2.5rem', textAlign: 'center' }}>
-                    {key}
-                  </kbd>
-                  <span>{desc}</span>
-                </div>
-              ))}
-            </div>
+      <ModalDialog
+        open={isOpen}
+        onClose={onClose}
+        labelledBy="keyboard-help-title"
+        overlayClassName="z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
+        panelClassName="go mx-4 w-full max-w-sm p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="keyboard-help-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>
+              {t('shortcuts.title')}
+            </h3>
+            <p className="mt-1 text-xs" style={{ color: 'var(--t4)' }}>
+              {t('app.helpPanelSubtitle')}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('app.closePanel')}
+            className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
+            style={{ color: 'var(--t4)' }}
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
-      )}
+
+        <div className="mt-4 space-y-2 text-xs" style={{ color: 'var(--t3)' }}>
+          {([
+            ['Space', t('shortcuts.playPause')],
+            ['← →', t('shortcuts.seek')],
+            ['F', t('shortcuts.follow')],
+            ['E', t('shortcuts.export')],
+            ['Esc', t('shortcuts.close')],
+            ['?', t('shortcuts.help')],
+          ] as const).map(([key, desc]) => (
+            <div key={key} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
+              <kbd
+                className="gi inline-flex min-h-11 min-w-[3rem] items-center justify-center px-2 py-1 text-[10px] font-mono font-bold"
+                style={{ color: 'var(--t2)', textAlign: 'center' }}
+              >
+                {key}
+              </kbd>
+              <span>{desc}</span>
+            </div>
+          ))}
+        </div>
+      </ModalDialog>
     </>
   )
 }

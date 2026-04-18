@@ -1,0 +1,3348 @@
+{
+  "generatedAt": "2026-04-14T14:29:48.762Z",
+  "baseURL": "http://localhost:4173/travelback",
+  "scenarios": {
+    "desktopLanding": {
+      "copy": {
+        "title": "Travelback",
+        "subtitle": "Animate your journeys into video",
+        "buttons": [
+          "Sample output previewTry with a sample tripLoad demo",
+          "Browse Files",
+          "Try with a sample trip",
+          "Draw a route on the map",
+          "Need help finding your file?",
+          "km",
+          "mi"
+        ]
+      },
+      "focusSequence": [
+        {
+          "tag": "canvas",
+          "role": "region",
+          "aria": "Map",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "summary",
+          "role": "summary",
+          "aria": "Toggle attribution",
+          "title": "Toggle attribution",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "a",
+          "role": "a",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "MapLibre",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Sample output preview",
+          "title": "Sample output preview",
+          "placeholder": "",
+          "text": "Sample output previewTry with a sample tripLoad demo",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Browse files to upload",
+          "title": "",
+          "placeholder": "",
+          "text": "Browse Files",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Try with a sample trip",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Draw a route on the map",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Need help finding your file?",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Metric units",
+          "title": "Metric units",
+          "placeholder": "",
+          "text": "km",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Imperial units",
+          "title": "Imperial units",
+          "placeholder": "",
+          "text": "mi",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Language",
+          "title": "",
+          "placeholder": "",
+          "text": "ENKOJAZHES",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Switch to light mode",
+          "title": "Switch to light mode",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        }
+      ],
+      "targets": {
+        "total": 10,
+        "undersizedCount": 8,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 36,
+            "testId": ""
+          },
+          {
+            "tag": "select",
+            "role": "select",
+            "label": "Language",
+            "width": 56,
+            "height": 28,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Try with a sample trip",
+            "width": 134,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Draw a route on the map",
+            "width": 172,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Need help finding your file?",
+            "width": 188,
+            "height": 20,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "desktopGuide": {
+      "focusSequence": [
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Metric units",
+          "title": "Metric units",
+          "placeholder": "",
+          "text": "km",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Imperial units",
+          "title": "Imperial units",
+          "placeholder": "",
+          "text": "mi",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Language",
+          "title": "",
+          "placeholder": "",
+          "text": "ENKOJAZHES",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Switch to light mode",
+          "title": "Switch to light mode",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "body",
+          "role": "body",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[79520,[\\\"/travelback/_next",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "canvas",
+          "role": "region",
+          "aria": "Map",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "summary",
+          "role": "summary",
+          "aria": "Toggle attribution",
+          "title": "Toggle attribution",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "a",
+          "role": "a",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "MapLibre",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Sample output preview",
+          "title": "Sample output preview",
+          "placeholder": "",
+          "text": "Sample output previewTry with a sample tripLoad demo",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Browse files to upload",
+          "title": "",
+          "placeholder": "",
+          "text": "Browse Files",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Try with a sample trip",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Draw a route on the map",
+          "testId": "",
+          "insideRoot": null
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      },
+      "escClosed": true
+    },
+    "desktopJourneyCreator": {
+      "targets": {
+        "total": 16,
+        "undersizedCount": 16,
+        "undersizedExamples": [
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Cancel",
+            "width": 37,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Walking",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-walk"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Car",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-car"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Plane",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-plane"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bus",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-bus"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Train",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-train"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bike",
+            "width": 31,
+            "height": 24,
+            "testId": "journey-icon-bike"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 36,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Undo",
+            "width": 53,
+            "height": 28,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": {
+          "x": 16,
+          "y": 16,
+          "width": 288,
+          "height": 347
+        },
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      },
+      "copy": {
+        "heading": "Create Journey",
+        "helper": "Plan a new route or recreate one from memory"
+      }
+    },
+    "desktopWorkspace": {
+      "targets": {
+        "total": 21,
+        "undersizedCount": 20,
+        "undersizedExamples": [
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Keyboard Shortcuts",
+            "width": 32,
+            "height": 32,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 36,
+            "testId": ""
+          },
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 70,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "select",
+            "role": "select",
+            "label": "Language",
+            "width": 56,
+            "height": 28,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 40,
+            "testId": ""
+          },
+          {
+            "tag": "select",
+            "role": "select",
+            "label": "Playback speed",
+            "width": 66,
+            "height": 29,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": {
+          "x": 938,
+          "y": 16,
+          "width": 374,
+          "height": 38
+        },
+        "trackTitle": {
+          "x": 144,
+          "y": 16,
+          "width": 752,
+          "height": 34
+        },
+        "trackTitleMobile": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "timeline": {
+          "x": 16,
+          "y": 654,
+          "width": 1408,
+          "height": 102
+        },
+        "controlsPrimary": {
+          "x": 32,
+          "y": 828,
+          "width": 1212,
+          "height": 40
+        },
+        "playbackStats": {
+          "x": 1256,
+          "y": 838,
+          "width": 152,
+          "height": 20
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 72,
+          "width": 39,
+          "height": 97
+        },
+        "mapCtrlTopRight": {
+          "x": 1440,
+          "y": 72,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      },
+      "text": {
+        "trackTitle": "Namsan Tower Walk — 56 / 56 locations",
+        "trackToolbarButtons": [
+          "New Route",
+          "Camera",
+          "Map: Dark",
+          "Export"
+        ]
+      }
+    },
+    "desktopSceneEditor": {
+      "targets": {
+        "total": 27,
+        "undersizedCount": 26,
+        "undersizedExamples": [
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 16,
+            "height": 26,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Keyboard Shortcuts",
+            "width": 32,
+            "height": 32,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Dynamic",
+            "width": 55,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Simple",
+            "width": 46,
+            "height": 24,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 36,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "+ Add",
+            "width": 50,
+            "height": 26,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": {
+          "x": 936,
+          "y": 16,
+          "width": 376,
+          "height": 38
+        },
+        "trackTitle": {
+          "x": 144,
+          "y": 16,
+          "width": 752,
+          "height": 34
+        },
+        "trackTitleMobile": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "timeline": {
+          "x": 16,
+          "y": 654,
+          "width": 1408,
+          "height": 102
+        },
+        "controlsPrimary": {
+          "x": 32,
+          "y": 828,
+          "width": 1212,
+          "height": 40
+        },
+        "playbackStats": {
+          "x": 1256,
+          "y": 838,
+          "width": 152,
+          "height": 20
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        },
+        "scenePanel": {
+          "x": 16,
+          "y": 64,
+          "width": 288,
+          "height": 692
+        },
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 72,
+          "width": 39,
+          "height": 97
+        },
+        "mapCtrlTopRight": {
+          "x": 1440,
+          "y": 72,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "desktopExport": {
+      "focusSequence": [
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Drag the handles to select a date range",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "input",
+          "role": "input",
+          "aria": "Playback progress",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Play",
+          "title": "Play (Space)",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Playback speed",
+          "title": "Playback speed",
+          "placeholder": "",
+          "text": "0.5x1x2x4x8x16x",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Animation duration",
+          "title": "Animation duration",
+          "placeholder": "",
+          "text": "0:100:150:301:002:005:00",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Disable camera tracking",
+          "title": "Camera tracking: ON (F)",
+          "placeholder": "",
+          "text": "Track: ONTrack",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "body",
+          "role": "body",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[79520,[\\\"/travelback/_next",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "canvas",
+          "role": "region",
+          "aria": "Map",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Zoom in",
+          "title": "Zoom in",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Zoom out",
+          "title": "Zoom out",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Drag to rotate map, click to reset north",
+          "title": "Drag to rotate map, click to reset north",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "summary",
+          "role": "summary",
+          "aria": "Toggle attribution",
+          "title": "Toggle attribution",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "a",
+          "role": "a",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "MapLibre",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Load a new track file",
+          "title": "",
+          "placeholder": "",
+          "text": "Load New File",
+          "testId": "load-new-file-button",
+          "insideRoot": null
+        }
+      ],
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": {
+          "x": 938,
+          "y": 16,
+          "width": 374,
+          "height": 38
+        },
+        "trackTitle": {
+          "x": 144,
+          "y": 16,
+          "width": 752,
+          "height": 34
+        },
+        "trackTitleMobile": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "timeline": {
+          "x": 16,
+          "y": 654,
+          "width": 1408,
+          "height": 102
+        },
+        "controlsPrimary": {
+          "x": 32,
+          "y": 828,
+          "width": 1212,
+          "height": 40
+        },
+        "playbackStats": {
+          "x": 1256,
+          "y": 838,
+          "width": 152,
+          "height": 20
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 72,
+          "width": 39,
+          "height": 97
+        },
+        "mapCtrlTopRight": {
+          "x": 1440,
+          "y": 72,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      },
+      "targets": {
+        "total": 21,
+        "undersizedCount": 20,
+        "undersizedExamples": [
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 29,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Keyboard Shortcuts",
+            "width": 32,
+            "height": 32,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 36,
+            "testId": ""
+          },
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 70,
+            "height": 20,
+            "testId": ""
+          },
+          {
+            "tag": "select",
+            "role": "select",
+            "label": "Language",
+            "width": 56,
+            "height": 28,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 40,
+            "testId": ""
+          },
+          {
+            "tag": "select",
+            "role": "select",
+            "label": "Playback speed",
+            "width": 66,
+            "height": 29,
+            "testId": ""
+          }
+        ]
+      },
+      "escClosed": true
+    },
+    "desktopShortcuts": {
+      "triggerVisible": true,
+      "layout": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "globalToolbar": {
+          "x": 1207,
+          "y": 16,
+          "width": 217,
+          "height": 44
+        },
+        "trackToolbar": {
+          "x": 938,
+          "y": 16,
+          "width": 374,
+          "height": 38
+        },
+        "trackTitle": {
+          "x": 144,
+          "y": 16,
+          "width": 752,
+          "height": 34
+        },
+        "trackTitleMobile": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "timeline": {
+          "x": 16,
+          "y": 654,
+          "width": 1408,
+          "height": 102
+        },
+        "controlsPrimary": {
+          "x": 32,
+          "y": 828,
+          "width": 1212,
+          "height": 40
+        },
+        "playbackStats": {
+          "x": 1256,
+          "y": 838,
+          "width": 152,
+          "height": 20
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 900
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 72,
+          "width": 39,
+          "height": 97
+        },
+        "mapCtrlTopRight": {
+          "x": 1440,
+          "y": 72,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileLanding": {
+      "copy": {
+        "title": "Travelback",
+        "subtitle": "Animate your journeys into video",
+        "buttons": [
+          "Sample output previewTry with a sample tripLoad demo",
+          "Browse Files",
+          "Try with a sample trip",
+          "Draw a route on the map",
+          "Need help finding your file?",
+          "km",
+          "mi"
+        ]
+      },
+      "targets": {
+        "total": 10,
+        "undersizedCount": 4,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileJourneyCreator": {
+      "targets": {
+        "total": 16,
+        "undersizedCount": 11,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Walking",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-walk"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Car",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-car"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Plane",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-plane"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bus",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-bus"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Train",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-train"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bike",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-bike"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Cancel",
+            "width": 37,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 412
+        },
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileWorkspace": {
+      "targets": {
+        "total": 20,
+        "undersizedCount": 9,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 358,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 414,
+          "width": 358,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 402,
+          "width": 358,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 570,
+          "width": 334,
+          "height": 46
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 624,
+          "width": 334,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 664
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 390,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileSceneEditor": {
+      "targets": {
+        "total": 26,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 16,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 358,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 414,
+          "width": 358,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 402,
+          "width": 358,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 570,
+          "width": 334,
+          "height": 46
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 624,
+          "width": 334,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 664
+        },
+        "scenePanel": {
+          "x": 16,
+          "y": 192,
+          "width": 358,
+          "height": 328
+        },
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 390,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileExport": {
+      "focusSequence": [
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Drag the handles to select a date range",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "input",
+          "role": "input",
+          "aria": "Playback progress",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Play",
+          "title": "Play (Space)",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Playback speed",
+          "title": "Playback speed",
+          "placeholder": "",
+          "text": "0.5x1x2x4x8x16x",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Animation duration",
+          "title": "Animation duration",
+          "placeholder": "",
+          "text": "0:100:150:301:002:005:00",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Disable camera tracking",
+          "title": "Camera tracking: ON (F)",
+          "placeholder": "",
+          "text": "Track: ONTrack",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "YouTube / Landscape (1920×1080)TikTok / Shorts / Reels (1080×1920)Instagram Square (1080×1080)Instagram Post (1080×1350)",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "input",
+          "role": "input",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "LowMediumHighMaximum",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Advanced",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Start Export",
+          "testId": "",
+          "insideRoot": null
+        }
+      ],
+      "targets": {
+        "total": 26,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 358,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 414,
+          "width": 358,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 402,
+          "width": 358,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 570,
+          "width": 334,
+          "height": 46
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 624,
+          "width": 334,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 664
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 390,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": {
+          "x": 16,
+          "y": 64,
+          "width": 358,
+          "height": 535,
+          "role": null,
+          "ariaModal": null
+        },
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileExportAdvanced": {
+      "targets": {
+        "total": 29,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "globalToolbar": {
+          "x": 195,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 358,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 414,
+          "width": 358,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 402,
+          "width": 358,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 570,
+          "width": 334,
+          "height": 46
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 624,
+          "width": 334,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 664
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 390,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": {
+          "x": 16,
+          "y": -27,
+          "width": 358,
+          "height": 718,
+          "role": null,
+          "ariaModal": null
+        },
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortLanding": {
+      "copy": {
+        "title": "Travelback",
+        "subtitle": "Animate your journeys into video",
+        "buttons": [
+          "Sample output previewTry with a sample tripLoad demo",
+          "Browse Files",
+          "Try with a sample trip",
+          "Draw a route on the map",
+          "Need help finding your file?",
+          "km",
+          "mi"
+        ]
+      },
+      "targets": {
+        "total": 10,
+        "undersizedCount": 4,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortJourneyCreator": {
+      "targets": {
+        "total": 16,
+        "undersizedCount": 11,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 51,
+            "height": 14,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Walking",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-walk"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Car",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-car"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Plane",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-plane"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bus",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-bus"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Train",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-train"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Bike",
+            "width": 31,
+            "height": 46,
+            "testId": "journey-icon-bike"
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Cancel",
+            "width": 37,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": null,
+        "trackTitle": null,
+        "trackTitleMobile": null,
+        "timeline": null,
+        "controlsPrimary": null,
+        "playbackStats": null,
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 0
+        },
+        "scenePanel": null,
+        "journeyPanel": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 412
+        },
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "mapCtrlTopRight": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortWorkspace": {
+      "targets": {
+        "total": 20,
+        "undersizedCount": 9,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 264,
+          "width": 288,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 306,
+          "width": 288,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 421,
+          "width": 264,
+          "height": 100
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 528,
+          "width": 264,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 568
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 320,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortSceneEditor": {
+      "targets": {
+        "total": 26,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 16,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 264,
+          "width": 288,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 306,
+          "width": 288,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 421,
+          "width": 264,
+          "height": 100
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 528,
+          "width": 264,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 568
+        },
+        "scenePanel": {
+          "x": 16,
+          "y": 192,
+          "width": 288,
+          "height": 232
+        },
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 320,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": null,
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortExport": {
+      "focusSequence": [
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Drag the handles to select a date range",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "input",
+          "role": "input",
+          "aria": "Playback progress",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Play",
+          "title": "Play (Space)",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Playback speed",
+          "title": "Playback speed",
+          "placeholder": "",
+          "text": "0.5x1x2x4x8x16x",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "Animation duration",
+          "title": "Animation duration",
+          "placeholder": "",
+          "text": "0:100:150:301:002:005:00",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "Disable camera tracking",
+          "title": "Camera tracking: ON (F)",
+          "placeholder": "",
+          "text": "Track: ONTrack",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "YouTube / Landscape (1920×1080)TikTok / Shorts / Reels (1080×1920)Instagram Square (1080×1080)Instagram Post (1080×1350)",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "input",
+          "role": "input",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "select",
+          "role": "select",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "LowMediumHighMaximum",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Advanced",
+          "testId": "",
+          "insideRoot": null
+        },
+        {
+          "tag": "button",
+          "role": "button",
+          "aria": "",
+          "title": "",
+          "placeholder": "",
+          "text": "Start Export",
+          "testId": "",
+          "insideRoot": null
+        }
+      ],
+      "targets": {
+        "total": 26,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 264,
+          "width": 288,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 306,
+          "width": 288,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 421,
+          "width": 264,
+          "height": 100
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 528,
+          "width": 264,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 568
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 320,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": {
+          "x": 16,
+          "y": 16,
+          "width": 288,
+          "height": 535,
+          "role": null,
+          "ariaModal": null
+        },
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    },
+    "mobileShortExportAdvanced": {
+      "targets": {
+        "total": 29,
+        "undersizedCount": 10,
+        "undersizedExamples": [
+          {
+            "tag": "a",
+            "role": "a",
+            "label": "MapLibre",
+            "width": 56,
+            "height": 16,
+            "testId": ""
+          },
+          {
+            "tag": "div",
+            "role": "button",
+            "label": "Map marker",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "",
+            "width": 20,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Imperial units",
+            "width": 28,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom in",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Zoom out",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Drag to rotate map, click to reset north",
+            "width": 29,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Metric units",
+            "width": 31,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Switch to light mode",
+            "width": 36,
+            "height": 46,
+            "testId": ""
+          },
+          {
+            "tag": "button",
+            "role": "button",
+            "label": "Play",
+            "width": 40,
+            "height": 46,
+            "testId": ""
+          }
+        ]
+      },
+      "layout": {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "globalToolbar": {
+          "x": 125,
+          "y": 16,
+          "width": 179,
+          "height": 54
+        },
+        "trackToolbar": {
+          "x": 16,
+          "y": 80,
+          "width": 288,
+          "height": 100
+        },
+        "trackTitle": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "trackTitleMobile": {
+          "x": 16,
+          "y": 264,
+          "width": 288,
+          "height": 25
+        },
+        "timeline": {
+          "x": 16,
+          "y": 306,
+          "width": 288,
+          "height": 86
+        },
+        "controlsPrimary": {
+          "x": 28,
+          "y": 421,
+          "width": 264,
+          "height": 100
+        },
+        "playbackStats": {
+          "x": 28,
+          "y": 528,
+          "width": 264,
+          "height": 16
+        },
+        "mapContainer": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 568
+        },
+        "scenePanel": null,
+        "journeyPanel": null,
+        "mapCtrlTopLeft": {
+          "x": 0,
+          "y": 52,
+          "width": 39,
+          "height": 147
+        },
+        "mapCtrlTopRight": {
+          "x": 320,
+          "y": 52,
+          "width": 0,
+          "height": 0
+        },
+        "exportPanel": {
+          "x": 16,
+          "y": -75,
+          "width": 288,
+          "height": 718,
+          "role": null,
+          "ariaModal": null
+        },
+        "guidePanel": null,
+        "shortcutsPanel": null
+      }
+    }
+  },
+  "derivedFindings": {
+    "desktopToolbarOverlap": false,
+    "mobileScenePanelCoveragePct": 49.4,
+    "mobileShortExportOverflowPx": 75,
+    "desktopGuideHasDialogSemantics": false,
+    "desktopExportHasDialogSemantics": false,
+    "desktopShortcutsHasDialogSemantics": false
+  }
+}

@@ -56,7 +56,7 @@ Beyond the subjective UX review, Mina also runs automated E2E tests that simulat
 
 - **Framework**: Playwright with Chromium (WebGL via SwiftShader)
 - **Config**: `playwright.config.ts` — port 3099, `reuseExistingServer: false`, 120s timeout
-- **Existing tests**: `e2e/travelback.spec.ts` — 40+ tests covering core functionality and key localized flows
+- **Existing tests**: `e2e/travelback.spec.ts` — 50+ tests covering core functionality and key localized flows
 - **Fixtures directory**: `e2e/fixtures/` — test travel log files
 
 ### Mina's travel log fixtures
@@ -183,4 +183,3 @@ Write as Mina would talk — direct, a little impatient, occasionally funny. Not
 - Do not suggest features outside the app's scope (no social media API integrations, no user accounts).
 - Store the review output in `.context/reviews/`.
 - If any E2E test fails, include the failure in the review as a bug report with steps to reproduce.
-
