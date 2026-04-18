@@ -68,7 +68,7 @@ export default function KeyboardHelp({ isOpen, hasTrack, onToggle, onClose }: Ke
           ] as const).map(([key, desc]) => (
             <div key={key} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
               <kbd
-                className="gi inline-flex min-h-11 min-w-[3rem] items-center justify-center px-2 py-1 text-[10px] font-mono font-bold"
+                className="gi inline-flex min-w-[3rem] items-center justify-center px-2 py-1 text-[10px] font-mono font-bold"
                 style={{ color: 'var(--t2)', textAlign: 'center' }}
               >
                 {key}
