@@ -468,11 +468,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [handleSearchSubmit])
 
   const handleSelectPlace = useCallback((lat: string, lon: string) => {
+    const lng = parseFloat(lon)
+    const latNum = parseFloat(lat)
     const map = mapRef.current?.getMap()
-    if (map) map.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 14 })
+    if (map) map.flyTo({ center: [lng, latNum], zoom: 14 })
+    waypointsRef.current = [...waypointsRef.current, { lng, lat: latNum }]
+    updateMapData()
+    syncUI()
     setSearchResults([])
     setSearchQuery('')
-  }, [mapRef])
+  }, [mapRef, updateMapData, syncUI])
 
   const handleToggleSearch = useCallback(() => {
     setSearchEnabled((enabled) => {
