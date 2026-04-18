@@ -21,11 +21,15 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
+    let dismissTimer: ReturnType<typeof setTimeout> | null = null
     const timer = setTimeout(() => {
       setVisible(false)
-      setTimeout(onDismiss, 300)
+      dismissTimer = setTimeout(onDismiss, 300)
     }, 5000)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      if (dismissTimer != null) clearTimeout(dismissTimer)
+    }
   }, [onDismiss])
 
   const statusColor = message.type === 'error'
