@@ -34,6 +34,8 @@ function TimelineSelector({
   const { t, locale } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
+  const onRangeChangeRef = useRef(onRangeChange)
+  useEffect(() => { onRangeChangeRef.current = onRangeChange }, [onRangeChange])
 
   // startRatio and endRatio are [0,1] fractions of the full timeline
   const [startRatio, setStartRatio] = useState(0)
@@ -98,7 +100,7 @@ function TimelineSelector({
   useEffect(() => {
     if (points.length === 0) return
     const { startIdx, endIdx } = resolveRangeIndexes()
-    onRangeChange(startIdx, endIdx)
+    onRangeChangeRef.current(startIdx, endIdx)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on points change, not on every ratio update during drag
   }, [points.length])
 
@@ -163,13 +165,13 @@ function TimelineSelector({
     }
   }
 
-  const endDrag = () => {
+  const endDrag = useCallback(() => {
     dragState.current.dragging = null
     if (points.length > 0) {
       const { startIdx, endIdx } = resolveRangeIndexes()
-      onRangeChange(startIdx, endIdx)
+      onRangeChangeRef.current(startIdx, endIdx)
     }
-  }
+  }, [resolveRangeIndexes, points.length])
 
   // Global mouse/touch listeners for drag
   useEffect(() => {
@@ -189,7 +191,7 @@ function TimelineSelector({
       window.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('touchend', onUp)
     }
-  }, [applyDrag])
+  }, [applyDrag, endDrag])
 
   if (points.length === 0) return null
 
