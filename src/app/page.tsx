@@ -152,8 +152,9 @@ function HomeInner() {
       ...(fullTrack.segmentStartIndices
         ? {
             segmentStartIndices: fullTrack.segmentStartIndices
-              .filter((index) => index > startIdx && index <= endIdx)
-              .map((index) => index - startIdx),
+              .filter((index) => index >= startIdx && index <= endIdx)
+              .map((index) => index - startIdx)
+              .filter((index) => index > 0),
           }
         : {}),
     }

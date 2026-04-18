@@ -358,10 +358,24 @@ export function parseGoogleLocationHistory(text: string): Track {
     if (bTime != null) return 1
     return a.order - b.order
   })
+
+  // Remap segment start indices to account for dedup removals and sort reordering
+  const orderToNewIndex = new Map<number, number>()
+  unique.forEach((entry, newIndex) => orderToNewIndex.set(entry.order, newIndex))
+  const adjustedSegStarts = segStarts
+    .map(originalIdx => {
+      for (let i = originalIdx; i < points.length; i++) {
+        const newIdx = orderToNewIndex.get(i)
+        if (newIdx !== undefined) return newIdx
+      }
+      return -1
+    })
+    .filter(idx => idx > 0)
+
   return {
     name: 'Google Location History',
     points: unique.map(({ point }) => point),
-    ...(segStarts.length > 0 ? { segmentStartIndices: segStarts } : {}),
+    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: adjustedSegStarts } : {}),
   }
 }
 

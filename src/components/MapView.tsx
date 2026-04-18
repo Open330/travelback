@@ -76,7 +76,7 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
   return {
     center: [
-      previous.center[0] + (target.center[0] - previous.center[0]) * factor,
+      previous.center[0] + (((target.center[0] - previous.center[0] + 540) % 360) - 180) * factor,
       previous.center[1] + (target.center[1] - previous.center[1]) * factor,
     ],
     zoom: previous.zoom + (target.zoom - previous.zoom) * factor,

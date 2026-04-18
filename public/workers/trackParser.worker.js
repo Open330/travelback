@@ -155,7 +155,7 @@ function parseGoogleLocationHistory(text) {
   const seen = new Set()
   const unique = []
   for (const [order, point] of points.entries()) {
-    const key = `${point.lat},${point.lng},${point.time ? point.time.getTime() : ''}`
+    const key = `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time ? point.time.getTime() : ''}`
     if (seen.has(key)) continue
     seen.add(key)
     unique.push({ point, order })
