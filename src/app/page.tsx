@@ -259,6 +259,7 @@ function HomeInner() {
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
     setColorMode(mode)
     applyDocumentMode(mode)
+    try { localStorage.setItem('travelback-theme', mode) } catch { /* ignore */ }
 
     if (!hasExplicitMapStyleChoice) {
       const key = mode === 'dark' ? 'dark' : 'voyager'
