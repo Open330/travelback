@@ -81,6 +81,9 @@ export default function ModalDialog({
   const modalIdRef = useRef(`travelback-modal-${++modalSequence}`)
   const canRenderPortal = typeof document !== 'undefined'
 
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     if (!canRenderPortal || !open) return
 
@@ -111,7 +114,7 @@ export default function ModalDialog({
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -153,7 +156,7 @@ export default function ModalDialog({
       closeModal(modalId, appRoot)
       previousActiveElement?.focus?.()
     }
-  }, [canRenderPortal, onClose, open])
+  }, [canRenderPortal, open])
 
   if (!canRenderPortal || !open) return null
 
