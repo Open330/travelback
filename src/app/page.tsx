@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import type { Track, MapStyleKey, Scene } from '@/types'
 import MapView, { type MapViewHandle } from '@/components/MapView'
 import FileUpload from '@/components/FileUpload'
@@ -236,13 +236,17 @@ function HomeInner() {
     setShowExport(false)
   }, [resetExportSession])
 
+  const cumulativeDistances = useMemo(
+    () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
+    [track]
+  )
+
   const handlePreviewScene = useCallback((scene: Scene | null) => {
     if (!scene || !track) return
 
-    const cumulativeDistance = computeCumulativeDistances(track.points, track.segmentStartIndices)
-    const cameraState = computeCameraForScene(track, cumulativeDistance, scene, 0.5, 0)
+    const cameraState = computeCameraForScene(track, cumulativeDistances, scene, 0.5, 0)
     mapViewRef.current?.applyCameraState(cameraState)
-  }, [track])
+  }, [track, cumulativeDistances])
 
   const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-mode', mode)
