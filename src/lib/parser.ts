@@ -333,13 +333,16 @@ export function parseGoogleLocationHistory(text: string): Track {
   const segStarts: number[] = []
   let recognizedFormat = false
 
+  // Note: Multiple format branches can match the same file (e.g., a file with both
+  // timelineObjects and semanticSegments). This is intentional to extract maximum data.
+  // The dedup step below removes any resulting duplicate points.
   // Flat array: [{ latitudeE7, ... }]
   if (Array.isArray(data) && data.length > 0 && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
   }
   // Records.json / Location History.json: { locations: [...] }
-  else if (!Array.isArray(data) && Array.isArray(data.locations)) {
+  if (!Array.isArray(data) && Array.isArray(data.locations)) {
     recognizedFormat = true
     parseRecords(data.locations, points)
   }

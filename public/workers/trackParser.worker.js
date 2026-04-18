@@ -128,26 +128,29 @@ function parseGoogleLocationHistory(text) {
   const segStarts = []
   let recognizedFormat = false
 
+  // Flat array: [{ latitudeE7, ... }]
   if (Array.isArray(data) && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
-  } else if (data && typeof data === 'object') {
-    if (Array.isArray(data.locations)) {
-      recognizedFormat = true
-      parseRecords(data.locations, points)
-    }
-    if (Array.isArray(data.timelineObjects)) {
-      recognizedFormat = true
-      parseTimelineObjects(data.timelineObjects, points, segStarts)
-    }
-    if (Array.isArray(data.timelineEdits)) {
-      recognizedFormat = true
-      parseTimelineEdits(data.timelineEdits, points)
-    }
-    if (Array.isArray(data.semanticSegments)) {
-      recognizedFormat = true
-      parseSemanticSegments(data.semanticSegments, points)
-    }
+  }
+  // Note: Multiple format branches can match the same file (e.g., a file with both
+  // timelineObjects and semanticSegments). This is intentional to extract maximum data.
+  // The dedup step below removes any resulting duplicate points.
+  if (!Array.isArray(data) && Array.isArray(data.locations)) {
+    recognizedFormat = true
+    parseRecords(data.locations, points)
+  }
+  if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
+    recognizedFormat = true
+    parseTimelineObjects(data.timelineObjects, points, segStarts)
+  }
+  if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
+    recognizedFormat = true
+    parseTimelineEdits(data.timelineEdits, points)
+  }
+  if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
+    recognizedFormat = true
+    parseSemanticSegments(data.semanticSegments, points)
   }
 
   if (!recognizedFormat) throw new Error('Unsupported Google Location History format')
@@ -170,10 +173,23 @@ function parseGoogleLocationHistory(text) {
     return a.order - b.order
   })
 
+  // Remap segment start indices to account for dedup removals and sort reordering
+  const orderToNewIndex = new Map()
+  unique.forEach((entry, newIndex) => orderToNewIndex.set(entry.order, newIndex))
+  const adjustedSegStarts = segStarts
+    .map(originalIdx => {
+      for (let i = originalIdx; i < points.length; i++) {
+        const newIdx = orderToNewIndex.get(i)
+        if (newIdx !== undefined) return newIdx
+      }
+      return -1
+    })
+    .filter(idx => idx > 0)
+
   return {
     name: 'Google Location History',
     points: unique.map(({ point }) => point),
-    ...(segStarts.length > 0 ? { segmentStartIndices: segStarts } : {}),
+    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: adjustedSegStarts } : {}),
   }
 }
 
