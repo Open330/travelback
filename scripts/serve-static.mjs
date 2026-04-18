@@ -151,6 +151,7 @@ const server = createServer(async (req, res) => {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'no-referrer',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     })
 
     if (method === 'HEAD') {
