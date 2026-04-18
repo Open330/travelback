@@ -5,7 +5,7 @@ import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
-import { parseTrackFile, ParseError } from '@/lib/parser'
+import { parseTrackFile, ParseError, MAX_FILE_SIZE, JSON_MAX_FILE_SIZE } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
 
 interface FileUploadProps {
@@ -16,8 +16,6 @@ interface FileUploadProps {
   onCreateJourney?: () => void
 }
 
-const MAX_FILE_SIZE = 200 * 1024 * 1024
-const JSON_MAX_FILE_SIZE = 500 * 1024 * 1024
 const WARN_FILE_SIZE = 100 * 1024 * 1024
 const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
