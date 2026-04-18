@@ -196,9 +196,26 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
+
   const commitScenes = useCallback((nextScenes: Scene[]) => {
+    const sorted = [...nextScenes].sort((a, b) => a.startPercent - b.startPercent)
+    const w: string[] = []
+    for (let i = 0; i < sorted.length; i++) {
+      const s = sorted[i]
+      if (s.startPercent >= s.endPercent) {
+        w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
+      }
+      if (i > 0) {
+        const prev = sorted[i - 1]
+        if (s.startPercent < prev.endPercent) {
+          w.push(`"${prev.name}" ${t('scenes.overlap')} "${s.name}" ${t('scenes.overlapSuffix')}`)
+        }
+      }
+    }
+    setNormalizationWarnings(w)
     onChange(normalizeScenes(nextScenes))
-  }, [onChange])
+  }, [onChange, t])
 
   // Swipe-left to dismiss
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -275,24 +292,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     onPreviewScene?.(null)
   }, [onPreviewScene])
 
-  // Detect overlaps and gaps
-  const warnings = useMemo(() => {
-    const sorted = [...scenes].sort((a, b) => a.startPercent - b.startPercent)
-    const w: string[] = []
-    for (let i = 0; i < sorted.length; i++) {
-      const s = sorted[i]
-      if (s.startPercent >= s.endPercent) {
-        w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
-      }
-      if (i > 0) {
-        const prev = sorted[i - 1]
-        if (s.startPercent < prev.endPercent) {
-          w.push(`"${prev.name}" ${t('scenes.overlap')} "${s.name}" ${t('scenes.overlapSuffix')}`)
-        }
-      }
-    }
-    return w
-  }, [scenes, t])
+  // Warnings from pre-normalization overlap detection (set by commitScenes)
+  const warnings = normalizationWarnings
 
   return (
     <div data-testid="scene-editor-panel" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
