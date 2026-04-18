@@ -165,6 +165,8 @@ function parseGoogleLocationHistory(text) {
     const aTime = a.point.time && a.point.time.getTime()
     const bTime = b.point.time && b.point.time.getTime()
     if (aTime != null && bTime != null) return aTime - bTime
+    if (aTime != null) return -1
+    if (bTime != null) return 1
     return a.order - b.order
   })
 
