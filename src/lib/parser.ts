@@ -3,6 +3,17 @@ import type { Track, TrackPoint } from '@/types'
 
 const MAX_TRACK_POINTS = 250_000
 
+function parseOptionalNumber(value: unknown): number | undefined {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function parseOptionalDate(value: unknown): Date | undefined {
+  if (value == null || value === '') return undefined
+  const parsed = new Date(value as string | number | Date)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
 function looksLikeGoogleLocationRecord(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   const candidate = value as Record<string, unknown>
@@ -17,8 +28,10 @@ function looksLikeGoogleLocationRecord(value: unknown): boolean {
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []
+  let pendingPointCoordinates: number[][] = []
+  let pendingPointTimes: Array<string | undefined> = []
 
-  const pushSegment = (coordinates: number[][], times?: string[]) => {
+  const pushSegment = (coordinates: number[][], times?: Array<string | undefined>) => {
     if (coordinates.length === 0) return
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
@@ -27,28 +40,41 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
       const [lng, lat, ele] = coordinates[i]
       points.push({
         lng, lat,
-        ele: ele ?? undefined,
-        time: times?.[i] ? new Date(times[i]) : undefined,
+        ele: parseOptionalNumber(ele),
+        time: parseOptionalDate(times?.[i]),
       })
     }
   }
 
+  const flushPendingPointSegment = () => {
+    if (pendingPointCoordinates.length === 0) return
+    pushSegment(pendingPointCoordinates, pendingPointTimes.length > 0 ? pendingPointTimes : undefined)
+    pendingPointCoordinates = []
+    pendingPointTimes = []
+  }
+
   for (const feature of geojson.features) {
     const geometry = feature.geometry
+    if (!geometry) continue
     const props = feature.properties ?? {}
 
     if (geometry.type === 'LineString') {
+      flushPendingPointSegment()
       pushSegment(geometry.coordinates, props.coordinateProperties?.times as string[] | undefined)
     } else if (geometry.type === 'MultiLineString') {
+      flushPendingPointSegment()
       const times: string[][] | undefined = props.coordinateProperties?.times
       for (let s = 0; s < geometry.coordinates.length; s++) {
         pushSegment(geometry.coordinates[s], times?.[s])
       }
     } else if (geometry.type === 'Point') {
       const [lng, lat, ele] = geometry.coordinates
-      pushSegment([[lng, lat, ele]], props.time ? [props.time] : undefined)
+      pendingPointCoordinates.push([lng, lat, ele])
+      pendingPointTimes.push(props.time as string | undefined)
     }
   }
+
+  flushPendingPointSegment()
 
   return {
     points,
@@ -56,8 +82,15 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
   }
 }
 
+function stripXmlEntities(text: string): string {
+  return text.replace(/<!DOCTYPE[^>]*>/gi, '').replace(/<!ENTITY[^>]*>/gi, '')
+}
+
 function parseGPX(text: string): Track {
-  const doc = new DOMParser().parseFromString(text, 'application/xml')
+  const safeText = stripXmlEntities(text)
+  const doc = new DOMParser().parseFromString(safeText, 'application/xml')
+  const parseError = doc.querySelector('parsererror')
+  if (parseError) throw new Error('Invalid GPX: ' + parseError.textContent?.slice(0, 200))
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
     .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
       .map<TrackPoint | null>((point) => {
@@ -69,8 +102,8 @@ function parseGPX(text: string): Track {
         return {
           lat,
           lng,
-          ele: elevationText != null ? Number(elevationText) : undefined,
-          time: timeText ? new Date(timeText) : undefined,
+          ele: parseOptionalNumber(elevationText),
+          time: parseOptionalDate(timeText),
         }
       })
       .filter((point): point is TrackPoint => point !== null))
@@ -96,7 +129,10 @@ function parseGPX(text: string): Track {
 }
 
 function parseKML(text: string): Track {
-  const doc = new DOMParser().parseFromString(text, 'application/xml')
+  const safeText = stripXmlEntities(text)
+  const doc = new DOMParser().parseFromString(safeText, 'application/xml')
+  const parseError = doc.querySelector('parsererror')
+  if (parseError) throw new Error('Invalid KML: ' + parseError.textContent?.slice(0, 200))
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
   const name = doc.querySelector('Document > name')?.textContent
@@ -118,8 +154,8 @@ function e7(v: number): number { return v / 1e7 }
 
 // Helper: parse timestamp from various Google formats
 function gTime(ts?: string, tsMs?: string): Date | undefined {
-  if (ts) return new Date(ts)
-  if (tsMs) return new Date(Number(tsMs))
+  if (ts) return parseOptionalDate(ts)
+  if (tsMs) return parseOptionalDate(Number(tsMs))
   return undefined
 }
 
@@ -129,19 +165,19 @@ function pushE7(
   ts?: string, tsMs?: string, alt?: number,
 ) {
   if (latE7 == null || lngE7 == null) return
-  out.push({ lat: e7(latE7), lng: e7(lngE7), ele: alt, time: gTime(ts, tsMs) })
+  out.push({ lat: e7(latE7), lng: e7(lngE7), ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
 }
 
 /* ---------- Format 1: Records.json / Location History.json --------- */
 // { locations: [{ latitudeE7, longitudeE7, timestamp, ... }] }
 function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
   for (const loc of locations) {
-    const lat = (loc.latitude as number | undefined) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7 as number) : undefined)
-    const lng = (loc.longitude as number | undefined) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7 as number) : undefined)
+    const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7 as number) : undefined)
+    const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7 as number) : undefined)
     if (lat == null || lng == null) continue
     out.push({
       lat, lng,
-      ele: loc.altitude as number | undefined,
+      ele: parseOptionalNumber(loc.altitude),
       time: gTime(loc.timestamp as string | undefined, loc.timestampMs as string | undefined),
     })
   }
@@ -217,8 +253,11 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         if (!pt.point) continue
         const m = (pt.point as string).match(/geo:([-\d.]+),([-\d.]+)/)
         if (!m) continue
+        const lat = parseOptionalNumber(m[1])
+        const lng = parseOptionalNumber(m[2])
+        if (lat == null || lng == null) continue
         out.push({
-          lat: parseFloat(m[1]), lng: parseFloat(m[2]),
+          lat, lng,
           time: gTime(pt.timestamp as string),
         })
       }
@@ -232,7 +271,10 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         const m = (placeLoc.latLng as string).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
         if (m) {
           const dur = seg.startTime as string | undefined
-          out.push({ lat: parseFloat(m[1]), lng: parseFloat(m[2]), time: gTime(dur) })
+          const lat = parseOptionalNumber(m[1])
+          const lng = parseOptionalNumber(m[2])
+          if (lat == null || lng == null) continue
+          out.push({ lat, lng, time: gTime(dur) })
         }
       }
     }
@@ -295,10 +337,13 @@ export function parseGoogleLocationHistory(text: string): Track {
     }
   }
 
+  // Sort: timed points chronologically first, untimed points after, preserving insertion order
   unique.sort((a, b) => {
     const aTime = a.point.time?.getTime()
     const bTime = b.point.time?.getTime()
     if (aTime != null && bTime != null) return aTime - bTime
+    if (aTime != null) return -1
+    if (bTime != null) return 1
     return a.order - b.order
   })
   return { name: 'Google Location History', points: unique.map(({ point }) => point) }
@@ -336,11 +381,12 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
     worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string }>) => {
       cleanup()
       if (event.data.error) {
-        reject(new Error(event.data.error))
+        console.warn('[Travelback] Google worker parse failed, falling back to main thread:', event.data.error)
+        parseOnMainThread()
         return
       }
       if (!event.data.track) {
-        reject(new Error('Failed to parse Google Location History'))
+        parseOnMainThread()
         return
       }
       resolve(event.data.track)
@@ -358,60 +404,6 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
   })
 }
 
-async function parseTrackTextInWorker(ext: 'gpx' | 'kml', text: string): Promise<Track> {
-  if (typeof Worker === 'undefined') {
-    return ext === 'gpx' ? parseGPX(text) : parseKML(text)
-  }
-
-  return new Promise((resolve, reject) => {
-    const parseOnMainThread = () => {
-      try {
-        resolve(ext === 'gpx' ? parseGPX(text) : parseKML(text))
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(`Failed to parse .${ext} file`))
-      }
-    }
-
-    let worker: Worker
-    try {
-      const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
-      worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
-    } catch {
-      parseOnMainThread()
-      return
-    }
-
-    const cleanup = () => {
-      worker.onmessage = null
-      worker.onerror = null
-      worker.terminate()
-    }
-
-    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string }>) => {
-      cleanup()
-      if (event.data.error) {
-        reject(new Error(event.data.error))
-        return
-      }
-      if (!event.data.track) {
-        reject(new Error(`Failed to parse .${ext} file`))
-        return
-      }
-      resolve(event.data.track)
-    }
-
-    worker.onerror = (event) => {
-      cleanup()
-      if (event.error instanceof Error) {
-        console.warn(`[Travelback] ${ext.toUpperCase()} worker parse failed, falling back to main thread:`, event.error.message)
-      }
-      parseOnMainThread()
-    }
-
-    worker.postMessage({ ext, text })
-  })
-}
-
 export function parseTrackFile(file: File): Promise<Track> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -423,9 +415,9 @@ export function parseTrackFile(file: File): Promise<Track> {
         let track: Track
 
         if (ext === 'gpx') {
-          track = await parseTrackTextInWorker('gpx', text)
+          track = parseGPX(text)
         } else if (ext === 'kml') {
-          track = await parseTrackTextInWorker('kml', text)
+          track = parseKML(text)
         } else if (ext === 'json') {
           track = await parseGoogleLocationHistoryInWorker(text)
         } else {

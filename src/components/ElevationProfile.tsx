@@ -25,9 +25,14 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
   const { minEle, maxEle, pathD, areaD } = useMemo(() => {
     if (!hasElevation) return { minEle: 0, maxEle: 0, pathD: '', areaD: '' }
 
-    const valid = elevations.filter((e): e is number => e !== null)
-    const min = Math.min(...valid)
-    const max = Math.max(...valid)
+    let min = Infinity
+    let max = -Infinity
+    for (const e of elevations) {
+      if (e !== null) {
+        if (e < min) min = e
+        if (e > max) max = e
+      }
+    }
     const range = max - min || 1
 
     const w = 100

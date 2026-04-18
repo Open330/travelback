@@ -1,141 +1,58 @@
-function decodeXmlEntities(value) {
-  return String(value)
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+function parseOptionalNumber(value) {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
-function toTrackPoint(lng, lat, inner) {
-  const elevationMatch = inner && inner.match(/<ele>([^<]+)<\/ele>/i)
-  const timeMatch = inner && inner.match(/<time>([^<]+)<\/time>/i)
-  return {
-    lng: Number(lng),
-    lat: Number(lat),
-    ele: elevationMatch ? Number(elevationMatch[1]) : undefined,
-    time: timeMatch ? new Date(timeMatch[1]) : undefined,
-  }
+function parseOptionalDate(value) {
+  if (value == null || value === '') return undefined
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
-function parseGpx(text) {
-  const trkName = text.match(/<trk[^>]*>[\s\S]*?<name>([^<]*)<\/name>/i)
-  const metadataName = text.match(/<metadata[^>]*>[\s\S]*?<name>([^<]*)<\/name>/i)
-  const name = decodeXmlEntities((trkName && trkName[1]) || (metadataName && metadataName[1]) || 'GPX Track').trim() || 'GPX Track'
-
-  const segmentMatches = [...text.matchAll(/<trkseg\b[^>]*>([\s\S]*?)<\/trkseg>/gi)]
-  const segmentBodies = segmentMatches.length > 0 ? segmentMatches.map((match) => match[1]) : [text]
-  const points = []
-  const segmentStartIndices = []
-
-  for (const body of segmentBodies) {
-    const segmentPoints = [...body.matchAll(/<trkpt\b[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>([\s\S]*?)<\/trkpt>/gi)]
-      .map((match) => toTrackPoint(match[2], match[1], match[3]))
-      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
-
-    if (segmentPoints.length === 0) continue
-    if (points.length > 0) segmentStartIndices.push(points.length)
-    points.push(...segmentPoints)
-  }
-
-  return {
-    name,
-    points,
-    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
-  }
+function e7(value) {
+  return value / 1e7
 }
 
-function parseKmlTrackBlock(block) {
-  const whenMatches = [...block.matchAll(/<when>([^<]+)<\/when>/gi)]
-  const coordMatches = [...block.matchAll(/<gx:coord>([^<]+)<\/gx:coord>/gi)]
-  const max = Math.min(whenMatches.length, coordMatches.length)
-  const points = []
-  for (let index = 0; index < max; index += 1) {
-    const parts = coordMatches[index][1].trim().split(/\s+/)
-    if (parts.length < 2) continue
-    const [lng, lat, ele] = parts
-    points.push({
-      lng: Number(lng),
-      lat: Number(lat),
-      ele: ele != null ? Number(ele) : undefined,
-      time: whenMatches[index] ? new Date(whenMatches[index][1]) : undefined,
-    })
-  }
-  return points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
-}
-
-function parseKmlCoordinatesBlock(block) {
-  return block
-    .trim()
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const [lng, lat, ele] = entry.split(',')
-      return {
-        lng: Number(lng),
-        lat: Number(lat),
-        ele: ele != null ? Number(ele) : undefined,
-      }
-    })
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
-}
-
-function parseKml(text) {
-  const documentName = text.match(/<Document[^>]*>[\s\S]*?<name>([^<]*)<\/name>/i)
-  const placemarkName = text.match(/<Placemark[^>]*>[\s\S]*?<name>([^<]*)<\/name>/i)
-  const name = decodeXmlEntities((documentName && documentName[1]) || (placemarkName && placemarkName[1]) || 'KML Track').trim() || 'KML Track'
-
-  const points = []
-  const segmentStartIndices = []
-  const gxTrackMatches = [...text.matchAll(/<gx:Track\b[^>]*>([\s\S]*?)<\/gx:Track>/gi)]
-  const coordinateMatches = gxTrackMatches.length === 0
-    ? [...text.matchAll(/<LineString\b[^>]*>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/LineString>/gi)]
-    : []
-
-  const segments = gxTrackMatches.length > 0
-    ? gxTrackMatches.map((match) => parseKmlTrackBlock(match[1]))
-    : coordinateMatches.map((match) => parseKmlCoordinatesBlock(match[1]))
-
-  for (const segment of segments) {
-    if (segment.length === 0) continue
-    if (points.length > 0) segmentStartIndices.push(points.length)
-    points.push(...segment)
-  }
-
-  return {
-    name,
-    points,
-    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
-  }
-}
-
-function e7(v) { return v / 1e7 }
 function gTime(ts, tsMs) {
-  if (ts) return new Date(ts)
-  if (tsMs) return new Date(Number(tsMs))
+  if (ts) return parseOptionalDate(ts)
+  if (tsMs) return parseOptionalDate(Number(tsMs))
   return undefined
 }
+
 function looksLikeGoogleLocationRecord(value) {
   if (typeof value !== 'object' || value === null) return false
   return 'latitude' in value || 'longitude' in value || 'latitudeE7' in value || 'longitudeE7' in value
 }
+
 function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
   if (latE7 == null || lngE7 == null) return
-  out.push({ lat: e7(latE7), lng: e7(lngE7), ele: alt, time: gTime(ts, tsMs) })
+  out.push({
+    lat: e7(latE7),
+    lng: e7(lngE7),
+    ele: parseOptionalNumber(alt),
+    time: gTime(ts, tsMs),
+  })
 }
+
 function parseRecords(locations, out) {
   for (const loc of locations) {
     const lat = loc.latitude ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7) : undefined)
     const lng = loc.longitude ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7) : undefined)
     if (lat == null || lng == null) continue
-    out.push({ lat, lng, ele: loc.altitude, time: gTime(loc.timestamp, loc.timestampMs) })
+    out.push({
+      lat,
+      lng,
+      ele: parseOptionalNumber(loc.altitude),
+      time: gTime(loc.timestamp, loc.timestampMs),
+    })
   }
 }
+
 function parseTimelineObjects(objects, out) {
   for (const obj of objects) {
     const seg = obj.activitySegment
     const visit = obj.placeVisit
+
     if (seg) {
       const rawPath = seg.simplifiedRawPath
       if (rawPath && Array.isArray(rawPath.points)) {
@@ -153,14 +70,18 @@ function parseTimelineObjects(objects, out) {
         }
       }
     }
+
     if (visit) {
       const dur = visit.duration
       const loc = visit.location
       if (loc) pushE7(out, loc.latitudeE7, loc.longitudeE7, dur && dur.startTimestamp)
-      else if (visit.centerLatE7 != null && visit.centerLngE7 != null) pushE7(out, visit.centerLatE7, visit.centerLngE7, dur && dur.startTimestamp)
+      else if (visit.centerLatE7 != null && visit.centerLngE7 != null) {
+        pushE7(out, visit.centerLatE7, visit.centerLngE7, dur && dur.startTimestamp)
+      }
     }
   }
 }
+
 function parseTimelineEdits(edits, out) {
   for (const edit of edits) {
     const pos = edit.rawSignal && edit.rawSignal.signal && edit.rawSignal.signal.position
@@ -169,6 +90,7 @@ function parseTimelineEdits(edits, out) {
     pushE7(out, pt.latE7, pt.lngE7, pos.timestamp, undefined, pos.altitudeMeters)
   }
 }
+
 function parseSemanticSegments(segments, out) {
   for (const seg of segments) {
     if (Array.isArray(seg.timelinePath)) {
@@ -176,20 +98,30 @@ function parseSemanticSegments(segments, out) {
         if (!pt.point) continue
         const m = String(pt.point).match(/geo:([-\d.]+),([-\d.]+)/)
         if (!m) continue
-        out.push({ lat: parseFloat(m[1]), lng: parseFloat(m[2]), time: gTime(pt.timestamp) })
+        const lat = parseOptionalNumber(m[1])
+        const lng = parseOptionalNumber(m[2])
+        if (lat == null || lng == null) continue
+        out.push({ lat, lng, time: gTime(pt.timestamp) })
       }
     }
+
     const visit = seg.visit
     if (visit && visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
       const m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
-      if (m) out.push({ lat: parseFloat(m[1]), lng: parseFloat(m[2]), time: gTime(seg.startTime) })
+      if (!m) continue
+      const lat = parseOptionalNumber(m[1])
+      const lng = parseOptionalNumber(m[2])
+      if (lat == null || lng == null) continue
+      out.push({ lat, lng, time: gTime(seg.startTime) })
     }
   }
 }
+
 function parseGoogleLocationHistory(text) {
   const data = JSON.parse(text)
   const points = []
   let recognizedFormat = false
+
   if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
@@ -211,7 +143,9 @@ function parseGoogleLocationHistory(text) {
       parseSemanticSegments(data.semanticSegments, points)
     }
   }
+
   if (!recognizedFormat) throw new Error('Unsupported Google Location History format')
+
   const seen = new Set()
   const unique = []
   for (const [order, point] of points.entries()) {
@@ -220,25 +154,54 @@ function parseGoogleLocationHistory(text) {
     seen.add(key)
     unique.push({ point, order })
   }
+
   unique.sort((a, b) => {
     const aTime = a.point.time && a.point.time.getTime()
     const bTime = b.point.time && b.point.time.getTime()
     if (aTime != null && bTime != null) return aTime - bTime
     return a.order - b.order
   })
+
   return { name: 'Google Location History', points: unique.map(({ point }) => point) }
 }
 
-function parseTrack(ext, text) {
-  if (ext === 'gpx') return parseGpx(text)
-  if (ext === 'kml') return parseKml(text)
-  if (ext === 'json') return parseGoogleLocationHistory(text)
-  throw new Error(`Unsupported file format: .${ext}`)
+const MAX_MESSAGE_SIZE = 200 * 1024 * 1024 // 200MB
+const MAX_JSON_DEPTH = 64
+
+function checkJsonDepth(text) {
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '{' || ch === '[') {
+      depth++
+      if (depth > MAX_JSON_DEPTH) throw new Error('JSON nesting depth exceeds limit')
+    } else if (ch === '}' || ch === ']') {
+      depth--
+    }
+  }
 }
 
 self.onmessage = (event) => {
   try {
-    self.postMessage({ track: parseTrack(event.data.ext, event.data.text) })
+    const data = event.data
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid worker message: expected object')
+    }
+    if (typeof data.ext !== 'string') {
+      throw new Error('Invalid worker message: missing or invalid ext field')
+    }
+    if (data.ext !== 'json') {
+      throw new Error(`Unsupported worker format: ${data.ext}`)
+    }
+    if (typeof data.text !== 'string') {
+      throw new Error('Invalid worker message: missing or invalid text field')
+    }
+    if (data.text.length > MAX_MESSAGE_SIZE) {
+      throw new Error('Input too large: exceeds 200MB limit')
+    }
+    checkJsonDepth(data.text)
+
+    self.postMessage({ track: parseGoogleLocationHistory(data.text) })
   } catch (error) {
     self.postMessage({ error: error instanceof Error ? error.message : 'Failed to parse track file' })
   }

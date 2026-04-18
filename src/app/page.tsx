@@ -142,9 +142,12 @@ function HomeInner() {
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return
 
+    const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
+    if (slicedPoints.length < 2) return
+
     const filteredTrack: Track = {
       name: fullTrack.name,
-      points: fullTrack.points.slice(startIdx, endIdx + 1),
+      points: slicedPoints,
       ...(fullTrack.segmentStartIndices
         ? {
             segmentStartIndices: fullTrack.segmentStartIndices

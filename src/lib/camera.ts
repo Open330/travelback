@@ -15,6 +15,8 @@ function clampUnit(value: number, fallback: number): number {
 }
 
 export function normalizeScenes(scenes: Scene[]): Scene[] {
+  let previousEndPercent = 0
+
   return scenes
     .map((scene) => ({
       ...scene,
@@ -26,12 +28,23 @@ export function normalizeScenes(scenes: Scene[]): Scene[] {
       if (a.endPercent !== b.endPercent) return a.endPercent - b.endPercent
       return a.id.localeCompare(b.id)
     })
+    .map((scene) => {
+      const startPercent = Math.max(scene.startPercent, previousEndPercent)
+      const endPercent = Math.max(startPercent, scene.endPercent)
+      previousEndPercent = endPercent
+      return {
+        ...scene,
+        startPercent,
+        endPercent,
+      }
+    })
 }
 
 /**
  * Compute the bounding box center of the full track
  */
 function trackCenter(points: TrackPoint[]): [number, number] {
+  if (points.length === 0) return [0, 20]
   let minLng = Infinity, maxLng = -Infinity
   let minLat = Infinity, maxLat = -Infinity
   for (const p of points) {
@@ -47,6 +60,7 @@ function trackCenter(points: TrackPoint[]): [number, number] {
  * Estimate a zoom level that fits the track's bounding box.
  */
 function estimateOverviewZoom(points: TrackPoint[]): number {
+  if (points.length === 0) return 2
   let minLng = Infinity, maxLng = -Infinity
   let minLat = Infinity, maxLat = -Infinity
   for (const p of points) {
@@ -94,6 +108,9 @@ export function computeCameraForScene(
   localProgress: number,
   elapsedSec: number,
 ): CameraState {
+  if (track.points.length === 0) {
+    return { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
+  }
   const params = scene.params
   const trackProgress = scene.startPercent + localProgress * (scene.endPercent - scene.startPercent)
   const result = interpolateAlongTrack(track.points, cumulDist, trackProgress)

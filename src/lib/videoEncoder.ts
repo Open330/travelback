@@ -1,6 +1,6 @@
 import type { VideoCodec as AppVideoCodec, ExportConfig, Track } from '@/types'
 import type { CameraState } from './camera'
-import { computeCameraForProgress } from './camera'
+import { computeCameraForProgress, normalizeScenes } from './camera'
 import { computeCumulativeDistances } from './interpolate'
 
 /** Map our codec names to mediabunny's codec names */
@@ -59,6 +59,9 @@ export async function exportVideo(
   const frameDuration = 1 / safeFps
   const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
 
+  // Pre-normalize scenes once before the frame loop (US-002)
+  const normalizedScenes = normalizeScenes(scenes)
+
   const mbCodec = toMediabunnyCodec(codec)
 
   // Create mediabunny output pipeline
@@ -76,6 +79,9 @@ export async function exportVideo(
   output.addVideoTrack(videoSource, { frameRate: safeFps })
   await output.start()
 
+  // Track completion state to skip finalize on abort (US-004)
+  let completed = false
+
   // Render each frame (wrapped in try/finally to ensure cleanup)
   try {
     for (let frame = 0; frame < totalFrames; frame++) {
@@ -86,9 +92,9 @@ export async function exportVideo(
       const progress = frame / (totalFrames - 1)
       const elapsedSec = frame * frameDuration
 
-      // Compute camera state for this frame
+      // Compute camera state for this frame using pre-normalized scenes
       const cameraState = computeCameraForProgress(
-        track, cumulDist, scenes, progress, elapsedSec,
+        track, cumulDist, normalizedScenes, progress, elapsedSec,
       )
 
       // Apply camera state to the map (caller implements this)
@@ -112,9 +118,12 @@ export async function exportVideo(
 
       onProgress?.(progress)
     }
+    completed = true
   } finally {
-    // Always finalize to release encoder resources
-    await output.finalize()
+    // Only finalize when export completed normally — skip on abort to avoid corrupt MP4 (US-004)
+    if (completed) {
+      await output.finalize()
+    }
   }
 
   const buffer = target.buffer
@@ -136,16 +145,12 @@ export async function exportVideo(
   }
 }
 
-/** Trigger a download from an ArrayBuffer */
-export function downloadVideo(result: VideoExportResult): void {
-  const blob = new Blob([result.buffer], { type: result.mimeType })
-  const url = URL.createObjectURL(blob)
+/** Trigger a download from an existing object URL */
+export function downloadVideo(url: string, filename: string): void {
   const a = document.createElement('a')
   a.href = url
-  a.download = result.filename
+  a.download = filename
   a.click()
-  // Defer revoke to give the browser time to start the download
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 /** Check if a codec is supported in the current browser */
