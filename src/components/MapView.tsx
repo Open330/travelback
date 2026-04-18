@@ -50,11 +50,11 @@ const REFERENCE_GRID_MINOR_LAYER = 'reference-grid-minor'
 const REFERENCE_GRID_MAJOR_LAYER = 'reference-grid-major'
 
 const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }> = {
-  voyager: { minor: 'rgba(120, 130, 120, 0.16)', major: 'rgba(120, 130, 120, 0.28)' },
-  positron: { minor: 'rgba(140, 140, 140, 0.14)', major: 'rgba(120, 120, 120, 0.26)' },
-  dark: { minor: 'rgba(148, 163, 184, 0.18)', major: 'rgba(148, 163, 184, 0.34)' },
-  liberty: { minor: 'rgba(139, 116, 93, 0.16)', major: 'rgba(139, 116, 93, 0.28)' },
-  bright: { minor: 'rgba(173, 150, 120, 0.16)', major: 'rgba(173, 150, 120, 0.3)' },
+  voyager: { minor: 'rgba(120, 130, 120, 0.22)', major: 'rgba(120, 130, 120, 0.38)' },
+  positron: { minor: 'rgba(140, 140, 140, 0.2)', major: 'rgba(120, 120, 120, 0.34)' },
+  dark: { minor: 'rgba(148, 163, 184, 0.26)', major: 'rgba(148, 163, 184, 0.46)' },
+  liberty: { minor: 'rgba(139, 116, 93, 0.2)', major: 'rgba(139, 116, 93, 0.34)' },
+  bright: { minor: 'rgba(173, 150, 120, 0.22)', major: 'rgba(173, 150, 120, 0.38)' },
 }
 
 function smoothAngle(from: number, to: number, factor: number): number {
@@ -150,35 +150,107 @@ function removeTrackArtifacts(map: maplibregl.Map) {
   if (map.getSource('route')) map.removeSource('route')
 }
 
-function buildReferenceGridData(): GeoJSON.FeatureCollection {
+function chooseReferenceGridStep(span: number): number {
+  if (span <= 0.02) return 0.0025
+  if (span <= 0.05) return 0.005
+  if (span <= 0.1) return 0.01
+  if (span <= 0.5) return 0.05
+  if (span <= 1.5) return 0.1
+  if (span <= 5) return 0.5
+  if (span <= 20) return 2
+  return 10
+}
+
+function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = []
 
-  for (let longitude = -150; longitude <= 150; longitude += 30) {
-    features.push({
-      type: 'Feature',
-      properties: { major: longitude === 0 ? 1 : 0 },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [longitude, -80],
-          [longitude, 80],
-        ],
-      },
-    })
+  if (!track || track.points.length === 0) {
+    for (let longitude = -150; longitude <= 150; longitude += 30) {
+      features.push({
+        type: 'Feature',
+        properties: { major: longitude === 0 ? 1 : 0 },
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [longitude, -80],
+            [longitude, 80],
+          ],
+        },
+      })
+    }
+
+    for (let latitude = -60; latitude <= 60; latitude += 30) {
+      features.push({
+        type: 'Feature',
+        properties: { major: latitude === 0 ? 1 : 0 },
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-180, latitude],
+            [180, latitude],
+          ],
+        },
+      })
+    }
+
+    return {
+      type: 'FeatureCollection',
+      features,
+    }
   }
 
-  for (let latitude = -60; latitude <= 60; latitude += 30) {
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+
+  for (const point of track.points) {
+    minLng = Math.min(minLng, point.lng)
+    maxLng = Math.max(maxLng, point.lng)
+    minLat = Math.min(minLat, point.lat)
+    maxLat = Math.max(maxLat, point.lat)
+  }
+
+  const span = Math.max(maxLng - minLng, maxLat - minLat, 0.01)
+  const step = chooseReferenceGridStep(span)
+  const majorEvery = 5
+  const lngMargin = Math.max(span * 1.5, step * 4)
+  const latMargin = Math.max(span * 1.5, step * 4)
+  const expandedMinLng = Math.max(-180, minLng - lngMargin)
+  const expandedMaxLng = Math.min(180, maxLng + lngMargin)
+  const expandedMinLat = Math.max(-85, minLat - latMargin)
+  const expandedMaxLat = Math.min(85, maxLat + latMargin)
+
+  let longitudeIndex = 0
+  for (let longitude = Math.floor(expandedMinLng / step) * step; longitude <= expandedMaxLng + step / 2; longitude += step) {
     features.push({
       type: 'Feature',
-      properties: { major: latitude === 0 ? 1 : 0 },
+      properties: { major: longitudeIndex % majorEvery === 0 ? 1 : 0 },
       geometry: {
         type: 'LineString',
         coordinates: [
-          [-180, latitude],
-          [180, latitude],
+          [Number(longitude.toFixed(6)), expandedMinLat],
+          [Number(longitude.toFixed(6)), expandedMaxLat],
         ],
       },
     })
+    longitudeIndex += 1
+  }
+
+  let latitudeIndex = 0
+  for (let latitude = Math.floor(expandedMinLat / step) * step; latitude <= expandedMaxLat + step / 2; latitude += step) {
+    features.push({
+      type: 'Feature',
+      properties: { major: latitudeIndex % majorEvery === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [expandedMinLng, Number(latitude.toFixed(6))],
+          [expandedMaxLng, Number(latitude.toFixed(6))],
+        ],
+      },
+    })
+    latitudeIndex += 1
   }
 
   return {
@@ -187,16 +259,20 @@ function buildReferenceGridData(): GeoJSON.FeatureCollection {
   }
 }
 
-const REFERENCE_GRID_DATA = buildReferenceGridData()
+function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, track?: Track | null) {
+  if (!map.isStyleLoaded()) return
 
-function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey) {
   const gridPaint = GRID_PAINT_BY_STYLE[mapStyleKey]
+  const gridData = buildReferenceGridData(track)
 
   if (!map.getSource(REFERENCE_GRID_SOURCE)) {
     map.addSource(REFERENCE_GRID_SOURCE, {
       type: 'geojson',
-      data: REFERENCE_GRID_DATA,
+      data: gridData,
     })
+  } else {
+    const source = map.getSource(REFERENCE_GRID_SOURCE) as maplibregl.GeoJSONSource | undefined
+    source?.setData(gridData)
   }
 
   if (!map.getLayer(REFERENCE_GRID_MINOR_LAYER)) {
@@ -208,7 +284,7 @@ function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey) {
       layout: { 'line-cap': 'round' },
       paint: {
         'line-color': gridPaint.minor,
-        'line-width': 1,
+        'line-width': 1.1,
       },
     })
   }
@@ -222,7 +298,7 @@ function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey) {
       layout: { 'line-cap': 'round' },
       paint: {
         'line-color': gridPaint.major,
-        'line-width': 1.4,
+        'line-width': 1.8,
       },
     })
   }
@@ -271,6 +347,20 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     trackRef.current = track
   }, [track])
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    if (!track) {
+      container.setAttribute('inert', '')
+      container.setAttribute('aria-hidden', 'true')
+      return
+    }
+
+    container.removeAttribute('inert')
+    container.removeAttribute('aria-hidden')
+  }, [track])
+
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -391,7 +481,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       mapRef.current = map
       styleKeyRef.current = mapStyleKey
 
-      const canExposeDebugCamera = navigator.webdriver
+      const canExposeDebugCamera = process.env.NODE_ENV === 'development'
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {
@@ -423,7 +513,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       const onGlobalStyleLoad = () => {
         const activeTrack = trackRef.current
-        addReferenceGridLayers(map, styleKeyRef.current)
+        addReferenceGridLayers(map, styleKeyRef.current, activeTrack)
         if (!activeTrack) return
         addTrackLayers(map, activeTrack)
       }
@@ -464,7 +554,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     // Re-add sources/layers after style loads
     let styleHandler: (() => void) | null = null
     styleHandler = () => {
-      addReferenceGridLayers(map, mapStyleKey)
+      addReferenceGridLayers(map, mapStyleKey, track)
       if (track) {
         addTrackLayers(map, track)
       }
@@ -569,6 +659,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (!map) return
 
     if (!track) {
+      addReferenceGridLayers(map, styleKeyRef.current, null)
       removeTrackArtifacts(map)
       markerRef.current?.remove()
       markerRef.current = null
@@ -584,6 +675,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         return false
       }
 
+      addReferenceGridLayers(map, styleKeyRef.current, track)
       addTrackLayers(map, track)
 
       // Fit map to track bounds
@@ -739,7 +831,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [progress, track, followCamera, suspendAutoCamera, seekNonce, scenes, duration, transitionDuration, addTrackLayers, ensureMarker])
 
   return (
-    <div ref={containerRef} data-testid="map-container" className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}>
+    <div
+      ref={containerRef}
+      data-testid="map-container"
+      className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}
+      aria-hidden={!track}
+    >
       {mapError && (
         <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>{t('app.mapLoadFailed').replace('{error}', mapError)}</p>

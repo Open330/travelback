@@ -3,6 +3,9 @@ import Script from 'next/script'
 import './globals.css'
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
+  ?? (process.env.NODE_ENV === 'production' ? 'https://open330.github.io' : 'http://localhost:3000')
+const appUrl = new URL(`${siteOrigin}${basePath || ''}/`)
 
 export const metadata: Metadata = {
   title: {
@@ -13,11 +16,11 @@ export const metadata: Metadata = {
   keywords: ['GPX', 'KML', 'Google Location History', 'travel animation', 'GPS visualization', 'route video', 'MapLibre', 'travel video maker'],
   authors: [{ name: 'Open330' }],
   creator: 'Open330',
-  metadataBase: new URL('https://open330.github.io/travelback'),
+  metadataBase: appUrl,
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://open330.github.io/travelback/',
+    url: appUrl.toString(),
     title: 'Travelback - Animate Your Journeys',
     description: 'Turn GPX, KML, and Google Location History into animated travel videos. Visualize your journeys on an interactive map and export as video.',
     siteName: 'Travelback',
@@ -29,10 +32,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/travelback/favicon.svg', type: 'image/svg+xml' },
-      { url: '/travelback/icon.svg', type: 'image/svg+xml', sizes: '32x32' },
+      { url: `${basePath}/favicon.svg`, type: 'image/svg+xml' },
+      { url: `${basePath}/icon.svg`, type: 'image/svg+xml', sizes: '32x32' },
     ],
-    apple: '/travelback/favicon.svg',
+    apple: `${basePath}/favicon.svg`,
   },
   robots: {
     index: true,
@@ -56,15 +59,14 @@ export default function RootLayout({
         <meta
           httpEquiv="Content-Security-Policy"
           data-travelback-csp="placeholder"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
         />
         <link
           rel="stylesheet"
           as="style"
-          crossOrigin="anonymous"
-          integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+          href={`${basePath}/fonts/pretendard.css`}
         />
+        <meta name="referrer" content="no-referrer" />
       </head>
       <body
         className="antialiased"

@@ -58,6 +58,16 @@ export function useExportController({
     })
   }, [])
 
+  // Auto-revoke blob URL after 1 minute to prevent memory accumulation (US-012)
+  useEffect(() => {
+    if (exportState === 'done' && exportedVideoUrl) {
+      const timer = setTimeout(() => {
+        URL.revokeObjectURL(exportedVideoUrl)
+      }, 60000)
+      return () => clearTimeout(timer)
+    }
+  }, [exportState, exportedVideoUrl])
+
   const resetExportSession = useCallback(() => {
     setExportState('idle')
     setExportProgress(0)
@@ -130,10 +140,9 @@ export function useExportController({
         abortController.signal,
       )
 
-      downloadVideo(result)
-
       const blob = new Blob([result.buffer], { type: result.mimeType })
       const videoUrl = URL.createObjectURL(blob)
+      downloadVideo(videoUrl, result.filename)
       setExportedVideoUrl(videoUrl)
       setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
