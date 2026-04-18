@@ -292,9 +292,6 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     onPreviewScene?.(null)
   }, [onPreviewScene])
 
-  // Warnings from pre-normalization overlap detection (set by commitScenes)
-  const warnings = normalizationWarnings
-
   return (
     <div data-testid="scene-editor-panel" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
       style={{ borderRadius: 'var(--r-glass)' }}
@@ -369,9 +366,9 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
           </div>
           <div className="flex justify-between text-[9px] mt-0.5" style={{ color: 'var(--t4)' }}>
           </div>
-          {warnings.length > 0 && (
+          {normalizationWarnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
-              {warnings.map((w, i) => (
+              {normalizationWarnings.map((w, i) => (
                 <p key={i} className="text-[10px]" style={{ color: 'var(--warn)' }}>⚠ {w}</p>
               ))}
             </div>
