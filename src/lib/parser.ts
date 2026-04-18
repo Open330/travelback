@@ -165,7 +165,10 @@ function pushE7(
   ts?: string, tsMs?: string, alt?: number,
 ) {
   if (latE7 == null || lngE7 == null) return
-  out.push({ lat: e7(latE7), lng: e7(lngE7), ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
+  const lat = e7(latE7)
+  const lng = e7(lngE7)
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+  out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
 }
 
 /* ---------- Format 1: Records.json / Location History.json --------- */
