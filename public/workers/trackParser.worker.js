@@ -36,9 +36,9 @@ function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
 
 function parseRecords(locations, out) {
   for (const loc of locations) {
-    const lat = loc.latitude ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7) : undefined)
-    const lng = loc.longitude ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7) : undefined)
-    if (lat == null || lng == null) continue
+    const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7) : undefined)
+    const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7) : undefined)
+    if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
     out.push({
       lat,
       lng,
@@ -170,8 +170,14 @@ const MAX_JSON_DEPTH = 64
 
 function checkJsonDepth(text) {
   let depth = 0
+  let inString = false
+  let escape = false
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\') { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
     if (ch === '{' || ch === '[') {
       depth++
       if (depth > MAX_JSON_DEPTH) throw new Error('JSON nesting depth exceeds limit')
