@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import './globals.css'
 import { basePath } from '@/lib/env'
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
@@ -50,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-svc="travelback" data-mesh="on" suppressHydrationWarning>
       <head>
-        <Script src={`${basePath}/theme-init.js`} strategy="beforeInteractive" />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement;var s=null;try{s=localStorage.getItem('travelback-theme')}catch{};var m;if(s==='dark'||s==='light'){m=s}else{m=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'};if(!d.getAttribute('data-mode'))d.setAttribute('data-mode',m);if(!d.getAttribute('data-mapstyle'))d.setAttribute('data-mapstyle',m==='dark'?'dark':'voyager')}catch{}})()` }} />
         {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
             `npm run build` then runs `scripts/harden-static-export.mjs`, which replaces this
             placeholder with a hash-based static CSP and removes the production `unsafe-inline`
@@ -58,7 +57,7 @@ export default function RootLayout({
         <meta
           httpEquiv="Content-Security-Policy"
           data-travelback-csp="placeholder"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; style-src-attr 'none'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; style-src-attr 'none'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://*.basemaps.cartocdn.com; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests;"
         />
         <link
           rel="stylesheet"
