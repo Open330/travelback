@@ -138,9 +138,7 @@ export function getUnitPreference(): UnitSystem {
     const stored = localStorage.getItem(UNITS_STORAGE_KEY)
     if (stored === 'metric' || stored === 'imperial') return stored
   } catch { /* ignore */ }
-  // Default: en-US → imperial, everything else → metric
-  const lang = navigator.language || ''
-  return lang === 'en-US' ? 'imperial' : 'metric'
+  return 'metric'
 }
 
 export function setUnitPreference(units: UnitSystem): void {
