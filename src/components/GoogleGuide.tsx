@@ -12,7 +12,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()
   const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   const text = { fill: 'var(--t3)', fontSize: 9, fontFamily: 'inherit' }
-  const box = { fill: 'var(--bg-gi)', stroke: 'var(--t5, var(--t4))', strokeWidth: 1, rx: 4 }
+  const box = { fill: 'var(--gi-bg)', stroke: 'var(--t5, var(--t4))', strokeWidth: 1, rx: 4 }
   const arrow = { ...common, strokeWidth: 1.2, markerEnd: 'url(#arrowG)' }
   const arrowDef = (
     <defs>

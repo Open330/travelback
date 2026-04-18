@@ -326,8 +326,9 @@ export function computeCameraForProgress(
   globalProgress: number,
   elapsedSec: number,
   transitionDuration: number = 0.03,
+  preNormalized?: boolean,
 ): CameraState {
-  const normalizedScenes = normalizeScenes(scenes)
+  const normalizedScenes = preNormalized ? scenes : normalizeScenes(scenes)
 
   if (normalizedScenes.length === 0) {
     const result = interpolateAlongTrack(track.points, cumulDist, globalProgress)

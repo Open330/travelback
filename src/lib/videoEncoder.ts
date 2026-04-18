@@ -94,7 +94,7 @@ export async function exportVideo(
 
       // Compute camera state for this frame using pre-normalized scenes
       const cameraState = computeCameraForProgress(
-        track, cumulDist, normalizedScenes, progress, elapsedSec,
+        track, cumulDist, normalizedScenes, progress, elapsedSec, 0.03, true,
       )
 
       // Apply camera state to the map (caller implements this)
