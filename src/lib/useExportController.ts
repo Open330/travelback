@@ -134,6 +134,9 @@ export function useExportController({
       )
 
       const blob = new Blob([result.buffer], { type: result.mimeType })
+      if (exportedVideoUrlRef.current) {
+        URL.revokeObjectURL(exportedVideoUrlRef.current)
+      }
       const videoUrl = URL.createObjectURL(blob)
       downloadVideo(videoUrl, result.filename)
       setExportedVideoBlob(blob)
