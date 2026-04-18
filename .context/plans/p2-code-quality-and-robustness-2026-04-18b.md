@@ -404,14 +404,16 @@ Add comments above each `eslint-disable-next-line react-hooks/exhaustive-deps`.
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
-- [ ] MapView animation smooth during scene edits (1a)
-- [ ] Elevation profile click-to-seek aligns with distance (1b)
-- [ ] Scene overlap warnings appear before normalization (1c)
-- [ ] Worker depth check handles string literals (2a)
-- [ ] Invalid JSON gives user-friendly error (2b)
-- [ ] Large non-Google JSON rejected quickly (2c)
-- [ ] No NaN from antipodal track points (2d)
-- [ ] No duplicate DOM writes in i18n (3c)
-- [ ] SceneEditor undo puts scene at correct position (3f)
+- [x] MapView animation smooth during scene edits (1a)
+- [x] Elevation profile click-to-seek aligns with distance (1b)
+- [x] Scene overlap warnings appear before normalization (1c)
+- [x] Worker depth check handles string literals (2a)
+- [x] Invalid JSON gives user-friendly error (2b)
+- [x] Large non-Google JSON rejected quickly (2c)
+- [x] No NaN from antipodal track points (2d)
+- [x] No duplicate DOM writes in i18n (3c)
+- [x] SceneEditor undo puts scene at correct position (3f)
+- [x] computeCumulativeDistances memoized in page.tsx (3b)
+- [x] downloadVideo appends/removes <a> from DOM (3a)

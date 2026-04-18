@@ -338,17 +338,17 @@ return { name: 'Google Location History', points, ...(segmentStartIndices.length
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
-- [ ] Video preview remains functional after 60s (P0-1)
-- [ ] Worker parses string lat/lng as numbers (P0-2)
-- [ ] Pacific-crossing route overview centers correctly (P1-1)
-- [ ] Export blocked with unsupported codec (P1-2)
-- [ ] No React warnings from Toast unmount (P1-3)
-- [ ] Safari download works or shows hint (P1-5)
-- [ ] Share does not double memory (P1-6)
-- [ ] Cannot create zero-length scene (P1-9)
-- [ ] Single-point elevation renders gracefully (P1-10)
-- [ ] Export duration syncs with playback (P1-11)
-- [ ] Invalid lat/lng values rejected (P1-12)
-- [ ] Google parser produces segment breaks (P1-13)
+- [x] Video preview remains functional after 60s (P0-1)
+- [x] Worker parses string lat/lng as numbers (P0-2)
+- [x] Pacific-crossing route overview centers correctly (P1-1)
+- [x] Export blocked with unsupported codec (P1-2)
+- [x] No React warnings from Toast unmount (P1-3)
+- [x] Safari download works or shows hint (P1-5)
+- [x] Share does not double memory (P1-6)
+- [x] Cannot create zero-length scene (P1-9)
+- [x] Single-point elevation renders gracefully (P1-10)
+- [x] Export duration syncs with playback (P1-11)
+- [x] Invalid lat/lng values rejected (P1-12)
+- [x] Google parser produces segment breaks (P1-13)

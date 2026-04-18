@@ -188,9 +188,10 @@ if (units === 'imperial') {
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
-- [ ] serve-static.mjs responses include X-Content-Type-Options (4)
-- [ ] CSP hardening fails build if replacement doesn't occur (5)
-- [ ] Screen reader can navigate JourneyCreator search results (8)
-- [ ] Keyboard users can seek on elevation profile (9)
-- [ ] Screen reader announces TrackToolbar mobile menu items (10)
+- [x] `npm run build` succeeds
+- [x] serve-static.mjs responses include X-Content-Type-Options (4)
+- [x] CSP hardening fails build if replacement doesn't occur (5)
+- [x] Screen reader can navigate JourneyCreator search results (8)
+- [x] Keyboard users can seek on elevation profile (9)
+- [x] Screen reader announces TrackToolbar mobile menu items (10)
+- [x] formatDuration clamps negative values (1)
