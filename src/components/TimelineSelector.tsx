@@ -94,12 +94,13 @@ function TimelineSelector({
     return { startIdx, endIdx }
   }, [endRatio, points.length, startRatio])
 
-  // Notify parent whenever ratios change
+  // Notify parent on initial mount and when points change (not during drag)
   useEffect(() => {
     if (points.length === 0) return
     const { startIdx, endIdx } = resolveRangeIndexes()
     onRangeChange(startIdx, endIdx)
-  }, [onRangeChange, points.length, resolveRangeIndexes])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on points change, not on every ratio update during drag
+  }, [points.length])
 
   // Get container width in pixels
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
@@ -164,6 +165,10 @@ function TimelineSelector({
 
   const endDrag = () => {
     dragState.current.dragging = null
+    if (points.length > 0) {
+      const { startIdx, endIdx } = resolveRangeIndexes()
+      onRangeChange(startIdx, endIdx)
+    }
   }
 
   // Global mouse/touch listeners for drag
