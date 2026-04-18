@@ -464,7 +464,8 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
     try {
       const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
       worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
-    } catch {
+    } catch (err) {
+      console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
       parseOnMainThread()
       return
     }
