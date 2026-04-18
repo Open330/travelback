@@ -396,10 +396,14 @@ export function computeCameraForProgress(
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(prevCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx === -1 && nextIdx >= 0) {
-      // Before first scene: interpolate from overview camera
+      // Before first scene: interpolate from a stable overview camera (no rotation)
+      // to avoid bearing jitter when lerping toward the first scene
       const nextScene = normalizedScenes[nextIdx]
       const gapT = nextScene.startPercent > 0 ? globalProgress / nextScene.startPercent : 1
-      const overviewCamera = computeOverviewCamera(track, cumulDist, elapsedSec)
+      const box = computeBoundingBox(track.points)
+      const overviewCamera: CameraState = box
+        ? { center: trackCenterFromBox(box), zoom: overviewZoomFromBox(box), pitch: 0, bearing: 0 }
+        : { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {
