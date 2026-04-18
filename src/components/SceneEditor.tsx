@@ -264,9 +264,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
     const restored = [...scenes]
-    const insertIdx = deletedScene.precedingSceneId
-      ? restored.findIndex(s => s.id === deletedScene.precedingSceneId) + 1
-      : 0
+    const precedingIdx = deletedScene.precedingSceneId
+      ? restored.findIndex(s => s.id === deletedScene.precedingSceneId)
+      : -1
+    const insertIdx = precedingIdx >= 0 ? precedingIdx + 1 : restored.length
     restored.splice(insertIdx, 0, deletedScene.scene)
     commitScenes(restored)
     setDeletedScene(null)
