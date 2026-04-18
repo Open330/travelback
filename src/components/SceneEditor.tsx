@@ -65,6 +65,8 @@ function SceneRangeEditor({
     originEnd: number
   }>({ type: null, originX: 0, originStart: 0, originEnd: 1 })
   const [dragging, setDragging] = useState(false)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
 
   const clampRange = useCallback((start: number, end: number): [number, number] => {
     let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
@@ -96,13 +98,13 @@ function SceneRangeEditor({
 
       if (dragState.current.type === 'start') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart + dx, dragState.current.originEnd)
-        onChange(nextStart, nextEnd)
+        onChangeRef.current(nextStart, nextEnd)
         return
       }
 
       if (dragState.current.type === 'end') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart, dragState.current.originEnd + dx)
-        onChange(nextStart, nextEnd)
+        onChangeRef.current(nextStart, nextEnd)
         return
       }
 
@@ -117,7 +119,7 @@ function SceneRangeEditor({
         nextEnd = 1
         nextStart = 1 - span
       }
-      onChange(nextStart, nextEnd)
+      onChangeRef.current(nextStart, nextEnd)
     }
 
     const onPointerUp = () => {
@@ -131,7 +133,7 @@ function SceneRangeEditor({
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
     }
-  }, [clampRange, dragging, onChange])
+  }, [clampRange, dragging])
 
   return (
     <div>
