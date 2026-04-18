@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 const FOCUSABLE_SELECTOR = [
@@ -28,7 +28,6 @@ function isVisible(element: HTMLElement) {
   return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
 }
 
-let modalSequence = 0
 const openModalStack: string[] = []
 let lockedBodyOverflow: string | null = null
 
@@ -78,7 +77,8 @@ export default function ModalDialog({
   children,
 }: ModalDialogProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
-  const modalIdRef = useRef(`travelback-modal-${++modalSequence}`)
+  const instanceId = useId()
+  const modalIdRef = useRef(`travelback-modal-${instanceId}`)
   const canRenderPortal = typeof document !== 'undefined'
 
   const onCloseRef = useRef(onClose)
