@@ -102,7 +102,6 @@ export function useExportController({
       }
 
       mapHandle.resize(config.resolution.width, config.resolution.height)
-      await new Promise((resolve) => setTimeout(resolve, 200))
 
       const mapSettledAfterResize = await mapHandle.waitForIdle(abortController.signal)
       if (!mapSettledAfterResize) {
