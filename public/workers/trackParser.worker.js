@@ -184,7 +184,8 @@ function checkJsonDepth(text) {
   let depth = 0
   let inString = false
   let escape = false
-  for (let i = 0; i < text.length; i++) {
+  const limit = Math.min(text.length, 1024 * 1024)
+  for (let i = 0; i < limit; i++) {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }

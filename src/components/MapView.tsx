@@ -5,7 +5,7 @@ import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
-import { computeCameraForProgress } from '@/lib/camera'
+import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 
@@ -348,10 +348,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
   const scenesRef = useRef(scenes)
+  const normalizedScenesRef = useRef<Scene[]>([])
   const durationRef = useRef(duration)
   const transitionDurationRef = useRef(transitionDuration)
 
-  useEffect(() => { scenesRef.current = scenes }, [scenes])
+  useEffect(() => {
+    scenesRef.current = scenes
+    normalizedScenesRef.current = normalizeScenes(scenes ?? [])
+  }, [scenes])
   useEffect(() => { durationRef.current = duration }, [duration])
   useEffect(() => { transitionDurationRef.current = transitionDuration }, [transitionDuration])
 
@@ -547,7 +551,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         }
       }
     } catch (err) {
-      console.error('Failed to initialize map:', err)
+      console.error('Failed to initialize map:', err instanceof Error ? err.message : 'Unknown error')
       setMapError(err instanceof Error ? err.message : 'Failed to initialize WebGL map')
     }
     // Only run on mount
@@ -764,7 +768,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (scenesRef.current && scenesRef.current.length > 0) {
         const elapsedSec = progress * durationRef.current
         targetCamera = computeCameraForProgress(
-          track, cumulDistRef.current, scenesRef.current, progress, elapsedSec, transitionDurationRef.current,
+          track, cumulDistRef.current, normalizedScenesRef.current, progress, elapsedSec, transitionDurationRef.current, true,
         )
       } else {
         const totalDistance = cumulDistRef.current[cumulDistRef.current.length - 1] ?? 0

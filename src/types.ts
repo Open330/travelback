@@ -1,3 +1,10 @@
+export function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export interface TrackPoint {
   lng: number
   lat: number
@@ -69,6 +76,12 @@ export interface Scene {
 
 // --- Export Settings ---
 export type VideoCodec = 'h264' | 'h265' | 'av1'
+
+export const EXPORT_LIMITS = {
+  duration: { min: 5, max: 600 },
+  fps: { min: 1, max: 120 },
+  bitrate: { min: 1, max: 50 },
+} as const
 
 export const CODEC_LABELS: Record<VideoCodec, string> = {
   h264: 'H.264 (MP4)',

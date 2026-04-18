@@ -23,7 +23,7 @@ class ErrorBoundaryInner extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, info.componentStack)
+    console.error('ErrorBoundary caught:', error.message, info.componentStack)
   }
 
   handleReload = () => {

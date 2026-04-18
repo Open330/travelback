@@ -152,6 +152,9 @@ const server = createServer(async (req, res) => {
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'no-referrer',
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Resource-Policy': 'same-origin',
     })
 
     if (method === 'HEAD') {

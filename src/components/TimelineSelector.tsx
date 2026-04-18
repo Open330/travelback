@@ -351,7 +351,11 @@ function TimelineSelector({
         {(startRatio > 0.001 || endRatio < 0.999) && (
           <button
             type="button"
-            onClick={() => { setStartRatio(0); setEndRatio(1) }}
+            onClick={() => {
+              setStartRatio(0)
+              setEndRatio(1)
+              if (points.length > 0) onRangeChange(0, points.length - 1)
+            }}
             aria-label={t('timeline.reset')}
             title={t('timeline.reset')}
             className="inline-flex items-center gap-0.5 cursor-pointer"

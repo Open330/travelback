@@ -3,7 +3,7 @@
 import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
-import { DEFAULT_CAMERA_PARAMS } from '@/types'
+import { DEFAULT_CAMERA_PARAMS, generateId } from '@/types'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, normalizeScenes } from '@/lib/camera'
 import { useLocale, type TranslationKey } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
@@ -243,7 +243,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     if (start >= 1) return
     const end = Math.min(start + 0.15, 1)
     const newScene: Scene = {
-      id: `scene-${crypto.randomUUID().slice(0, 8)}`,
+      id: `scene-${generateId().slice(0, 8)}`,
       name: t('scenes.newSceneName').replace('{n}', String(scenes.length + 1)),
       cameraMode: 'flyover',
       startPercent: start,

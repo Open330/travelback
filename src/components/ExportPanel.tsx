@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw } from 'lucide-react'
 import type { VideoCodec, ExportConfig } from '@/types'
-import { CODEC_LABELS, RESOLUTION_PRESETS } from '@/types'
+import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
@@ -113,8 +113,8 @@ export default function ExportPanel({
   const handleExport = useCallback(() => {
     if (codecSupport[codec] === false) return
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
-    const safeDuration = Math.max(5, Math.min(duration, 600))
-    const safeBitrate = Math.max(1, Math.min(bitrate, 50))
+    const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+    const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
   }, [onExport, resolutionIdx, codec, fps, duration, bitrate, codecSupport])
 
@@ -127,7 +127,7 @@ export default function ExportPanel({
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      console.error('Share failed:', err)
+      console.error('Share failed:', err instanceof Error ? err.message : 'Unknown error')
     }
   }, [exportedVideoBlob])
 

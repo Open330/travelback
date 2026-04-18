@@ -1,4 +1,5 @@
 import type { VideoCodec as AppVideoCodec, ExportConfig, Track } from '@/types'
+import { EXPORT_LIMITS } from '@/types'
 import type { CameraState } from './camera'
 import { computeCameraForProgress, normalizeScenes } from './camera'
 import { computeCumulativeDistances } from './interpolate'
@@ -51,9 +52,9 @@ export async function exportVideo(
   const { codec, fps, duration, bitrate, scenes } = config
 
   // Clamp config values to safe bounds
-  const safeDuration = Math.max(1, Math.min(duration, 600))
-  const safeFps = Math.max(1, Math.min(fps, 120))
-  const safeBitrate = Math.max(1, Math.min(bitrate, 100))
+  const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+  const safeFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))
+  const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
 
   if (safeDuration !== duration || safeFps !== fps || safeBitrate !== bitrate) {
     console.warn(`[Travelback] Export config clamped: duration=${duration}->${safeDuration}, fps=${fps}->${safeFps}, bitrate=${bitrate}->${safeBitrate}`)

@@ -417,7 +417,7 @@ export function computeCameraForProgress(
     const nextScene = normalizedScenes[sceneIdx + 1]
     const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
     const blendT = ((1 - localProgress) * sceneDuration) / effectiveHalfTrans
-    return lerpCamera(nextCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
+    return lerpCamera(mainCamera, nextCamera, 1 - Math.max(0, Math.min(1, blendT)))
   }
 
   return mainCamera

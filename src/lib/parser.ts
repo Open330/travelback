@@ -83,14 +83,14 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
 }
 
 function stripXmlEntities(text: string): string {
-  return text.replace(/<!DOCTYPE[^>]*>/gi, '').replace(/<!ENTITY[^>]*>/gi, '')
+  return text.replace(/<!DOCTYPE[\s\S]*?>/gi, '').replace(/<!ENTITY[\s\S]*?>/gi, '')
 }
 
 function parseGPX(text: string): Track {
   const safeText = stripXmlEntities(text)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error('Invalid GPX: ' + parseError.textContent?.slice(0, 200))
+  if (parseError) throw new Error('Invalid GPX: XML parse error')
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
     .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
       .map<TrackPoint | null>((point) => {
@@ -133,7 +133,7 @@ function parseKML(text: string): Track {
   const safeText = stripXmlEntities(text)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error('Invalid KML: ' + parseError.textContent?.slice(0, 200))
+  if (parseError) throw new Error('Invalid KML: XML parse error')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
   const name = doc.querySelector('Document > name')?.textContent
@@ -297,7 +297,30 @@ interface GoogleLocationData {
 }
 
 /* ---------- Main dispatcher ---------------------------------------- */
+const MAX_JSON_DEPTH = 64
+
+function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
+  let depth = 0
+  let inString = false
+  let escape = false
+  const limit = Math.min(text.length, 1024 * 1024)
+  for (let i = 0; i < limit; i++) {
+    const ch = text[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\') { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '{' || ch === '[') {
+      depth++
+      if (depth > maxDepth) throw new Error('JSON nesting depth exceeds limit')
+    } else if (ch === '}' || ch === ']') {
+      depth--
+    }
+  }
+}
+
 export function parseGoogleLocationHistory(text: string): Track {
+  checkJsonDepth(text)
   let data: GoogleLocationData | Record<string, unknown>[]
   try {
     data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
@@ -419,13 +442,25 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
         parseOnMainThread()
         return
       }
-      resolve(event.data.track)
+      // Validate Date fields survived structured clone
+      const track = event.data.track
+      for (const p of track.points) {
+        if (p.time != null && !(p.time instanceof Date)) {
+          p.time = new Date(p.time as unknown as string | number)
+        }
+      }
+      resolve(track)
     }
 
     worker.onerror = (event) => {
       cleanup()
       if (event.error instanceof Error) {
         console.warn('[Travelback] Google worker parse failed, falling back to main thread:', event.error.message)
+      }
+      // Don't retry on main thread for large files — worker isolation exists for a reason
+      if (text.length > 50 * 1024 * 1024) {
+        reject(new Error('File too large to parse without Web Worker. Please try a smaller file.'))
+        return
       }
       parseOnMainThread()
     }

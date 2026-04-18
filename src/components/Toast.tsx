@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
+import { generateId } from '@/types'
 
 export interface ToastMessage {
   id: string
@@ -75,7 +76,7 @@ export function useToast() {
   const [messages, setMessages] = useState<ToastMessage[]>([])
 
   const addToast = useCallback((text: string, type: ToastMessage['type'] = 'info') => {
-    const id = crypto.randomUUID()
+    const id = generateId()
     setMessages(prev => [...prev, { id, text, type }])
   }, [])
 

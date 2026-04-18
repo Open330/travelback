@@ -150,7 +150,7 @@ export function useExportController({
       if (error instanceof DOMException && error.name === 'AbortError') {
         addToast(t('app.exportCancelled'), 'info')
       } else {
-        console.error('Export failed:', error)
+        console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
         addToast(`${t('app.exportFailed')} ${t('app.exportFailedSuffix')}`, 'error')
       }
       setExportState('idle')
