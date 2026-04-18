@@ -212,7 +212,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       }
     }
     setNormalizationWarnings(w)
-    onChange(normalizeScenes(nextScenes))
+    const normalized = normalizeScenes(nextScenes)
+    onChange(normalized)
   }, [onChange, t])
 
   // Swipe-left to dismiss
