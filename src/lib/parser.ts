@@ -97,8 +97,9 @@ function parseGPX(text: string): Track {
         const lat = Number(point.getAttribute('lat'))
         const lng = Number(point.getAttribute('lon'))
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
-        const elevationText = point.getElementsByTagName('ele')[0]?.textContent
-        const timeText = point.getElementsByTagName('time')[0]?.textContent
+        const children = Array.from(point.children)
+        const elevationText = children.find(c => c.localName === 'ele')?.textContent
+        const timeText = children.find(c => c.localName === 'time')?.textContent
         return {
           lat,
           lng,
