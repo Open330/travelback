@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useId } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 import Image from 'next/image'
 import { useLocale } from '@/lib/i18n'
@@ -136,6 +136,9 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   const { t } = useLocale()
   const [tab, setTab] = useState(0)
   const tabsId = useId()
+
+  // Reset tab when modal reopens
+  useEffect(() => { if (isOpen) setTab(0) }, [isOpen])
 
   const methods = [
     {
