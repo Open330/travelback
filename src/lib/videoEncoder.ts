@@ -151,7 +151,27 @@ export async function exportVideo(
 }
 
 /** Trigger a download from an existing object URL */
-export function downloadVideo(url: string, filename: string): void {
+export async function downloadVideo(url: string, filename: string): Promise<void> {
+  // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<unknown> }).showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ accept: { 'video/mp4': ['.mp4'] } }],
+      }) as FileSystemWritableFileStream
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return
+    } catch (err) {
+      // User cancelled the picker, or API failed — fall through to <a> download
+      if (err instanceof DOMException && err.name === 'AbortError') return
+    }
+  }
+
+  // Fallback: programmatic <a> download
   const a = document.createElement('a')
   a.href = url
   a.download = filename

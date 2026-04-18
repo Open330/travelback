@@ -141,7 +141,7 @@ export function useExportController({
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
       const videoUrl = URL.createObjectURL(blob)
-      downloadVideo(videoUrl, result.filename)
+      await downloadVideo(videoUrl, result.filename)
       setExportedVideoBlob(blob)
       setExportedVideoUrl(videoUrl)
       setExportState('done')
