@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef, useMemo } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import type { Track } from '@/types'
@@ -26,9 +26,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const isTouchDevice = useMemo(() => {
-    if (typeof window === 'undefined') return false
-    return 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
   }, [])
 
   const handleFile = useCallback(async (file: File) => {
