@@ -1719,7 +1719,6 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
-    document.documentElement.setAttribute('lang', l)
     try { localStorage.setItem(LOCALE_STORAGE_KEY, l) } catch { /* ignore */ }
   }, [])
 
