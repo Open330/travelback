@@ -340,6 +340,20 @@ return { name: 'Google Location History', points, ...(segmentStartIndices.length
 
 - [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
+- [x] All PRD stories US-056 through US-082 pass (Wave 4 complete)
+- [x] HSTS header added to serve-static.mjs (M-11)
+- [x] FileUpload drop validates file extension (L-5)
+- [x] useExportController finally block guarded against unmount (L-1)
+- [x] ErrorBoundary forces subtree remount on reset (L-3)
+- [x] harden-static-export decodes HTML entities before hashing (M-15)
+- [x] TrackToolbar uses listbox/option roles instead of menu/menuitem (M-14)
+- [x] TimelineSelector fires onRangeChange only on drag end (M-13)
+- [x] style-src-attr 'none' added to CSP (M-10)
+- [x] theme-init.js checks localStorage before matchMedia (M-12)
+- [x] File size validation for GPX/KML in parseTrackFile (M-12/L-6)
+- [x] GoogleGuide tab resets on modal reopen (L-4)
+- [x] JourneyCreator handleToggleSearch no setState-inside-updater (M-14)
+- [x] Null byte check and path normalization in serve-static.mjs (M-15)
 - [x] Video preview remains functional after 60s (P0-1)
 - [x] Worker parses string lat/lng as numbers (P0-2)
 - [x] Pacific-crossing route overview centers correctly (P1-1)

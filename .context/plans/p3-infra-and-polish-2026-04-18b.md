@@ -195,3 +195,6 @@ if (units === 'imperial') {
 - [x] Keyboard users can seek on elevation profile (9)
 - [x] Screen reader announces TrackToolbar mobile menu items (10)
 - [x] formatDuration clamps negative values (1)
+- [x] serve-static.mjs includes HSTS header (M-11)
+- [x] style-src-attr 'none' in CSP (M-10)
+- [x] Null byte check and path.normalize in serve-static.mjs (M-15)

@@ -406,6 +406,15 @@ Add comments above each `eslint-disable-next-line react-hooks/exhaustive-deps`.
 
 - [x] `npm run build` succeeds
 - [ ] `npm run test:e2e:static:ci` passes
+- [x] M-1: Transition blend capped when transitionDuration > sceneDuration
+- [x] M-2: Blob URL revoked when creating new one
+- [x] M-3: handleShare distinguishes AbortError from other errors
+- [x] M-4: handleSelectPlace adds waypoint after flying
+- [x] M-5: undoDelete guards findIndex returning -1
+- [x] M-6: Dedup key rounds to 7 decimal places
+- [x] M-7: parseGPX uses direct-child selection for ele/time
+- [x] M-8: Camera gap at progress=0 interpolates from overview
+- [x] M-9: Bounding box cached to avoid double iteration
 - [x] MapView animation smooth during scene edits (1a)
 - [x] Elevation profile click-to-seek aligns with distance (1b)
 - [x] Scene overlap warnings appear before normalization (1c)
