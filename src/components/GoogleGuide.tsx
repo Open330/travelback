@@ -10,13 +10,14 @@ const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()
+  const markerId = useId()
   const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   const text = { fill: 'var(--t3)', fontSize: 9, fontFamily: 'inherit' }
   const box = { fill: 'var(--gi-bg)', stroke: 'var(--t5, var(--t4))', strokeWidth: 1, rx: 4 }
-  const arrow = { ...common, strokeWidth: 1.2, markerEnd: 'url(#arrowG)' }
+  const arrow = { ...common, strokeWidth: 1.2, markerEnd: `url(#${markerId})` }
   const arrowDef = (
     <defs>
-      <marker id="arrowG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <marker id={markerId} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
         <path d="M1,1 L5,3 L1,5" fill="none" stroke="rgb(var(--gl))" strokeWidth="1" />
       </marker>
     </defs>
