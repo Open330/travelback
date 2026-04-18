@@ -219,7 +219,11 @@ self.onmessage = (event) => {
     }
     checkJsonDepth(data.text)
 
-    self.postMessage({ track: parseGoogleLocationHistory(data.text) })
+    const track = parseGoogleLocationHistory(data.text)
+    if (track.points.length > 250000) {
+      throw new Error('Track contains too many points (max 250,000)')
+    }
+    self.postMessage({ track })
   } catch (error) {
     self.postMessage({ error: error instanceof Error ? error.message : 'Failed to parse track file' })
   }
