@@ -33,6 +33,7 @@ export function useExportController({
   const [exportProgress, setExportProgress] = useState(0)
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null)
+  const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null)
 
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
@@ -56,6 +57,7 @@ export function useExportController({
       }
       return null
     })
+    setExportedVideoBlob(null)
   }, [])
 
 
@@ -134,6 +136,7 @@ export function useExportController({
       const blob = new Blob([result.buffer], { type: result.mimeType })
       const videoUrl = URL.createObjectURL(blob)
       downloadVideo(videoUrl, result.filename)
+      setExportedVideoBlob(blob)
       setExportedVideoUrl(videoUrl)
       setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
@@ -168,6 +171,7 @@ export function useExportController({
     exportProgress,
     exportState,
     exportedVideoUrl,
+    exportedVideoBlob,
     cancelExport,
     exportTrack,
     resetExportSession,

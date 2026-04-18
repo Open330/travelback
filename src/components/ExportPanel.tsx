@@ -35,6 +35,7 @@ interface ExportPanelProps {
   exportProgress: number
   exportState: ExportState
   exportedVideoUrl?: string | null
+  exportedVideoBlob?: Blob | null
   onResetExport: () => void
   playbackDuration?: number
 }
@@ -47,6 +48,7 @@ export default function ExportPanel({
   exportProgress,
   exportState,
   exportedVideoUrl,
+  exportedVideoBlob,
   onResetExport,
   playbackDuration,
 }: ExportPanelProps) {
@@ -55,6 +57,10 @@ export default function ExportPanel({
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
+
+  useEffect(() => {
+    if (playbackDuration != null) setDuration(playbackDuration)
+  }, [playbackDuration])
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>({
@@ -105,25 +111,24 @@ export default function ExportPanel({
   }, [])
 
   const handleExport = useCallback(() => {
+    if (codecSupport[codec] === false) return
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
     const safeDuration = Math.max(5, Math.min(duration, 600))
     const safeBitrate = Math.max(1, Math.min(bitrate, 50))
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
-  }, [onExport, resolutionIdx, codec, fps, duration, bitrate])
+  }, [onExport, resolutionIdx, codec, fps, duration, bitrate, codecSupport])
 
   const handleShare = useCallback(async () => {
-    if (!exportedVideoUrl) return
+    if (!exportedVideoBlob) return
     try {
-      const response = await fetch(exportedVideoUrl)
-      const blob = await response.blob()
-      const file = new File([blob], 'travelback.mp4', { type: 'video/mp4' })
+      const file = new File([exportedVideoBlob], 'travelback.mp4', { type: 'video/mp4' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Travelback' })
       }
     } catch {
       // User cancelled or share not supported
     }
-  }, [exportedVideoUrl])
+  }, [exportedVideoBlob])
 
   if (!isOpen) return null
 
