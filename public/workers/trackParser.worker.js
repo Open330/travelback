@@ -26,9 +26,12 @@ function looksLikeGoogleLocationRecord(value) {
 
 function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
   if (latE7 == null || lngE7 == null) return
+  const lat = e7(latE7)
+  const lng = e7(lngE7)
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   out.push({
-    lat: e7(latE7),
-    lng: e7(lngE7),
+    lat,
+    lng,
     ele: parseOptionalNumber(alt),
     time: gTime(ts, tsMs),
   })
@@ -102,7 +105,7 @@ function parseSemanticSegments(segments, out) {
         if (!m) continue
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
-        if (lat == null || lng == null) continue
+        if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
         out.push({ lat, lng, time: gTime(pt.timestamp) })
       }
     }
@@ -113,7 +116,7 @@ function parseSemanticSegments(segments, out) {
       if (!m) continue
       const lat = parseOptionalNumber(m[1])
       const lng = parseOptionalNumber(m[2])
-      if (lat == null || lng == null) continue
+      if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
       out.push({ lat, lng, time: gTime(seg.startTime) })
     }
   }
@@ -125,7 +128,7 @@ function parseGoogleLocationHistory(text) {
   const segStarts = []
   let recognizedFormat = false
 
-  if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
+  if (Array.isArray(data) && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
   } else if (data && typeof data === 'object') {
