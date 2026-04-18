@@ -53,8 +53,12 @@ function computeScriptHashes(html) {
 
 function replaceCspMeta(html, csp) {
   const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+  // Match CSP meta tag regardless of attribute order and quote style
+  const match = html.match(/<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')\s*[^>]*>/i)
+    ?? html.match(/<meta\s+[^>]*content=(?:"[^"]*"|'[^']*')[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i)
+  if (!match) return html
   return html.replace(
-    /<meta\s+http-equiv="Content-Security-Policy"[^>]*content="[^"]*"[^>]*>/i,
+    /<meta\s+http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i,
     `<meta http-equiv="Content-Security-Policy" data-travelback-csp="static-export" content="${contentAttribute}"/>`,
   )
 }
