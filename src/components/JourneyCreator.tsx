@@ -450,9 +450,6 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setSearchQuery(query)
     setSearchError(null)
     setSearchResults([])
-    if (query.trim().length < MIN_SEARCH_QUERY_LENGTH) {
-      setSearchResults([])
-    }
   }, [])
 
   const handleSearchSubmit = useCallback(() => {

@@ -14,6 +14,8 @@ function clampUnit(value: number, fallback: number): number {
   return Math.max(0, Math.min(1, value))
 }
 
+const normBearing = (b: number) => ((b % 360) + 360) % 360
+
 export function normalizeScenes(scenes: Scene[]): Scene[] {
   let previousEndPercent = 0
 
@@ -97,7 +99,7 @@ function computeOverviewCamera(track: Track, cumulDist: number[], elapsedSec: nu
   if (!box) return { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
   const center = trackCenterFromBox(box)
   const zoom = overviewZoomFromBox(box)
-  return { center, zoom, pitch: 0, bearing: ((elapsedSec * 5) % 360 + 360) % 360 }
+  return { center, zoom, pitch: 0, bearing: normBearing(elapsedSec * 5) }
 }
 
 /**
@@ -139,9 +141,6 @@ export function computeCameraForScene(
   const result = interpolateAlongTrack(track.points, cumulDist, trackProgress)
   const { point, bearing } = result
 
-  /** Normalize bearing to [0, 360) */
-  const normBearing = (b: number) => ((b % 360) + 360) % 360
-
   switch (scene.cameraMode) {
     case 'overview': {
       const box = computeBoundingBox(track.points)
@@ -155,6 +154,8 @@ export function computeCameraForScene(
       }
     }
     case 'flyover':
+    case 'ground':
+    case 'closeup':
       return {
         center: [point.lng, point.lat],
         zoom: params.zoom,
@@ -167,20 +168,6 @@ export function computeCameraForScene(
         zoom: params.zoom,
         pitch: params.pitch,
         bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
-      }
-    case 'ground':
-      return {
-        center: [point.lng, point.lat],
-        zoom: params.zoom,
-        pitch: params.pitch,
-        bearing: normBearing(bearing + params.bearingOffset),
-      }
-    case 'closeup':
-      return {
-        center: [point.lng, point.lat],
-        zoom: params.zoom,
-        pitch: params.pitch,
-        bearing: normBearing(bearing + params.bearingOffset),
       }
     case 'birdeye': {
       // Look-ahead: interpolate a point ~5% further along the track for bearing
