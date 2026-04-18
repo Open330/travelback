@@ -480,18 +480,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [mapRef, updateMapData, syncUI])
 
   const handleToggleSearch = useCallback(() => {
-    setSearchEnabled((enabled) => {
-      const nextEnabled = !enabled
-
-      if (!nextEnabled) {
-        setSearchQuery('')
-        setSearchResults([])
-        setSearchError(null)
-      }
-
-      return nextEnabled
-    })
+    setSearchEnabled((enabled) => !enabled)
   }, [])
+
+  useEffect(() => {
+    if (!searchEnabled) {
+      setSearchQuery('')
+      setSearchResults([])
+      setSearchError(null)
+    }
+  }, [searchEnabled])
 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
