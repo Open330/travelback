@@ -103,7 +103,9 @@ function computeOverviewCamera(track: Track, cumulDist: number[], elapsedSec: nu
 }
 
 /**
- * Smoothly interpolate between two camera states with easing
+ * Smoothly interpolate between two camera states with easing.
+ * Uses shifted-longitude interpolation for antimeridian-crossing routes
+ * (same approach as computeBoundingBox/trackCenterFromBox).
  */
 export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraState {
   const s = t * t * (3 - 2 * t) // smoothstep
@@ -111,9 +113,23 @@ export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraSta
     const diff = ((to - from + 540) % 360) - 180
     return from + diff * f
   }
+
+  // Longitude: detect antimeridian wrap and shift into [0,360) domain
+  const lngDiff = b.center[0] - a.center[0]
+  let lngResult: number
+  if (Math.abs(lngDiff) > 180) {
+    // Shift both longitudes into [0,360), interpolate, then shift back
+    const aShifted = ((a.center[0] + 180) % 360 + 360) % 360
+    const bShifted = ((b.center[0] + 180) % 360 + 360) % 360
+    const interpShifted = aShifted + (bShifted - aShifted) * s
+    lngResult = ((interpShifted + 180) % 360) - 180
+  } else {
+    lngResult = a.center[0] + lngDiff * s
+  }
+
   return {
     center: [
-      a.center[0] + (((b.center[0] - a.center[0] + 540) % 360) - 180) * s,
+      lngResult,
       a.center[1] + (b.center[1] - a.center[1]) * s,
     ],
     zoom: a.zoom + (b.zoom - a.zoom) * s,
