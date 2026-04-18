@@ -185,10 +185,11 @@ function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
 
 /* ---------- Format 2: Semantic Location History (monthly) ---------- */
 // { timelineObjects: [{ activitySegment | placeVisit }] }
-function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoint[]) {
+function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoint[], segStarts: number[]) {
   for (const obj of objects) {
     const seg = obj.activitySegment as Record<string, unknown> | undefined
     const visit = obj.placeVisit as Record<string, unknown> | undefined
+    const preLen = out.length
 
     if (seg) {
       // Best data: simplifiedRawPath.points[]
@@ -224,6 +225,7 @@ function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoin
         pushE7(out, visit.centerLatE7 as number, visit.centerLngE7 as number, dur?.startTimestamp as string)
       }
     }
+    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
   }
 }
 
@@ -292,12 +294,18 @@ interface GoogleLocationData {
 
 /* ---------- Main dispatcher ---------------------------------------- */
 export function parseGoogleLocationHistory(text: string): Track {
-  const data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
+  let data: GoogleLocationData | Record<string, unknown>[]
+  try {
+    data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
+  } catch {
+    throw new Error('Invalid JSON file. Please check that the file is a valid Google Location History export.')
+  }
   const points: TrackPoint[] = []
+  const segStarts: number[] = []
   let recognizedFormat = false
 
   // Flat array: [{ latitudeE7, ... }]
-  if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
+  if (Array.isArray(data) && data.length > 0 && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     parseRecords(data, points)
   }
@@ -309,7 +317,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   // Semantic Location History (monthly): { timelineObjects: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
     recognizedFormat = true
-    parseTimelineObjects(data.timelineObjects, points)
+    parseTimelineObjects(data.timelineObjects, points, segStarts)
   }
   // Timeline Edits.json: { timelineEdits: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
@@ -346,7 +354,11 @@ export function parseGoogleLocationHistory(text: string): Track {
     if (bTime != null) return 1
     return a.order - b.order
   })
-  return { name: 'Google Location History', points: unique.map(({ point }) => point) }
+  return {
+    name: 'Google Location History',
+    points: unique.map(({ point }) => point),
+    ...(segStarts.length > 0 ? { segmentStartIndices: segStarts } : {}),
+  }
 }
 
 async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> {

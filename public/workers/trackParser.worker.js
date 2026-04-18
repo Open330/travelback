@@ -48,10 +48,11 @@ function parseRecords(locations, out) {
   }
 }
 
-function parseTimelineObjects(objects, out) {
+function parseTimelineObjects(objects, out, segStarts) {
   for (const obj of objects) {
     const seg = obj.activitySegment
     const visit = obj.placeVisit
+    const preLen = out.length
 
     if (seg) {
       const rawPath = seg.simplifiedRawPath
@@ -79,6 +80,7 @@ function parseTimelineObjects(objects, out) {
         pushE7(out, visit.centerLatE7, visit.centerLngE7, dur && dur.startTimestamp)
       }
     }
+    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
   }
 }
 
@@ -120,6 +122,7 @@ function parseSemanticSegments(segments, out) {
 function parseGoogleLocationHistory(text) {
   const data = JSON.parse(text)
   const points = []
+  const segStarts = []
   let recognizedFormat = false
 
   if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
@@ -132,7 +135,7 @@ function parseGoogleLocationHistory(text) {
     }
     if (Array.isArray(data.timelineObjects)) {
       recognizedFormat = true
-      parseTimelineObjects(data.timelineObjects, points)
+      parseTimelineObjects(data.timelineObjects, points, segStarts)
     }
     if (Array.isArray(data.timelineEdits)) {
       recognizedFormat = true
@@ -162,7 +165,11 @@ function parseGoogleLocationHistory(text) {
     return a.order - b.order
   })
 
-  return { name: 'Google Location History', points: unique.map(({ point }) => point) }
+  return {
+    name: 'Google Location History',
+    points: unique.map(({ point }) => point),
+    ...(segStarts.length > 0 ? { segmentStartIndices: segStarts } : {}),
+  }
 }
 
 const MAX_MESSAGE_SIZE = 200 * 1024 * 1024 // 200MB
