@@ -218,12 +218,13 @@ function checkJsonDepth(text) {
     }
   }
   // For large files, spot-check at 25%, 50%, 75%, and near the end
+  const baseDepth = depth
   if (len > scanEnd) {
     const samples = [len * 0.25, len * 0.5, len * 0.75, len - 1024]
     for (const offset of samples) {
       const start = Math.floor(offset)
       const end = Math.min(start + 1024, len)
-      let sampleDepth = 0
+      let sampleDepth = baseDepth
       let sampleInString = false
       let sampleEscape = false
       for (let i = start; i < end; i++) {
