@@ -318,8 +318,10 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
   let inString = false
   let escape = false
-  const limit = Math.min(text.length, 1024 * 1024)
-  for (let i = 0; i < limit; i++) {
+  const len = text.length
+  const scanEnd = Math.min(len, 1024 * 1024)
+  // Scan first 1MB fully
+  for (let i = 0; i < scanEnd; i++) {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
@@ -330,6 +332,30 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
       if (depth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
     } else if (ch === '}' || ch === ']') {
       depth--
+    }
+  }
+  // For large files, spot-check at 25%, 50%, 75%, and near the end
+  if (len > scanEnd) {
+    const samples = [len * 0.25, len * 0.5, len * 0.75, len - 1024]
+    for (const offset of samples) {
+      const start = Math.floor(offset)
+      const end = Math.min(start + 1024, len)
+      let sampleDepth = 0
+      let sampleInString = false
+      let sampleEscape = false
+      for (let i = start; i < end; i++) {
+        const ch = text[i]
+        if (sampleEscape) { sampleEscape = false; continue }
+        if (ch === '\\') { sampleEscape = true; continue }
+        if (ch === '"') { sampleInString = !sampleInString; continue }
+        if (sampleInString) continue
+        if (ch === '{' || ch === '[') {
+          sampleDepth++
+          if (sampleDepth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
+        } else if (ch === '}' || ch === ']') {
+          sampleDepth--
+        }
+      }
     }
   }
 }
