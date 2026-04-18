@@ -3,6 +3,19 @@ import type { Track, TrackPoint } from '@/types'
 
 const MAX_TRACK_POINTS = 250_000
 
+/**
+ * Parser error with a machine-readable code for i18n mapping.
+ * Avoids depending on English error message text for error classification.
+ */
+export class ParseError extends Error {
+  readonly code: string
+  constructor(message: string, code: string) {
+    super(message)
+    this.name = 'ParseError'
+    this.code = code
+  }
+}
+
 function parseOptionalNumber(value: unknown): number | undefined {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : undefined
@@ -90,7 +103,7 @@ function parseXml(text: string, formatName: string): Document {
   const safeText = stripXmlEntities(text)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error(`Invalid ${formatName}: XML parse error`)
+  if (parseError) throw new ParseError(`Invalid ${formatName}: XML parse error`, 'XML_PARSE_ERROR')
   return doc
 }
 
@@ -314,7 +327,7 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
     if (inString) continue
     if (ch === '{' || ch === '[') {
       depth++
-      if (depth > maxDepth) throw new Error('JSON nesting depth exceeds limit')
+      if (depth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
     } else if (ch === '}' || ch === ']') {
       depth--
     }
@@ -327,7 +340,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   try {
     data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
   } catch {
-    throw new Error('Invalid JSON file. Please check that the file is a valid Google Location History export.')
+    throw new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON')
   }
   const points: TrackPoint[] = []
   const segStarts: number[] = []
@@ -363,7 +376,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   }
 
   if (!recognizedFormat) {
-    throw new Error('Unsupported Google Location History format')
+    throw new ParseError('Unsupported Google Location History format', 'UNSUPPORTED_GOOGLE_FORMAT')
   }
 
   // De-duplicate identical lat/lng/time combos that may come from multiple branches
@@ -498,14 +511,14 @@ export function parseTrackFile(file: File): Promise<Track> {
         } else if (ext === 'json') {
           track = await parseGoogleLocationHistoryInWorker(text)
         } else {
-          throw new Error(`Unsupported file format: .${ext}`)
+          throw new ParseError(`Unsupported file format: .${ext}`, 'UNSUPPORTED_FORMAT')
         }
 
         if (track.points.length < 2) {
-          throw new Error('Track must contain at least 2 points')
+          throw new ParseError('Track must contain at least 2 points', 'TOO_FEW_POINTS')
         }
         if (track.points.length > MAX_TRACK_POINTS) {
-          throw new Error('Track contains too many points')
+          throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
         }
 
         resolve(track)

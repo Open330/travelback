@@ -5,7 +5,7 @@ import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
-import { parseTrackFile } from '@/lib/parser'
+import { parseTrackFile, ParseError } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
 
 interface FileUploadProps {
@@ -45,19 +45,23 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const track = await parseTrackFile(file)
       onTrackLoaded(track)
     } catch (err) {
-      const message = err instanceof Error ? err.message : ''
-      // Map known English parser errors to i18n keys for display
-      const parserErrorMap: Record<string, string> = {
-        'Unsupported file format': 'fileUpload.unsupportedFormat',
-        'Track must contain at least 2 points': 'fileUpload.tooFewPoints',
-        'Track contains too many points': 'fileUpload.tooManyPoints',
-        'Failed to read file': 'fileUpload.readFailed',
+      // Map parser error codes to i18n keys (avoids relying on English message text)
+      const errorCodeMap: Record<string, string> = {
+        UNSUPPORTED_FORMAT: 'fileUpload.unsupportedFormat',
+        TOO_FEW_POINTS: 'fileUpload.tooFewPoints',
+        TOO_MANY_POINTS: 'fileUpload.tooManyPoints',
+        XML_PARSE_ERROR: 'fileUpload.parseFailed',
+        INVALID_GOOGLE_JSON: 'fileUpload.parseFailed',
+        JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
+        UNSUPPORTED_GOOGLE_FORMAT: 'fileUpload.parseFailed',
       }
-      const matchedKey = Object.keys(parserErrorMap).find(m => message.includes(m))
+      const code = err instanceof ParseError ? err.code : ''
+      const message = err instanceof Error ? err.message : ''
+      const matchedKey = code && code in errorCodeMap ? code : ''
       const isSafe = !!matchedKey || message === t('fileUpload.fileTooLarge')
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
       if (matchedKey) {
-        setError(t(parserErrorMap[matchedKey] as Parameters<typeof t>[0]))
+        setError(t(errorCodeMap[matchedKey] as Parameters<typeof t>[0]))
       } else if (message === t('fileUpload.fileTooLarge')) {
         setError(message)
       } else {
