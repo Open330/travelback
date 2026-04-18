@@ -69,11 +69,11 @@ if (htmlFiles.length === 0) {
 for (const htmlFile of htmlFiles) {
   const html = await readFile(htmlFile, 'utf8')
   const hashes = computeScriptHashes(html)
-  if (hashes.length === 0) {
-    throw new Error(`No inline scripts found to hash in ${htmlFile}`)
-  }
+  const scriptSrc = hashes.length > 0
+    ? [`'self'`, ...hashes].join(' ')
+    : "'self'"
 
-  const csp = STYLE_POLICY.replace('__SCRIPT_HASHES__', [`'self'`, ...hashes].join(' '))
+  const csp = STYLE_POLICY.replace('__SCRIPT_HASHES__', scriptSrc)
   const nextHtml = replaceCspMeta(html, csp)
   if (nextHtml === html) {
     throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
