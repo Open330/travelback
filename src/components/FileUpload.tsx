@@ -84,6 +84,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     if (file) {
       const ext = file.name.split('.').pop()?.toLowerCase()
       if (!ext || !VALID_EXTENSIONS.has(ext)) {
+        setError(t('fileUpload.unsupportedFormat'))
         setTimeout(() => setIsDragging(false), 200)
         return
       }
