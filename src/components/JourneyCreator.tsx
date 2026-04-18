@@ -467,6 +467,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const handleSelectPlace = useCallback((lat: string, lon: string) => {
     const lng = parseFloat(lon)
     const latNum = parseFloat(lat)
+    if (!Number.isFinite(lng) || !Number.isFinite(latNum)) return
+    if (Math.abs(latNum) > 90 || Math.abs(lng) > 180) return
     const map = mapRef.current?.getMap()
     if (map) map.flyTo({ center: [lng, latNum], zoom: 14 })
     waypointsRef.current = [...waypointsRef.current, { lng, lat: latNum }]
