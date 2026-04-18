@@ -6,6 +6,8 @@ import Image from 'next/image'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
+const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()
   const common = { fill: 'none', stroke: 'rgb(var(--gl))', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
@@ -134,7 +136,6 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   const { t } = useLocale()
   const [tab, setTab] = useState(0)
   const tabsId = useId()
-  const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
   const methods = [
     {

@@ -42,7 +42,7 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
     >
       <div className="flex items-start gap-2">
         <span className="flex-1">{message.text}</span>
-        <button onClick={onDismiss} className="cursor-pointer flex-shrink-0"
+        <button onClick={onDismiss} className="cursor-pointer flex-shrink-0 flex min-h-11 min-w-11 items-center justify-center"
           style={{ color: 'var(--t4)' }}
           aria-label={t('toast.dismiss')}>
           <X size={14} strokeWidth={2} />
@@ -56,7 +56,7 @@ export default function Toast({ messages, onDismiss }: ToastProps) {
   if (messages.length === 0) return null
 
   return (
-    <div className="fixed bottom-24 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
       {messages.map(msg => (
         <ToastItem key={msg.id} message={msg} onDismiss={() => onDismiss(msg.id)} />
       ))}
@@ -69,7 +69,7 @@ export function useToast() {
   const [messages, setMessages] = useState<ToastMessage[]>([])
 
   const addToast = useCallback((text: string, type: ToastMessage['type'] = 'info') => {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const id = crypto.randomUUID()
     setMessages(prev => [...prev, { id, text, type }])
   }, [])
 

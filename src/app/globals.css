@@ -50,6 +50,12 @@ body, [lang] {
   animation: checkmark-in .3s cubic-bezier(.22, 1, .36, 1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .export-checkmark {
+    animation: none;
+  }
+}
+
 /* Darken landing preview in dark mode */
 [data-mode="dark"] .landing-preview-image {
   filter: brightness(0.7) saturate(0.8);

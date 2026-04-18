@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useId } from 'react'
 import type { Track } from '@/types'
 import { formatElevation, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
@@ -14,6 +14,8 @@ interface ElevationProfileProps {
 
 export default function ElevationProfile({ track, progress, onSeek, units }: ElevationProfileProps) {
   const { t } = useLocale()
+  const gradientId = useId()
+  const clipId = useId()
   const elevations = useMemo(() => {
     return track.points.map((point) => Number.isFinite(point.ele) ? point.ele ?? null : null)
   }, [track])
@@ -79,28 +81,28 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
       >
         {/* Gradient fill */}
         <defs>
-          <linearGradient id="elev-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.05" />
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" style={{ stopColor: 'rgb(var(--gl))', stopOpacity: 0.4 }} />
+            <stop offset="100%" style={{ stopColor: 'rgb(var(--gl))', stopOpacity: 0.05 }} />
           </linearGradient>
         </defs>
 
         {/* Area fill */}
-        <path d={areaD} fill="url(#elev-grad)" />
+        <path d={areaD} fill={`url(#${gradientId})`} />
 
         {/* Line */}
-        <path d={pathD} fill="none" stroke="#06b6d4" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+        <path d={pathD} fill="none" style={{ stroke: 'rgb(var(--gl))', strokeWidth: 1.5 }} vectorEffect="non-scaling-stroke" />
 
         {/* Completed area */}
-        <clipPath id="elev-clip">
+        <clipPath id={clipId}>
           <rect x="0" y="0" width={progressX} height="100" />
         </clipPath>
-        <path d={areaD} fill="#06b6d4" opacity="0.25" clipPath="url(#elev-clip)" />
+        <path d={areaD} style={{ fill: 'rgb(var(--gl))', opacity: 0.25 }} clipPath={`url(#${clipId})`} />
 
         {/* Progress line */}
         <line
           x1={progressX} y1="0" x2={progressX} y2="100"
-          stroke="#f97316" strokeWidth="1.5" vectorEffect="non-scaling-stroke"
+          style={{ stroke: 'var(--trail, #f97316)', strokeWidth: 1.5 }} vectorEffect="non-scaling-stroke"
           opacity="0.8"
         />
       </svg>

@@ -838,8 +838,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       aria-hidden={!track}
     >
       {mapError && (
-        <div data-testid="map-error" className="flex items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
+        <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>{t('app.mapLoadFailed').replace('{error}', mapError)}</p>
+          <button onClick={() => window.location.reload()} className="gi mt-4 px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t1)' }}>
+            {t('error.reloadPage')}
+          </button>
         </div>
       )}
     </div>

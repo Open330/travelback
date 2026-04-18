@@ -40,7 +40,7 @@ class ErrorBoundaryInner extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
           <div className="gc text-center max-w-md p-8" style={{ borderRadius: 'var(--r-glass)' }}>
-            <p className="text-5xl mb-4">😵</p>
+            <p className="text-5xl mb-4" aria-hidden="true">😵</p>
             <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
               {t('error.title')}
             </h1>

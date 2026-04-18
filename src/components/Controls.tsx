@@ -40,7 +40,7 @@ export default function Controls({
 }: ControlsProps) {
   const { t } = useLocale()
   const total = useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track])
-  const traveled = total * progress
+  const traveled = progress >= 1 ? total : total * progress
   const elapsed = duration * progress
 
   const handleProgressChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +137,7 @@ export default function Controls({
 
           <div
             data-testid="playback-stats"
-            className="flex w-full items-center justify-between gap-3 text-xs sm:ml-auto sm:w-auto sm:justify-end sm:text-sm"
+            className="flex w-full items-center justify-between gap-3 text-xs sm:ml-auto sm:w-auto sm:justify-end sm:text-sm whitespace-nowrap"
             style={{ color: 'var(--t3)' }}
           >
             <span>{formatDistance(traveled, units)} / {formatDistance(total, units)}</span>

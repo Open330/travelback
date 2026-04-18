@@ -27,6 +27,11 @@ export function usePlaybackController(track: Track | null) {
   const progressRef = useRef(0)
   const speedRef = useRef(speed)
   const durationRef = useRef(duration)
+  const isPlayingRef = useRef(false)
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
 
   useEffect(() => {
     progressRef.current = progress
@@ -84,6 +89,7 @@ export function usePlaybackController(track: Track | null) {
     lastTimeRef.current = performance.now()
 
     const animate = (now: number) => {
+      if (!isPlayingRef.current) return
       const rawDt = (now - lastTimeRef.current) / 1000
       const dt = Math.min(rawDt, 1 / 30)
       lastTimeRef.current = now
@@ -141,8 +147,13 @@ export function usePlaybackHotkeys({
 }: PlaybackHotkeysOptions) {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      const tagName = (event.target as HTMLElement | null)?.tagName
-      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName
+      const isInteractiveTarget = Boolean(
+        target?.closest('button, a, summary, [role="dialog"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
+      )
+
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || isInteractiveTarget) {
         return
       }
 

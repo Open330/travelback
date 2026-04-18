@@ -213,7 +213,7 @@ export default function ExportPanel({
               {t('export.rendering')} {Math.round(exportProgress * 100)}%
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
-              <div className="h-full rounded-full transition-all duration-200" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))' }} />
+              <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width .3s linear' }} />
             </div>
             <p className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.frame')} {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}

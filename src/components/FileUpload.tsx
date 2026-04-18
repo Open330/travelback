@@ -17,6 +17,7 @@ interface FileUploadProps {
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024
 const WARN_FILE_SIZE = 100 * 1024 * 1024
+const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
@@ -24,7 +25,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
 
   const isTouchDevice = useMemo(() => {
     if (typeof window === 'undefined') return false
