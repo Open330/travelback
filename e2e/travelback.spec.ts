@@ -905,7 +905,7 @@ test.describe('Travelback App', () => {
 
   test('shows error for unsupported file format', async ({ page }) => {
     // Create a temporary .txt file to upload
-    const tmpFile = path.resolve(__dirname, 'fixtures/unsupported.txt')
+    const tmpFile = path.resolve(__dirname, `fixtures/unsupported-${process.pid}.txt`)
     fs.writeFileSync(tmpFile, 'This is not a travel file')
     try {
       const fileInput = page.locator('input[type="file"]')
