@@ -410,7 +410,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       setPointCount(0)
       setDistanceMeters(0)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; only re-run when active state changes
   }, [isActive])
 
   const handleUndo = useCallback(() => {

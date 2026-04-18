@@ -148,7 +148,7 @@ function TimelineSelector({
         rafRef.current = null
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: registers global drag listeners using refs for all mutable state
     []
   )
 
