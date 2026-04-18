@@ -41,11 +41,15 @@ export function normalizeScenes(scenes: Scene[]): Scene[] {
     .filter((scene) => scene.endPercent > scene.startPercent)
 }
 
-/**
- * Compute the bounding box center of the full track
- */
-function trackCenter(points: TrackPoint[]): [number, number] {
-  if (points.length === 0) return [0, 20]
+interface BoundingBox {
+  minLat: number; maxLat: number
+  minLng: number; maxLng: number
+  /** Shifted longitude bounds when track crosses antimeridian (span > 180) */
+  minLngShifted?: number; maxLngShifted?: number
+}
+
+function computeBoundingBox(points: TrackPoint[]): BoundingBox | null {
+  if (points.length === 0) return null
   let minLng = Infinity, maxLng = -Infinity
   let minLat = Infinity, maxLat = -Infinity
   for (const p of points) {
@@ -54,8 +58,7 @@ function trackCenter(points: TrackPoint[]): [number, number] {
     if (p.lat < minLat) minLat = p.lat
     if (p.lat > maxLat) maxLat = p.lat
   }
-  const latCenter = (minLat + maxLat) / 2
-  // Antimeridian crossing: if span > 180°, shift longitudes before averaging
+  const box: BoundingBox = { minLat, maxLat, minLng, maxLng }
   if (maxLng - minLng > 180) {
     let minShifted = Infinity, maxShifted = -Infinity
     for (const p of points) {
@@ -63,37 +66,26 @@ function trackCenter(points: TrackPoint[]): [number, number] {
       if (shifted < minShifted) minShifted = shifted
       if (shifted > maxShifted) maxShifted = shifted
     }
-    const centerShifted = (minShifted + maxShifted) / 2
-    return [((centerShifted + 180) % 360) - 180, latCenter]
+    box.minLngShifted = minShifted
+    box.maxLngShifted = maxShifted
   }
-  return [(minLng + maxLng) / 2, latCenter]
+  return box
 }
 
-/**
- * Estimate a zoom level that fits the track's bounding box.
- */
-function estimateOverviewZoom(points: TrackPoint[]): number {
-  if (points.length === 0) return 2
-  let minLng = Infinity, maxLng = -Infinity
-  let minLat = Infinity, maxLat = -Infinity
-  for (const p of points) {
-    if (p.lng < minLng) minLng = p.lng
-    if (p.lng > maxLng) maxLng = p.lng
-    if (p.lat < minLat) minLat = p.lat
-    if (p.lat > maxLat) maxLat = p.lat
+function trackCenterFromBox(box: BoundingBox): [number, number] {
+  const latCenter = (box.minLat + box.maxLat) / 2
+  if (box.minLngShifted != null && box.maxLngShifted != null) {
+    const centerShifted = (box.minLngShifted + box.maxLngShifted) / 2
+    return [((centerShifted + 180) % 360) - 180, latCenter]
   }
-  let dLng = maxLng - minLng
-  // Antimeridian crossing: if span > 180°, compute shifted span
-  if (dLng > 180) {
-    let minShifted = Infinity, maxShifted = -Infinity
-    for (const p of points) {
-      const shifted = ((p.lng + 180) % 360 + 360) % 360
-      if (shifted < minShifted) minShifted = shifted
-      if (shifted > maxShifted) maxShifted = shifted
-    }
-    dLng = maxShifted - minShifted
-  }
-  const dLat = maxLat - minLat
+  return [(box.minLng + box.maxLng) / 2, latCenter]
+}
+
+function overviewZoomFromBox(box: BoundingBox): number {
+  const dLng = box.minLngShifted != null && box.maxLngShifted != null
+    ? box.maxLngShifted - box.minLngShifted
+    : box.maxLng - box.minLng
+  const dLat = box.maxLat - box.minLat
   const maxSpan = Math.max(dLng, dLat)
   if (maxSpan === 0) return 14
   const z = Math.log2(360 / maxSpan) - 0.5
@@ -101,8 +93,10 @@ function estimateOverviewZoom(points: TrackPoint[]): number {
 }
 
 function computeOverviewCamera(track: Track, cumulDist: number[], elapsedSec: number): CameraState {
-  const center = trackCenter(track.points)
-  const zoom = estimateOverviewZoom(track.points)
+  const box = computeBoundingBox(track.points)
+  if (!box) return { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
+  const center = trackCenterFromBox(box)
+  const zoom = overviewZoomFromBox(box)
   return { center, zoom, pitch: 0, bearing: ((elapsedSec * 5) % 360 + 360) % 360 }
 }
 
@@ -150,8 +144,9 @@ export function computeCameraForScene(
 
   switch (scene.cameraMode) {
     case 'overview': {
-      const center = trackCenter(track.points)
-      const zoom = estimateOverviewZoom(track.points)
+      const box = computeBoundingBox(track.points)
+      const center = box ? trackCenterFromBox(box) : [0, 20] as [number, number]
+      const zoom = box ? overviewZoomFromBox(box) : 2
       return {
         center,
         zoom: Math.min(zoom, params.zoom),
