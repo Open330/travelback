@@ -347,6 +347,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
+  const scenesRef = useRef(scenes)
+  const durationRef = useRef(duration)
+  const transitionDurationRef = useRef(transitionDuration)
+
+  useEffect(() => { scenesRef.current = scenes }, [scenes])
+  useEffect(() => { durationRef.current = duration }, [duration])
+  useEffect(() => { transitionDurationRef.current = transitionDuration }, [transitionDuration])
 
   useEffect(() => {
     trackRef.current = track
@@ -754,10 +761,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (followCamera && !suspendAutoCamera && progress > 0) {
       let targetCamera: CameraState
 
-      if (scenes && scenes.length > 0) {
-        const elapsedSec = progress * duration
+      if (scenesRef.current && scenesRef.current.length > 0) {
+        const elapsedSec = progress * durationRef.current
         targetCamera = computeCameraForProgress(
-          track, cumulDistRef.current, scenes, progress, elapsedSec, transitionDuration,
+          track, cumulDistRef.current, scenesRef.current, progress, elapsedSec, transitionDurationRef.current,
         )
       } else {
         const totalDistance = cumulDistRef.current[cumulDistRef.current.length - 1] ?? 0
@@ -795,7 +802,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         ? angleDelta(previousCameraState.bearing, targetCamera.bearing) > SEEK_SNAP_BEARING_DEGREES
         : false
 
-      const hasSceneCamera = Boolean(scenes && scenes.length > 0)
+      const hasSceneCamera = Boolean(scenesRef.current && scenesRef.current.length > 0)
       const canSmoothCamera = Boolean(
         previousCameraState
         && !explicitSeek
@@ -832,7 +839,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, scenes, duration, transitionDuration, addTrackLayers, ensureMarker])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, addTrackLayers, ensureMarker])
 
   return (
     <div
