@@ -193,7 +193,8 @@ function parseGoogleLocationHistory(text) {
   }
 }
 
-const MAX_MESSAGE_SIZE = 200 * 1024 * 1024 // 200MB
+// Must match JSON_MAX_FILE_SIZE in src/lib/parser.ts
+const MAX_MESSAGE_SIZE = 500 * 1024 * 1024 // 500MB
 const MAX_JSON_DEPTH = 64
 
 function checkJsonDepth(text) {
