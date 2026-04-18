@@ -90,7 +90,11 @@ async function resolveFile(urlPathname) {
     return { status: 400 }
   }
 
-  const requestedPath = relativePath === '' ? 'index.html' : relativePath
+  if (relativePath.includes('\0')) {
+    return { status: 400 }
+  }
+
+  const requestedPath = path.normalize(relativePath === '' ? 'index.html' : relativePath)
   let absolutePath = path.resolve(outDir, requestedPath)
 
   if (!isInside(outDir, absolutePath)) {
