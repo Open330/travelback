@@ -1,124 +1,127 @@
-# Comprehensive Deep Code Review — Cycle 3 (2026-04-19)
+# Comprehensive Deep Code Review - Cycle 3 (Review-Plan-Fix Loop)
 
-**Reviewer:** automated deep review
-**Scope:** full src/ + public/workers/ + e2e/
-**Previous review:** comprehensive-deep-code-review-2026-04-19-cycle2.md
+**Date:** 2026-04-19
+**Reviewer:** Automated deep review (cycle 3 of review-plan-fix loop)
+**Scope:** Full source tree (`src/`, `public/`, `scripts/`, `e2e/`)
 
----
+## Previous Cycle Verification
 
-## Cycle 2 verification
+All prior findings have been verified as fixed or are tracked in deferred findings:
 
-All 7 findings from cycle 2 are verified fixed:
+| Source | Finding | Status |
+|--------|---------|--------|
+| Cycle 2 (F1) | Map not rendering - sparse 10-layer styles | FIXED - 93-layer CARTO styles |
+| Cycle 2 (F2) | Theme wrong on first visit | FIXED - `:root:not([data-mode])` fallback |
+| Cycle 2 (F3) | Default unit to km/SI | VERIFIED - already working |
+| Cycle 4 (NEW-C4-1) | Worker error message says "200MB" but limit is 500MB | FIXED |
+| Cycle 4 (NEW-C4-2) | i18n strings say "max 200 MB" but JSON limit is 500MB | FIXED |
+| Cycle 4 (NEW-C4-3) | downloadVideo unnecessary blob URL roundtrip | FIXED - blob passed directly |
+| Cycle 4 (NEW-C4-4) | Drag-and-drop silently ignores unsupported files | FIXED - error message shown |
+| Cycle 5 (NEW-C5-1) | ElevationProfile click-to-seek wrong conversion | FIXED - uses clickFraction directly |
 
-| # | Issue | Status |
-|---|-------|--------|
-| NEW-1 | smoothCameraState uses old shortest-path longitude wrapping | FIXED — shifted-longitude approach applied (src/components/MapView.tsx:76-98) |
-| NEW-2 | JSON files bypass the 200MB size check | FIXED — JSON_MAX_FILE_SIZE=500MB with maxForType (src/lib/parser.ts:518-523) |
-| NEW-3 | ElevationProfile click-to-seek uses linear scan | FIXED — binary search on cumulDist (src/components/ElevationProfile.tsx:66-84) |
-| NEW-4 | SceneRangeEditor onChange stale closure | FIXED — onChangeRef pattern (src/components/SceneEditor.tsx) |
-| NEW-5 | Empty catch blocks | MOSTLY RESOLVED — only 1 remaining localStorage catch (acceptable) |
-| NEW-6 | eslint-disable without justification | FIXED — all have justification comments |
-| NEW-7 | TrackToolbar mousedown missing passive flag | FIXED — { passive: true } added |
+## New Findings
 
----
-
-## New findings
-
-### NEW-C3-1: Worker MAX_MESSAGE_SIZE (200MB) inconsistent with main-thread JSON_MAX_FILE_SIZE (500MB)
-
-**Severity:** HIGH
-**Component:** public/workers/trackParser.worker.js:196, src/lib/parser.ts:518
-
-**Description:** The main-thread parser allows JSON files up to 500MB (`JSON_MAX_FILE_SIZE`), but the Web Worker rejects any message payload exceeding 200MB (`MAX_MESSAGE_SIZE`). When a user imports a 400MB Google Location History JSON file, the main thread passes the size check, reads the file into a string, and posts it to the worker — where it is rejected at line 260. The worker throws "Input too large: exceeds 200MB limit" and the main thread falls back to parsing on the main thread (blocking the UI for potentially tens of seconds). This defeats the purpose of the worker for the exact class of files (large JSON) it was designed to offload.
-
-**Evidence:**
-- `src/lib/parser.ts:518` — `const JSON_MAX_FILE_SIZE = 500 * 1024 * 1024`
-- `public/workers/trackParser.worker.js:196` — `const MAX_MESSAGE_SIZE = 200 * 1024 * 1024`
-- `public/workers/trackParser.worker.js:260` — `if (data.text.length > MAX_MESSAGE_SIZE) { throw new Error(...) }`
-
-**Fix:** Raise `MAX_MESSAGE_SIZE` in the worker to match `JSON_MAX_FILE_SIZE` (500MB), or export the constant from `parser.ts` and import it in both places to prevent drift.
-
----
-
-### NEW-C3-2: FileUpload.tsx duplicates MAX_FILE_SIZE and JSON_MAX_FILE_SIZE constants
+### NEW-R3-1: Missing `--gc-solid-bg` variable in dark mode causes upload card readability issue
 
 **Severity:** MEDIUM
-**Component:** src/components/FileUpload.tsx:19-20, src/lib/parser.ts:517-518
+**File:** `src/styles/vitro-base.css:261-301`
+**Category:** Correctness / Visual bug
 
-**Description:** `FileUpload.tsx` defines its own `MAX_FILE_SIZE` (200MB) and `JSON_MAX_FILE_SIZE` (500MB) at lines 19-20, duplicating the constants in `parser.ts` at lines 517-518. If either constant changes in `parser.ts`, the FileUpload duplicate will silently drift, causing the UI to show incorrect size warnings or allow files that the parser will reject (or vice versa).
+**Description:**
+The `[data-mode=dark]` block in `vitro-base.css` does not define `--gc-solid-bg`. This variable is defined in:
+- `[data-mode=light]` block (line 219): `--gc-solid-bg: rgba(255, 255, 255, .88)`
+- `:root:not([data-mode])` fallback block (line 49): `--gc-solid-bg: rgba(255, 255, 255, .88)`
 
-**Evidence:**
-- `src/components/FileUpload.tsx:19-20` — `const MAX_FILE_SIZE = 200 * 1024 * 1024` / `const JSON_MAX_FILE_SIZE = 500 * 1024 * 1024`
-- `src/lib/parser.ts:517-518` — same values, not exported
+But it is absent from the dark mode definition.
 
-**Fix:** Export the constants from `parser.ts` and import them in `FileUpload.tsx`. The worker cannot import TS modules, so it should keep its own copy but with a code comment referencing the canonical source.
+The `--gc-solid-bg` variable is referenced in `FileUpload.tsx` line 146:
+```tsx
+background: 'var(--gc-solid-bg, var(--gc-bg))',
+```
+
+The fallback `var(--gc-bg)` is defined in dark mode as `rgba(22, 26, 38, .52)` -- a semi-transparent value. This means in dark mode, the file upload card background is semi-transparent, allowing the map grid and reference lines to show through, reducing readability of the upload card text.
+
+**Concrete scenario:** User visits the app in dark mode. The file upload card's background is translucent, making the "Upload your GPX, KML, or Google Location History file" text and buttons harder to read against the map reference grid visible behind the card.
+
+**Fix:** Add `--gc-solid-bg` to the `[data-mode=dark]` block:
+```css
+[data-mode=dark] {
+  --gc-solid-bg: rgba(10, 13, 20, .92);
+  /* ... existing variables ... */
+}
+```
+
+**Confidence:** HIGH
 
 ---
 
-### NEW-C3-3: checkJsonDepth spot-checks don't carry forward cumulative depth from 1MB scan
-
-**Severity:** MEDIUM
-**Component:** src/lib/parser.ts:337-360, public/workers/trackParser.worker.js:219-242
-
-**Description:** After scanning the first 1MB and tracking depth, the spot-checks at 25%/50%/75%/end start their `sampleDepth` counter at 0. If a JSON file nests to depth 50 in the first 1MB, then adds 20 more levels of nesting after the 1MB mark, the spot-checks would measure `sampleDepth` up to 20 (well under the 64 limit), while the actual cumulative depth at that point would be 70 (exceeding the limit). The spot-checks would fail to detect the depth violation.
-
-In practice, Google Location History files are flat arrays of objects (depth ~3), so this is unlikely to trigger in normal use. However, a maliciously crafted JSON file could exploit this gap.
-
-Both the main-thread parser and the worker have this identical issue.
-
-**Evidence:**
-- `src/lib/parser.ts:343` — `let sampleDepth = 0` (should start from the final depth of the 1MB scan)
-- `public/workers/trackParser.worker.js:225` — same pattern
-
-**Fix:** Capture `depth` at the end of the 1MB scan and use it as the starting value for `sampleDepth` in each spot-check. This makes spot-checks reflect actual cumulative nesting rather than local-only nesting.
-
----
-
-### NEW-C3-4: commitScenes generates warnings from raw scenes before normalization
+### NEW-R3-2: `MapView` reference grid still added when no track is loaded, creating visual noise in dark mode
 
 **Severity:** LOW
-**Component:** src/components/SceneEditor.tsx:201-218
+**File:** `src/components/MapView.tsx:543-548, 692`
+**Category:** UX
 
-**Description:** `commitScenes` first checks raw scene boundaries for start>=end and overlaps, generating warning strings. It then calls `normalizeScenes()` which silently clamps/adjusts boundaries. The warnings shown to the user may describe conditions (e.g., "Scene A overlaps Scene B") that no longer exist after normalization, causing confusing UX.
+**Description:**
+When the map initializes (line 543-548), the `onGlobalStyleLoad` handler always calls `addReferenceGridLayers(map, styleKeyRef.current, activeTrack)`. When `activeTrack` is null, this adds a global lat/lng grid covering -150 to 150 longitude and -60 to 60 latitude with 30-degree spacing.
 
-In practice, `normalizeScenes` in `camera.ts` resolves overlaps by expanding scenes to fill gaps, so the warnings are often about transient states that the user never sees. The warnings are still useful as educational feedback, but they can be misleading.
+In dark mode, the grid lines (`rgba(148, 163, 184, 0.26)` minor and `rgba(148, 163, 184, 0.46)` major) are visible against the dark map background. Combined with the translucent upload card (NEW-R3-1), this creates visual noise behind the upload UI.
 
-**Evidence:**
-- `src/components/SceneEditor.tsx:202-216` — generates `w` from raw sorted scenes
-- `src/components/SceneEditor.tsx:217` — `normalizeScenes(nextScenes)` may change boundaries
+This is already tracked in deferred findings as F4 ("Reference grid dominates sparse map"). Since the map styles are now full 93-layer CARTO styles (F1 fixed), the grid is less visually dominant. However, the grid is still unnecessary when no track is loaded -- it serves no purpose until a track is being visualized.
 
-**Fix:** Generate warnings from the normalized result rather than the raw input. Compute `normalized = normalizeScenes(nextScenes)`, then compare the normalized boundaries against the original input to surface meaningful discrepancies (e.g., "Scene boundaries were adjusted to eliminate overlap").
+**Confidence:** MEDIUM -- The grid does provide a visual reference for the empty map state, so removing it entirely when no track is loaded is a design decision.
 
 ---
 
-### NEW-C3-5: Fixed 200ms setTimeout after canvas resize in useExportController
+## Codebase Health Assessment
 
-**Severity:** LOW
-**Component:** src/lib/useExportController.ts:105
+### Strengths (confirmed from previous cycles)
 
-**Description:** After resizing the map canvas, the export controller does `await new Promise(resolve => setTimeout(resolve, 200))` before calling `waitForIdle`. This fixed delay is unnecessary — `waitForIdle` already waits for the map to finish rendering. The 200ms delay adds latency on fast devices and may be insufficient on slow ones. Since `waitForIdle` follows immediately and handles the actual wait, the setTimeout can be removed entirely.
+1. **Security posture is solid**: CSP hardening via post-build script, no `eval()`/`innerHTML`, XML entity stripping, JSON depth checking with spot-checks, worker isolation, hash-based inline script allowlisting.
 
-**Evidence:**
-- `src/lib/useExportController.ts:104-107`:
-  ```ts
-  mapHandle.resize(config.resolution.width, config.resolution.height)
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  const mapSettledAfterResize = await mapHandle.waitForIdle(abortController.signal)
-  ```
+2. **Resource cleanup is thorough**: Object URLs revoked in cleanup effects, map markers/layers removed on unmount, event listeners cleaned up in effect returns, `mountedRef` pattern, worker `terminate()` in all exit paths.
 
-**Fix:** Remove the `setTimeout(resolve, 200)` line. The `waitForIdle` call on line 107 already ensures the map has finished rendering after the resize.
+3. **Type safety is good**: `ParseError` class with machine-readable codes for i18n mapping, proper TypeScript types throughout, no `any` usage.
+
+4. **Antimeridian handling**: Consistent shifted-longitude interpolation across `lerpCamera`, `smoothCameraState`, and `computeBoundingBox`.
+
+5. **Accessibility**: Modal dialogs with focus trapping and `aria-modal`, keyboard navigation, `inert`/`aria-hidden` on background content, ARIA labels on interactive elements.
+
+6. **Defense-in-depth for parsing**: Multiple size checks, worker fallback to main thread on failure, date field repair after structured clone.
+
+7. **No TODO/FIXME/HACK comments** in source code.
+
+8. **All console statements justified** and all eslint-disable comments documented.
+
+### No Regressions Detected
+
+All previously fixed issues remain fixed. No new code quality regressions, security issues, or architectural problems beyond the findings listed above.
+
+### Module-Level Assessment
+
+| Module | Lines | Assessment |
+|--------|-------|------------|
+| `src/app/page.tsx` | 422 | Central orchestrator, clean state management |
+| `src/lib/parser.ts` | 566 | Robust multi-format parsing, 5 Google formats |
+| `src/components/MapView.tsx` | 883 | Complex but well-structured, proper cleanup |
+| `src/lib/camera.ts` | 445 | Clean antimeridian handling, good scene system |
+| `src/lib/videoEncoder.ts` | 191 | Proper abort handling, config clamping |
+| `src/lib/i18n.ts` | ~1740 | Complete 5-locale coverage, type-safe keys |
+| `src/components/SceneEditor.tsx` | 569 | Complex drag handling, proper cleanup |
+| `src/components/JourneyCreator.tsx` | 759 | Local-only search, proper map interaction cleanup |
+| `src/components/ElevationProfile.tsx` | 141 | Fixed (click-to-seek now correct) |
+| `src/components/ExportPanel.tsx` | 326 | Good codec support detection |
+| `src/components/TimelineSelector.tsx` | 375 | Consistent design |
+| `src/components/ModalDialog.tsx` | 188 | Proper stacking, focus trap, body scroll lock |
+| `scripts/harden-static-export.mjs` | 102 | Clean CSP hardening |
+| `src/styles/vitro-base.css` | 735 | Missing `--gc-solid-bg` in dark mode (NEW-R3-1) |
 
 ---
 
 ## Summary
 
-| # | Issue | Severity | Component |
-|---|-------|----------|-----------|
-| NEW-C3-1 | Worker MAX_MESSAGE_SIZE (200MB) inconsistent with JSON_MAX_FILE_SIZE (500MB) | HIGH | worker + parser |
-| NEW-C3-2 | FileUpload.tsx duplicates size constants from parser.ts | MEDIUM | FileUpload.tsx |
-| NEW-C3-3 | checkJsonDepth spot-checks start at depth 0 instead of cumulative | MEDIUM | parser.ts + worker |
-| NEW-C3-4 | commitScenes warns on raw scenes before normalization | LOW | SceneEditor.tsx |
-| NEW-C3-5 | Unnecessary 200ms setTimeout before waitForIdle | LOW | useExportController.ts |
+| ID | Finding | Severity | Confidence | File |
+|----|---------|----------|------------|------|
+| NEW-R3-1 | Missing `--gc-solid-bg` in dark mode CSS | MEDIUM | HIGH | `src/styles/vitro-base.css` |
+| NEW-R3-2 | Reference grid visible on empty map creates noise | LOW | MEDIUM | `src/components/MapView.tsx` |
 
-**5 new findings** (1 HIGH, 2 MEDIUM, 2 LOW)
-**0 findings carried forward** from cycle 2 (all resolved)
+**Net assessment:** The codebase remains in excellent shape after 5 prior review cycles. Only 2 findings this cycle, with 1 MEDIUM and 1 LOW. The MEDIUM finding is a missing CSS variable that causes reduced readability of the upload card in dark mode -- a straightforward one-line fix.

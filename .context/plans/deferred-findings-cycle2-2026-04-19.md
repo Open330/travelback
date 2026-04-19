@@ -63,3 +63,9 @@ Findings from the cycle 2 review that are not scheduled for implementation this 
 - **Original severity/confidence:** MEDIUM / MEDIUM
 - **Reason for deferral:** The `normalizeScenes()` function handles this gracefully. The UX could be improved but it's not broken.
 - **Exit criterion:** When scene editor UX improvements are scheduled.
+
+## NEW-R3-2. Reference grid visible on empty map creates visual noise (LOW)
+- **File:** `src/components/MapView.tsx:543-548, 692`
+- **Original severity/confidence:** LOW / MEDIUM
+- **Reason for deferral:** Overlaps with existing F4. The grid provides a visual reference for the empty map state; removing it entirely is a design decision. With full 93-layer CARTO styles, the grid is less visually dominant than before.
+- **Exit criterion:** When empty-map UX improvements are scheduled, or if the grid continues to cause readability issues alongside other dark mode visual problems.
