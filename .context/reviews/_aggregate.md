@@ -1,148 +1,161 @@
-# Prompt 1 aggregate review — cycle 4
+# Prompt 1 aggregate review — cycle 5
 
 Generated on 2026-04-19 after a fresh comprehensive review of the current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle4-comprehensive-2026-04-19.md`) covering code quality, security, performance, UX, correctness, architecture, accessibility
-- Prior cycle 3 aggregate (`_aggregate.md`) and all per-agent reviews reviewed for carried-forward items
-- Prior deferred findings (`deferred-findings-cycle1-2026-04-19.md`, `deferred-findings-cycle2-2026-04-19.md`) reviewed for items that should re-open
+- Fresh comprehensive review (`cycle5-comprehensive-2026-04-19.md`) covering code quality, security, performance, UX, correctness, architecture, accessibility
+- Prior cycle 4 aggregate (`_aggregate.md`) and all per-agent reviews reviewed for carried-forward items
+- Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
+- All C4 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
-- Marked items as NOT CONFIRMED where the current code already handles the issue.
-- Carried forward still-valid deferred items as-is (they remain deferred per the existing rules).
-- New findings from this cycle are prefixed C4-AGG.
+- Carried forward still-valid deferred items as-is.
+- New findings from this cycle are prefixed C5-AGG.
 
-## All cycle 3 active findings verified as FIXED
+## All cycle 4 active findings verified as FIXED
 
 | Prior ID | Description | Fix verification |
 |----------|-------------|------------------|
-| C3-AGG-001 | `parseSemanticSegments` segment boundaries | `parser.ts:291-292` adds break between timelinePath and visit; worker also patched |
-| C3-AGG-002 | Scene editor dead normalization warnings | `SceneEditor.tsx:201-210` validates raw scenes BEFORE normalization |
-| C3-AGG-003 | Worker fallback rejects instead of retrying | `parser.ts:471-476`, `parser.ts:501-505` fall back to main-thread parser |
-| C3-AGG-004 | Map error shows raw WebGL dump | `MapView.tsx:928-935` friendly message with `<details>` disclosure |
-| C3-AGG-005 | Timeline handles not keyboard-accessible | `TimelineSelector.tsx:321-360` has slider role, tabIndex, aria, keyboard handlers, focus ring |
-| C3-AGG-006 | Error toast/file-upload lack live regions | `Toast.tsx:66` has role="status" aria-live="polite"; `FileUpload.tsx:250` has role="alert" |
-| C3-AGG-007 | Export download fallback claims success | `i18n.ts:120` key changed to "Your video download has started." |
-| C3-AGG-008 | Misleading `--err-rgb` fallback | `page.tsx:325` now uses `rgba(var(--err-rgb),.7)` without fallback |
-| C3-AGG-009 | No build guard against tool-state leakage | `smoke-static.mjs:131-146` adds `assertNoToolResidue`; `.gitignore` has `.omc/` and `.omx/` |
+| C4-AGG-001 | Worker `continue` scope in `parseSemanticSegments` | Worker restructured with nested `if` — no `continue` at loop level |
+| C4-AGG-002 | Export success message differentiated by download path | `downloadMethod` tracked; `export.videoSaved` vs `export.savedToDownloads` shown correctly |
+| C4-AGG-003 | `computeCumulativeDistances` redundantly computed | Passed as prop from `page.tsx` through `TrackWorkspace` to children |
+| C4-AGG-004 | SceneRangeEditor keyboard accessibility | Has `role="slider"`, `tabIndex={0}`, `aria-*`, `onKeyDown`, focus ring |
+| C4-AGG-006 | Waypoint proximity validation | Both click handler and `handleSelectPlace` check `PROXIMITY_THRESHOLD_METERS` |
+| C4-AGG-007 | ErrorBoundary emoji replaced with SVG | SVG circle-exclamation icon at `ErrorBoundary.tsx:43` |
+| C4-AGG-005 | `preserveDrawingBuffer` trade-off documented | Comment at `MapView.tsx:554-558` explains the trade-off |
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C4-AGG-001 — MEDIUM — Worker `parseSemanticSegments` uses `continue` in wrong scope, skipping segment boundaries for invalid visits
+### C5-AGG-001 — MEDIUM — `downloadVideo` fallback `<a>` removal is synchronous, may not trigger download on all browsers
 
-**Cross-agent agreement:** cycle4-comprehensive
+**Cross-agent agreement:** cycle5-comprehensive
 **Primary locations:**
-- `public/workers/trackParser.worker.js:122-126` — `continue` applies to the outer `for` loop
+- `src/lib/videoEncoder.ts:182-189` — `appendChild → click → removeChild` is synchronous
 
 **Why it matters:**
-In the worker's `parseSemanticSegments`, when a visit has invalid coordinates (failing the `Math.abs(lat) > 90 || Math.abs(lng) > 180` check at line 125), the `continue` statement skips the ENTIRE remaining processing for that segment, including the segment-start push at line 129 (`if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)`). This means invalid visit coordinates can cause missing segment boundaries.
-
-The main-thread `parser.ts:305` does NOT have this bug because the `continue` is inside the `if (m)` block within the `if (visit)` block — it only skips the invalid point, not the segment boundary push.
+Some browsers (notably Safari < 15.4 and certain mobile WebViews) require the `<a>` element to remain in the DOM for at least one event loop tick for the download to initiate. The synchronous removal can cause the download to silently fail — the user sees "Your video download has started" but nothing happens, and the video is irretrievable.
 
 **Suggested fix:**
-In the worker's `parseSemanticSegments`, restructure the visit block to avoid using `continue` at the top level of the `for` loop. Use nested `if` blocks or an `else` structure to skip only the invalid visit, not the segment boundary logic.
-
-**Confidence:** High
-
----
-
-### C4-AGG-002 — MEDIUM — Export success message is too hedged for `showSaveFilePicker` path
-
-**Cross-agent agreement:** cycle4-comprehensive, critic (cycle 3)
-**Primary locations:**
-- `src/components/ExportPanel.tsx:204-205` — always shows `t('export.savedToDownloads')`
-- `src/lib/videoEncoder.ts:154-181` — `downloadVideo` returns `true` for both paths
-
-**Why it matters:**
-The cycle 3 fix softened the message from "Your video is in your Downloads folder" to "Your video download has started." This is accurate for the `<a>` fallback path but inaccurate for the `showSaveFilePicker` path where the user explicitly chose a save location and the file was written successfully. The message "download has started" implies uncertainty that doesn't exist when the picker completed.
-
-**Suggested fix:**
-Track which download path was used and show different messages, or use a neutral message like "Your video is ready." that works for both paths.
-
-**Confidence:** High
-
----
-
-### C4-AGG-003 — MEDIUM — `computeCumulativeDistances` redundantly computed 4+ times for the same track
-
-**Cross-agent agreement:** cycle4-comprehensive, perf-reviewer (cycle 2)
-**Primary locations:**
-- `src/app/page.tsx:245-248` — computes `cumulativeDistances` from `track`
-- `src/components/MapView.tsx:760` — recomputes from `track`
-- `src/components/TimelineSelector.tsx:67-69` — recomputes from `track`
-- `src/components/ElevationProfile.tsx:23-25` — recomputes from `track`
-
-**Why it matters:**
-`computeCumulativeDistances` iterates over all points with haversine calculations (~250K trig operations for a max-size track). This computation is done independently in at least 4 components for the same track data. `page.tsx` already computes it but doesn't pass it down.
-
-**Suggested fix:**
-Compute `cumulativeDistances` once in `page.tsx` and pass it as a prop to MapView, TimelineSelector, and ElevationProfile instead of having them recompute it.
-
-**Confidence:** High
-
----
-
-### C4-AGG-004 — LOW — `SceneRangeEditor` handles lack keyboard accessibility (same class of issue as fixed C3-AGG-005)
-
-**Cross-agent agreement:** cycle4-comprehensive, designer (cycle 3)
-**Primary locations:**
-- `src/components/SceneEditor.tsx:165-182` — start/end handle divs have no tabIndex, role, or keyboard handlers
-
-**Why it matters:**
-The `SceneRangeEditor` component has handle divs with `onPointerDown` but no `tabIndex`, `role`, `aria-*` attributes, or keyboard handlers. Unlike the `TimelineSelector` handles fixed in cycle 3, these remain pointer-only.
-
-**Suggested fix:**
-Add `tabIndex={0}`, `role="slider"`, `aria-*` attributes, and keyboard handlers to the scene editor range handles.
-
-**Confidence:** High
-
----
-
-### C4-AGG-005 — MEDIUM — `preserveDrawingBuffer: true` is always on, wasting GPU resources except during export
-
-**Cross-agent agreement:** cycle4-comprehensive, perf-reviewer (cycle 2 as Perf-5)
-**Primary locations:**
-- `src/components/MapView.tsx:554` — `canvasContextAttributes: { preserveDrawingBuffer: true }`
-
-**Why it matters:**
-This flag forces the browser to keep the WebGL drawing buffer intact after compositing, which disables a common GPU optimization. The flag is only needed for video export (canvas capture), but it's set unconditionally on map creation. During normal playback and browsing, it adds GPU overhead for no benefit.
-
-**Suggested fix:**
-Defer to a performance-focused cycle. The fix requires destroying and recreating the map with the flag only during export, which is a significant refactor. Document the trade-off with a comment in the meantime.
-
-**Confidence:** High
-
----
-
-### C4-AGG-006 — MEDIUM — `JourneyCreator` does not validate waypoint proximity — duplicate/near-duplicate points create zero-length segments
-
-**Cross-agent agreement:** cycle4-comprehensive
-**Primary locations:**
-- `src/components/JourneyCreator.tsx:257-266` — click handler adds waypoints without proximity check
-
-**Why it matters:**
-Double-clicking or clicking very close to an existing waypoint creates near-duplicate points. While the app handles zero-length segments gracefully, the track has redundant points that waste memory and produce misleading point counts.
-
-**Suggested fix:**
-Before adding a new waypoint, check if it's within a minimum distance threshold (e.g., 5 meters) of the last waypoint. If so, ignore the click or update the existing waypoint instead.
+Delay the removal: `setTimeout(() => { document.body.removeChild(a) }, 100)`.
 
 **Confidence:** Medium
 
 ---
 
-### C4-AGG-007 — LOW — ErrorBoundary uses emoji that may not render on all systems
+### C5-AGG-002 — LOW — `exportVideo` computes `cumulDist` internally when caller already has it
 
-**Cross-agent agreement:** cycle4-comprehensive
+**Cross-agent agreement:** cycle5-comprehensive
 **Primary locations:**
-- `src/components/ErrorBoundary.tsx:43` — `<p aria-hidden="true">😵</p>`
+- `src/lib/videoEncoder.ts:65` — `computeCumulativeDistances(track.points, track.segmentStartIndices)`
+- `src/app/page.tsx:246-248` — already computes `cumulativeDistances`
 
 **Why it matters:**
-The dizzy face emoji may render as a square or question mark on minimal systems. Since it's `aria-hidden`, it doesn't affect accessibility, but it could confuse users.
+Redundant O(n) computation with ~250K trig operations for a max-size track. While small compared to the export itself, it's wasteful and inconsistent with the pattern used for `normalizedScenes` (passed in pre-computed).
 
 **Suggested fix:**
-Replace with an SVG icon or remove entirely. The text message is sufficient.
+Accept an optional `cumulDist` parameter in `exportVideo`. Compute only if not provided.
+
+**Confidence:** High
+
+---
+
+### C5-AGG-003 — LOW — `formatDuration` does not guard `NaN`/`Infinity` input
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `src/lib/interpolate.ts:179` — `if (seconds < 0) seconds = 0`
+
+**Why it matters:**
+If `NaN` or `Infinity` is passed, the function returns broken output like `NaN:NaN:NaN`.
+
+**Suggested fix:**
+Change guard to `if (!Number.isFinite(seconds) || seconds < 0) seconds = 0`.
+
+**Confidence:** High
+
+---
+
+### C5-AGG-004 — MEDIUM — Worker `parseSemanticSegments` uses `var` declarations instead of `const`/`let`
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `public/workers/trackParser.worker.js:116-128` — `var afterPathLen`, `var visit`, `var m`, `var lat`, `var lng`
+
+**Why it matters:**
+`var` is function-scoped and hoisted, which is a well-known source of bugs in `for` loop bodies. The main-thread `parser.ts` correctly uses `const`/`let`. The inconsistency could confuse maintainers and introduces latent scoping risk if the loop is ever restructured.
+
+**Suggested fix:**
+Convert `var` to `const`/`let` in the worker's `parseSemanticSegments` to match the main-thread parser.
+
+**Confidence:** High
+
+---
+
+### C5-AGG-005 — LOW — Worker and main-thread `parseSemanticSegments` use inconsistent boundary-check style
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `public/workers/trackParser.worker.js:125` — `Math.abs(lat) <= 90 && Math.abs(lng) <= 180`
+- `src/lib/parser.ts:305` — `Math.abs(lat) > 90 || Math.abs(lng) > 180`
+
+**Why it matters:**
+Both checks are semantically equivalent (both accept boundary values), but the worker uses whitelist style (`<=`) while the main-thread uses blacklist style (`>`). Inconsistency can confuse maintainers.
+
+**Suggested fix:**
+Normalize the worker to use the same `> 90` / `> 180` pattern as the main-thread parser.
+
+**Confidence:** High (cosmetic, not a bug)
+
+---
+
+### C5-AGG-006 — LOW — `JourneyCreator` search error message could be clearer about coordinate-only limitation
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `src/components/JourneyCreator.tsx:446-463` — `runSearch` only parses coordinate queries
+- `src/components/JourneyCreator.tsx:457` — shows `journey.searchInvalid` for non-coordinate text
+
+**Why it matters:**
+Users typing place names get "Invalid coordinates" which is confusing when the UI invites free-text input.
+
+**Suggested fix:**
+Update the error message to explicitly say coordinate input is required, or add a helper text below the search input.
+
+**Confidence:** High
+
+---
+
+### C5-AGG-007 — LOW — `Controls` component `totalDistance` memo depends on `track` object reference
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `src/components/Controls.tsx:42` — `useMemo(() => totalDistance(...), [track])`
+
+**Why it matters:**
+If `track` is a new object reference on each render (e.g., from slicing), the memo recomputes unnecessarily. This is O(n) haversine work per render.
+
+**Suggested fix:**
+Use `track.points` and `track.segmentStartIndices` as memo dependencies, or accept `cumulativeDistances` as a prop and derive total distance from the last element.
+
+**Confidence:** Medium
+
+---
+
+### C5-AGG-008 — LOW — Export overlay and file-upload spinners leave a broken-looking static circle under `prefers-reduced-motion`
+
+**Cross-agent agreement:** cycle5-comprehensive
+**Primary locations:**
+- `src/app/page.tsx:319` — `animate-spin` on export overlay spinner
+- `src/components/FileUpload.tsx:152` — `animate-spin` on loading spinner
+- `src/app/globals.css:38` — `prefers-reduced-motion` sets `animation-duration: 0.01ms`
+
+**Why it matters:**
+With reduced motion, the spinner freezes mid-rotation showing a partial circle with one transparent border edge. This looks broken rather than intentionally static.
+
+**Suggested fix:**
+In the `prefers-reduced-motion` media query, replace the spinner with a static loading indicator or a "Loading..." text.
 
 **Confidence:** Medium
 
@@ -150,7 +163,9 @@ Replace with an SVG icon or remove entirely. The text message is sufficient.
 
 ## Carried-forward deferred items (not re-opened this cycle)
 
-These remain in `deferred-findings-cycle2-2026-04-19.md` and are NOT scheduled for this cycle:
+These remain in their existing files and are NOT scheduled for this cycle:
+
+From `deferred-findings-cycle2-2026-04-19.md`:
 - DF-C2-001: Mobile information architecture gaps
 - DF-C2-002: Playback progress drives whole-app rerenders
 - DF-C2-003: Large GPX/KML imports parse on main thread
@@ -162,28 +177,30 @@ These remain in `deferred-findings-cycle2-2026-04-19.md` and are NOT scheduled f
 - DF-C2-009: Residual CSP allows inline styles
 - DF-C2-010: Local-only bundled styles ship without real basemap
 
-And from cycle 1:
+From `deferred-findings-cycle1-2026-04-19.md`:
 - DF-C1-001: Mobile information architecture and discoverability polish
 - DF-C1-002: Broad maintainability/performance restructuring
+
+From cycle 4:
+- DF-C4-001: `preserveDrawingBuffer: true` always on, wasting GPU resources
 
 ## Items verified as already fixed or not actual issues
 
 | Prior ID | Description | Why closed |
 |----------|-------------|------------|
-| C3-AGG-001 through C3-AGG-009 | Cycle 3 active findings | All verified fixed in current code |
-| C4R-003 | Playback hotkeys block range inputs | `tagName === 'INPUT'` guard returns early, native behavior preserved |
-| C4R-004 | Worker lacks JSON depth check | `checkJsonDepth` is called at worker line 246 before parsing |
-| C4R-009 | downloadVideo doesn't revoke URL | URL intentionally kept for video preview; revoked on session reset |
-| C4R-010 | MapView initial style race | Style-change effect handles changes; initial style consistent with first render |
-| C3R-003 | Export can start with unknown codec | `codecReady === true` guard correctly blocks while null/false |
-| C3R-002 | Antimeridian interpolation | Code uses `shortestLngDelta`, `wrapLngNear`, shifted-longitude lerp correctly |
-| C3R-012 | Theme toggle assumes modern APIs | `addListener` fallback already exists at ThemeToggle.tsx:48-53 |
+| C5-004 | MapView animation effect depends on stable callbacks | `addTrackLayers` and `ensureMarker` are stable `useCallback([])` — not a current bug, latent risk too low to schedule |
+| C5-005 | SceneRangeEditor keyboard step is 1% | Subjective UX preference, not a bug |
+| C5-006 | GoogleGuide tab reset flash | Too brief to notice, not worth the complexity |
+| C5-009 | Debug window exposed via URL param in production | Intentional feature for production debugging, not a security issue (read-only, non-sensitive) |
+| C5-012 | TrackToolbar mobile menu focus trapping | Enhancement beyond current a11y scope, deferred |
+| C5-014 | ErrorBoundary reset recurrence | Standard React pattern, low priority UX |
 
 ## Recommended implementation order for this cycle
-1. **C4-AGG-001 (MEDIUM)**: Fix worker `continue` scope in `parseSemanticSegments` — correctness bug
-2. **C4-AGG-002 (MEDIUM)**: Differentiate export success message by download path — UX honesty
-3. **C4-AGG-003 (MEDIUM)**: Pass `cumulativeDistances` as prop instead of recomputing — performance
-4. **C4-AGG-004 (LOW)**: Add keyboard a11y to SceneRangeEditor handles — accessibility
-5. **C4-AGG-006 (MEDIUM)**: Add waypoint proximity validation in JourneyCreator — UX correctness
-6. **C4-AGG-007 (LOW)**: Replace ErrorBoundary emoji with SVG — robustness
-7. **C4-AGG-005 (MEDIUM)**: Defer `preserveDrawingBuffer` to perf cycle — needs significant refactor, add comment
+1. **C5-AGG-001 (MEDIUM)**: Fix `downloadVideo` fallback `<a>` removal timing — download reliability
+2. **C5-AGG-004 (MEDIUM)**: Convert worker `var` to `const`/`let` — code quality, latent bug risk
+3. **C5-AGG-005 (LOW)**: Normalize worker boundary-check style — consistency
+4. **C5-AGG-002 (LOW)**: Accept optional `cumulDist` in `exportVideo` — performance
+5. **C5-AGG-003 (LOW)**: Guard `NaN`/`Infinity` in `formatDuration` — robustness
+6. **C5-AGG-006 (LOW)**: Improve JourneyCreator search error message — UX clarity
+7. **C5-AGG-007 (LOW)**: Fix Controls `totalDistance` memo dependency — performance
+8. **C5-AGG-008 (LOW)**: Fix reduced-motion spinner appearance — a11y
