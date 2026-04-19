@@ -10,7 +10,7 @@
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **File:** `src/components/TimelineSelector.tsx:96-111`
-- **Status:** PENDING
+- **Status:** DONE
 
 ### Problem
 
@@ -36,6 +36,16 @@ This is a regression from the cycle 7 histogram fix — the histogram visualizat
 - `npm run build` passes
 - Range selection accuracy matches histogram visual position for unevenly distributed GPS data
 
+### Implementation
+
+- Replaced linear interpolation (`Math.floor(ratio * lastIndex)`) with `ratioToIndex` helper using binary search over `cumulDist`
+- `ratioToIndex` handles `totalDist <= 0` edge case with linear fallback
+- Added `cumulDist` to the `useCallback` dependency array
+- `tsc --noEmit` passes clean
+- LSP diagnostics show 0 errors
+- `npm run build` passes
+- Committed as `e7ae34c`
+
 ---
 
 ## Finding: NEW-C11-2 — ExportPanel Share button silently fails when file sharing unsupported
@@ -43,7 +53,7 @@ This is a regression from the cycle 7 histogram fix — the histogram visualizat
 - **Severity:** LOW
 - **Confidence:** MEDIUM
 - **File:** `src/components/ExportPanel.tsx:120-131, 142, 203-213`
-- **Status:** PENDING
+- **Status:** DONE
 
 ### Problem
 
@@ -62,6 +72,16 @@ Share button appears when `navigator.share` exists, but `handleShare` also check
 - Share button is only shown when `navigator.canShare?.({ files: [...] })` returns true, OR a toast is shown when sharing fails
 - `tsc --noEmit` passes
 - `npm run build` passes
+
+### Implementation
+
+- Replaced `canShare` check with IIFE that also verifies `navigator.canShare?.({ files: [testFile] })` using a minimal test file
+- Gracefully handles `canShare` not existing (returns false) and exceptions (returns false)
+- Share button now only appears when file sharing is confirmed to work
+- `tsc --noEmit` passes clean
+- LSP diagnostics show 0 errors
+- `npm run build` passes
+- Committed as `764be2d`
 
 ---
 
