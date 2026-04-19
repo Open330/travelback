@@ -239,10 +239,12 @@ function TimelineSelector({
     }
   }, [applyDrag, endDrag])
 
+  // Memoize range index resolution to avoid redundant binary searches during drag
+  const { startIdx, endIdx } = useMemo(() => resolveRangeIndexes(), [resolveRangeIndexes])
+
   if (points.length === 0) return null
 
   // Dates for display
-  const { startIdx, endIdx } = resolveRangeIndexes()
   const startDate = points[startIdx]?.time
   const endDate = points[endIdx]?.time
 
