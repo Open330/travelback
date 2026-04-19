@@ -62,10 +62,17 @@ export default function ExportPanel({
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
+  const panelOpenedRef = useRef(false)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally sync derived state from prop
-    if (playbackDuration != null) setDuration(playbackDuration)
-  }, [playbackDuration])
+    if (isOpen) {
+      if (!panelOpenedRef.current && playbackDuration != null) {
+        setDuration(playbackDuration)
+      }
+      panelOpenedRef.current = true
+    } else {
+      panelOpenedRef.current = false
+    }
+  }, [isOpen, playbackDuration])
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(() =>
