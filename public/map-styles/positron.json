@@ -1,29 +1,38 @@
 {
   "version": 8,
   "name": "Positron",
-  "sources": {},
+  "sources": {
+    "carto-light": {
+      "type": "raster",
+      "tiles": [
+        "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+        "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+        "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"
+      ],
+      "tileSize": 512,
+      "attribution": "&copy; <a href=\"https://carto.com/\">CARTO</a> &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+      "maxzoom": 19
+    }
+  },
   "transition": {
     "duration": 0,
     "delay": 0
   },
-  "center": [
-    0,
-    20
-  ],
+  "center": [0, 20],
   "zoom": 2,
   "bearing": 0,
   "pitch": 0,
   "layers": [
     {
-      "id": "background",
-      "type": "background",
-      "paint": {
-        "background-color": "#f0f1f5"
-      }
+      "id": "carto-light-tiles",
+      "type": "raster",
+      "source": "carto-light",
+      "minzoom": 0,
+      "maxzoom": 19
     }
   ],
   "metadata": {
     "travelback:bundled": true,
-    "travelback:description": "Minimal bundled base style with no remote tiles, glyphs, or sprites."
+    "travelback:description": "CARTO Positron (light) raster basemap with OpenStreetMap data."
   }
 }
