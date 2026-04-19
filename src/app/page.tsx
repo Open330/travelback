@@ -90,6 +90,7 @@ function HomeInner() {
   } = useExportController({
     track,
     scenes,
+    transitionDuration,
     mapViewRef,
     t,
     addToast,

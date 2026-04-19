@@ -14,6 +14,11 @@ function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean
     return { mode: current, hadExplicitMode: true }
   }
 
+  if (typeof window.matchMedia !== 'function') {
+    document.documentElement.setAttribute('data-mode', 'light')
+    return { mode: 'light', hadExplicitMode: false }
+  }
+
   const inferredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   document.documentElement.setAttribute('data-mode', inferredMode)
   return { mode: inferredMode, hadExplicitMode: false }
@@ -32,7 +37,7 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
   }, [initialMode, onModeChange])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => {
@@ -42,8 +47,12 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
         onModeChange?.(newMode)
       }
     }
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', handler)
+      return () => mql.removeEventListener('change', handler)
+    }
+    mql.addListener(handler)
+    return () => mql.removeListener(handler)
   }, [controlledMode, onModeChange])
 
   const toggle = useCallback(() => {

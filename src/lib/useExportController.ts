@@ -13,6 +13,7 @@ export type ExportState = 'idle' | 'exporting' | 'done'
 interface UseExportControllerOptions {
   track: Track | null
   scenes: Scene[]
+  transitionDuration: number
   mapViewRef: RefObject<MapViewHandle | null>
   t: (key: TranslationKey) => string
   addToast: (text: string, type: ToastMessage['type']) => void
@@ -23,6 +24,7 @@ interface UseExportControllerOptions {
 export function useExportController({
   track,
   scenes,
+  transitionDuration,
   mapViewRef,
   t,
   addToast,
@@ -99,6 +101,7 @@ export function useExportController({
       const exportConfig: ExportConfig = {
         ...config,
         scenes: exportScenes,
+        transitionDuration,
       }
 
       mapHandle.resize(config.resolution.width, config.resolution.height)
@@ -140,7 +143,10 @@ export function useExportController({
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
       const videoUrl = URL.createObjectURL(blob)
-      await downloadVideo(videoUrl, result.filename, blob)
+      const saved = await downloadVideo(videoUrl, result.filename, blob)
+      if (!saved) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
       setExportedVideoBlob(blob)
       setExportedVideoUrl(videoUrl)
       setExportState('done')
@@ -160,7 +166,7 @@ export function useExportController({
       mapViewRef.current?.resetSize()
       // Wait for map to settle after resize instead of fixed timeout
       try {
-        await mapViewRef.current?.waitForIdle()
+        await mapViewRef.current?.waitForIdle(abortController.signal)
       } catch {
         // Timeout or abort is acceptable during cleanup
       }
@@ -178,6 +184,7 @@ export function useExportController({
     setPlaybackProgress,
     t,
     track,
+    transitionDuration,
   ])
 
   return {

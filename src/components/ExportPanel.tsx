@@ -67,6 +67,7 @@ export default function ExportPanel({
   })
 
   const bitrate = QUALITY_MAP[quality] ?? 8
+  const codecReady = codecSupport[codec] === true
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -110,12 +111,12 @@ export default function ExportPanel({
   }, [])
 
   const handleExport = useCallback(() => {
-    if (codecSupport[codec] === false) return
+    if (!codecReady) return
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
     const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
     const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
-  }, [onExport, resolutionIdx, codec, fps, duration, bitrate, codecSupport])
+  }, [onExport, resolutionIdx, codec, fps, duration, bitrate, codecReady])
 
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
@@ -326,7 +327,7 @@ export default function ExportPanel({
                 : t('export.seconds').replace('{n}', String(estimatedSeconds))}
             </p>
 
-            <button type="button" onClick={handleExport} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer">
+            <button type="button" onClick={handleExport} disabled={!codecReady} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
               {t('export.startExport')}
             </button>
           </>

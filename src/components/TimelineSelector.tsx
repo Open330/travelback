@@ -104,9 +104,14 @@ function TimelineSelector({
     // handle positions represent fractions of total distance — not fractions of
     // point count.  A linear interpolation (ratio * lastIndex) would only be
     // correct when points are evenly spaced by distance.
-    const ratioToIndex = (ratio: number): number => {
+    const ratioToIndex = (ratio: number, edge: 'start' | 'end'): number => {
       const clamped = Math.max(0, Math.min(1, ratio))
-      if (totalDist <= 0) return Math.floor(clamped * lastIndex)
+      if (clamped >= 1) return lastIndex
+      if (totalDist <= 0) {
+        return edge === 'end'
+          ? Math.ceil(clamped * lastIndex)
+          : Math.floor(clamped * lastIndex)
+      }
       const targetDist = clamped * totalDist
       let lo = 0
       let hi = cumulDist.length - 1
@@ -115,11 +120,11 @@ function TimelineSelector({
         if (cumulDist[mid] <= targetDist) lo = mid
         else hi = mid
       }
-      return lo
+      return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
     }
 
-    let startIdx = ratioToIndex(startRatio)
-    let endIdx = ratioToIndex(endRatio)
+    let startIdx = ratioToIndex(startRatio, 'start')
+    let endIdx = ratioToIndex(endRatio, 'end')
 
     if (startIdx >= lastIndex) {
       startIdx = lastIndex - 1
@@ -201,6 +206,10 @@ function TimelineSelector({
   }
 
   const endDrag = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     dragState.current.dragging = null
     if (points.length > 0) {
       const { startIdx, endIdx } = resolveRangeIndexes()
@@ -221,6 +230,10 @@ function TimelineSelector({
     window.addEventListener('touchmove', onTouchMove, { passive: true })
     window.addEventListener('touchend', onUp)
     return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onUp)
       window.removeEventListener('touchmove', onTouchMove)

@@ -113,4 +113,5 @@ export interface ExportConfig {
   duration: number
   bitrate: number // in Mbps
   scenes: Scene[]
+  transitionDuration?: number
 }

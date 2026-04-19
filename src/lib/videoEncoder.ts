@@ -99,7 +99,7 @@ export async function exportVideo(
 
       // Compute camera state for this frame using pre-normalized scenes
       const cameraState = computeCameraForProgress(
-        track, cumulDist, normalizedScenes, progress, elapsedSec, 0.03, true,
+        track, cumulDist, normalizedScenes, progress, elapsedSec, config.transitionDuration ?? 0.03, true,
       )
 
       // Apply camera state to the map (caller implements this)
@@ -151,7 +151,7 @@ export async function exportVideo(
 }
 
 /** Trigger a download from an existing object URL */
-export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<void> {
+export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<boolean> {
   // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
   if ('showSaveFilePicker' in window) {
     try {
@@ -163,10 +163,10 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
       const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
       await writable.write(writeBlob)
       await writable.close()
-      return
+      return true
     } catch (err) {
       // User cancelled the picker, or API failed — fall through to <a> download
-      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (err instanceof DOMException && err.name === 'AbortError') return false
     }
   }
 
@@ -177,6 +177,7 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
+  return true
 }
 
 /** Check if a codec is supported in the current browser */

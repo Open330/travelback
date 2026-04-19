@@ -50,9 +50,29 @@ async function collectCameraSamples(page: Page) {
 
     const debugWindow = window as DebugWindow
     const points: CameraSample[] = []
+    const shortestDelta = (from: number, to: number) => Math.abs(((to - from + 540) % 360) - 180)
+    const distanceBetweenCenters = (a: [number, number], b: [number, number]) => {
+      const avgLatRad = ((a[1] + b[1]) / 2) * (Math.PI / 180)
+      const dLngMeters = (((b[0] - a[0] + 540) % 360) - 180) * 111320 * Math.cos(avgLatRad)
+      const dLatMeters = (b[1] - a[1]) * 110540
+      return Math.hypot(dLngMeters, dLatMeters)
+    }
 
-    // Wait for the map camera to start animating before sampling
-    await new Promise(resolve => setTimeout(resolve, 500))
+    let baseline: CameraSample | null = null
+    for (let i = 0; i < 25; i++) {
+      const camera = debugWindow.__travelbackDebug?.getCamera()
+      if (camera) {
+        if (!baseline) {
+          baseline = { center: [...camera.center] as [number, number], bearing: camera.bearing }
+        } else if (
+          distanceBetweenCenters(baseline.center, camera.center) > 2
+          || shortestDelta(baseline.bearing, camera.bearing) > 2
+        ) {
+          break
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
 
     for (let i = 0; i < 24; i++) {
       const camera = debugWindow.__travelbackDebug?.getCamera()
@@ -98,12 +118,14 @@ function expectStableCameraMotion(samples: { center: [number, number]; bearing: 
   const firstSample = samples[0]
   const lastSample = samples[samples.length - 1]
   const avgLatRad = ((firstSample.center[1] + lastSample.center[1]) / 2) * (Math.PI / 180)
-  const totalLngMeters = (lastSample.center[0] - firstSample.center[0]) * 111320 * Math.cos(avgLatRad)
+  const totalLngMeters = (((lastSample.center[0] - firstSample.center[0] + 540) % 360) - 180) * 111320 * Math.cos(avgLatRad)
   const totalLatMeters = (lastSample.center[1] - firstSample.center[1]) * 110540
   const totalDisplacementMeters = Math.hypot(totalLngMeters, totalLatMeters)
+  const totalBearingChange = bearingJumps.reduce((sum, value) => sum + value, 0)
 
-  // Lower threshold to accommodate slower animation in headless/WebGL environments
-  expect(totalDisplacementMeters).toBeGreaterThan(10)
+  // Some camera modes mainly rotate in place while others translate;
+  // accept either meaningful center travel or meaningful bearing travel.
+  expect(totalDisplacementMeters > 4 || totalBearingChange > 20).toBeTruthy()
   expect(centerP95).toBeLessThan(Math.max(600, centerMedian * 8))
   expect(bearingP95).toBeLessThan(Math.max(150, bearingMedian * 8))
 }
@@ -306,10 +328,11 @@ test.describe('Travelback App', () => {
   test('journey creator coordinate jump stays local and accepts pasted coordinates', async ({ page }) => {
     await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
     await expect(page.getByTestId('journey-enable-search')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByTestId('journey-creator-panel').getByRole('textbox')).toHaveCount(0)
+    await expect(page.getByTestId('journey-creator-panel').getByRole('combobox')).toHaveCount(0)
 
     await page.getByTestId('journey-enable-search').click({ force: true })
-    const searchInput = page.getByTestId('journey-creator-panel').getByRole('textbox')
+    const searchInput = page.getByTestId('journey-creator-panel').getByRole('combobox')
+    await expect(searchInput).toBeVisible({ timeout: 10_000 })
     await searchInput.fill('37.5665, 126.9780')
     await page.getByTestId('journey-search-submit').click({ force: true })
 

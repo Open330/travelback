@@ -57,6 +57,10 @@ const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }>
   bright: { minor: 'rgba(173, 150, 120, 0.22)', major: 'rgba(173, 150, 120, 0.38)' },
 }
 
+function shortestLongitudeDelta(from: number, to: number): number {
+  return ((to - from + 540) % 360) - 180
+}
+
 function smoothAngle(from: number, to: number, factor: number): number {
   const diff = ((to - from + 540) % 360) - 180
   return from + diff * factor
@@ -68,7 +72,7 @@ function angleDelta(from: number, to: number): number {
 
 function centerDistanceMeters(a: [number, number], b: [number, number]): number {
   const avgLatRad = ((a[1] + b[1]) / 2) * (Math.PI / 180)
-  const dLngMeters = (b[0] - a[0]) * 111320 * Math.cos(avgLatRad)
+  const dLngMeters = shortestLongitudeDelta(a[0], b[0]) * 111320 * Math.cos(avgLatRad)
   const dLatMeters = (b[1] - a[1]) * 110540
   return Math.hypot(dLngMeters, dLatMeters)
 }
@@ -153,6 +157,26 @@ function buildTrackGeometry(
     type: 'MultiLineString',
     coordinates: segments,
   }
+}
+
+function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
+  const bounds = new maplibregl.LngLatBounds()
+  if (points.length === 0) return bounds
+
+  let minLng = Infinity
+  let maxLng = -Infinity
+  for (const point of points) {
+    minLng = Math.min(minLng, point.lng)
+    maxLng = Math.max(maxLng, point.lng)
+  }
+  const crossesAntimeridian = maxLng - minLng > 180
+
+  for (const point of points) {
+    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
+    bounds.extend([lng, point.lat])
+  }
+
+  return bounds
 }
 
 function removeTrackArtifacts(map: maplibregl.Map) {
@@ -510,7 +534,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       mapRef.current = map
       styleKeyRef.current = mapStyleKey
 
-      const canExposeDebugCamera = process.env.NODE_ENV === 'development'
+      const canExposeDebugCamera = process.env.NODE_ENV === 'development' || navigator.webdriver
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {
@@ -709,10 +733,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       addTrackLayers(map, track)
 
       // Fit map to track bounds
-      const bounds = new maplibregl.LngLatBounds()
-      for (const p of track.points) {
-        bounds.extend([p.lng, p.lat])
-      }
+      const bounds = buildFitBounds(track.points)
       map.fitBounds(bounds, { padding: 80, duration: 1000 })
       if (markerRef.current) {
         markerRef.current.remove()

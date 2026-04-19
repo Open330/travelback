@@ -79,6 +79,17 @@ export function interpolateAlongTrack(
 
   const clampedProgress = Math.max(0, Math.min(1, progress))
   const total = cumulativeDistances[cumulativeDistances.length - 1]
+  if ((total ?? 0) <= 0) {
+    const point = { ...points[0] }
+    const nextDistinct = points.find((candidate) => candidate.lat !== point.lat || candidate.lng !== point.lng)
+    return {
+      point,
+      bearing: nextDistinct ? computeBearing(point, nextDistinct) : 0,
+      segmentIndex: 0,
+      distanceTraveled: 0,
+      totalDist: 0,
+    }
+  }
   const targetDist = clampedProgress * total
 
   let lo = 0
