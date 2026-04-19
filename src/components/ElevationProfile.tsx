@@ -97,6 +97,7 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="h-10 w-full rounded cursor-pointer"
+        role="img"
         tabIndex={0}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
