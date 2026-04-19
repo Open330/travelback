@@ -90,3 +90,16 @@ These entries come from the current review set (`.context/reviews/_aggregate.md`
   - `scripts/harden-static-export.mjs`
 - **Reason for deferral:** The app intentionally uses inline style attributes across the UI. Tightening this without regression requires a coordinated CSS migration rather than a tactical change.
 - **Exit criterion:** Re-open when inline-style removal is intentionally scheduled and verified across the UI.
+
+## DF-C2-010 — Local-only bundled styles still ship without a real basemap layer
+- **Source finding:** post-cycle convergence audit
+- **Original severity / confidence:** MEDIUM / HIGH
+- **File citations:**
+  - `public/map-styles/voyager.json:1-29`
+  - `public/map-styles/positron.json:1-29`
+  - `public/map-styles/dark.json:1-29`
+  - `public/map-styles/liberty.json:1-29`
+  - `public/map-styles/bright.json:1-29`
+  - `scripts/fetch-map-styles.mjs:1-51`
+- **Reason for deferral:** Restoring a meaningful basemap while keeping the repo’s local-only/privacy contract requires a larger product and asset-packaging decision (bundle real local vector/raster tiles, ship a new art-directed local basemap, or intentionally revert to a remote provider and rewrite the contract/tests). That decision is broader than the current bug-fix loop.
+- **Exit criterion:** Re-open when the project chooses a durable basemap strategy and can implement the matching assets, CSP, docs, and smoke/static expectations together.
