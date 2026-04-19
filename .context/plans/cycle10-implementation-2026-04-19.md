@@ -28,7 +28,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 10).
   ```
 - This ensures focus is set exactly once when the menu opens, not on every re-render.
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -48,7 +48,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 10).
   ```
 - This prevents NaN from propagating into the `progress` state, which would break the animation loop, display calculations, and elevation profile rendering.
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
