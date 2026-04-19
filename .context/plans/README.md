@@ -8,6 +8,7 @@ All plans from the current review cycle have been completed or archived.
 
 ## Previously completed
 
+- **Cycle 9** (2026-04-19 cycle 9): cycle9-implementation — NEW-C11-1: TimelineSelector distance-ratio to point-index mapping mismatch, NEW-C11-2: ExportPanel Share button silently fails — completed
 - **Cycle 9** (2026-04-19 cycle 7): cycle7-implementation — NEW-C9-1: Add `mountedRef` guard to `setExportState` in export controller catch block — completed
 
 ## Previously completed
