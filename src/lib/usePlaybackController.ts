@@ -173,7 +173,7 @@ export function usePlaybackHotkeys({
           break
         case 'e':
         case 'E':
-          if (track && !isExporting) {
+          if (track) {
             onToggleExport()
           }
           break
