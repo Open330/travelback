@@ -94,14 +94,6 @@ function overviewZoomFromBox(box: BoundingBox): number {
   return Math.max(1, Math.min(18, z))
 }
 
-function computeOverviewCamera(track: Track, cumulDist: number[], elapsedSec: number): CameraState {
-  const box = computeBoundingBox(track.points)
-  if (!box) return { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
-  const center = trackCenterFromBox(box)
-  const zoom = overviewZoomFromBox(box)
-  return { center, zoom, pitch: 0, bearing: normBearing(elapsedSec * 5) }
-}
-
 /**
  * Smoothly interpolate between two camera states with easing.
  * Uses shifted-longitude interpolation for antimeridian-crossing routes
