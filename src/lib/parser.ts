@@ -318,10 +318,7 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
   let inString = false
   let escape = false
-  const len = text.length
-  const scanEnd = Math.min(len, 1024 * 1024)
-  // Scan first 1MB fully
-  for (let i = 0; i < scanEnd; i++) {
+  for (let i = 0; i < text.length; i++) {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
@@ -332,31 +329,6 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
       if (depth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
     } else if (ch === '}' || ch === ']') {
       depth--
-    }
-  }
-  // For large files, spot-check at 25%, 50%, 75%, and near the end
-  const baseDepth = depth
-  if (len > scanEnd) {
-    const samples = [len * 0.25, len * 0.5, len * 0.75, len - 1024]
-    for (const offset of samples) {
-      const start = Math.floor(offset)
-      const end = Math.min(start + 1024, len)
-      let sampleDepth = baseDepth
-      let sampleInString = false
-      let sampleEscape = false
-      for (let i = start; i < end; i++) {
-        const ch = text[i]
-        if (sampleEscape) { sampleEscape = false; continue }
-        if (ch === '\\') { sampleEscape = true; continue }
-        if (ch === '"') { sampleInString = !sampleInString; continue }
-        if (sampleInString) continue
-        if (ch === '{' || ch === '[') {
-          sampleDepth++
-          if (sampleDepth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
-        } else if (ch === '}' || ch === ']') {
-          sampleDepth--
-        }
-      }
     }
   }
 }
@@ -447,27 +419,30 @@ export function parseGoogleLocationHistory(text: string): Track {
   }
 }
 
-async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> {
+export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
+export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB keeps JSON imports inside a safer in-browser memory envelope
+
+function decodeJsonBuffer(buffer: ArrayBuffer): string {
+  return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
+}
+
+async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Promise<Track> {
   if (typeof Worker === 'undefined') {
-    return parseGoogleLocationHistory(text)
+    return parseGoogleLocationHistory(decodeJsonBuffer(buffer))
   }
 
   return new Promise((resolve, reject) => {
-    const parseOnMainThread = () => {
-      try {
-        resolve(parseGoogleLocationHistory(text))
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
-      }
-    }
-
     let worker: Worker
     try {
       const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
       worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
-      parseOnMainThread()
+      try {
+        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
+      }
       return
     }
 
@@ -477,18 +452,17 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
       worker.terminate()
     }
 
-    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string }>) => {
+    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string; code?: string }>) => {
       cleanup()
       if (event.data.error) {
-        console.warn('[Travelback] Google worker parse failed, falling back to main thread:', event.data.error)
-        parseOnMainThread()
+        reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
         return
       }
       if (!event.data.track) {
-        parseOnMainThread()
+        reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
         return
       }
-      // Validate Date fields survived structured clone
+
       const track = event.data.track
       for (const p of track.points) {
         if (p.time != null && !(p.time instanceof Date)) {
@@ -500,23 +474,12 @@ async function parseGoogleLocationHistoryInWorker(text: string): Promise<Track> 
 
     worker.onerror = (event) => {
       cleanup()
-      if (event.error instanceof Error) {
-        console.warn('[Travelback] Google worker parse failed, falling back to main thread:', event.error.message)
-      }
-      // Don't retry on main thread for large files — worker isolation exists for a reason
-      if (text.length > 50 * 1024 * 1024) {
-        reject(new Error('File too large to parse without Web Worker. Please try a smaller file.'))
-        return
-      }
-      parseOnMainThread()
+      reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
     }
 
-    worker.postMessage({ ext: 'json', text })
+    worker.postMessage({ ext: 'json', buffer }, [buffer])
   })
 }
-
-export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
-export const JSON_MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB for JSON (Google Location History files can be large)
 
 export function parseTrackFile(file: File): Promise<Track> {
   return new Promise((resolve, reject) => {
@@ -529,32 +492,40 @@ export function parseTrackFile(file: File): Promise<Track> {
       ))
       return
     }
+
+    const finalizeTrack = (track: Track) => {
+      if (track.points.length < 2) {
+        throw new ParseError('Track must contain at least 2 points', 'TOO_FEW_POINTS')
+      }
+      if (track.points.length > MAX_TRACK_POINTS) {
+        throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
+      }
+      resolve(track)
+    }
+
+    if (ext === 'json') {
+      file.arrayBuffer()
+        .then(parseGoogleLocationHistoryInWorkerBuffer)
+        .then(finalizeTrack)
+        .catch(reject)
+      return
+    }
+
     const reader = new FileReader()
-    reader.onload = async () => {
+    reader.onload = () => {
       try {
         const text = reader.result as string
-        const ext = file.name.split('.').pop()?.toLowerCase()
-
         let track: Track
 
         if (ext === 'gpx') {
           track = parseGPX(text)
         } else if (ext === 'kml') {
           track = parseKML(text)
-        } else if (ext === 'json') {
-          track = await parseGoogleLocationHistoryInWorker(text)
         } else {
           throw new ParseError(`Unsupported file format: .${ext}`, 'UNSUPPORTED_FORMAT')
         }
 
-        if (track.points.length < 2) {
-          throw new ParseError('Track must contain at least 2 points', 'TOO_FEW_POINTS')
-        }
-        if (track.points.length > MAX_TRACK_POINTS) {
-          throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
-        }
-
-        resolve(track)
+        finalizeTrack(track)
       } catch (err) {
         reject(err)
       }

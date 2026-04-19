@@ -194,17 +194,14 @@ function parseGoogleLocationHistory(text) {
 }
 
 // Must match JSON_MAX_FILE_SIZE in src/lib/parser.ts
-const MAX_MESSAGE_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_MESSAGE_SIZE = 100 * 1024 * 1024 // 100MB
 const MAX_JSON_DEPTH = 64
 
 function checkJsonDepth(text) {
   let depth = 0
   let inString = false
   let escape = false
-  const len = text.length
-  const scanEnd = Math.min(len, 1024 * 1024)
-  // Scan first 1MB fully
-  for (let i = 0; i < scanEnd; i++) {
+  for (let i = 0; i < text.length; i++) {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
@@ -215,31 +212,6 @@ function checkJsonDepth(text) {
       if (depth > MAX_JSON_DEPTH) throw new Error('JSON nesting depth exceeds limit')
     } else if (ch === '}' || ch === ']') {
       depth--
-    }
-  }
-  // For large files, spot-check at 25%, 50%, 75%, and near the end
-  const baseDepth = depth
-  if (len > scanEnd) {
-    const samples = [len * 0.25, len * 0.5, len * 0.75, len - 1024]
-    for (const offset of samples) {
-      const start = Math.floor(offset)
-      const end = Math.min(start + 1024, len)
-      let sampleDepth = baseDepth
-      let sampleInString = false
-      let sampleEscape = false
-      for (let i = start; i < end; i++) {
-        const ch = text[i]
-        if (sampleEscape) { sampleEscape = false; continue }
-        if (ch === '\\') { sampleEscape = true; continue }
-        if (ch === '"') { sampleInString = !sampleInString; continue }
-        if (sampleInString) continue
-        if (ch === '{' || ch === '[') {
-          sampleDepth++
-          if (sampleDepth > MAX_JSON_DEPTH) throw new Error('JSON nesting depth exceeds limit')
-        } else if (ch === '}' || ch === ']') {
-          sampleDepth--
-        }
-      }
     }
   }
 }
@@ -256,20 +228,29 @@ self.onmessage = (event) => {
     if (data.ext !== 'json') {
       throw new Error(`Unsupported worker format: ${data.ext}`)
     }
-    if (typeof data.text !== 'string') {
-      throw new Error('Invalid worker message: missing or invalid text field')
+    if (!(data.buffer instanceof ArrayBuffer)) {
+      throw new Error('Invalid worker message: missing or invalid buffer field')
     }
-    if (data.text.length > MAX_MESSAGE_SIZE) {
-      throw new Error('Input too large: exceeds 500MB limit')
+    if (data.buffer.byteLength > MAX_MESSAGE_SIZE) {
+      throw new Error('Input too large: exceeds 100MB limit')
     }
-    checkJsonDepth(data.text)
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(data.buffer)
+    checkJsonDepth(text)
 
-    const track = parseGoogleLocationHistory(data.text)
+    const track = parseGoogleLocationHistory(text)
     if (track.points.length > 250000) {
       throw new Error('Track contains too many points (max 250,000)')
     }
     self.postMessage({ track })
   } catch (error) {
-    self.postMessage({ error: error instanceof Error ? error.message : 'Failed to parse track file' })
+    const message = error instanceof Error ? error.message : 'Failed to parse track file'
+    const code = message.includes('Unsupported Google Location History format')
+      ? 'UNSUPPORTED_GOOGLE_FORMAT'
+      : message.includes('JSON nesting depth exceeds limit')
+        ? 'JSON_DEPTH_EXCEEDED'
+        : message.includes('Input too large')
+          ? 'FILE_TOO_LARGE'
+          : 'INVALID_GOOGLE_JSON'
+    self.postMessage({ error: message, code })
   }
 }
