@@ -808,7 +808,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.off('styledata', onStyleReady)
       map.off('idle', onStyleReady)
     }
-  }, [track, addTrackLayers, ensureMarker, cumulativeDistancesProp])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of unnecessary re-execution if their deps ever change. The effect calls them directly and they are idempotent.
+  }, [track, cumulativeDistancesProp])
 
   useEffect(() => {
     if (!followCamera || suspendAutoCamera) {
