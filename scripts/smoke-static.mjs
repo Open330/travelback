@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
 const port = Number(process.env.STATIC_SMOKE_PORT ?? '4183')
-const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.codex', '.git'])
+const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.omx', '.claude', '.codex', '.git'])
 
 if (!Number.isInteger(port) || port <= 0) {
   console.error(`[smoke-static] Invalid port: ${port}`)

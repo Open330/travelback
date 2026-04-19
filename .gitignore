@@ -39,6 +39,9 @@ yarn-error.log*
 # omc
 .omc/
 
+# claude
+.claude/
+
 # test results
 test-results/
 playwright-report/
