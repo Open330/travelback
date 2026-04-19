@@ -154,7 +154,9 @@ export default function ModalDialog({
       cancelAnimationFrame(frame)
       document.removeEventListener('keydown', handleKeyDown)
       closeModal(modalId, appRoot)
-      previousActiveElement?.focus?.()
+      if (previousActiveElement && document.body.contains(previousActiveElement)) {
+        previousActiveElement.focus()
+      }
     }
   }, [canRenderPortal, open])
 
