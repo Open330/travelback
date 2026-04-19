@@ -220,6 +220,8 @@ export const translations = {
     'timeline.histogramHint': 'Taller bars = more GPS data',
     'timeline.reset': 'Reset timeline range',
     'timeline.dragHint': 'Drag the handles to select a date range',
+    'timeline.startHandle': 'Start of range',
+    'timeline.endHandle': 'End of range',
 
     // JourneyCreator
     'journey.title': 'Create Journey',
@@ -552,6 +554,8 @@ export const translations = {
     'timeline.histogramHint': '높은 막대 = GPS 데이터가 많은 구간',
     'timeline.reset': '타임라인 범위 초기화',
     'timeline.dragHint': '핸들을 드래그하여 날짜 범위를 선택하세요',
+    'timeline.startHandle': '범위 시작',
+    'timeline.endHandle': '범위 끝',
 
     // JourneyCreator
     'journey.title': '여행 만들기',
@@ -884,6 +888,8 @@ export const translations = {
     'timeline.histogramHint': '棒が高い = GPSデータが多い',
     'timeline.reset': 'タイムライン範囲をリセット',
     'timeline.dragHint': 'ハンドルをドラッグして日付範囲を選択',
+    'timeline.startHandle': '範囲の開始',
+    'timeline.endHandle': '範囲の終了',
 
     // JourneyCreator
     'journey.title': 'ジャーニーを作成',
@@ -1216,6 +1222,8 @@ export const translations = {
     'timeline.histogramHint': '柱子越高 = GPS数据越多',
     'timeline.reset': '重置时间线范围',
     'timeline.dragHint': '拖动手柄选择日期范围',
+    'timeline.startHandle': '范围起点',
+    'timeline.endHandle': '范围终点',
 
     // JourneyCreator
     'journey.title': '创建旅程',
@@ -1548,6 +1556,8 @@ export const translations = {
     'timeline.histogramHint': 'Barras más altas = más datos GPS',
     'timeline.reset': 'Restablecer rango del timeline',
     'timeline.dragHint': 'Arrastra los controles para seleccionar fechas',
+    'timeline.startHandle': 'Inicio del rango',
+    'timeline.endHandle': 'Fin del rango',
 
     // JourneyCreator
     'journey.title': 'Crear viaje',

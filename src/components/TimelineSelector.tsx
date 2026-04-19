@@ -317,7 +317,13 @@ function TimelineSelector({
         {/* Start handle — 44px min touch target */}
         <div
           data-testid="timeline-start-handle"
-          className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
+          role="slider"
+          tabIndex={0}
+          aria-label={t('timeline.startHandle')}
+          aria-valuenow={Math.round(startRatio * 100)}
+          aria-valuemin={0}
+          aria-valuemax={Math.round(endRatio * 100)}
+          className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
           style={{
             left: `calc(${startRatio * 100}% - ${HANDLE_RADIUS}px)`,
             width: Math.max(HANDLE_RADIUS * 2, 44),
@@ -331,6 +337,26 @@ function TimelineSelector({
           onTouchStart={(e) => {
             e.stopPropagation()
             if (e.touches.length > 0) startDrag('start', e.touches[0].clientX)
+          }}
+          onKeyDown={(e) => {
+            const step = 0.01
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              const [s] = clampRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio)
+              setStartRatio(s)
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+              e.preventDefault()
+              const [s] = clampRatios(Math.max(startRatio - step, 0), endRatio)
+              setStartRatio(s)
+            } else if (e.key === 'Home') {
+              e.preventDefault()
+              const [s] = clampRatios(0, endRatio)
+              setStartRatio(s)
+            } else if (e.key === 'End') {
+              e.preventDefault()
+              const [s] = clampRatios(endRatio - 0.01, endRatio)
+              setStartRatio(s)
+            }
           }}
         >
           <div
@@ -347,7 +373,13 @@ function TimelineSelector({
         {/* End handle — 44px min touch target */}
         <div
           data-testid="timeline-end-handle"
-          className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center"
+          role="slider"
+          tabIndex={0}
+          aria-label={t('timeline.endHandle')}
+          aria-valuenow={Math.round(endRatio * 100)}
+          aria-valuemin={Math.round(startRatio * 100)}
+          aria-valuemax={100}
+          className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
           style={{
             left: `calc(${endRatio * 100}% - ${HANDLE_RADIUS}px)`,
             width: Math.max(HANDLE_RADIUS * 2, 44),
@@ -361,6 +393,26 @@ function TimelineSelector({
           onTouchStart={(e) => {
             e.stopPropagation()
             if (e.touches.length > 0) startDrag('end', e.touches[0].clientX)
+          }}
+          onKeyDown={(e) => {
+            const step = 0.01
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              const [, e2] = clampRatios(startRatio, Math.min(endRatio + step, 1))
+              setEndRatio(e2)
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+              e.preventDefault()
+              const [, e2] = clampRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01))
+              setEndRatio(e2)
+            } else if (e.key === 'Home') {
+              e.preventDefault()
+              const [, e2] = clampRatios(startRatio, startRatio + 0.01)
+              setEndRatio(e2)
+            } else if (e.key === 'End') {
+              e.preventDefault()
+              const [, e2] = clampRatios(startRatio, 1)
+              setEndRatio(e2)
+            }
           }}
         >
           <div
