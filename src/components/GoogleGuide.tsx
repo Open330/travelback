@@ -138,7 +138,10 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
   const tabsId = useId()
 
   // Reset tab when modal reopens
-  useEffect(() => { if (isOpen) setTab(0) }, [isOpen])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally reset state on prop change
+    if (isOpen) setTab(0)
+  }, [isOpen])
 
   const methods = [
     {
