@@ -247,7 +247,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           </div>
         )}
         {error && (
-          <p className="mt-4 text-sm" style={{ color: 'var(--err)' }}>{error}</p>
+          <p role="alert" className="mt-4 text-sm" style={{ color: 'var(--err)' }}>{error}</p>
         )}
       </div>
     </div>
