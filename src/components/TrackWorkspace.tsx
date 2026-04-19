@@ -138,7 +138,7 @@ export default function TrackWorkspace({
           <ElevationProfile track={track} cumulativeDistances={cumulativeDistances} progress={progress} onSeek={onSeek} units={units} />
         </div>
         <Controls
-          track={track}
+          cumulativeDistances={cumulativeDistances}
           isPlaying={isPlaying}
           progress={progress}
           speed={speed}
