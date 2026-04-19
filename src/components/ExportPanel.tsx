@@ -26,6 +26,9 @@ const RESOLUTION_KEYS = [
   'resolution.4kPortrait',
 ] as const
 
+/** Module-level cache for codec support results — survives re-mounts */
+let codecSupportCache: Record<VideoCodec, boolean> | null = null
+
 interface ExportPanelProps {
   isOpen: boolean
   onClose: () => void
@@ -93,19 +96,29 @@ export default function ExportPanel({
   useEffect(() => {
     if (!isOpen) return
 
+    // Use cached results if available from a previous panel open
+    if (codecSupportCache != null) {
+      setCodecSupport(codecSupportCache)
+      return
+    }
+
     let cancelled = false
     const checkAll = async () => {
       const codecs: VideoCodec[] = ['h264', 'h265', 'av1']
-      const results: Record<string, boolean> = {}
-      for (const c of codecs) {
-        try {
-          results[c] = await isCodecSupported(c)
-        } catch {
-          results[c] = false
-        }
-      }
+      // Probe all codecs in parallel instead of sequentially to reduce first-open latency
+      const entries = await Promise.all(
+        codecs.map(async (c) => {
+          try {
+            return [c, await isCodecSupported(c)] as const
+          } catch {
+            return [c, false] as const
+          }
+        }),
+      )
+      const results = Object.fromEntries(entries) as Record<VideoCodec, boolean>
+      codecSupportCache = results
       if (!cancelled) {
-        setCodecSupport(results as Record<VideoCodec, boolean>)
+        setCodecSupport(results)
       }
     }
     checkAll()
