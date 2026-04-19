@@ -8,7 +8,7 @@
 - **Severity:** LOW
 - **Confidence:** MEDIUM
 - **File:** `src/lib/useExportController.ts:155`
-- **Status:** PENDING
+- **Status:** DONE
 
 ### Problem
 
@@ -27,6 +27,13 @@ In the `exportTrack` callback's catch block, `setExportState('idle')` is called 
 - Toast calls in catch block are guarded by `mountedRef.current`
 - `tsc --noEmit` passes
 - Export error path still shows toast messages when component is mounted
+
+### Implementation
+
+- Wrapped entire catch block body (including both `addToast` paths and `setExportState('idle')`) in `if (mountedRef.current)` guard
+- This is consistent with the `mountedRef` guard already used in the finally block for `setIsExporting` and `setExportProgress`
+- `tsc --noEmit` passes clean
+- LSP diagnostics show 0 errors
 
 ---
 

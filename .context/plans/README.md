@@ -2,11 +2,13 @@
 
 Plans addressing unremediated findings from `.context/reviews/`. See `archive/` for completed plan waves.
 
-## Active plans
+## No active plans
 
-- **Cycle 9** (2026-04-19 cycle 7): cycle7-implementation — NEW-C9-1: Add `mountedRef` guard to `setExportState` in export controller catch block
+All plans from the current review cycle have been completed or archived.
 
 ## Previously completed
+
+- **Cycle 9** (2026-04-19 cycle 7): cycle7-implementation — NEW-C9-1: Add `mountedRef` guard to `setExportState` in export controller catch block — completed
 
 ## Previously completed
 
