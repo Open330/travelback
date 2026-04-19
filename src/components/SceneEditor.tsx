@@ -509,9 +509,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
                     <input type="range" min={1} max={20} step={0.5}
                       value={scene.params.zoom}
-                      onChange={e => updateScene(scene.id, {
-                        params: { ...scene.params, zoom: parseFloat(e.target.value) }
-                      })}
+                      onChange={e => {
+                        const value = parseFloat(e.target.value)
+                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, zoom: value } })
+                      }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.zoomAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -523,9 +524,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
                     <input type="range" min={0} max={85} step={1}
                       value={scene.params.pitch}
-                      onChange={e => updateScene(scene.id, {
-                        params: { ...scene.params, pitch: parseFloat(e.target.value) }
-                      })}
+                      onChange={e => {
+                        const value = parseFloat(e.target.value)
+                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, pitch: value } })
+                      }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.pitchAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -540,9 +542,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.bearing')} {scene.params.bearingOffset}°</span>
                     <input type="range" min={-180} max={180} step={1}
                       value={scene.params.bearingOffset}
-                      onChange={e => updateScene(scene.id, {
-                        params: { ...scene.params, bearingOffset: parseFloat(e.target.value) }
-                      })}
+                      onChange={e => {
+                        const value = parseFloat(e.target.value)
+                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, bearingOffset: value } })
+                      }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.bearingAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -554,9 +557,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                     <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
                     <input type="range" min={0} max={90} step={1}
                       value={scene.params.rotationSpeed}
-                      onChange={e => updateScene(scene.id, {
-                        params: { ...scene.params, rotationSpeed: parseFloat(e.target.value) }
-                      })}
+                      onChange={e => {
+                        const value = parseFloat(e.target.value)
+                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, rotationSpeed: value } })
+                      }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.rotationAria').replace('{name}', scene.name)}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
