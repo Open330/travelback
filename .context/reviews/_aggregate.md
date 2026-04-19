@@ -1,13 +1,13 @@
-# Aggregate Review - Cycle 8
+# Aggregate Review - Cycle 6
 
 **Date:** 2026-04-19
-**Aggregator:** Cycle 8 aggregate (review-plan-fix cycle 5)
+**Aggregator:** Cycle 6 aggregate (review-plan-fix cycle 6)
 
 ## Source Reviews
 
 | Review | Agent | Findings |
 |--------|-------|----------|
-| comprehensive-deep-code-review-2026-04-19-cycle8.md | Deep code reviewer | 4 |
+| comprehensive-deep-code-review-2026-04-19-cycle6.md | Deep code reviewer | 2 actionable (out of 6 total, 4 were false alarms/by-design) |
 
 ## Deduplicated Findings
 
@@ -15,10 +15,8 @@ All findings from this cycle are unique (no overlap with prior reviews).
 
 | ID | Finding | Severity | Confidence | File | Source |
 |----|---------|----------|------------|------|--------|
-| NEW-C8-1 | Playback hotkeys not suppressed during video export | MEDIUM | HIGH | `src/lib/usePlaybackController.ts:140-196` | cycle8-review |
-| NEW-C8-2 | Export overlay missing `data-disable-playback-hotkeys` | MEDIUM | HIGH | `src/app/page.tsx:310-326` | cycle8-review |
-| NEW-C8-3 | `harden-static-export.mjs` walk() untyped parameter | LOW | HIGH | `scripts/harden-static-export.mjs:27` | cycle8-review |
-| NEW-C8-4 | serve-static uses 302 instead of 301 for canonical redirects | INFO | HIGH | `scripts/serve-static.mjs:135` | cycle8-review |
+| NEW-C6-1 | Redundant `!isExporting` check in E key handler | INFO | HIGH | `src/lib/usePlaybackController.ts:175-179` | cycle6-review |
+| NEW-C6-4 | TrackToolbar mobile menu uses incorrect ARIA roles (listbox/option vs menu/menuitem) | LOW | MEDIUM | `src/components/TrackToolbar.tsx:138-141` | cycle6-review |
 
 ## Cross-Agent Agreement
 
@@ -28,8 +26,11 @@ N/A - single review agent this cycle.
 
 | ID | Finding | Status |
 |----|---------|--------|
-| F6 | ErrorBoundary no i18n | FIXED - now uses `useLocale()` and `t()` |
-| NEW-C7-1 | TimelineSelector index-based histogram | FIXED - now uses distance-based bucketing |
+| NEW-C8-1 | Playback hotkeys not suppressed during video export | FIXED - `isExporting` early-return at line 153 |
+| NEW-C8-2 | Export overlay missing `data-disable-playback-hotkeys` | FIXED - attribute added at line 311 |
+| NEW-C7-1 | TimelineSelector index-based histogram | FIXED - distance-based bucketing |
+| NEW-C5-1 | ElevationProfile click-to-seek wrong progress | FIXED - uses clickFraction directly |
+| F6 | ErrorBoundary no i18n | FIXED - uses `useLocale()` and `t()` |
 
 ## Previously Deferred Findings Still Open
 
@@ -37,7 +38,7 @@ From `.context/plans/deferred-findings-cycle2-2026-04-19.md`:
 
 | ID | Finding | Severity | Status |
 |----|---------|----------|--------|
-| F4 | Reference grid dominates sparse map | MEDIUM | Deferred - grid less dominant with 93-layer styles |
+| F4 | Reference grid dominates sparse map | MEDIUM | Deferred |
 | F5 | Nav control overlaps toolbar | LOW | Deferred |
 | F7 | downloadVideo URL revocation risk | MEDIUM | Deferred (latent) |
 | F8 | ElevationProfile useId SSR mismatch | LOW | Deferred |
@@ -50,6 +51,5 @@ From `.context/plans/deferred-findings-cycle2-2026-04-19.md`:
 
 ## Action Items
 
-1. **NEW-C8-1 + NEW-C8-2**: Schedule for implementation - add `isExporting` guard to hotkey handler and `data-disable-playback-hotkeys` to export overlay. These are related and should be fixed together.
-2. **NEW-C8-3**: No fix needed - noting for completeness
-3. **NEW-C8-4**: No fix needed - noting for awareness
+1. **NEW-C6-1**: Schedule for implementation - remove redundant `!isExporting` guard from E key handler (trivial cleanup). INFO severity but reduces cognitive load.
+2. **NEW-C6-4**: Schedule for implementation - fix ARIA roles on TrackToolbar mobile menu (change `role="listbox"` to `role="menu"` and `role="option"` to `role="menuitem"`). Low-severity accessibility improvement.
