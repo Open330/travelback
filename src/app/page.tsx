@@ -322,7 +322,7 @@ function HomeInner() {
                 onClick={cancelExport}
                 aria-label={t('app.cancelExportAria')}
                 className="gi mt-4 px-4 py-2 text-sm cursor-pointer"
-                style={{ background: 'rgba(var(--err-rgb, 244,63,94),.7)', color: '#fff', border: 'none' }}
+                style={{ background: 'rgba(var(--err-rgb),.7)', color: '#fff', border: 'none' }}
               >
                 {t('app.cancelExport')}
               </button>
