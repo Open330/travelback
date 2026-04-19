@@ -1,119 +1,94 @@
-# Cycle 11 Aggregate Review — 2026-04-19
+# Cycle 12 Aggregate Review — 2026-04-19
 
 Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle11-comprehensive-2026-04-19.md`)
+- Fresh comprehensive review (`cycle12-comprehensive-2026-04-19.md`)
 - All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C10 active findings confirmed FIXED in prior cycle.
+- All C11 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C11-AGG.
-
-## Prior incorrect findings corrected
-- `--err-rgb` IS defined in `:root` at vitro-base.css:30 (cycle-15 review was wrong)
-- `--gi-sh` and `--gs-sh` ARE defined in `[data-mode=dark]` at vitro-base.css:276,286 (cycle-15 review was wrong)
+- New findings from this cycle are prefixed C12-AGG.
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C11-AGG-001 — MEDIUM — ExportPanel duration input hard-codes limits and resets to 30 on empty input
+### C12-AGG-001 — MEDIUM — Controls progress bar parseFloat without NaN guard
 
-**Cross-agent agreement:** cycle11-comprehensive
+**Cross-agent agreement:** cycle12-comprehensive
 **Primary locations:**
-- `src/components/ExportPanel.tsx:270-277`
+- `src/components/Controls.tsx:46`
 
 **Why it matters:**
-The HTML `min`/`max` and `onChange` clamp hard-code `5`/`600` instead of `EXPORT_LIMITS.duration.min`/`max`. More importantly, `parseInt(e.target.value)` returns `NaN` for empty input, and `|| 30` silently resets the field to 30 mid-keystroke when the user clears it to type a new value.
+The progress range input passes `parseFloat(e.target.value)` directly to `onSeek` without a NaN guard. While `seekTo` in `usePlaybackController` does guard against NaN internally, the input handler should be self-consistent — same pattern as the ExportPanel duration input fix (C11-AGG-001). In edge cases (browser extensions, programmatic value changes), `parseFloat` could return NaN.
 
 **Suggested fix:**
-Use `EXPORT_LIMITS` constants, and handle NaN from empty input by keeping the previous value.
+```ts
+const value = parseFloat(e.target.value)
+if (Number.isFinite(value)) onSeek(value)
+```
+
+**Confidence:** Medium
+
+---
+
+### C12-AGG-002 — MEDIUM — SceneEditor percentage number inputs don't clamp typed values
+
+**Cross-agent agreement:** cycle12-comprehensive
+**Primary locations:**
+- `src/components/SceneEditor.tsx:472-489`
+
+**Why it matters:**
+The `min={0} max={100}` HTML attributes only constrain the spinner UI, not typed input. A user can type `-50` or `150`, which passes the `Number.isFinite` check and produces invalid percentages like `-0.5` or `1.5`. While `normalizeScenes` later clamps these, the intermediate state shows invalid percentages in the UI and could cause visual glitches (coverage bars extending beyond bounds).
+
+**Suggested fix:**
+```ts
+const nextValue = Number.parseInt(e.target.value, 10)
+if (!Number.isFinite(nextValue)) return
+const clamped = Math.max(0, Math.min(100, nextValue))
+updateScene(scene.id, { startPercent: clamped / 100 })
+```
 
 **Confidence:** High
 
 ---
 
-### C11-AGG-002 — MEDIUM — exportVideo frame loop does not check abort between renderFrame and waitForIdle
+### C12-AGG-003 — LOW — ReadOnly bitrate field has meaningless min/max attributes
 
-**Cross-agent agreement:** cycle11-comprehensive
+**Cross-agent agreement:** cycle12-comprehensive
 **Primary locations:**
-- `src/lib/videoEncoder.ts:93-126`
+- `src/components/ExportPanel.tsx:331`
 
 **Why it matters:**
-If the user cancels during `renderFrame`, the loop continues through `waitForIdle` (which does check the signal and will reject). But `renderFrame` itself runs synchronously and is not abort-aware, so a cancelled export still applies one more camera state and progress update before the abort is detected.
+The readOnly bitrate input has `min={1} max={50}` which serve no purpose and could confuse assistive technology about the field's interactivity.
 
 **Suggested fix:**
-Add `if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError')` after `await renderFrame()`.
+Remove `min={1} max={50}` from the readOnly bitrate input.
 
 **Confidence:** Medium
 
 ---
 
-### C11-AGG-003 — MEDIUM — downloadVideo fallback returns saved:true but download may not complete
+### C12-AGG-004 — LOW — ModalDialog focus restoration can target detached element
 
-**Cross-agent agreement:** cycle11-comprehensive, critic.md (prior), debugger.md (prior)
+**Cross-agent agreement:** cycle12-comprehensive
 **Primary locations:**
-- `src/lib/videoEncoder.ts:183-194`
-- `src/components/ExportPanel.tsx:208`
+- `src/components/ModalDialog.tsx:157`
 
 **Why it matters:**
-The `<a download>` fallback returns `{ saved: true }` immediately, but browsers (especially Safari < 15.4, mobile WebViews) may silently fail. The UI shows "saved to Downloads" even when no file was saved.
+When a modal closes, it restores focus to `previousActiveElement`. If that element was removed from the DOM while the modal was open, calling `focus()` on it could throw in edge cases.
 
 **Suggested fix:**
-Change the fallback success message from "Video saved" / "saved to Downloads" to "Download started" when `method === 'fallback'`, since the save cannot be confirmed. Use the existing `downloadMethod` prop that is already tracked.
+```ts
+if (previousActiveElement && document.body.contains(previousActiveElement)) {
+  previousActiveElement.focus()
+}
+```
 
-**Confidence:** High (prior finding carried forward from multiple reviewers)
-
----
-
-### C11-AGG-004 — LOW — SceneRangeEditor keyboard navigation missing Home/End keys
-
-**Cross-agent agreement:** cycle11-comprehensive
-**Primary locations:**
-- `src/components/SceneEditor.tsx:183-204`
-
-**Why it matters:**
-WCAG 2.1 SC 4.1.2 requires slider widgets to support expected keyboard patterns. Home/End are standard slider key bindings per WAI-ARIA authoring practices.
-
-**Suggested fix:**
-Add Home/End key handlers for the SceneRangeEditor slider handles.
-
-**Confidence:** High
-
----
-
-### C11-AGG-005 — LOW — Toast returns null when messages empty, removing live region from DOM
-
-**Cross-agent agreement:** cycle11-comprehensive
-**Primary locations:**
-- `src/components/Toast.tsx:63-66`
-
-**Why it matters:**
-When the Toast component returns `null`, the live region (`role="log"`) is removed from the DOM. Screen readers that have already announced toasts need the region to persist so they can detect removals. Removing and re-adding the live region can cause inconsistent announcements.
-
-**Suggested fix:**
-Always render the container `div` with `role="log" aria-live="polite"`, even when messages is empty.
-
-**Confidence:** Medium
-
----
-
-### C11-AGG-006 — LOW — TimelineSelector resolveRangeIndexes called on every render outside memo
-
-**Cross-agent agreement:** cycle11-comprehensive
-**Primary locations:**
-- `src/components/TimelineSelector.tsx:245`
-
-**Why it matters:**
-During timeline drag, every pointer move triggers `resolveRangeIndexes()` which does binary search. Wrapping in `useMemo` would avoid unnecessary recomputation.
-
-**Suggested fix:**
-Wrap the result in `useMemo` keyed on `[startRatio, endRatio, cumulativeDistances]`.
-
-**Confidence:** Medium
+**Confidence:** Low
 
 ---
 
@@ -141,11 +116,22 @@ From cycle 4:
 From cycle 5:
 - DF-C5-001: TrackToolbar mobile menu focus trapping
 
+From cycle 11:
+- C11-007 (LOW): ElevationProfile RTL click handling — exit criterion: re-open when RTL support is explicitly scoped
+- C11-009 (LOW): Controls elapsed floating point wobble — exit criterion: re-open if user reports visible display glitch
+- C11-005 (LOW): TrackWorkspace title overlap with scene editor — exit criterion: re-open during next layout polish pass
+
+## Additional findings deferred this cycle
+
+- C12-002 (LOW): Controls elapsed floating-point wobble — already deferred as C11-009; keeping existing deferral
+- C12-005 (LOW): TimelineSelector reset button bypasses resolveRangeIndexes — exit criterion: re-open if resolveRangeIndexes adds edge-case logic
+- C12-006 (LOW): ElevationProfile RTL comment clarity — already deferred as C11-007; keeping existing deferral
+- C12-008 (LOW): ExportPanel file size estimate accuracy — exit criterion: re-open during next UX accuracy pass
+- C12-009 (INFO): Abort signal race — verified safe, not a real issue
+
 ## Recommended implementation order for this cycle
 
-1. **C11-AGG-001 (MEDIUM)**: Fix ExportPanel duration input hard-coded limits and NaN handling
-2. **C11-AGG-002 (MEDIUM)**: Add abort check in exportVideo after renderFrame
-3. **C11-AGG-003 (MEDIUM)**: Fix fallback download success message
-4. **C11-AGG-004 (LOW)**: Add Home/End key handlers in SceneRangeEditor
-5. **C11-AGG-005 (LOW)**: Keep Toast live region in DOM when empty
-6. **C11-AGG-006 (LOW)**: Memoize resolveRangeIndexes in TimelineSelector
+1. **C12-AGG-001 (MEDIUM)**: Add NaN guard to Controls progress parseFloat
+2. **C12-AGG-002 (MEDIUM)**: Clamp SceneEditor percentage input values
+3. **C12-AGG-003 (LOW)**: Remove meaningless min/max from readOnly bitrate input
+4. **C12-AGG-004 (LOW)**: Guard ModalDialog focus restoration against detached elements
