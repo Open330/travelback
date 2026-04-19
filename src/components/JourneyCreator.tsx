@@ -132,6 +132,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setDistanceMeters(pts.length >= 2 ? totalDistance(pts) : 0)
   }, [])
 
+  // Keep icon symbol ref in sync (avoid render-phase ref mutation — same pattern as Toast/ModalDialog)
   useEffect(() => {
     selectedIconSymbolRef.current = selectedIconSymbol
   }, [selectedIconSymbol])
