@@ -91,7 +91,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       handleFile(file)
     }
     setTimeout(() => setIsDragging(false), 200)
-  }, [handleFile])
+  }, [handleFile, t])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
