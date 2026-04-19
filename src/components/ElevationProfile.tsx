@@ -19,7 +19,6 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
   const clipId = useId()
   const elevations = useMemo(() => {
     return track.points.map((point) => Number.isFinite(point.ele) ? point.ele ?? null : null)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid O(n) recomputation when only the track object reference changes
   }, [track.points])
 
   const cumulDist = cumulativeDistances
