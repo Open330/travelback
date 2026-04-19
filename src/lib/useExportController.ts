@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import type { ExportConfig, Scene, Track } from '@/types'
 import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
+import { computeCumulativeDistances } from '@/lib/interpolate'
 import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
@@ -127,6 +128,8 @@ export function useExportController({
         }
       }
 
+      const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
+
       const result = await exportVideo(
         canvas,
         track,
@@ -138,6 +141,7 @@ export function useExportController({
         (nextProgress) => setExportProgress(nextProgress),
         waitForStableMap,
         abortController.signal,
+        cumulDist,
       )
 
       const blob = new Blob([result.buffer], { type: result.mimeType })
