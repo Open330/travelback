@@ -139,7 +139,19 @@ export default function ExportPanel({
     return t('export.tipYouTube')
   })()
 
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  // Check both navigator.share and navigator.canShare with a test file.
+  // Some browsers support navigator.share for URLs but not for files,
+  // which would cause the Share button to appear but silently fail on click.
+  const canShare = (() => {
+    if (typeof navigator === 'undefined') return false
+    if (typeof navigator.share !== 'function') return false
+    try {
+      const testFile = new File([new ArrayBuffer(1)], 'test.mp4', { type: 'video/mp4' })
+      return navigator.canShare?.({ files: [testFile] }) ?? false
+    } catch {
+      return false
+    }
+  })()
 
   return (
     <ModalDialog
