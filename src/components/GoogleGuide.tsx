@@ -307,7 +307,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           ))}
         </div>
 
-        <div id={panelId} role="tabpanel" aria-labelledby={`${tabsId}-tab-${tab}`} className="px-5 pb-5">
+        <div id={panelId} role="tabpanel" aria-labelledby={`${tabsId}-tab-${tab}`} tabIndex={0} className="px-5 pb-5">
           <div>
             {guidePreviewImage ? (
               <Image
