@@ -6,7 +6,7 @@ import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
-import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
+import { exportVideo, downloadVideo, type DownloadResult } from '@/lib/videoEncoder'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 
@@ -36,6 +36,7 @@ export function useExportController({
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null)
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null)
+  const [downloadMethod, setDownloadMethod] = useState<'picker' | 'fallback' | null>(null)
 
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
@@ -69,6 +70,7 @@ export function useExportController({
   const resetExportSession = useCallback(() => {
     setExportState('idle')
     setExportProgress(0)
+    setDownloadMethod(null)
     revokeExportedVideoUrl()
   }, [revokeExportedVideoUrl])
 
@@ -143,10 +145,11 @@ export function useExportController({
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
       const videoUrl = URL.createObjectURL(blob)
-      const saved = await downloadVideo(videoUrl, result.filename, blob)
-      if (!saved) {
+      const downloadResult = await downloadVideo(videoUrl, result.filename, blob)
+      if (!downloadResult.saved) {
         throw new DOMException('Export cancelled', 'AbortError')
       }
+      setDownloadMethod(downloadResult.method)
       setExportedVideoBlob(blob)
       setExportedVideoUrl(videoUrl)
       setExportState('done')
@@ -193,6 +196,7 @@ export function useExportController({
     exportState,
     exportedVideoUrl,
     exportedVideoBlob,
+    downloadMethod,
     cancelExport,
     exportTrack,
     resetExportSession,

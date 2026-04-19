@@ -150,8 +150,17 @@ export async function exportVideo(
   }
 }
 
+export interface DownloadResult {
+  /** Whether the download was initiated or completed */
+  saved: boolean
+  /** Which download method was used — 'picker' means the file was written
+   *  via showSaveFilePicker (confirmed save); 'fallback' means an <a> tag
+   *  was clicked (download started but not confirmed). */
+  method: 'picker' | 'fallback'
+}
+
 /** Trigger a download from an existing object URL */
-export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<boolean> {
+export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<DownloadResult> {
   // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
   if ('showSaveFilePicker' in window) {
     try {
@@ -163,10 +172,10 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
       const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
       await writable.write(writeBlob)
       await writable.close()
-      return true
+      return { saved: true, method: 'picker' }
     } catch (err) {
       // User cancelled the picker, or API failed — fall through to <a> download
-      if (err instanceof DOMException && err.name === 'AbortError') return false
+      if (err instanceof DOMException && err.name === 'AbortError') return { saved: false, method: 'fallback' }
     }
   }
 
@@ -177,7 +186,7 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  return true
+  return { saved: true, method: 'fallback' }
 }
 
 /** Check if a codec is supported in the current browser */

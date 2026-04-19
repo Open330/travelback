@@ -8,6 +8,7 @@ import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import type { ExportState } from '@/lib/useExportController'
+import type { DownloadResult } from '@/lib/videoEncoder'
 
 const QUALITY_MAP: Record<string, number> = {
   low: 2,
@@ -38,6 +39,7 @@ interface ExportPanelProps {
   exportState: ExportState
   exportedVideoUrl?: string | null
   exportedVideoBlob?: Blob | null
+  downloadMethod?: DownloadResult['method'] | null
   onResetExport: () => void
   playbackDuration?: number
 }
@@ -51,6 +53,7 @@ export default function ExportPanel({
   exportState,
   exportedVideoUrl,
   exportedVideoBlob,
+  downloadMethod,
   onResetExport,
   playbackDuration,
 }: ExportPanelProps) {
@@ -202,7 +205,7 @@ export default function ExportPanel({
               {t('export.success')}
             </h4>
             <p className="mb-4 text-sm" style={{ color: 'var(--t3)' }}>
-              {t('export.savedToDownloads')}
+              {downloadMethod === 'picker' ? t('export.videoSaved') : t('export.savedToDownloads')}
             </p>
 
             {exportedVideoUrl && (

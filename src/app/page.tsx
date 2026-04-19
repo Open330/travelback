@@ -88,6 +88,7 @@ function HomeInner() {
     exportState,
     exportedVideoUrl,
     exportedVideoBlob,
+    downloadMethod,
     cancelExport,
     exportTrack,
     resetExportSession,
@@ -417,6 +418,7 @@ function HomeInner() {
             exportState={exportState}
             exportedVideoUrl={exportedVideoUrl}
             exportedVideoBlob={exportedVideoBlob}
+            downloadMethod={downloadMethod}
             onResetExport={handleResetExport}
             playbackDuration={duration}
           />
