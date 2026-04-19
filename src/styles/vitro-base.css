@@ -41,6 +41,53 @@
   --vitro-status-pulse: pul 2s ease-in-out infinite;
 }
 
+/* ── Fallback: when data-mode is not yet set (before inline theme script runs) ── */
+/* These match light-mode defaults so the page looks correct from first paint.      */
+/* Once the inline script sets data-mode, the correct mode overrides these.         */
+:root:not([data-mode]) {
+  --bg: #EBEEF4;
+  --bg2: #E5EAF3;
+  --upload-overlay: rgba(180, 190, 210, .52);
+  --gc-solid-bg: rgba(255, 255, 255, .88);
+  --gs-bg: color-mix(in srgb, white 54%, transparent);
+  --gs-bd: rgba(255, 255, 255, .56);
+  --gs-sh: 0 4px 20px rgba(17, 24, 39, .10), inset 0 1px 0 rgba(255, 255, 255, .8);
+
+  --t1: #050810;
+  --t2: #1C2340;
+  --t3: #424E6E;
+  --t4: #5A6578;
+  --div: rgba(17, 24, 39, .07);
+
+  --gc-bg: color-mix(in srgb, white 72%, transparent);
+  --gc-bd: rgba(255, 255, 255, .72);
+  --gc-sh: 0 8px 32px rgba(17, 24, 39, .12), 0 2px 8px rgba(17, 24, 39, .06), inset 0 1px 0 rgba(255, 255, 255, .85);
+  --gc-hsh: 0 16px 48px rgba(17, 24, 39, .16), 0 4px 12px rgba(17, 24, 39, .08), inset 0 1px 0 rgba(255, 255, 255, .9);
+
+  --gi-bg: color-mix(in srgb, white 76%, transparent);
+  --gi-bd: rgba(255, 255, 255, .68);
+  --gi-hbg: color-mix(in srgb, white 90%, transparent);
+
+  --go-bg: color-mix(in srgb, white 82%, transparent);
+  --go-bd: rgba(255, 255, 255, .76);
+  --gi-sh: 0 2px 8px rgba(17, 24, 39, .08), inset 0 1px 0 rgba(255, 255, 255, .8);
+
+  --spec: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .06) 34%, transparent);
+
+  --mesh-op: .22;
+  --mesh-op2: .16;
+  --mesh-op3: .09;
+
+  --chat-user: rgba(var(--gl), .12);
+  --chat-ai: color-mix(in srgb, white 60%, transparent);
+
+  --bp-bg: #FFF0DB; --bp-fg: var(--p700);
+  --bs-bg: #D1FAE5; --bs-fg: #065F46;
+  --bd-bg: #FFE4E6; --bd-fg: #9F1239;
+  --bw-bg: #FEF3C7; --bw-fg: #92400E;
+  --bi-bg: #E0F2FE; --bi-fg: #075985;
+}
+
 [data-motion=lite] {
   --vitro-enter-fade: fi .2s var(--ease) both;
   --vitro-sheet-fade: vitro-fade-in .14s var(--ease) both;
@@ -171,8 +218,8 @@ body {
   --bg2: #E5EAF3;
   --upload-overlay: rgba(180, 190, 210, .52);
   --gc-solid-bg: rgba(255, 255, 255, .88);
-  --gs-bg: color-mix(in srgb, white 62%, transparent);
-  --gs-bd: rgba(255, 255, 255, .64);
+  --gs-bg: color-mix(in srgb, white 54%, transparent);
+  --gs-bd: rgba(255, 255, 255, .56);
   --gs-sh: 0 4px 20px rgba(17, 24, 39, .10), inset 0 1px 0 rgba(255, 255, 255, .8);
 
   --t1: #050810;
@@ -180,9 +227,6 @@ body {
   --t3: #424E6E;
   --t4: #5A6578;
   --div: rgba(17, 24, 39, .07);
-
-  --gs-bg: color-mix(in srgb, white 54%, transparent);
-  --gs-bd: rgba(255, 255, 255, .56);
 
   --gc-bg: color-mix(in srgb, white 72%, transparent);
   --gc-bd: rgba(255, 255, 255, .72);
