@@ -11,7 +11,7 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 - **Map**: MapLibre GL JS v5 (open-source, no API key required)
 - **Track Parsing**: @tmcw/togeojson (GPX/KML), custom parser (Google Location History JSON)
 - **Video Export**: mediabunny (WebCodecs-based MP4 encoding with H.264, H.265, AV1)
-- **Map Assets**: Fully local bundled map themes; runtime map display no longer depends on external tiles, glyphs, or sprites
+- **Map Assets**: Fully local bundled map themes with no runtime dependency on external tiles, glyphs, or sprites
 - **Testing**: Playwright (E2E)
 
 ## Build & Run
@@ -19,8 +19,8 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 ```bash
 npm install
 npm run dev      # Development server
-npm run build    # Production build
-npm run start    # Production server
+npm run build    # Static production build into ./out
+npm run start    # Static preview server for ./out at /travelback
 npm run lint     # ESLint
 ```
 
@@ -32,7 +32,10 @@ npm run lint     # ESLint
    - Legacy format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestampMs" }] }`
    - New format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestamp" }] }`
    - Records format: array of location objects
+   - Semantic Location History: `{ "timelineObjects": [{ "activitySegment" | "placeVisit" }] }`
+   - Timeline Edits: `{ "timelineEdits": [{ "rawSignal": { "signal": { "position": {...} } } }] }`
    - Semantic segments format: `{ "semanticSegments": [{ "timelinePath": [...] }] }`
+   - `semanticSegments.visit.topCandidate.placeLocation` variants and flat arrays with decimal or E7 coordinates
 
 ## Project Structure
 
@@ -75,7 +78,8 @@ src/
 - **Scene system**: Define cinematic scenes assigning camera modes to track segments
 - **Scene blending**: Smooth transitions between scenes with smoothstep interpolation
 - **Playback controls**: Play/pause, 6 speed levels (0.5x–16x), seekable progress bar
-- **Configurable duration**: 10s to 5min animation length
+- **Configurable playback duration**: 10s to 5min presets in the playback controls
+- **Configurable export duration**: 5s to 10min in the export panel
 - **5 map styles**: Voyager (colorful), Positron (light), Dark Matter (dark), Liberty, Bright
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
 - **Resolution presets**: YouTube 1080p, TikTok 9:16, Instagram Square/Post, 4K
