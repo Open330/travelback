@@ -1,94 +1,96 @@
-# Cycle 12 Aggregate Review — 2026-04-19
+# Cycle 13 Aggregate Review — 2026-04-19
 
 Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle12-comprehensive-2026-04-19.md`)
+- Fresh comprehensive review (`cycle13-comprehensive-2026-04-19.md`)
 - All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C11 active findings confirmed FIXED in prior cycle.
+- All C12 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C12-AGG.
+- New findings from this cycle are prefixed C13-AGG.
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C12-AGG-001 — MEDIUM — Controls progress bar parseFloat without NaN guard
+### C13-AGG-001 — MEDIUM — SceneEditor blend duration parseInt without NaN guard
 
-**Cross-agent agreement:** cycle12-comprehensive
+**Cross-agent agreement:** cycle13-comprehensive
 **Primary locations:**
-- `src/components/Controls.tsx:46`
+- `src/components/SceneEditor.tsx:385`
 
 **Why it matters:**
-The progress range input passes `parseFloat(e.target.value)` directly to `onSeek` without a NaN guard. While `seekTo` in `usePlaybackController` does guard against NaN internally, the input handler should be self-consistent — same pattern as the ExportPanel duration input fix (C11-AGG-001). In edge cases (browser extensions, programmatic value changes), `parseFloat` could return NaN.
+The blend duration range input passes `parseInt(e.target.value) / 100` to `onTransitionDurationChange` without a NaN guard. If `parseInt` returns `NaN`, it propagates to `transitionDuration` state, breaking the range input rendering (`Math.round(NaN * 100) = NaN`). Same pattern that was fixed in Controls.tsx (C12-AGG-001) and ExportPanel.tsx (C11-AGG-001).
 
 **Suggested fix:**
 ```ts
-const value = parseFloat(e.target.value)
-if (Number.isFinite(value)) onSeek(value)
-```
-
-**Confidence:** Medium
-
----
-
-### C12-AGG-002 — MEDIUM — SceneEditor percentage number inputs don't clamp typed values
-
-**Cross-agent agreement:** cycle12-comprehensive
-**Primary locations:**
-- `src/components/SceneEditor.tsx:472-489`
-
-**Why it matters:**
-The `min={0} max={100}` HTML attributes only constrain the spinner UI, not typed input. A user can type `-50` or `150`, which passes the `Number.isFinite` check and produces invalid percentages like `-0.5` or `1.5`. While `normalizeScenes` later clamps these, the intermediate state shows invalid percentages in the UI and could cause visual glitches (coverage bars extending beyond bounds).
-
-**Suggested fix:**
-```ts
-const nextValue = Number.parseInt(e.target.value, 10)
-if (!Number.isFinite(nextValue)) return
-const clamped = Math.max(0, Math.min(100, nextValue))
-updateScene(scene.id, { startPercent: clamped / 100 })
+const value = parseInt(e.target.value, 10)
+if (Number.isFinite(value)) onTransitionDurationChange(value / 100)
 ```
 
 **Confidence:** High
 
 ---
 
-### C12-AGG-003 — LOW — ReadOnly bitrate field has meaningless min/max attributes
+### C13-AGG-002 — MEDIUM — ExportPanel duration prop sync overwrites user edits
 
-**Cross-agent agreement:** cycle12-comprehensive
+**Cross-agent agreement:** cycle13-comprehensive
 **Primary locations:**
-- `src/components/ExportPanel.tsx:331`
+- `src/components/ExportPanel.tsx:65-68`
 
 **Why it matters:**
-The readOnly bitrate input has `min={1} max={50}` which serve no purpose and could confuse assistive technology about the field's interactivity.
+The effect syncs `playbackDuration` into local `duration` state every time the prop changes. If the user has manually edited the duration input in the export panel and then the playback duration changes (e.g., the animation duration is adjusted via the Controls dropdown while the export panel is open), the user's edit is silently overwritten. This is a UX bug: the user sees their value replaced without warning.
 
 **Suggested fix:**
-Remove `min={1} max={50}` from the readOnly bitrate input.
+Only sync the prop value once when the panel opens, not on every prop change. Use a ref to track whether the panel has been opened:
+```tsx
+const panelOpenedRef = useRef(false)
+useEffect(() => {
+  if (isOpen) {
+    if (!panelOpenedRef.current && playbackDuration != null) {
+      setDuration(playbackDuration)
+    }
+    panelOpenedRef.current = true
+  } else {
+    panelOpenedRef.current = false
+  }
+}, [isOpen, playbackDuration])
+```
 
 **Confidence:** Medium
 
 ---
 
-### C12-AGG-004 — LOW — ModalDialog focus restoration can target detached element
+### C13-AGG-003 — LOW — Controls duration/speed selects lack NaN guards
 
-**Cross-agent agreement:** cycle12-comprehensive
+**Cross-agent agreement:** cycle13-comprehensive
 **Primary locations:**
-- `src/components/ModalDialog.tsx:157`
+- `src/components/Controls.tsx:98` (speed select)
+- `src/components/Controls.tsx:112` (duration select)
 
 **Why it matters:**
-When a modal closes, it restores focus to `previousActiveElement`. If that element was removed from the DOM while the modal was open, calling `focus()` on it could throw in edge cases.
+Both selects pass parsed values directly to state setters without NaN guards. While extremely unlikely for select elements with hardcoded numeric options, this is inconsistent with the NaN guard pattern established for the progress input (C12-AGG-001) and ExportPanel duration input (C11-AGG-001). If NaN somehow propagated, it would break the animation loop.
 
 **Suggested fix:**
+Add `Number.isFinite` guards to both handlers for consistency:
 ```ts
-if (previousActiveElement && document.body.contains(previousActiveElement)) {
-  previousActiveElement.focus()
-}
+// Speed select
+onChange={(e) => {
+  const value = parseFloat(e.target.value)
+  if (Number.isFinite(value)) onSpeedChange(value)
+}}
+
+// Duration select
+onChange={(e) => {
+  const value = parseInt(e.target.value, 10)
+  if (Number.isFinite(value)) onDurationChange(value)
+}}
 ```
 
-**Confidence:** Low
+**Confidence:** Low (selects with hardcoded options are unlikely to produce NaN, but consistency matters)
 
 ---
 
@@ -121,17 +123,14 @@ From cycle 11:
 - C11-009 (LOW): Controls elapsed floating point wobble — exit criterion: re-open if user reports visible display glitch
 - C11-005 (LOW): TrackWorkspace title overlap with scene editor — exit criterion: re-open during next layout polish pass
 
-## Additional findings deferred this cycle
-
+From cycle 12:
 - C12-002 (LOW): Controls elapsed floating-point wobble — already deferred as C11-009; keeping existing deferral
 - C12-005 (LOW): TimelineSelector reset button bypasses resolveRangeIndexes — exit criterion: re-open if resolveRangeIndexes adds edge-case logic
 - C12-006 (LOW): ElevationProfile RTL comment clarity — already deferred as C11-007; keeping existing deferral
 - C12-008 (LOW): ExportPanel file size estimate accuracy — exit criterion: re-open during next UX accuracy pass
-- C12-009 (INFO): Abort signal race — verified safe, not a real issue
 
 ## Recommended implementation order for this cycle
 
-1. **C12-AGG-001 (MEDIUM)**: Add NaN guard to Controls progress parseFloat
-2. **C12-AGG-002 (MEDIUM)**: Clamp SceneEditor percentage input values
-3. **C12-AGG-003 (LOW)**: Remove meaningless min/max from readOnly bitrate input
-4. **C12-AGG-004 (LOW)**: Guard ModalDialog focus restoration against detached elements
+1. **C13-AGG-001 (MEDIUM)**: Add NaN guard to SceneEditor blend duration parseInt
+2. **C13-AGG-002 (MEDIUM)**: Fix ExportPanel duration prop sync to not overwrite user edits
+3. **C13-AGG-003 (LOW)**: Add NaN guards to Controls speed/duration selects for consistency
