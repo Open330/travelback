@@ -659,8 +659,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     return () => {
       if (styleHandler) map.off('style.load', styleHandler)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapStyleKey, track])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- track is intentionally omitted: the effect reads trackRef.current inside the handler; including track causes unnecessary listener churn on every track change since the styleKeyRef guard short-circuits when the style hasn't changed
+  }, [mapStyleKey])
 
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
