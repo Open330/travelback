@@ -1,7 +1,7 @@
 # P0: Suppress Playback Hotkeys During Video Export
 
 **Created:** 2026-04-19 (cycle 8)
-**Status:** Active
+**Status:** Completed
 **Severity:** MEDIUM (correctness bug -- can corrupt exported video)
 **Findings:** NEW-C8-1, NEW-C8-2
 
@@ -53,7 +53,7 @@ Manual test: load a track, press Space/Arrow/F keys -- all should work normally.
 
 ## Progress
 
-- [ ] Step 1: Add `isExporting` guard to hotkey handler
-- [ ] Step 2: Add `data-disable-playback-hotkeys` to export overlay
-- [ ] Step 3: Build verification
-- [ ] Step 4: Commit and push
+- [x] Step 1: Add `isExporting` guard to hotkey handler
+- [x] Step 2: Add `data-disable-playback-hotkeys` to export overlay
+- [x] Step 3: Build verification (passes)
+- [x] Step 4: Commit and push (commit c1cb6b8)

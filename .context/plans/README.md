@@ -2,13 +2,13 @@
 
 Plans addressing unremediated findings from `.context/reviews/`. See `archive/` for completed plan waves.
 
-## Active plans
+## No active plans
 
-- **p0-suppress-hotkeys-during-export-2026-04-19-cycle8**: Add `isExporting` guard to playback hotkey handler and `data-disable-playback-hotkeys` attribute to export overlay (NEW-C8-1, NEW-C8-2)
+All plans from the current review cycle have been completed or archived.
 
 ## Previously completed
 
-- **Wave 8** (2026-04-19 cycle 8): Review cycle - identified hotkey suppression bug during video export
+- **Wave 8** (2026-04-19 cycle 8): p0-suppress-hotkeys-during-export (prevent hotkey interference during video export) — archived
 - **Wave 7** (2026-04-19 cycle 7): p1-timeline-distance-histogram (distance-based histogram bucketing), p2-journey-search-error-message (false positive — no change needed) — all archived
 - **Wave 4–6** (2026-04-19): Multiple correctness, robustness, and UX fixes — all archived
 - **Wave 3** (2026-04-18b): p0-p1-critical-bugfixes, p2-code-quality-and-robustness, p3-infra-and-polish, code-maintainability (partial) — all archived
