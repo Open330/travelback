@@ -474,7 +474,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       onChange={e => {
                         const nextValue = Number.parseInt(e.target.value, 10)
                         if (!Number.isFinite(nextValue)) return
-                        updateScene(scene.id, { startPercent: nextValue / 100 })
+                        const clamped = Math.max(0, Math.min(100, nextValue))
+                        updateScene(scene.id, { startPercent: clamped / 100 })
                       }}
                       className="vitro-input min-h-11 w-full px-3 py-2 text-sm" />
                   </label>
@@ -485,7 +486,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       onChange={e => {
                         const nextValue = Number.parseInt(e.target.value, 10)
                         if (!Number.isFinite(nextValue)) return
-                        updateScene(scene.id, { endPercent: nextValue / 100 })
+                        const clamped = Math.max(0, Math.min(100, nextValue))
+                        updateScene(scene.id, { endPercent: clamped / 100 })
                       }}
                       className="vitro-input min-h-11 w-full px-3 py-2 text-sm" />
                   </label>
