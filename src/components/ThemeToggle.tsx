@@ -31,9 +31,7 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
   const effectiveMode = controlledMode ?? mode
 
   useEffect(() => {
-    if (!initialMode.hadExplicitMode) {
-      onModeChange?.(initialMode.mode)
-    }
+    onModeChange?.(initialMode.mode)
   }, [initialMode, onModeChange])
 
   useEffect(() => {

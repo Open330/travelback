@@ -27,6 +27,7 @@
 
   --ok: #10B981;
   --err: #F43F5E;
+  --err-rgb: 244, 63, 94;
   --warn: #F59E0B;
   --wrn: #F59E0B;
   --info: #0EA5E9;
@@ -272,6 +273,7 @@ body {
 
   --gs-bg: rgba(16, 20, 30, .52);
   --gs-bd: rgba(255, 255, 255, .08);
+  --gs-sh: 0 4px 20px rgba(0, 0, 0, .20), inset 0 1px 0 rgba(255, 255, 255, .04);
 
   --gc-bg: rgba(22, 26, 38, .52);
   --gc-bd: rgba(255, 255, 255, .09);
@@ -281,6 +283,7 @@ body {
   --gi-bg: rgba(30, 35, 50, .54);
   --gi-bd: rgba(255, 255, 255, .1);
   --gi-hbg: rgba(42, 48, 66, .62);
+  --gi-sh: 0 2px 8px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .04);
 
   --go-bg: rgba(12, 16, 24, .76);
   --go-bd: rgba(255, 255, 255, .11);
