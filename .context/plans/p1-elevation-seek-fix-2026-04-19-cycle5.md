@@ -72,6 +72,6 @@ This simplification is correct because:
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
-- [ ] `tsc --noEmit` passes
-- [ ] Click-to-seek in elevation profile seeks to correct distance-proportional position
+- [x] `npm run build` succeeds
+- [x] `tsc --noEmit` passes
+- [x] Click-to-seek in elevation profile seeks to correct distance-proportional position
