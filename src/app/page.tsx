@@ -311,6 +311,7 @@ function HomeInner() {
           scenes={scenes}
           duration={duration}
           transitionDuration={transitionDuration}
+          cumulativeDistances={cumulativeDistances}
         />
 
         {isExporting && (

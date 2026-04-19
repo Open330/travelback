@@ -19,6 +19,7 @@ interface MapViewProps {
   scenes?: Scene[]
   duration?: number
   transitionDuration?: number
+  cumulativeDistances?: number[]
 }
 
 export interface MapViewHandle {
@@ -396,6 +397,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     scenes,
     duration = 30,
     transitionDuration = 0.03,
+    cumulativeDistances: cumulativeDistancesProp,
   },
   ref,
 ) {
@@ -762,7 +764,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return
     }
 
-    cumulDistRef.current = computeCumulativeDistances(track.points, track.segmentStartIndices)
+    cumulDistRef.current = cumulativeDistancesProp?.length
+      ? cumulativeDistancesProp
+      : computeCumulativeDistances(track.points, track.segmentStartIndices)
 
     const attachTrackToReadyStyle = () => {
       if (!map.isStyleLoaded()) {
@@ -804,7 +808,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.off('styledata', onStyleReady)
       map.off('idle', onStyleReady)
     }
-  }, [track, addTrackLayers, ensureMarker])
+  }, [track, addTrackLayers, ensureMarker, cumulativeDistancesProp])
 
   useEffect(() => {
     if (!followCamera || suspendAutoCamera) {
