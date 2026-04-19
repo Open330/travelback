@@ -82,7 +82,7 @@ export default function ModalDialog({
   const canRenderPortal = typeof document !== 'undefined'
 
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (!canRenderPortal || !open) return

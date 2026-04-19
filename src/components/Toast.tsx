@@ -20,7 +20,7 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
   const { t } = useLocale()
   const [visible, setVisible] = useState(false)
   const onDismissRef = useRef(onDismiss)
-  onDismissRef.current = onDismiss
+  useEffect(() => { onDismissRef.current = onDismiss }, [onDismiss])
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
