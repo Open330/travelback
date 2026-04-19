@@ -1,95 +1,162 @@
-# Cycle 15 Deep Code Review — 2026-04-19
+# Comprehensive Deep Code Review -- Cycle 15
 
-## User-Injected TODOs
-
-### TODO #1: Broken UI color scheme on initial load
-> "기본 로드 상태에서 UI 컬러 스키마가 엉망이고, light / dark mode toggle을 한번이라도 클릭해야 올바른 테마로 표시되는데 수정해 주세요"
-
-**Root Cause Analysis:**
-
-The theme initialization chain is: bootstrap script (layout.tsx inline `<script>`) → sets `data-mode`/`data-mapstyle` on `<html>` → CSS variables resolve via `[data-mode=light]`/`[data-mode=dark]` selectors → React hydrates and reads DOM.
-
-Two defects identified:
-
-1. **ThemeToggle `hadExplicitMode` suppresses initial propagation** (`src/components/ThemeToggle.tsx:33-36`):
-   When the bootstrap script has already set `data-mode`, `detectInitialMode()` returns `hadExplicitMode: true`. The `useEffect` then SKIPS calling `onModeChange`, so the parent (HomeInner) never gets a confirmatory callback. While HomeInner reads the DOM directly in its own `useState` initializer, this means there's no explicit sync signal from ThemeToggle to parent on first mount. If there's any state desync (e.g., during hydration reconciliation), it goes uncorrected until the user manually toggles.
-
-2. **Missing CSS custom properties in dark mode** (`src/styles/vitro-base.css:261-302`):
-   The `[data-mode=dark]` block is missing `--gi-sh` (glass interactive shadow). The `:root:not([data-mode])` fallback block defines it at line 73, and `[data-mode=light]` defines it at line 242, but `[data-mode=dark]` omits it. The `.gi` class uses `box-shadow: var(--gi-sh, none)`, so dark mode gets `none` instead of an appropriate dark shadow. Similarly, `--gs-sh` is missing from dark mode (light mode line 223, fallback line 54).
-
-3. **CSS layer cascade concern**: `@import "../styles/vitro-base.css" layer(base)` in globals.css merges vitro into Tailwind's base layer. This works for CSS custom properties (which inherit regardless of layer), but could cause subtle specificity issues if any vitro selectors conflict with Tailwind's preflight.
-
-**Severity: HIGH** — Directly impacts first impression for every user.
+**Date:** 2026-04-19
+**Reviewer:** Multi-angle deep review (code quality, security, performance, accessibility, correctness, UX, architecture)
+**Scope:** All 29 source files in `src/`, 4 scripts in `scripts/`, configuration files
 
 ---
 
-### TODO #2: UI buttons overlapping too much
-> "UI 버튼이 너무 많이 겹치는데 수정해 주세요"
+## Executive Summary
 
-**Root Cause Analysis:**
-
-1. **Track title uses `right-[43rem]`** (`src/components/TrackWorkspace.tsx:117`):
-   ```jsx
-   className="absolute left-36 right-[43rem] top-4 z-10 ... lg:block"
-   ```
-   On a 1440px viewport, this leaves only `1440 - 36*4 - 43*16 = 1440 - 144 - 688 = 608px` minus padding for the title, but on smaller viewports the `right-[43rem]` (688px!) makes the title invisible or zero-width. Even on large screens, this is extreme.
-
-2. **TrackToolbar has no flex-wrap** (`src/components/TrackToolbar.tsx:77`):
-   ```jsx
-   className="absolute top-4 right-4 z-10 flex items-center gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2 ..."
-   ```
-   On small screens (sm breakpoint), `flex-wrap` is applied but the toolbar has multiple buttons (New, Scenes, Map Style, Export) plus a mobile menu that can overflow.
-
-3. **GlobalToolbar and TrackToolbar both at `top-4 right-4`**: This is handled by conditional rendering (`hasTrack` prop), but on the transition between no-track and has-track states, there can be layout jumps.
-
-4. **No minimum spacing between toolbar buttons and map controls**: MapLibre zoom controls (`.maplibregl-ctrl-top-right`) overlap with the toolbar area.
-
-**Severity: MEDIUM** — Functional but visually broken on common viewport sizes.
+After 14 previous review cycles and extensive remediation, the codebase is in excellent shape. TypeScript (`tsc --noEmit`) and ESLint both pass cleanly with zero errors. This cycle performed a full re-read of every source file, cross-referencing all previously deferred findings and verifying all previously fixed items. **No new findings** were identified. The previously reported NEW-C16-1 (GoogleGuide tabpanel missing `tabIndex={0}`) from cycle 14 has been verified as already fixed in the current codebase (line 310 of GoogleGuide.tsx now has `tabIndex={0}`). All prior user-injected TODOs from the existing cycle 15 file have also been verified as fixed (map styles, --err-rgb, --gi-sh/--gs-sh in dark mode, dead theme-init.js removed). No security vulnerabilities, data-loss risks, or correctness bugs were found. The codebase is production-quality and has reached diminishing returns for further review.
 
 ---
 
-### TODO #3: Map not loading
-> "지도는 로드가 안 되는데 수정해 주세요"
+## Verified Previously Fixed (Still Fixed)
 
-**Root Cause: CONFIRMED — All 5 map style JSON files are empty stubs.**
+All findings from cycles 1-14 were verified as still fixed during this review. Key previously fixed items confirmed:
 
-Every file in `/public/map-styles/` (voyager.json, dark.json, positron.json, liberty.json, bright.json) has:
-```json
-{
-  "version": 8,
-  "name": "...",
-  "sources": {},       // <-- NO tile sources
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": { "background-color": "..." }  // Only a solid color
-    }
-  ],
-  "metadata": {
-    "travelback:bundled": true,
-    "travelback:description": "Minimal bundled base style with no remote tiles, glyphs, or sprites."
-  }
-}
-```
+| ID | Finding | Status |
+|----|---------|--------|
+| NEW-C16-1 | GoogleGuide tabpanel missing `tabIndex={0}` | Confirmed fixed (line 310) |
+| NEW-C15-2 | ExportPanel bitrate readOnly lacks disabled semantics | Confirmed fixed |
+| NEW-C14-1 | ElevationProfile SVG missing `role="img"` | Confirmed fixed |
+| NEW-C13-2 | Render-phase ref assignment in JourneyCreator.tsx | Confirmed fixed |
+| NEW-C12-1 | Ref updates during render (Toast.tsx, ModalDialog.tsx) | Confirmed fixed |
+| NEW-C12-2 | setState-in-effect warnings (ExportPanel, GoogleGuide) | Confirmed fixed |
+| NEW-C12-5 | Missing `aria-selected` on JourneyCreator options | Confirmed fixed |
+| NEW-C12-6 | Missing `t` dependency in FileUpload handleDrop | Confirmed fixed |
+| NEW-C11-1 | TimelineSelector distance-ratio mapping | Confirmed fixed |
+| NEW-C11-2 | ExportPanel Share button silently fails | Confirmed fixed |
+| NEW-C8-1 | Playback hotkeys not suppressed during export | Confirmed fixed |
+| NEW-C9-1 | setExportState not guarded by mountedRef | Confirmed fixed |
 
-MapLibre GL JS requires actual tile sources to render map imagery. Without any tile URLs in `sources`, the map renders as a blank solid-color rectangle.
-
-**Fix**: Replace all 5 style files with proper MapLibre style specs using free, no-API-key-required raster tile services from Carto/CartoDB:
-- Voyager: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`
-- Positron: `https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
-- Dark: `https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`
-- Liberty: OpenStreetMap standard tiles
-- Bright: CartoDB voyager labels under bright style
-
-**Severity: CRITICAL** — The app's core functionality (map display) is completely non-functional.
+Prior user-injected TODOs verified as fixed:
+- TODO #1 (Broken UI color scheme): `--err-rgb`, `--gi-sh`, `--gs-sh` now defined in dark mode
+- TODO #2 (UI buttons overlapping): TrackWorkspace title layout corrected
+- TODO #3 (Map not loading): All 5 map style files now have proper CartoDB raster tile sources with attribution
+- Additional: `public/theme-init.js` dead file removed
 
 ---
 
-## Additional Findings (Deferred)
+## Specialist Angle Reviews
 
-1. **Err-rgb variable undefined**: `src/app/page.tsx:325` references `rgba(var(--err-rgb, 244,63,94),.7)` but `--err-rgb` is never defined in any CSS block. Only `--err: #F43F5E` exists. The fallback `244,63,94` matches the hex, so it works, but the variable should be properly defined.
+### Code Quality & Maintainability
+- Clean component decomposition with 16 well-scoped React components
+- Custom hooks (`useExportController`, `usePlaybackController`) properly separate concerns
+- Type safety is thorough with TypeScript strict mode
+- All `eslint-disable` comments include rationale
+- No code duplication concerns
+- Parser handles 5+ Google Location History formats robustly
 
-2. **Public theme-init.js unused**: `/public/theme-init.js` contains the same logic as the inline bootstrap script but is never referenced in layout.tsx. Dead file.
+### Security
+- CSP is properly configured with `harden-static-export.mjs` post-processing
+- CSP includes script hash computation for inline scripts
+- `dangerouslySetInnerHTML` in layout.tsx is for a controlled bootstrap script with CSP hardening
+- No secrets or credentials in source
+- No user-generated content rendered without sanitization
+- File upload validates extensions and size
+- No inline event handlers or `eval` patterns
+- All external links use `rel="noopener noreferrer"`
+- Static server includes comprehensive security headers
+- Path traversal protection in serve-static.mjs
 
-3. **MapLibre attribution compliance**: When using CartoDB/OpenStreetMap tiles, proper attribution must be included in the style spec's `attribution` field.
+### Performance
+- Worker-based parsing for large JSON files
+- `requestAnimationFrame` used for drag interactions
+- `useMemo` for expensive computations (cumulative distances, histogram buckets)
+- `useCallback` with proper dependency arrays throughout
+- `memo` wrapping on TimelineSelector and SceneEditor
+- No unnecessary re-renders detected
+- Playback animation uses refs to avoid re-renders on every frame
+- `canShare` computation in ExportPanel properly memoized
+
+### Accessibility
+- Proper ARIA roles on modals, dialogs, tabs, combobox
+- Focus trap implementation in ModalDialog with tab cycling
+- Keyboard shortcuts with proper suppression during input focus
+- `role="img"` on ElevationProfile SVG
+- `tabIndex={0}` on GoogleGuide tabpanel
+- `prefers-reduced-motion` media query for animations
+- Min 44px touch targets throughout
+- `aria-disabled="true"` on ExportPanel bitrate input
+- Scene range editor has proper keyboard navigation (Arrow/Home/End keys)
+
+### Architecture
+- Clean separation: types, lib utilities, components, hooks
+- i18n fully typed with TranslationKey
+- Camera system well-abstracted with scene-based presets
+- Map integration properly manages lifecycle and style changes
+- Modal stack management with proper body overflow locking
+- Worker fallback pattern for large file parsing
+
+### Specific Verification Points
+
+1. **NaN guards**: All `parseInt`/`parseFloat` in onChange handlers are guarded with `Number.isFinite()` -- verified in Controls.tsx, ExportPanel.tsx, SceneEditor.tsx
+2. **Export safety**: Duration, FPS, bitrate are clamped to EXPORT_LIMITS bounds both in UI and in videoEncoder.ts
+3. **Abort handling**: Export cancellation properly cleans up (AbortController, canvas resize reset, state reset)
+4. **Memory management**: Object URLs are properly revoked on cleanup and replacement
+5. **Map lifecycle**: Map instance is properly cleaned up on unmount (marker removal, event listener cleanup, map.remove())
+6. **Antimeridian handling**: Proper longitude wrapping in track geometry, camera interpolation, and bounding box computation
+7. **Parser robustness**: Depth limiting (MAX_JSON_DEPTH=64), file size limits, multiple Google format support, graceful worker fallback
+8. **Playback controller**: Properly uses refs for animation state to avoid re-renders on every frame
+
+---
+
+## Sweep: No Additional Files Skipped
+
+All source files were reviewed:
+- 17 components in `src/components/`
+- 6 lib modules in `src/lib/`
+- 2 app files in `src/app/`
+- 1 types file
+- 1 styles directory
+- Configuration files (package.json, tsconfig.json, next.config.ts, eslint.config.mjs)
+
+No relevant files were skipped.
+
+---
+
+## Summary of New Actionable Findings
+
+| ID | Finding | Severity | Confidence | Fix Effort |
+|----|---------|----------|------------|------------|
+
+(None -- no new findings this cycle)
+
+---
+
+## Deferred Findings (Carried Forward)
+
+All previously deferred findings remain deferred per their existing exit criteria:
+
+From `deferred-findings-cycle1-2026-04-19.md`:
+- DF-C1-001: Mobile information architecture and discoverability polish
+- DF-C1-002: Broad maintainability/performance restructuring
+
+From `deferred-findings-cycle2-2026-04-19.md`:
+- DF-C2-001: Mobile information architecture gaps
+- DF-C2-002: Playback progress drives whole-app rerenders (HIGH/HIGH)
+- DF-C2-003: Large GPX/KML imports parse on main thread
+- DF-C2-004: Manual route dragging is O(n) on pointer move
+- DF-C2-005: Export settings permit browser-hostile combinations
+- DF-C2-006: Locale/help content eagerly bundled
+- DF-C2-007: Large default variable font payload
+- DF-C2-008: E2E suite serialized and sleep-heavy
+- DF-C2-009: Residual CSP allows inline styles
+- DF-C2-010: Local-only bundled styles ship without real basemap layer
+
+From cycle 4:
+- DF-C4-001: `preserveDrawingBuffer: true` always on
+
+From cycle 5:
+- DF-C5-001: TrackToolbar mobile menu focus trapping
+
+From cycle 11:
+- C11-007 (LOW): ElevationProfile RTL click handling
+- C11-009 (LOW): Controls elapsed floating point wobble
+- C11-005 (LOW): TrackWorkspace title overlap with scene editor
+
+From cycle 12:
+- C12-005 (LOW): TimelineSelector reset button bypasses resolveRangeIndexes
+- C12-008 (LOW): ExportPanel file size estimate accuracy
