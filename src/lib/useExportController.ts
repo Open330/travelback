@@ -196,6 +196,7 @@ export function useExportController({
     t,
     track,
     transitionDuration,
+    cumulativeDistancesProp,
   ])
 
   return {

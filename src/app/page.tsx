@@ -84,6 +84,7 @@ function HomeInner() {
 
   const cumulativeDistances = useMemo(
     () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid O(n) recomputation when only the track object reference changes
     [track?.points, track?.segmentStartIndices]
   )
 
