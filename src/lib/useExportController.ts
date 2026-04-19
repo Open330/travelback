@@ -175,11 +175,15 @@ export function useExportController({
     } finally {
       exportAbortRef.current = null
       mapViewRef.current?.resetSize()
-      // Wait for map to settle after resize instead of fixed timeout
-      try {
-        await mapViewRef.current?.waitForIdle(abortController.signal)
-      } catch {
-        // Timeout or abort is acceptable during cleanup
+      // Wait for map to settle after resize on the normal-completion path.
+      // Skip the idle wait when the export was aborted — the signal is already
+      // aborted so waitForIdle would reject immediately, making the wait a no-op.
+      if (!abortController.signal.aborted) {
+        try {
+          await mapViewRef.current?.waitForIdle(abortController.signal)
+        } catch {
+          // Timeout is acceptable during cleanup
+        }
       }
       if (mountedRef.current) {
         setIsExporting(false)
