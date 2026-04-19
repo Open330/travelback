@@ -925,7 +925,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     >
       {mapError && (
         <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
-          <p>{t('app.mapLoadFailed').replace('{error}', mapError)}</p>
+          <p>{t('app.mapLoadFailed')}</p>
+          <details className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
+            <summary className="cursor-pointer" style={{ color: 'var(--t5, var(--t4))' }}>{t('app.showTechnicalDetails')}</summary>
+            <pre className="mt-1 text-left whitespace-pre-wrap break-all opacity-70">{mapError}</pre>
+          </details>
           <button onClick={() => window.location.reload()} className="gi mt-4 px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t1)' }}>
             {t('error.reloadPage')}
           </button>

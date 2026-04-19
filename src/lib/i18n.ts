@@ -298,7 +298,9 @@ export const translations = {
     'app.export': 'Export',
     'app.sampleLoadFailed': 'Could not load sample trip',
     'app.cancelExportAria': 'Cancel export',
-    'app.mapLoadFailed': 'Map failed to load: {error}',
+    'app.mapLoadFailed': 'Your browser couldn\'t start the map. Try reloading or using a different browser.',
+    'app.showTechnicalDetails': 'Show technical details',
+    'app.hideTechnicalDetails': 'Hide technical details',
 
     // GoogleGuide illustrations
     'guide.profile': 'Profile',
@@ -628,7 +630,9 @@ export const translations = {
     'app.export': '내보내기',
     'app.sampleLoadFailed': '샘플 여행을 불러올 수 없습니다',
     'app.cancelExportAria': '내보내기 취소',
-    'app.mapLoadFailed': '지도 로드 실패: {error}',
+    'app.mapLoadFailed': '브라우저에서 지도를 시작할 수 없습니다. 페이지를 새로고침하거나 다른 브라우저를 사용해 보세요.',
+    'app.showTechnicalDetails': '기술 세부 정보 표시',
+    'app.hideTechnicalDetails': '기술 세부 정보 숨기기',
 
     // GoogleGuide illustrations
     'guide.profile': '프로필',
@@ -958,7 +962,9 @@ export const translations = {
     'app.export': 'エクスポート',
     'app.sampleLoadFailed': 'サンプルの旅を読み込めませんでした',
     'app.cancelExportAria': 'エクスポートをキャンセル',
-    'app.mapLoadFailed': 'マップの読み込みに失敗: {error}',
+    'app.mapLoadFailed': 'ブラウザでマップを開始できませんでした。ページを再読み込みするか、別のブラウザをお試しください。',
+    'app.showTechnicalDetails': '技術的な詳細を表示',
+    'app.hideTechnicalDetails': '技術的な詳細を非表示',
 
     // GoogleGuide illustrations
     'guide.profile': 'プロフィール',
@@ -1288,7 +1294,9 @@ export const translations = {
     'app.export': '导出',
     'app.sampleLoadFailed': '无法加载示例旅程',
     'app.cancelExportAria': '取消导出',
-    'app.mapLoadFailed': '地图加载失败: {error}',
+    'app.mapLoadFailed': '浏览器无法启动地图。请尝试刷新页面或使用其他浏览器。',
+    'app.showTechnicalDetails': '显示技术详情',
+    'app.hideTechnicalDetails': '隐藏技术详情',
 
     // GoogleGuide illustrations
     'guide.profile': '个人资料',
@@ -1618,7 +1626,9 @@ export const translations = {
     'app.export': 'Exportar',
     'app.sampleLoadFailed': 'No se pudo cargar el viaje de ejemplo',
     'app.cancelExportAria': 'Cancelar exportación',
-    'app.mapLoadFailed': 'Error al cargar el mapa: {error}',
+    'app.mapLoadFailed': 'Tu navegador no pudo iniciar el mapa. Intenta recargar la página o usar otro navegador.',
+    'app.showTechnicalDetails': 'Mostrar detalles técnicos',
+    'app.hideTechnicalDetails': 'Ocultar detalles técnicos',
 
     // GoogleGuide illustrations
     'guide.profile': 'Perfil',
