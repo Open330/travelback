@@ -113,15 +113,18 @@ function parseSemanticSegments(segments, out, segStarts) {
     }
 
     // Segment break between timelinePath and visit within the same segment
-    var afterPathLen = out.length
+    const afterPathLen = out.length
     if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
 
-    var visit = seg.visit
+    // Visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
+    // Coordinate guard uses <= to match the main-thread parser's equivalent
+    // check in parser.ts:305 (Math.abs(lat) > 90 rejects; <= 90 accepts).
+    const visit = seg.visit
     if (visit && visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
-      var m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
+      const m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
       if (m) {
-        var lat = parseOptionalNumber(m[1])
-        var lng = parseOptionalNumber(m[2])
+        const lat = parseOptionalNumber(m[1])
+        const lng = parseOptionalNumber(m[2])
         if (lat != null && lng != null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
           out.push({ lat, lng, time: gTime(seg.startTime) })
         }
