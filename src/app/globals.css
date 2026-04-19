@@ -39,6 +39,12 @@ body, [lang] {
   .marker-pulse {
     display: none;
   }
+  /* Replace spinning loader with a static full circle so the indicator
+     doesn't appear broken (frozen mid-spin with a transparent edge). */
+  .animate-spin {
+    animation: none !important;
+    border-top-color: rgba(var(--gl), .6) !important;
+  }
 }
 
 @keyframes checkmark-in {
