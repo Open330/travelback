@@ -114,8 +114,6 @@ export function usePlaybackController(track: Track | null) {
     seekNonce,
     setSpeed,
     setDuration,
-    setFollowCamera,
-    setIsPlaying,
     togglePlay,
     seekTo,
     stepSeek,
