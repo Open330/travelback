@@ -465,11 +465,23 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string; code?: string }>) => {
       cleanup()
       if (event.data.error) {
-        reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
+        // Worker reported a parse error — fall back to main-thread parser
+        // instead of rejecting outright, so the user still has a chance to
+        // import their file.
+        try {
+          resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+        } catch {
+          reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
+        }
         return
       }
       if (!event.data.track) {
-        reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
+        // Worker returned no track and no error — fall back to main-thread parser
+        try {
+          resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+        } catch {
+          reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
+        }
         return
       }
 
@@ -484,7 +496,13 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 
     worker.onerror = (event) => {
       cleanup()
-      reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+      // Worker crashed (e.g., memory pressure) — fall back to main-thread
+      // parser instead of rejecting outright.
+      try {
+        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+      } catch {
+        reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+      }
     }
 
     worker.postMessage({ ext: 'json', buffer }, [buffer])
