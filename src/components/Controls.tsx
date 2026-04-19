@@ -95,7 +95,10 @@ export default function Controls({
               <span className="text-[10px] font-medium hidden sm:inline" style={{ color: 'var(--t4)' }}>{t('controls.speedLabel')}</span>
               <select
                 value={speed}
-                onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+                onChange={(e) => {
+                    const value = parseFloat(e.target.value)
+                    if (Number.isFinite(value)) onSpeedChange(value)
+                  }}
                 aria-label={t('controls.playbackSpeed')}
                 title={t('controls.playbackSpeed')}
                 className="vitro-select min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
@@ -109,7 +112,10 @@ export default function Controls({
             {/* Duration */}
             <select
               value={duration}
-              onChange={(e) => onDurationChange(parseInt(e.target.value))}
+              onChange={(e) => {
+                    const value = parseInt(e.target.value, 10)
+                    if (Number.isFinite(value)) onDurationChange(value)
+                  }}
               aria-label={t('controls.animationDuration')}
               title={t('controls.animationDuration')}
               className="vitro-select min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
