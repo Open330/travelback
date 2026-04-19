@@ -302,8 +302,9 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
           const dur = seg.startTime as string | undefined
           const lat = parseOptionalNumber(m[1])
           const lng = parseOptionalNumber(m[2])
-          if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-          out.push({ lat, lng, time: gTime(dur) })
+          if (lat != null && lng != null && !(Math.abs(lat) > 90 || Math.abs(lng) > 180)) {
+            out.push({ lat, lng, time: gTime(dur) })
+          }
         }
       }
     }
