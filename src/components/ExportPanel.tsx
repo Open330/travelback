@@ -307,7 +307,7 @@ export default function ExportPanel({
                     </div>
                     <div>
                       <label className="vitro-label mb-1 block text-sm font-medium">{t('export.mbps')}</label>
-                      <input type="number" min={1} max={50} value={bitrate} className="vitro-input min-h-11 w-full px-3 py-2 text-sm opacity-60 cursor-not-allowed" readOnly />
+                      <input type="number" min={1} max={50} value={bitrate} className="vitro-input min-h-11 w-full px-3 py-2 text-sm opacity-60 cursor-not-allowed" readOnly aria-disabled="true" />
                     </div>
                   </div>
                 </div>
