@@ -25,7 +25,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 14).
   ```
 - This makes the selects self-consistent with the NaN guard pattern established in Controls.tsx and SceneEditor.tsx.
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -65,7 +65,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 14).
     ```
 - This makes all range inputs self-consistent with the NaN guard pattern.
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -89,7 +89,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 14).
   ```
 - Add `useMemo` to the import from 'react' (already imported as `useState, useCallback, useEffect, useRef` — need to add `useMemo`).
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
