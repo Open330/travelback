@@ -97,8 +97,29 @@ function TimelineSelector({
     const lastIndex = points.length - 1
     if (lastIndex <= 0) return { startIdx: 0, endIdx: 0 }
 
-    let startIdx = Math.floor(Math.max(0, Math.min(1, startRatio)) * lastIndex)
-    let endIdx = Math.ceil(Math.max(0, Math.min(1, endRatio)) * lastIndex)
+    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
+
+    // Map a distance-fraction ratio to a point index via binary search on
+    // cumulative distances.  The histogram uses distance-based bucketing, so
+    // handle positions represent fractions of total distance — not fractions of
+    // point count.  A linear interpolation (ratio * lastIndex) would only be
+    // correct when points are evenly spaced by distance.
+    const ratioToIndex = (ratio: number): number => {
+      const clamped = Math.max(0, Math.min(1, ratio))
+      if (totalDist <= 0) return Math.floor(clamped * lastIndex)
+      const targetDist = clamped * totalDist
+      let lo = 0
+      let hi = cumulDist.length - 1
+      while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1
+        if (cumulDist[mid] <= targetDist) lo = mid
+        else hi = mid
+      }
+      return lo
+    }
+
+    let startIdx = ratioToIndex(startRatio)
+    let endIdx = ratioToIndex(endRatio)
 
     if (startIdx >= lastIndex) {
       startIdx = lastIndex - 1
@@ -108,7 +129,7 @@ function TimelineSelector({
     }
 
     return { startIdx, endIdx }
-  }, [endRatio, points.length, startRatio])
+  }, [endRatio, points.length, startRatio, cumulDist])
 
   // Notify parent on initial mount and when points change (not during drag)
   useEffect(() => {
