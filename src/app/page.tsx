@@ -374,6 +374,7 @@ function HomeInner() {
           <TrackWorkspace
             fullTrack={fullTrack}
             track={track}
+            cumulativeDistances={cumulativeDistances}
             trackSessionKey={trackSessionKey}
             mapStyleKey={mapStyleKey}
             showSceneEditor={showSceneEditor}

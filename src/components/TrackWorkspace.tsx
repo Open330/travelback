@@ -13,6 +13,7 @@ import TrackToolbar from '@/components/TrackToolbar'
 interface TrackWorkspaceProps {
   fullTrack: Track
   track: Track
+  cumulativeDistances: number[]
   trackSessionKey: number
   mapStyleKey: MapStyleKey
   showSceneEditor: boolean
@@ -49,6 +50,7 @@ interface TrackWorkspaceProps {
 export default function TrackWorkspace({
   fullTrack,
   track,
+  cumulativeDistances,
   trackSessionKey,
   mapStyleKey,
   showSceneEditor,
@@ -125,6 +127,7 @@ export default function TrackWorkspace({
           <TimelineSelector
             key={trackSessionKey}
             track={fullTrack}
+            cumulativeDistances={cumulativeDistances}
             onRangeChange={onRangeChange}
           />
         </div>
@@ -132,7 +135,7 @@ export default function TrackWorkspace({
 
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div className="px-4 mb-1.5">
-          <ElevationProfile track={track} progress={progress} onSeek={onSeek} units={units} />
+          <ElevationProfile track={track} cumulativeDistances={cumulativeDistances} progress={progress} onSeek={onSeek} units={units} />
         </div>
         <Controls
           track={track}

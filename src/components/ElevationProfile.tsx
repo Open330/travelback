@@ -2,17 +2,18 @@
 
 import { useMemo, useId } from 'react'
 import type { Track } from '@/types'
-import { formatElevation, computeCumulativeDistances, type UnitSystem } from '@/lib/interpolate'
+import { formatElevation, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 interface ElevationProfileProps {
   track: Track
+  cumulativeDistances: number[]
   progress: number
   onSeek: (progress: number) => void
   units: UnitSystem
 }
 
-export default function ElevationProfile({ track, progress, onSeek, units }: ElevationProfileProps) {
+export default function ElevationProfile({ track, cumulativeDistances, progress, onSeek, units }: ElevationProfileProps) {
   const { t } = useLocale()
   const gradientId = useId()
   const clipId = useId()
@@ -20,10 +21,7 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
     return track.points.map((point) => Number.isFinite(point.ele) ? point.ele ?? null : null)
   }, [track])
 
-  const cumulDist = useMemo(
-    () => computeCumulativeDistances(track.points, track.segmentStartIndices),
-    [track]
-  )
+  const cumulDist = cumulativeDistances
 
   const hasElevation = useMemo(() => {
     return elevations.some(e => e !== null)

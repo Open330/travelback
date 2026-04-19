@@ -3,13 +3,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GripHorizontal, RotateCcw } from 'lucide-react'
 import { Track } from '@/types'
-import { computeCumulativeDistances } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 const HINT_DISMISSED_KEY = 'travelback-timeline-hint-dismissed'
 
 interface TimelineSelectorProps {
   track: Track
+  cumulativeDistances: number[]
   onRangeChange: (startIdx: number, endIdx: number) => void
   className?: string
 }
@@ -29,6 +29,7 @@ function formatDate(date: Date | undefined, locale?: string): string {
 
 function TimelineSelector({
   track,
+  cumulativeDistances,
   onRangeChange,
   className = '',
 }: TimelineSelectorProps) {
@@ -64,10 +65,7 @@ function TimelineSelector({
 
   const points = track.points
 
-  const cumulDist = useMemo(
-    () => computeCumulativeDistances(track.points, track.segmentStartIndices),
-    [track]
-  )
+  const cumulDist = cumulativeDistances
 
   // Compute bucket densities using distance-based bucketing
   // (consistent with the distance-based paradigm used in ElevationProfile and playback)
