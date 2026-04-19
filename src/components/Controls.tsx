@@ -43,7 +43,8 @@ export default function Controls({
   const elapsed = duration * progress
 
   const handleProgressChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onSeek(parseFloat(e.target.value))
+    const value = parseFloat(e.target.value)
+    if (Number.isFinite(value)) onSeek(value)
   }, [onSeek])
 
   return (
