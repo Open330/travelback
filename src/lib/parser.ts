@@ -426,7 +426,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   return {
     name: 'Google Location History',
     points: unique.map(({ point }) => point),
-    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: adjustedSegStarts } : {}),
+    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: [...new Set(adjustedSegStarts)] } : {}),
   }
 }
 
