@@ -148,6 +148,10 @@ export function usePlaybackHotkeys({
         return
       }
 
+      // Suppress all playback hotkeys during video export to prevent
+      // progress/camera state conflicts that would corrupt the exported video
+      if (isExporting) return
+
       switch (event.key) {
         case ' ':
           event.preventDefault()
