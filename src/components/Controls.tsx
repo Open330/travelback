@@ -39,7 +39,7 @@ export default function Controls({
   onFollowCameraToggle,
 }: ControlsProps) {
   const { t } = useLocale()
-  const total = useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track])
+  const total = useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track.points, track.segmentStartIndices])
   const traveled = progress >= 1 ? total : total * progress
   const elapsed = duration * progress
 
