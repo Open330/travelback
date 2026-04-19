@@ -82,6 +82,11 @@ function HomeInner() {
     setPlaybackProgress,
   } = playback
 
+  const cumulativeDistances = useMemo(
+    () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
+    [track?.points, track?.segmentStartIndices]
+  )
+
   const {
     isExporting,
     exportProgress,
@@ -101,6 +106,7 @@ function HomeInner() {
     addToast,
     pausePlayback,
     setPlaybackProgress,
+    cumulativeDistances,
   })
 
   usePlaybackHotkeys({
@@ -242,11 +248,6 @@ function HomeInner() {
     resetExportSession()
     setShowExport(false)
   }, [resetExportSession])
-
-  const cumulativeDistances = useMemo(
-    () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
-    [track?.points, track?.segmentStartIndices]
-  )
 
   const handlePreviewScene = useCallback((scene: Scene | null) => {
     if (!scene || !track) return

@@ -20,6 +20,7 @@ interface UseExportControllerOptions {
   addToast: (text: string, type: ToastMessage['type']) => void
   pausePlayback: () => void
   setPlaybackProgress: (progress: number) => void
+  cumulativeDistances?: number[]
 }
 
 export function useExportController({
@@ -31,6 +32,7 @@ export function useExportController({
   addToast,
   pausePlayback,
   setPlaybackProgress,
+  cumulativeDistances: cumulativeDistancesProp,
 }: UseExportControllerOptions) {
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
@@ -128,7 +130,9 @@ export function useExportController({
         }
       }
 
-      const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
+      const cumulDist = cumulativeDistancesProp?.length
+        ? cumulativeDistancesProp
+        : computeCumulativeDistances(track.points, track.segmentStartIndices)
 
       const result = await exportVideo(
         canvas,
