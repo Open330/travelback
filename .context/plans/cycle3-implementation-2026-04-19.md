@@ -14,7 +14,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Mirror the same fix in the worker's copy of `parseSemanticSegments`.
 - Verify with existing e2e fixtures that still pass.
 
-**Status:** TODO
+**Status:** DONE — committed as `8940235`
 
 ---
 
@@ -27,7 +27,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - In `worker.onerror` (line 479-482), instead of rejecting, fall back to `parseGoogleLocationHistory(decodeJsonBuffer(buffer))`.
 - The main-thread parser is the same code; it just runs synchronously. For files within the supported size limit, this is acceptable.
 
-**Status:** TODO
+**Status:** DONE — committed as `d9106be`
 
 ---
 
@@ -41,7 +41,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Add new i18n keys: `app.mapLoadFailedFriendly` and `app.showTechnicalDetails` / `app.hideTechnicalDetails`.
 - Store the raw error in a separate state variable and show it in a collapsible `<details>` element.
 
-**Status:** TODO
+**Status:** DONE — committed as `f7bfc5f`
 
 ---
 
@@ -55,7 +55,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Add visible focus ring style (`:focus-visible` or conditional CSS class).
 - Update `startDrag`/`endDrag` to also work from keyboard events.
 
-**Status:** TODO
+**Status:** DONE — committed as `eb8c0c6`
 
 ---
 
@@ -67,7 +67,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Add `role="status"` and `aria-live="polite"` to the toast container div.
 - Add `role="alert"` to the file-upload error message paragraph.
 
-**Status:** TODO
+**Status:** DONE — committed as `4445465`
 
 ---
 
@@ -80,7 +80,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Then call `normalizeScenes` and pass the normalized result to `onChange`.
 - Display the warnings collected from the pre-normalization check.
 
-**Status:** TODO
+**Status:** DONE — committed as `3b9f466`
 
 ---
 
@@ -94,7 +94,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - This requires tracking which download method was used, or simply changing the default message to be less specific.
 - Simplest approach: just reword `export.savedToDownloads` to say "Your video download has started." which is accurate for both paths.
 
-**Status:** TODO
+**Status:** DONE — committed as `e725908`
 
 ---
 
@@ -107,7 +107,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 - Fail the smoke test if any are found.
 - Add `.omc/` and `.omx/` to `.gitignore` if not already present.
 
-**Status:** TODO
+**Status:** DONE — committed as `0569c0f`
 
 ---
 
@@ -118,15 +118,15 @@ Derived from `.context/reviews/_aggregate.md` (cycle 3).
 **Plan:**
 - Change `rgba(var(--err-rgb, 244,63,94),.7)` to `rgba(var(--err-rgb),.7)` since the variable is always defined in `:root`.
 
-**Status:** TODO
+**Status:** DONE — committed as `86de044`
 
 ---
 
 ## Quality gates
 
-- `eslint` — must pass (zero errors, zero warnings)
-- `tsc --noEmit` — must pass (zero errors)
-- `next build` — must pass (compiled successfully, static pages generated)
+- `eslint` — PASS (zero errors, zero warnings)
+- `tsc --noEmit` — PASS (zero errors)
+- `next build` — PASS (compiled successfully, static pages generated)
 
 ## Deferred findings (not scheduled this cycle)
 
