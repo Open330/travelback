@@ -551,6 +551,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         style: MAP_STYLES[mapStyleKey].url,
         center: [0, 20],
         zoom: 2,
+        // preserveDrawingBuffer:true is required so that captureStream()/drawImage()
+        // can read back the WebGL canvas during video export.  The trade-off is a
+        // slight performance cost on every frame (the GPU must finish painting before
+        // the buffer is preserved), but MapLibre's rendering workload is well within
+        // budget on modern devices so the impact is negligible.
         canvasContextAttributes: { preserveDrawingBuffer: true },
       })
 
