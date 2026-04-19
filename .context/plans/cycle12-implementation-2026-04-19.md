@@ -10,7 +10,7 @@
 - **Severity:** LOW
 - **Confidence:** HIGH
 - **File:** `src/components/ElevationProfile.tsx:96-104`
-- **Status:** TODO
+- **Status:** DONE
 
 ### Problem
 
@@ -30,6 +30,10 @@ The `<svg>` element in ElevationProfile has `tabIndex={0}` (making it focusable)
 - `tsc --noEmit` passes
 - `npm run lint` passes
 - `npm run build` passes
+
+### Implementation
+
+Added `role="img"` to the `<svg>` element in ElevationProfile.tsx. All exit criteria verified: tsc, lint, build pass. Committed as `958e4d1`.
 
 ---
 
