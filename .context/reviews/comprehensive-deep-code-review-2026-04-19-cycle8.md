@@ -1,133 +1,178 @@
 # Comprehensive Deep Code Review - Cycle 8
 
 **Date:** 2026-04-19
-**Reviewer:** Deep code review (cycle 5 of review-plan-fix loop)
+**Reviewer:** Deep code review (cycle 8 of review-plan-fix loop)
 **Scope:** Full source tree (`src/`, `public/`, `scripts/`, `e2e/`)
 
 ## Previous Cycle Verification
 
-All findings from cycle 7 have been verified:
-- **NEW-C7-1** (TimelineSelector histogram index-based bucketing): **FIXED** - Now uses distance-based bucketing via `cumulDist` with index-based fallback when `totalDist <= 0`.
-- **NEW-C7-2** through **NEW-C7-6**: Status unchanged (deferred or no-fix-needed).
+All findings from the most recent review (cycle 9, filed as cycle8) have been verified:
+
+- **NEW-C9-1** (`setExportState('idle')` not guarded by `mountedRef`): **FIXED** - The catch block in `useExportController.ts:148-157` now wraps both `addToast` calls and `setExportState('idle')` inside `if (mountedRef.current)`.
+- **NEW-C9-2** (SceneEditor undo supports only single-delete): No fix needed (UX limitation).
+- **NEW-C9-3** (Redundant `computeCumulativeDistances`): No fix needed (mitigated by `useMemo`).
+- **NEW-C9-4** (Theoretical hotkey race window): No fix needed (defense-in-depth already in place).
+
+All earlier fixes remain in place:
+- **NEW-C8-1** (Playback hotkeys not suppressed during export): **FIXED** - `usePlaybackController.ts:153` has `if (isExporting) return` at the top of the hotkey handler.
+- **NEW-C8-2** (Export overlay missing `data-disable-playback-hotkeys`): **FIXED** - `page.tsx:311` has `data-disable-playback-hotkeys="true"` on the export overlay.
+- **NEW-C7-1** (TimelineSelector index-based histogram): **FIXED** - Distance-based bucketting via `cumulDist`.
 
 ## Previously Deferred Finding Status Update
 
 | ID | Finding | Original Status | Current Status |
 |----|---------|-----------------|----------------|
-| F6 | ErrorBoundary no i18n | Deferred | **FIXED** - ErrorBoundary now uses `useLocale()` and `t()` for all strings |
-| F4, F5, F7, F8, F9, F11, F12, F14, F16 | Various deferred | Deferred | Still deferred (no change) |
+| F4 | Reference grid dominates sparse map | Deferred | Still deferred (no change) |
+| F5 | Map navigation control placement conflicts with toolbar | Deferred | Still deferred (no change) |
+| F7 | downloadVideo fallback fetches URL that may already be revoked | Deferred | Still deferred (no change) |
+| F8 | ElevationProfile SVG useId() SSR mismatch | Deferred | Still deferred (no change) |
+| F9 | Worker parser fallback may silently lose data for large files | Deferred | Still deferred (no change) |
+| F11 | Map interactive when aria-hidden | Deferred | Still deferred (no change) |
+| F12 | TimelineSelector stale closure risk | Deferred | Still deferred (no change) |
+| F14 | JourneyCreator coordinate validation | Deferred | Still deferred (no change) |
+| F16 | SceneEditor start >= end validation | Deferred | Still deferred (no change) |
+| NEW-R3-2 | Reference grid visible on empty map creates visual noise | Deferred | Still deferred (no change) |
+| F6 | ErrorBoundary no i18n | Fixed | Still fixed |
 
 ## New Findings
 
-### NEW-C8-1: Playback hotkeys not suppressed during video export
-
-**Severity:** MEDIUM
-**File:** `src/lib/usePlaybackController.ts:140-196` (hotkey handler)
-**Category:** Correctness / UX
-**Confidence:** HIGH
-
-**Description:**
-The `usePlaybackHotkeys` keyboard event handler does not check `isExporting` for the Space (play/pause), ArrowLeft, or ArrowRight keys. Only the `E` key handler includes an `!isExporting` guard:
-
-```typescript
-case 'e':
-case 'E':
-  if (track && !isExporting) {   // <-- guarded
-    onToggleExport()
-  }
-  break
-case ' ':
-  event.preventDefault()
-  if (track) {                   // <-- no isExporting check
-    onTogglePlay()
-  }
-  break
-case 'ArrowRight':
-  event.preventDefault()
-  onStepSeek(0.02)               // <-- no isExporting check
-  break
-```
-
-During video export, the `useExportController` pauses playback and manually drives `progress` via `setPlaybackProgress` for each frame. If the user presses Space, `togglePlay` sets `isPlaying = true`, which activates the `requestAnimationFrame` animation loop in `usePlaybackController`. This loop also increments `progress` based on elapsed time. The result is two competing writers to `progress`:
-
-1. The export controller setting `progress` to the exact frame position
-2. The animation loop incrementing `progress` based on `speed / duration`
-
-This causes the map camera to jump between the export-intended position and the animation-intended position, producing visual glitches in the exported video.
-
-Arrow key presses during export would similarly seek to a different position, corrupting the export.
-
-**Concrete failure scenario:**
-1. User starts a video export
-2. Export overlay appears with progress bar
-3. User presses Space (perhaps reflexively) or Arrow keys
-4. Playback state becomes `isPlaying = true` or progress jumps
-5. The exported video contains camera jumps/glitches as the two progress drivers fight
-
-**Fix:** Add `isExporting` checks to the Space and Arrow key handlers, or add `data-disable-playback-hotkeys="true"` to the export overlay div in `page.tsx:310-326`. The overlay-based approach is simpler and also prevents the `f`/`F` key from toggling follow camera during export.
-
----
-
-### NEW-C8-2: Export overlay div missing `data-disable-playback-hotkeys` attribute
-
-**Severity:** MEDIUM (complements NEW-C8-1)
-**File:** `src/app/page.tsx:310-326`
-**Category:** UX / Correctness
-**Confidence:** HIGH
-
-**Description:**
-The export overlay (shown during video rendering) does not carry the `data-disable-playback-hotkeys="true"` attribute. Other modal-like UI sections (like ExportPanel at line 153) use this attribute to prevent hotkey interference. The export overlay is a full-screen blocking overlay (`z-20`, `inset-0`), so it should similarly suppress hotkeys.
-
-```jsx
-{isExporting && (
-  <div className="absolute inset-0 z-20 flex items-center justify-center" ...>
-    {/* Missing: data-disable-playback-hotkeys="true" */}
-```
-
-However, even adding this attribute alone won't fully fix NEW-C8-1, because the hotkey handler only checks `target?.closest(...)` against interactive elements -- it doesn't prevent hotkeys when focus is on a plain `<div>`. The Space/Arrow key handlers also need explicit `isExporting` guards (or the handler should early-return when `isExporting` is true at the top level).
-
-**Fix:** Two changes needed:
-1. Add `data-disable-playback-hotkeys="true"` to the export overlay div
-2. Add an `isExporting` early-return at the top of the hotkey handler (before the switch statement)
-
----
-
-### NEW-C8-3: `harden-static-export.mjs` `walk()` function uses implicit `any` for directory entries
+### NEW-C10-1: `setIsPlaying` exposed from `usePlaybackController` breaks encapsulation
 
 **Severity:** LOW
-**File:** `scripts/harden-static-export.mjs:27`
-**Category:** Code quality
+**File:** `src/lib/usePlaybackController.ts:118`
+**Category:** Code quality / encapsulation
 **Confidence:** HIGH
 
 **Description:**
-The `walk` function parameter has no JSDoc type annotation:
-```javascript
-async function walk(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-```
+The `usePlaybackController` hook returns `setIsPlaying` (the raw `useState` setter) in its return object at line 118. No consumer ever calls `setIsPlaying` directly -- they all use the proper interfaces: `togglePlay()`, `pausePlayback()`, or `resetPlayback()`.
 
-While this is a plain `.mjs` script (not TypeScript), the `directory` parameter is untyped and could be confused with an `fs.Dirent` array. This is minor since the script works correctly and has no consumers other than the `postbuild` npm script.
+Exposing the raw setter is an encapsulation violation. A consumer could call `setIsPlaying(true)`, which would trigger the `useEffect` animation loop (because `isPlaying` changed), but it bypasses the `progressRef.current >= 1` reset logic in `togglePlay()` that rewinds to the start when playback has completed. This means calling `setIsPlaying(true)` when `progress === 1` would start the animation loop but `progressRef.current` would still be `1.0`, causing the loop to immediately set `isPlaying = false` on the next frame. The behavior is not catastrophic but is inconsistent with `togglePlay()`.
 
-**No fix needed** -- noting for completeness only.
+Additionally, `setFollowCamera` is also exposed (line 117), but this one IS used by `GlobalToolbar` indirectly through the `toggleFollowCamera` callback, so the raw setter for `followCamera` is similarly redundant but less risky since `followCamera` is a simple boolean toggle with no side effects.
+
+**Concrete failure scenario:**
+1. A future developer sees `setIsPlaying` in the hook's return type
+2. They call `setIsPlaying(true)` instead of `togglePlay()`
+3. If progress was at 1.0, the animation loop starts but immediately detects `nextProgress >= 1` and stops, producing a single-frame "flash" of playback
+4. The user sees a brief visual glitch instead of the expected "restart from beginning" behavior
+
+**Fix:** Remove `setIsPlaying` and `setFollowCamera` from the return object. All consumers already use the proper callback interfaces.
 
 ---
 
-### NEW-C8-4: `serve-static.mjs` redirects use 302 instead of 301 for canonical path redirects
+### NEW-C10-2: Duplicate file size validation in FileUpload and parser
 
 **Severity:** INFO
-**File:** `scripts/serve-static.mjs:135`
-**Category:** HTTP semantics
+**Files:** `src/components/FileUpload.tsx:39-42`, `src/lib/parser.ts:524-531`
+**Category:** Code quality / redundancy
 **Confidence:** HIGH
 
 **Description:**
-When the base path redirect fires (e.g., `/` to `/travelback/`), the server uses a 302 Found redirect:
-```javascript
-res.writeHead(302, { Location: resolved.redirect })
+The `handleFile` callback in `FileUpload.tsx` checks `file.size > maxForType` and throws a plain `Error` with an i18n'd message. Then `parseTrackFile` in `parser.ts` performs the exact same check and throws a `ParseError` with code `FILE_TOO_LARGE`.
+
+Since `handleFile` calls `parseTrackFile`, the first check always short-circuits and the parser's check is never reached for this error case. The error handling in `handleFile`'s catch block has a special path for `FILE_TOO_LARGE` that would handle the parser's version, but it's unreachable because the FileUpload-level check fires first.
+
+The two checks use slightly different message formats:
+- FileUpload: `t('fileUpload.fileTooLarge').replace('{max}', ...)` -- uses the i18n key
+- Parser: `File is too large (${size}MB). Maximum size is ${max}MB.` -- raw English
+
+This is harmless redundancy but could cause confusion if the limits diverge (e.g., if one is updated but not the other).
+
+**No fix needed** -- the redundancy provides defense-in-depth and the limits are derived from the same source constants. Noting for awareness.
+
+---
+
+### NEW-C10-3: `downloadVideo` showSaveFilePicker cast is semantically incorrect
+
+**Severity:** INFO
+**File:** `src/lib/videoEncoder.ts:158-163`
+**Category:** Type safety
+**Confidence:** HIGH
+
+**Description:**
+The `showSaveFilePicker` API returns a `Promise<FileSystemFileHandle>`, but the code casts the result as `FileSystemWritableFileStream` at line 161:
+
+```typescript
+const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<unknown> })
+  .showSaveFilePicker({ ... }) as FileSystemWritableFileStream
 ```
 
-For canonical path redirects that don't depend on any dynamic state, a 301 Moved Permanently would be more semantically correct and allow browsers/proxies to cache the redirect. However, since this is a development/preview server (the production deployment is via GitHub Pages static hosting), the 302 is acceptable.
+Then at line 163, it casts `handle` again to access `createWritable()`:
 
-**No fix needed** -- noting for awareness.
+```typescript
+const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
+```
+
+The first cast should be `FileSystemFileHandle` (which has a `createWritable()` method), not `FileSystemWritableFileStream`. The code works correctly at runtime because TypeScript casts are erased, but the semantic incorrectness could confuse future maintainers who expect `FileSystemWritableFileStream` to have a `createWritable()` method (it doesn't -- that's `FileSystemFileHandle`'s method).
+
+**No fix needed** -- the code works correctly and this is a private function with no external API surface. The double-cast pattern is necessary because the File System Access API types aren't in the standard TypeScript DOM lib. Noting for awareness.
+
+---
+
+## Multi-Angle Specialist Review Summary
+
+### Code Quality / Logic / SOLID / Maintainability
+
+**Overall: Excellent.** After 7+ prior review cycles, the codebase is clean and well-structured. Key strengths:
+- Consistent use of `useCallback` and `useMemo` with appropriate dependency arrays
+- Refs used correctly for mutable state that shouldn't trigger re-renders
+- All 5 `eslint-disable` comments are justified with documented reasons
+- No `TODO`/`FIXME`/`HACK` comments in source code
+- No `any` type usage in source files (all `as` casts in `parser.ts` are for untyped Google JSON data, which is unavoidable)
+- `ParseError` class with machine-readable codes provides clean error-to-i18n mapping
+
+**Concerns (not new):** `MapView.tsx` (883 lines) and `JourneyCreator.tsx` (759 lines) remain large single components. This is a known maintainability concern that would require significant refactoring.
+
+### Performance / Concurrency
+
+**Overall: Excellent.** No new performance findings. The codebase uses:
+- `requestAnimationFrame` for smooth playback animation
+- `useMemo` for expensive computations (cumulative distances, elevation data)
+- `useCallback` for stable function references
+- Worker isolation for large Google JSON file parsing
+- RAF-throttled drag handlers in `TimelineSelector`
+- Proper abort signal propagation through the export pipeline
+
+### Security
+
+**Overall: Solid.** No new security issues found. The existing defenses remain intact:
+- CSP hardening via post-build script with computed script hashes
+- XML entity stripping in parser (`stripXmlEntities`)
+- JSON depth checking (`checkJsonDepth` with 64-level limit)
+- Worker isolation for large files with fallback safety
+- No `eval()`, no `innerHTML` (only CSP-hashed theme-init `dangerouslySetInnerHTML`)
+- Path traversal protection in `serve-static.mjs` (`isInside` check)
+- Security headers in static server (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+- External links use `rel="noopener noreferrer"`
+- Object URLs properly revoked in cleanup
+
+### Accessibility
+
+**Overall: Good.** The accessibility infrastructure is solid:
+- Modal dialogs use proper `role="dialog"`, `aria-modal="true"`, focus trapping, and `aria-labelledby`
+- Focus is restored to the previously active element when modals close
+- Background content is marked `inert` + `aria-hidden` when modals are open
+- The `data-disable-playback-hotkeys` attribute prevents keyboard interference from background controls
+- Mobile menu uses correct `role="menu"` and `role="menuitem"`
+- Map controls are hidden when no track is loaded (no interactive elements behind the upload overlay)
+- SVG-based components (ElevationProfile) have keyboard navigation and `aria-label`
+
+**Minor observation:** The JourneyCreator search uses `role="listbox"` with `role="option"` for results. Options don't have `aria-selected` attributes. Since results are immediately consumed on click (not a multi-select), this is a very minor gap that doesn't affect usability.
+
+### Correctness / Edge Cases
+
+**Overall: Excellent.** Key correctness features verified:
+- Antimeridian handling is consistent across `lerpCamera`, `smoothCameraState`, and `computeBoundingBox`
+- `normalizeScenes` properly handles overlapping scenes with clamping and sorting
+- `interpolateAlongTrack` handles empty and single-point tracks
+- Export pipeline properly handles abort signals at every frame
+- `mountedRef` pattern prevents state updates after unmount (consistent after C9-1 fix)
+- `waitForIdle` has proper timeout (5 seconds) and abort signal handling
+- Camera smoothing skips large jumps (seek, bearing changes > 120 degrees)
+
+### Test Coverage
+
+**Overall: Adequate for an e2e-tested app.** The Playwright test suite covers file import, playback, scene editor, export, map styles, theme, layout, and accessibility. Unit tests for lib modules (parser, camera, interpolate, videoEncoder) remain a known gap.
 
 ---
 
@@ -135,48 +180,48 @@ For canonical path redirects that don't depend on any dynamic state, a 301 Moved
 
 ### Strengths (re-confirmed from previous cycles)
 
-1. **Security posture remains solid**: No `eval()`, no `innerHTML` (only `dangerouslySetInnerHTML` for CSP-hashed theme-init), proper CSP hardening via post-build script, XML entity stripping, JSON depth checking, worker isolation.
-
-2. **Resource cleanup is thorough**: Object URLs revoked in cleanup effects, MapLibre markers/layers removed on unmount, event listeners cleaned up, `mountedRef` pattern prevents state updates after unmount, worker `terminate()` in all exit paths.
-
-3. **Type safety is good**: `ParseError` class with machine-readable codes for i18n mapping, proper TypeScript types throughout, no `any` usage in source files.
-
-4. **Antimeridian handling**: Consistent shifted-longitude interpolation across `lerpCamera`, `smoothCameraState`, and `computeBoundingBox`.
-
-5. **Accessibility**: Modal dialogs with focus trapping and `aria-modal`, keyboard navigation, `inert`/`aria-hidden` on background content when modals open, ARIA labels on interactive elements.
-
-6. **Defense-in-depth for parsing**: Multiple size checks, worker fallback to main thread, date field repair after structured clone.
-
-7. **i18n completeness**: All user-facing strings use the translation system. ErrorBoundary now also uses i18n (F6 fix confirmed).
-
-8. **No TODO/FIXME/HACK comments** in source code.
-
-9. **All console statements justified**: No extraneous debug logging.
-
+1. **Security posture remains solid**: No `eval()`, no `innerHTML`, proper CSP, XML entity stripping, JSON depth checking, worker isolation.
+2. **Resource cleanup is thorough**: Object URLs revoked, MapLibre markers/layers removed on unmount, event listeners cleaned up, `mountedRef` pattern.
+3. **Type safety is good**: `ParseError` with machine-readable codes, proper TypeScript types, no `any` in source files.
+4. **Antimeridian handling**: Consistent shifted-longitude interpolation across all camera functions.
+5. **Accessibility**: Modal dialogs with focus trapping, keyboard navigation, `inert`/`aria-hidden`.
+6. **Defense-in-depth for parsing**: Multiple size checks, worker fallback, date field repair.
+7. **i18n completeness**: All user-facing strings use the translation system.
+8. **No TODO/FIXME/HACK comments**.
+9. **All console statements justified**: 11 total, all for legitimate error/warning logging.
 10. **All eslint-disable comments justified**: 5 total, each with documented reasons.
 
 ### No Regressions Detected
 
-All previously fixed issues remain fixed. The NEW-C7-1 fix (distance-based histogram) is confirmed working correctly in the code.
+All previously fixed issues remain fixed.
 
 ### Module-Level Assessment
 
 | Module | Lines | Assessment |
 |--------|-------|------------|
-| `src/app/page.tsx` | 422 | **Finding** (NEW-C8-1/2: export overlay missing hotkey suppression) |
-| `src/lib/usePlaybackController.ts` | 197 | **Finding** (NEW-C8-1: Space/Arrow hotkeys not guarded during export) |
+| `src/app/page.tsx` | 422 | Clean, C8-1/C8-2/C9-1 fixes confirmed |
+| `src/lib/usePlaybackController.ts` | 201 | **Finding** (NEW-C10-1: `setIsPlaying` leaked) |
+| `src/lib/useExportController.ts` | 193 | Clean, C9-1 fix confirmed |
 | `src/lib/parser.ts` | 566 | Robust, no new issues |
 | `src/components/MapView.tsx` | 883 | Complex but well-structured, no new issues |
 | `src/lib/camera.ts` | 445 | Clean antimeridian handling |
-| `src/lib/videoEncoder.ts` | 191 | Proper abort handling, no new issues |
-| `src/lib/i18n.ts` | ~1740 | Complete 5-locale coverage |
-| `src/components/TimelineSelector.tsx` | 375 | Distance-based bucketing confirmed working |
+| `src/lib/videoEncoder.ts` | 191 | **Finding** (NEW-C10-3: showSaveFilePicker cast) |
+| `src/lib/interpolate.ts` | 173 | Clean |
+| `src/components/TimelineSelector.tsx` | 389 | Distance-based bucketing confirmed |
 | `src/components/SceneEditor.tsx` | 569 | No new issues |
 | `src/components/JourneyCreator.tsx` | 759 | No new issues |
 | `src/components/ElevationProfile.tsx` | 141 | Clean |
 | `src/components/ExportPanel.tsx` | 326 | Uses `data-disable-playback-hotkeys` correctly |
 | `src/components/ModalDialog.tsx` | 188 | Proper stacking, focus trap |
-| `src/components/ErrorBoundary.tsx` | 83 | Now uses i18n (F6 fix confirmed) |
+| `src/components/ErrorBoundary.tsx` | 83 | Uses i18n (F6 fix confirmed) |
+| `src/components/TrackToolbar.tsx` | 227 | Clean |
+| `src/components/FileUpload.tsx` | 256 | **Finding** (NEW-C10-2: duplicate size check) |
+| `src/components/Controls.tsx` | 151 | Clean |
+| `src/components/Toast.tsx` | 90 | Clean |
+| `src/components/GoogleGuide.tsx` | 373 | Clean |
+| `src/components/ThemeToggle.tsx` | 73 | Clean |
+| `src/components/KeyboardHelp.tsx` | 84 | Clean |
+| `src/lib/i18n.ts` | ~1740 | Complete 5-locale coverage |
 | `scripts/harden-static-export.mjs` | 102 | Clean CSP hardening |
 | `scripts/serve-static.mjs` | 184 | Secure static file serving |
 
@@ -186,13 +231,8 @@ All previously fixed issues remain fixed. The NEW-C7-1 fix (distance-based histo
 
 | ID | Finding | Severity | Confidence | Files |
 |----|---------|----------|------------|-------|
-| NEW-C8-1 | Playback hotkeys not suppressed during video export | MEDIUM | HIGH | `src/lib/usePlaybackController.ts:140-196` |
-| NEW-C8-2 | Export overlay missing `data-disable-playback-hotkeys` | MEDIUM | HIGH | `src/app/page.tsx:310-326` |
-| NEW-C8-3 | `harden-static-export.mjs` walk() untyped parameter | LOW | HIGH | `scripts/harden-static-export.mjs:27` |
-| NEW-C8-4 | serve-static uses 302 instead of 301 for canonical redirects | INFO | HIGH | `scripts/serve-static.mjs:135` |
+| NEW-C10-1 | `setIsPlaying` exposed from usePlaybackController | LOW | HIGH | `src/lib/usePlaybackController.ts:118` |
+| NEW-C10-2 | Duplicate file size validation in FileUpload and parser | INFO | HIGH | `src/components/FileUpload.tsx:39-42`, `src/lib/parser.ts:524-531` |
+| NEW-C10-3 | `downloadVideo` showSaveFilePicker cast is semantically incorrect | INFO | HIGH | `src/lib/videoEncoder.ts:158-163` |
 
-**Previously deferred findings now resolved:**
-- F6 (ErrorBoundary no i18n): **FIXED** - ErrorBoundary now uses `useLocale()` and `t()`
-- NEW-C7-1 (TimelineSelector index-based histogram): **FIXED** - Now uses distance-based bucketing
-
-**Net assessment:** The codebase remains in excellent shape. The most impactful new finding is NEW-C8-1/C8-2 (playback hotkeys during export), which is a real correctness bug that can produce corrupted video exports. All other findings are LOW/INFO severity. No security, data-loss, or critical issues found.
+**Net assessment:** The codebase is in excellent shape. All previously identified MEDIUM and HIGH severity issues have been fixed and remain fixed. The new findings this cycle are all LOW or INFO severity. No security, data-loss, or critical issues found. The C8-1/C8-2 fixes (playback hotkey suppression during export) and C9-1 fix (mountedRef guard consistency) are confirmed working correctly. The codebase has reached a stable, well-hardened state.
