@@ -74,7 +74,7 @@ export default function TrackToolbar({
   return (
     <div
       data-testid="track-toolbar"
-      className={`absolute top-4 right-4 z-10 flex items-center gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2 ${showSceneEditor ? 'sm:right-[18rem] sm:max-w-[calc(100vw-20rem)]' : 'sm:max-w-[calc(100vw-2rem)]'}`}
+      className={`absolute top-4 right-4 z-10 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 ${showSceneEditor ? 'sm:right-[18rem] sm:max-w-[calc(100vw-20rem)]' : 'sm:max-w-[calc(100vw-2rem)]'}`}
     >
       <button
         type="button"
