@@ -1,96 +1,101 @@
-# Cycle 13 Aggregate Review — 2026-04-19
+# Cycle 14 Aggregate Review — 2026-04-19
 
 Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle13-comprehensive-2026-04-19.md`)
+- Fresh comprehensive review (`cycle14-comprehensive-2026-04-19.md`)
 - All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C12 active findings confirmed FIXED in prior cycle.
+- All C13 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C13-AGG.
+- New findings from this cycle are prefixed C14-AGG.
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C13-AGG-001 — MEDIUM — SceneEditor blend duration parseInt without NaN guard
+### C14-AGG-001 — LOW — ExportPanel selects (resolution, fps) lack NaN guards
 
-**Cross-agent agreement:** cycle13-comprehensive
+**Cross-agent agreement:** cycle14-comprehensive
 **Primary locations:**
-- `src/components/SceneEditor.tsx:385`
+- `src/components/ExportPanel.tsx:268` (resolution select)
+- `src/components/ExportPanel.tsx:329` (fps select)
 
 **Why it matters:**
-The blend duration range input passes `parseInt(e.target.value) / 100` to `onTransitionDurationChange` without a NaN guard. If `parseInt` returns `NaN`, it propagates to `transitionDuration` state, breaking the range input rendering (`Math.round(NaN * 100) = NaN`). Same pattern that was fixed in Controls.tsx (C12-AGG-001) and ExportPanel.tsx (C11-AGG-001).
+Both selects pass `parseInt(e.target.value)` directly to state setters without NaN guards. If NaN propagated, it would crash resolution/fps-dependent renders and export frame calculations. This is inconsistent with the NaN guard pattern established for Controls speed/duration selects (C13-AGG-003) and SceneEditor blend duration (C13-AGG-001).
 
 **Suggested fix:**
+Add `Number.isFinite` guards to both handlers:
 ```ts
-const value = parseInt(e.target.value, 10)
-if (Number.isFinite(value)) onTransitionDurationChange(value / 100)
-```
-
-**Confidence:** High
-
----
-
-### C13-AGG-002 — MEDIUM — ExportPanel duration prop sync overwrites user edits
-
-**Cross-agent agreement:** cycle13-comprehensive
-**Primary locations:**
-- `src/components/ExportPanel.tsx:65-68`
-
-**Why it matters:**
-The effect syncs `playbackDuration` into local `duration` state every time the prop changes. If the user has manually edited the duration input in the export panel and then the playback duration changes (e.g., the animation duration is adjusted via the Controls dropdown while the export panel is open), the user's edit is silently overwritten. This is a UX bug: the user sees their value replaced without warning.
-
-**Suggested fix:**
-Only sync the prop value once when the panel opens, not on every prop change. Use a ref to track whether the panel has been opened:
-```tsx
-const panelOpenedRef = useRef(false)
-useEffect(() => {
-  if (isOpen) {
-    if (!panelOpenedRef.current && playbackDuration != null) {
-      setDuration(playbackDuration)
-    }
-    panelOpenedRef.current = true
-  } else {
-    panelOpenedRef.current = false
-  }
-}, [isOpen, playbackDuration])
-```
-
-**Confidence:** Medium
-
----
-
-### C13-AGG-003 — LOW — Controls duration/speed selects lack NaN guards
-
-**Cross-agent agreement:** cycle13-comprehensive
-**Primary locations:**
-- `src/components/Controls.tsx:98` (speed select)
-- `src/components/Controls.tsx:112` (duration select)
-
-**Why it matters:**
-Both selects pass parsed values directly to state setters without NaN guards. While extremely unlikely for select elements with hardcoded numeric options, this is inconsistent with the NaN guard pattern established for the progress input (C12-AGG-001) and ExportPanel duration input (C11-AGG-001). If NaN somehow propagated, it would break the animation loop.
-
-**Suggested fix:**
-Add `Number.isFinite` guards to both handlers for consistency:
-```ts
-// Speed select
-onChange={(e) => {
-  const value = parseFloat(e.target.value)
-  if (Number.isFinite(value)) onSpeedChange(value)
+// Resolution select
+onChange={e => {
+  const value = parseInt(e.target.value, 10)
+  if (Number.isFinite(value)) setResolutionIdx(value)
 }}
 
-// Duration select
-onChange={(e) => {
+// FPS select
+onChange={e => {
   const value = parseInt(e.target.value, 10)
-  if (Number.isFinite(value)) onDurationChange(value)
+  if (Number.isFinite(value)) setFps(value)
 }}
 ```
 
 **Confidence:** Low (selects with hardcoded options are unlikely to produce NaN, but consistency matters)
+
+---
+
+### C14-AGG-002 — LOW — SceneEditor camera param range inputs parseFloat lack NaN guards
+
+**Cross-agent agreement:** cycle14-comprehensive
+**Primary locations:**
+- `src/components/SceneEditor.tsx:513` (zoom)
+- `src/components/SceneEditor.tsx:527` (pitch)
+- `src/components/SceneEditor.tsx:544` (bearingOffset)
+- `src/components/SceneEditor.tsx:558` (rotationSpeed)
+
+**Why it matters:**
+All four camera parameter range inputs pass `parseFloat(e.target.value)` directly into scene params without NaN guards. If NaN propagated, it would break camera computations. Same consistency concern as the other NaN guard fixes.
+
+**Suggested fix:**
+Add `Number.isFinite` guards to each handler:
+```ts
+onChange={e => {
+  const value = parseFloat(e.target.value)
+  if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, zoom: value } })
+}}
+```
+
+**Confidence:** Low
+
+---
+
+### C14-AGG-003 — LOW — ExportPanel canShare recomputed on every render
+
+**Cross-agent agreement:** cycle14-comprehensive
+**Primary location:**
+- `src/components/ExportPanel.tsx:169-178`
+
+**Why it matters:**
+The `canShare` value is computed on every render by creating `new File([new ArrayBuffer(1)], ...)` and calling `navigator.canShare`. This allocates objects unnecessarily on each render. Should be memoized.
+
+**Suggested fix:**
+Wrap in `useMemo`:
+```tsx
+const canShare = useMemo(() => {
+  if (typeof navigator === 'undefined') return false
+  if (typeof navigator.share !== 'function') return false
+  try {
+    const testFile = new File([new ArrayBuffer(1)], 'test.mp4', { type: 'video/mp4' })
+    return navigator.canShare?.({ files: [testFile] }) ?? false
+  } catch {
+    return false
+  }
+}, [])
+```
+
+**Confidence:** Low (minor perf, not correctness)
 
 ---
 
@@ -124,13 +129,11 @@ From cycle 11:
 - C11-005 (LOW): TrackWorkspace title overlap with scene editor — exit criterion: re-open during next layout polish pass
 
 From cycle 12:
-- C12-002 (LOW): Controls elapsed floating-point wobble — already deferred as C11-009; keeping existing deferral
 - C12-005 (LOW): TimelineSelector reset button bypasses resolveRangeIndexes — exit criterion: re-open if resolveRangeIndexes adds edge-case logic
-- C12-006 (LOW): ElevationProfile RTL comment clarity — already deferred as C11-007; keeping existing deferral
 - C12-008 (LOW): ExportPanel file size estimate accuracy — exit criterion: re-open during next UX accuracy pass
 
 ## Recommended implementation order for this cycle
 
-1. **C13-AGG-001 (MEDIUM)**: Add NaN guard to SceneEditor blend duration parseInt
-2. **C13-AGG-002 (MEDIUM)**: Fix ExportPanel duration prop sync to not overwrite user edits
-3. **C13-AGG-003 (LOW)**: Add NaN guards to Controls speed/duration selects for consistency
+1. **C14-AGG-001 (LOW)**: Add NaN guards to ExportPanel resolution and fps selects
+2. **C14-AGG-002 (LOW)**: Add NaN guards to SceneEditor camera param range inputs
+3. **C14-AGG-003 (LOW)**: Memoize canShare in ExportPanel
