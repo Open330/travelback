@@ -65,9 +65,9 @@ export default function ExportPanel({
   }, [playbackDuration])
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>({
-    h264: null, h265: null, av1: null,
-  })
+  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(() =>
+    codecSupportCache ?? { h264: null, h265: null, av1: null },
+  )
 
   const bitrate = QUALITY_MAP[quality] ?? 8
   const codecReady = codecSupport[codec] === true
@@ -96,11 +96,8 @@ export default function ExportPanel({
   useEffect(() => {
     if (!isOpen) return
 
-    // Use cached results if available from a previous panel open
-    if (codecSupportCache != null) {
-      setCodecSupport(codecSupportCache)
-      return
-    }
+    // Skip probing if cache is already populated (state was initialized from cache)
+    if (codecSupportCache != null) return
 
     let cancelled = false
     const checkAll = async () => {
