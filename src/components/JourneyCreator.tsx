@@ -23,6 +23,15 @@ const LAYER_LINE = 'journey-line'
 const LAYER_POINTS = 'journey-points'
 const LAYER_LABELS = 'journey-points-labels'
 const MIN_SEARCH_QUERY_LENGTH = 3
+const PROXIMITY_THRESHOLD_METERS = 5
+
+/** Approximate meters between two lat/lng points (equirectangular, fine for short distances) */
+function approxDistanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6_371_000
+  const dLat = (b.lat - a.lat) * Math.PI / 180
+  const dLng = (b.lng - a.lng) * Math.PI / 180 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180)
+  return Math.sqrt(dLat * dLat + dLng * dLng) * R
+}
 
 interface ParsedLocationResult {
   display_name: string
@@ -260,7 +269,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         if (features.length > 0) return
 
         const { lng, lat } = e.lngLat
-        waypointsRef.current = [...waypointsRef.current, { lng, lat }]
+        // Skip if too close to the last waypoint (likely accidental double-click)
+        const pts = waypointsRef.current
+        if (pts.length > 0) {
+          const last = pts[pts.length - 1]
+          if (approxDistanceMeters({ lat, lng }, last) < PROXIMITY_THRESHOLD_METERS) return
+        }
+        waypointsRef.current = [...pts, { lng, lat }]
         updateMapData()
         syncUI()
       }
@@ -470,9 +485,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const latNum = parseFloat(lat)
     if (!Number.isFinite(lng) || !Number.isFinite(latNum)) return
     if (Math.abs(latNum) > 90 || Math.abs(lng) > 180) return
+    // Skip if too close to the last waypoint
+    const pts = waypointsRef.current
+    if (pts.length > 0 && approxDistanceMeters({ lat: latNum, lng }, pts[pts.length - 1]) < PROXIMITY_THRESHOLD_METERS) {
+      setSearchResults([])
+      setSearchQuery('')
+      return
+    }
     const map = mapRef.current?.getMap()
     if (map) map.flyTo({ center: [lng, latNum], zoom: 14 })
-    waypointsRef.current = [...waypointsRef.current, { lng, lat: latNum }]
+    waypointsRef.current = [...pts, { lng, lat: latNum }]
     updateMapData()
     syncUI()
     setSearchResults([])
