@@ -61,7 +61,8 @@ export function usePlaybackController(track: Track | null) {
   }, [setPlaybackProgress])
 
   const seekTo = useCallback((nextProgress: number) => {
-    const clampedProgress = Math.min(1, Math.max(0, nextProgress))
+    const safe = Number.isFinite(nextProgress) ? nextProgress : 0
+    const clampedProgress = Math.min(1, Math.max(0, safe))
     setPlaybackProgress(clampedProgress)
     setSeekNonce((nonce) => nonce + 1)
   }, [setPlaybackProgress])
