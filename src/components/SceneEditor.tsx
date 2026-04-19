@@ -168,11 +168,39 @@ function SceneRangeEditor({
         ] as const).map(([type, value]) => (
           <div
             key={type}
-            className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center"
+            role="slider"
+            tabIndex={0}
+            aria-label={type === 'start' ? `${ariaLabel} start` : `${ariaLabel} end`}
+            aria-valuenow={Math.round(value * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ left: `${value * 100}%`, touchAction: 'none' }}
             onPointerDown={(event) => {
               event.stopPropagation()
               startDrag(type, event.clientX)
+            }}
+            onKeyDown={(e) => {
+              const step = 0.01
+              if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                if (type === 'start') {
+                  const [s] = clampRange(Math.min(startPercent + step, endPercent - MIN_SCENE_SPAN), endPercent)
+                  onChangeRef.current(s, endPercent)
+                } else {
+                  const [, en] = clampRange(startPercent, Math.min(endPercent + step, 1))
+                  onChangeRef.current(startPercent, en)
+                }
+              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                if (type === 'start') {
+                  const [s] = clampRange(Math.max(startPercent - step, 0), endPercent)
+                  onChangeRef.current(s, endPercent)
+                } else {
+                  const [, en] = clampRange(startPercent, Math.max(endPercent - step, startPercent + MIN_SCENE_SPAN))
+                  onChangeRef.current(startPercent, en)
+                }
+              }
             }}
           >
             <div className="flex h-6 w-3 items-center justify-center rounded-full border border-white/40 bg-[rgb(var(--gl))] shadow-md">
