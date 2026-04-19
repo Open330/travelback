@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
+import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
 import { DEFAULT_CAMERA_PARAMS, generateId } from '@/types'
