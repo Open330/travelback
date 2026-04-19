@@ -94,7 +94,9 @@ This is by design -- the JourneyCreator uses a local-only coordinate parser to a
 
 However, the error message `journey.searchInvalid` could be more helpful. Currently it says something like "Invalid search query" which might confuse users who enter "Paris" expecting geocoding. A better message would be "Enter coordinates or a map link (e.g., 35.6762,139.6503 or geo:35.6762,139.6503)".
 
-**Fix (optional):** Improve the error message to guide users toward coordinate-format input.
+**Fix (optional):** ~~Improve the error message to guide users toward coordinate-format input.~~
+
+**UPDATE:** Upon inspection, the `journey.searchInvalid` i18n key already provides helpful guidance with coordinate examples in all 5 locales (e.g., EN: "Could not read that location. Paste coordinates like 37.5665, 126.9780 or a supported map link."). No fix needed -- this finding was a false positive based on an incorrect assumption about the error message content.
 
 ---
 

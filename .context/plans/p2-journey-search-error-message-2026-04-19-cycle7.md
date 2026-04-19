@@ -16,9 +16,11 @@
 
 ## Problem
 
-When a user enters a place name (e.g., "Paris") in the JourneyCreator search, `parseCoordinateQuery` returns null and the error message `journey.searchInvalid` is shown. This message says something generic like "Invalid search query" which doesn't help the user understand what format to use.
+~~When a user enters a place name (e.g., "Paris") in the JourneyCreator search, `parseCoordinateQuery` returns null and the error message `journey.searchInvalid` is shown. This message says something generic like "Invalid search query" which doesn't help the user understand what format to use.~~
 
-The search is intentionally local-only (no geocoding API) for privacy, but the error message should guide users toward coordinate-format input.
+**UPDATE:** Upon inspection, the `journey.searchInvalid` key already provides helpful guidance with coordinate examples in all 5 locales. For example, the English version reads: "Could not read that location. Paste coordinates like 37.5665, 126.9780 or a supported map link." Similar helpful messages exist in Korean, Japanese, Chinese, and Spanish.
+
+**No code change needed** -- the review finding was based on an incorrect assumption about the error message content. The existing implementation is already good.
 
 ---
 
@@ -64,10 +66,9 @@ npm run build
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
-- [ ] Enter "Paris" in the JourneyCreator search
-- [ ] Error message should now show coordinate format guidance instead of generic "Invalid search query"
-- [ ] Enter "48.8566,2.3522" and verify it still works correctly
+- [x] Reviewed `journey.searchInvalid` i18n key in all 5 locales -- already provides helpful guidance with coordinate examples
+- [x] No code change needed -- review finding was based on incorrect assumption
+- [x] Plan closed as no-op
 
 ---
 

@@ -88,11 +88,13 @@ npm run build
 
 ## Verification checklist
 
-- [ ] `npm run build` succeeds
-- [ ] Load a track with unevenly distributed points
-- [ ] The histogram should show higher bars in areas with more points per distance unit (e.g., city segments)
-- [ ] The histogram should visually correlate with the ElevationProfile SVG (both distance-based)
-- [ ] Timeline range handles still work correctly after the change
+- [x] `npm run typecheck` succeeds
+- [x] `cumulDist` memo added using `computeCumulativeDistances`
+- [x] `buckets` memo rewritten to use distance-based bucketing with index fallback
+- [x] Commit pushed: `8f99bf3 fix(timeline): use distance-based histogram bucketing`
+- [ ] Load a track with unevenly distributed points (needs manual browser verification)
+- [ ] The histogram should visually correlate with the ElevationProfile SVG (needs manual browser verification)
+- [ ] Timeline range handles still work correctly after the change (needs manual browser verification)
 
 ---
 
