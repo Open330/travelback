@@ -6,7 +6,7 @@ import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
-import { exportVideo, downloadVideo, type DownloadResult } from '@/lib/videoEncoder'
+import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 
