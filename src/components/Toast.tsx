@@ -60,8 +60,6 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
 }
 
 export default function Toast({ messages, onDismiss }: ToastProps) {
-  if (messages.length === 0) return null
-
   return (
     <div role="log" aria-live="polite" className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
       {messages.map(msg => (
