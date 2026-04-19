@@ -46,10 +46,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const bootstrapScript = `(function(){try{if(window.top!==window.self){try{window.top.location=window.self.location.href;return}catch{document.documentElement.style.display='none';window.location.replace('about:blank');return}}}catch{}try{var d=document.documentElement;var s=null;try{s=localStorage.getItem('travelback-theme')}catch{};var m;if(s==='dark'||s==='light'){m=s}else{m=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'};if(!d.getAttribute('data-mode'))d.setAttribute('data-mode',m);if(!d.getAttribute('data-mapstyle'))d.setAttribute('data-mapstyle',m==='dark'?'dark':'voyager')}catch{}})()`
+
   return (
     <html lang="en" data-svc="travelback" data-mesh="on" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement;var s=null;try{s=localStorage.getItem('travelback-theme')}catch{};var m;if(s==='dark'||s==='light'){m=s}else{m=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'};if(!d.getAttribute('data-mode'))d.setAttribute('data-mode',m);if(!d.getAttribute('data-mapstyle'))d.setAttribute('data-mapstyle',m==='dark'?'dark':'voyager')}catch{}})()` }} />
+        <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
             `npm run build` then runs `scripts/harden-static-export.mjs`, which replaces this
             placeholder with a hash-based static CSP and removes the production `unsafe-inline`

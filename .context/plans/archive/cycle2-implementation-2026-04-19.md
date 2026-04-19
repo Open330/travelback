@@ -20,7 +20,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** HIGH
 - **Confidence:** HIGH
 - **Primary files:** `src/app/page.tsx`, `src/components/ExportPanel.tsx`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Stop mounting `ExportPanel` until the user opens it.
   2. Ensure codec probing only runs while the export UI is actually open.
@@ -34,7 +34,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Primary files:** `src/app/layout.tsx`, `.context/project/01-overview.md`, `.context/project/02-architecture.md`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Add a client-side anti-framing fallback to the early bootstrap path.
   2. Document that real deployments must still provide `frame-ancestors 'none'` / `X-Frame-Options: DENY` as response headers.
@@ -47,7 +47,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Primary files:** `public/fonts/.omc/state/last-tool-error.json`, `scripts/smoke-static.mjs`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Remove the leaked `.omc` artifact from the public asset tree.
   2. Add a static-build guard that fails if `.omc`, `.codex`, `.git`, or similar hidden tool-state paths appear under `public/` or `out/`.
@@ -60,7 +60,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Primary files:** `src/components/MapView.tsx`, `e2e/travelback.spec.ts`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Remove the implicit webdriver-based production debug hook.
   2. Replace it with an explicit test-only opt-in flag that the E2E suite can request.
@@ -73,7 +73,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** HIGH
 - **Confidence:** HIGH
 - **Primary files:** `src/lib/parser.ts`, `public/workers/trackParser.worker.js`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Record `segmentStartIndices` when `semanticSegments` append points after prior data.
   2. Keep main-thread and worker behavior in sync.
@@ -86,7 +86,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** HIGH
 - **Confidence:** HIGH
 - **Primary files:** `src/lib/interpolate.ts`, `src/components/MapView.tsx`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Use wrapped shortest-path longitude deltas for interpolation and bearing.
   2. Build rendered route/trail geometry with wrapped longitudes so dateline crossings stay local.
@@ -99,7 +99,7 @@ Security findings are scheduled unless the fix requires host-level deployment co
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Primary files:** `src/app/page.tsx`
-- **Status:** TODO
+- **Status:** DONE
 - **Plan:**
   1. Sync `document.documentElement.lang` with the active locale.
   2. Keep the default English behavior for first paint.
@@ -115,3 +115,4 @@ See `.context/plans/deferred-findings-cycle2-2026-04-19.md`.
 
 ## Progress log
 - 2026-04-19 — Cycle 2 plan created from the current aggregate review.
+- 2026-04-19 — Completed: lazy-mounted the export panel, added static anti-framing fallback + deployment notes, removed public tool-state residue and added smoke guards, switched map debug exposure to explicit opt-in, preserved semantic segment boundaries, fixed antimeridian interpolation/render/camera smoothing, synced `<html lang>`, and re-ran all cycle gates successfully.

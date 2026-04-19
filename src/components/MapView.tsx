@@ -78,18 +78,7 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
 }
 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
-  // Longitude: detect antimeridian wrap and shift into [0,360) domain
-  // (same approach as lerpCamera in camera.ts)
-  const lngDiff = target.center[0] - previous.center[0]
-  let lngResult: number
-  if (Math.abs(lngDiff) > 180) {
-    const aShifted = ((previous.center[0] + 180) % 360 + 360) % 360
-    const bShifted = ((target.center[0] + 180) % 360 + 360) % 360
-    lngResult = aShifted + (bShifted - aShifted) * factor
-    lngResult = ((lngResult + 180) % 360) - 180
-  } else {
-    lngResult = previous.center[0] + lngDiff * factor
-  }
+  const lngResult = ((previous.center[0] + shortestLongitudeDelta(previous.center[0], target.center[0]) * factor + 180) % 360 + 360) % 360 - 180
   return {
     center: [
       lngResult,
@@ -123,18 +112,39 @@ function buildTrackGeometry(
   uptoIndex?: number,
   interpolatedPoint?: TrackPoint,
 ): GeoJSON.LineString | GeoJSON.MultiLineString {
+  const wrapLngNear = (referenceLng: number, nextLng: number) => {
+    let adjusted = nextLng
+    while (adjusted - referenceLng > 180) adjusted -= 360
+    while (adjusted - referenceLng < -180) adjusted += 360
+    return adjusted
+  }
+
+  const buildWrappedCoordinates = (segmentPoints: TrackPoint[]) => {
+    const coordinates: [number, number][] = []
+    for (const point of segmentPoints) {
+      const previous = coordinates[coordinates.length - 1]
+      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+      coordinates.push([lng, point.lat])
+    }
+    return coordinates
+  }
+
   const ranges = buildSegmentRanges(points.length, segmentStartIndices)
   const segments: [number, number][][] = []
 
   for (const range of ranges) {
     if (uptoIndex != null && range.start > uptoIndex) break
 
-    const segmentPoints = points
-      .slice(range.start, uptoIndex != null ? Math.min(range.end, uptoIndex) + 1 : range.end + 1)
-      .map((point) => [point.lng, point.lat] as [number, number])
+    const basePoints = points.slice(
+      range.start,
+      uptoIndex != null ? Math.min(range.end, uptoIndex) + 1 : range.end + 1,
+    )
+    const segmentPoints = buildWrappedCoordinates(basePoints)
 
     if (uptoIndex != null && range.start <= uptoIndex && uptoIndex <= range.end && interpolatedPoint) {
-      segmentPoints.push([interpolatedPoint.lng, interpolatedPoint.lat])
+      const previous = segmentPoints[segmentPoints.length - 1]
+      const lng = previous ? wrapLngNear(previous[0], interpolatedPoint.lng) : interpolatedPoint.lng
+      segmentPoints.push([lng, interpolatedPoint.lat])
     }
 
     if (segmentPoints.length === 1) {
@@ -149,7 +159,7 @@ function buildTrackGeometry(
   if (segments.length <= 1) {
     return {
       type: 'LineString',
-      coordinates: segments[0] ?? points.slice(0, 1).map((point) => [point.lng, point.lat] as [number, number]),
+      coordinates: segments[0] ?? buildWrappedCoordinates(points.slice(0, 1)),
     }
   }
 
@@ -534,7 +544,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       mapRef.current = map
       styleKeyRef.current = mapStyleKey
 
-      const canExposeDebugCamera = process.env.NODE_ENV === 'development' || navigator.webdriver
+      const debugParams = new URLSearchParams(window.location.search)
+      let debugStorageEnabled = false
+      try {
+        debugStorageEnabled = window.localStorage.getItem('travelback-debug') === '1'
+      } catch {
+        debugStorageEnabled = false
+      }
+      const canExposeDebugCamera =
+        process.env.NODE_ENV === 'development'
+        || debugParams.get('__travelbackDebug') === '1'
+        || debugStorageEnabled
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {

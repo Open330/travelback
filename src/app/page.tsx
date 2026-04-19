@@ -58,6 +58,10 @@ function HomeInner() {
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
   const { messages: toasts, addToast, dismissToast } = useToast()
 
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
+
   const mapViewRef = useRef<MapViewHandle>(null)
   const playback = usePlaybackController(track)
   const {
@@ -403,18 +407,20 @@ function HomeInner() {
           />
         )}
 
-        <ExportPanel
-          isOpen={showExport}
-          onClose={handleCloseExport}
-          onExport={exportTrack}
-          isExporting={isExporting}
-          exportProgress={exportProgress}
-          exportState={exportState}
-          exportedVideoUrl={exportedVideoUrl}
-          exportedVideoBlob={exportedVideoBlob}
-          onResetExport={handleResetExport}
-          playbackDuration={duration}
-        />
+        {showExport ? (
+          <ExportPanel
+            isOpen={showExport}
+            onClose={handleCloseExport}
+            onExport={exportTrack}
+            isExporting={isExporting}
+            exportProgress={exportProgress}
+            exportState={exportState}
+            exportedVideoUrl={exportedVideoUrl}
+            exportedVideoBlob={exportedVideoBlob}
+            onResetExport={handleResetExport}
+            playbackDuration={duration}
+          />
+        ) : null}
 
         <Toast messages={toasts} onDismiss={dismissToast} />
       </div>

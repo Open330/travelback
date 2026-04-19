@@ -11,7 +11,7 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 - **Map**: MapLibre GL JS v5 (open-source, no API key required)
 - **Track Parsing**: @tmcw/togeojson (GPX/KML), custom parser (Google Location History JSON)
 - **Video Export**: mediabunny (WebCodecs-based MP4 encoding with H.264, H.265, AV1)
-- **Map Assets**: Fully local bundled map themes with no runtime dependency on external tiles, glyphs, or sprites
+- **Map Assets**: Fully local bundled map themes with no runtime dependency on external tiles, glyphs, or sprites once the static bundle is built
 - **Testing**: Playwright (E2E)
 
 ## Build & Run
@@ -23,6 +23,9 @@ npm run build    # Static production build into ./out
 npm run start    # Static preview server for ./out at /travelback
 npm run lint     # ESLint
 ```
+
+Deployment note:
+- For plain static hosting, configure anti-framing headers at the host/CDN layer (`Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`). The app also ships a client-side frame-busting fallback, but host headers remain the authoritative protection.
 
 ## Supported Input Formats
 

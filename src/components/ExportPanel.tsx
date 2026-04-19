@@ -91,6 +91,8 @@ export default function ExportPanel({
   const estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)
 
   useEffect(() => {
+    if (!isOpen) return
+
     let cancelled = false
     const checkAll = async () => {
       const codecs: VideoCodec[] = ['h264', 'h265', 'av1']
@@ -108,7 +110,7 @@ export default function ExportPanel({
     }
     checkAll()
     return () => { cancelled = true }
-  }, [])
+  }, [isOpen])
 
   const handleExport = useCallback(() => {
     if (!codecReady) return

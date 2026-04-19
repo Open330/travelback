@@ -266,8 +266,10 @@ function parseTimelineEdits(edits: Record<string, unknown>[], out: TrackPoint[])
 
 /* ---------- Format 4: semanticSegments (phone export) -------------- */
 // { semanticSegments: [{ timelinePath | visit }] }
-function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPoint[]) {
+function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPoint[], segStarts: number[]) {
   for (const seg of segments) {
+    const preLen = out.length
+
     // timelinePath: [{ point: "geo:lat,lng", timestamp }]
     if (Array.isArray(seg.timelinePath)) {
       for (const pt of seg.timelinePath as Record<string, unknown>[]) {
@@ -299,6 +301,8 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         }
       }
     }
+
+    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
   }
 }
 
@@ -371,7 +375,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   // Phone export / new format: { semanticSegments: [...] }
   if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
     recognizedFormat = true
-    parseSemanticSegments(data.semanticSegments, points)
+    parseSemanticSegments(data.semanticSegments, points, segStarts)
   }
 
   if (!recognizedFormat) {

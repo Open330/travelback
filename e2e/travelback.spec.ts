@@ -187,6 +187,9 @@ async function activeElementState(page: Page) {
 
 test.describe('Travelback App', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('travelback-debug', '1')
+    })
     await page.goto('/')
     await waitForApp(page)
   })
@@ -230,6 +233,7 @@ test.describe('Travelback App', () => {
     await page.getByRole('combobox', { name: 'Language' }).selectOption('ko')
     await expect(page.getByRole('button', { name: '파일 선택' })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole('button', { name: '샘플 여행으로 체험하기', exact: true })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe('ko')
   })
 
   test('language picker applies Japanese labels in the loaded track toolbar', async ({ page }) => {

@@ -105,6 +105,7 @@ Privacy/trust-boundary note:
 Security hardening note:
 - The app ships with a CSP and blocks `object-src`, `base-uri`, framing, and inline script attributes by default
 - Static exports are post-processed to replace the development `unsafe-inline` placeholder with hash-based `script-src` directives for the emitted inline Next.js bootstrap scripts
+- The static bundle also rejects framed execution in the early bootstrap path, but production deployments should still send host-level anti-framing headers (`frame-ancestors 'none'` and/or `X-Frame-Options: DENY`) because meta CSP alone is not sufficient for that control
 
 ### Distance-Based Interpolation
 Animation progress is mapped to distance traveled (not point index). This ensures uniform visual speed regardless of point density in the track.

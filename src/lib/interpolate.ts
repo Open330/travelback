@@ -2,11 +2,13 @@ import type { TrackPoint } from '@/types'
 
 const toRad = (deg: number) => (deg * Math.PI) / 180
 const toDeg = (rad: number) => (rad * 180) / Math.PI
+const normalizeLng = (lng: number) => ((lng + 180) % 360 + 360) % 360 - 180
+const shortestLngDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180
 
 function haversineDistance(a: TrackPoint, b: TrackPoint): number {
   const R = 6371000
   const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
+  const dLng = toRad(shortestLngDelta(a.lng, b.lng))
   const sinLat = Math.sin(dLat / 2)
   const sinLng = Math.sin(dLng / 2)
   const h = Math.min(1, sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng)
@@ -37,7 +39,7 @@ export function totalDistance(points: TrackPoint[], segmentStartIndices: number[
 }
 
 export function computeBearing(from: TrackPoint, to: TrackPoint): number {
-  const dLng = toRad(to.lng - from.lng)
+  const dLng = toRad(shortestLngDelta(from.lng, to.lng))
   const y = Math.sin(dLng) * Math.cos(toRad(to.lat))
   const x = Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat))
     - Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(dLng)
@@ -110,7 +112,7 @@ export function interpolateAlongTrack(
   const b = points[segIdx + 1] ?? a
 
   const point: TrackPoint = {
-    lng: a.lng + (b.lng - a.lng) * t,
+    lng: normalizeLng(a.lng + shortestLngDelta(a.lng, b.lng) * t),
     lat: a.lat + (b.lat - a.lat) * t,
     ele: a.ele != null && b.ele != null ? a.ele + (b.ele - a.ele) * t : a.ele,
     time: a.time && b.time

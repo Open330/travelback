@@ -96,8 +96,10 @@ function parseTimelineEdits(edits, out) {
   }
 }
 
-function parseSemanticSegments(segments, out) {
+function parseSemanticSegments(segments, out, segStarts) {
   for (const seg of segments) {
+    const preLen = out.length
+
     if (Array.isArray(seg.timelinePath)) {
       for (const pt of seg.timelinePath) {
         if (!pt.point) continue
@@ -119,6 +121,8 @@ function parseSemanticSegments(segments, out) {
       if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
       out.push({ lat, lng, time: gTime(seg.startTime) })
     }
+
+    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
   }
 }
 
@@ -150,7 +154,7 @@ function parseGoogleLocationHistory(text) {
   }
   if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
     recognizedFormat = true
-    parseSemanticSegments(data.semanticSegments, points)
+    parseSemanticSegments(data.semanticSegments, points, segStarts)
   }
 
   if (!recognizedFormat) throw new Error('Unsupported Google Location History format')

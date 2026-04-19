@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
 const port = Number(process.env.STATIC_SMOKE_PORT ?? '4183')
+const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.codex', '.git'])
 
 if (!Number.isInteger(port) || port <= 0) {
   console.error(`[smoke-static] Invalid port: ${port}`)
@@ -127,6 +128,23 @@ async function assertMapStylesPinnedLocally() {
   }
 }
 
+async function assertNoToolResidue(rootDir) {
+  async function walk(currentDir) {
+    const entries = await readdir(currentDir, { withFileTypes: true })
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name)
+      if (entry.isDirectory()) {
+        if (FORBIDDEN_HIDDEN_DIRS.has(entry.name)) {
+          throw new Error(`Forbidden tool-state directory found in static assets: ${path.relative(cwd, entryPath)}`)
+        }
+        await walk(entryPath)
+      }
+    }
+  }
+
+  await walk(rootDir)
+}
+
 let failed = false
 
 try {
@@ -139,6 +157,8 @@ try {
   await assertCacheControl(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 'immutable', { invert: true })
   await assertCacheControl(chunkUrl, 'immutable')
   await assertStaticCspWasHardened()
+  await assertNoToolResidue(path.resolve(cwd, 'public'))
+  await assertNoToolResidue(path.resolve(cwd, 'out'))
   await assertMapStylesPinnedLocally()
   console.log('[smoke-static] OK')
 } catch (err) {
