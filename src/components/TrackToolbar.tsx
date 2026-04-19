@@ -134,17 +134,17 @@ export default function TrackToolbar({
 
         {menuOpen && (
           <div
-            role="menu"
             aria-label={t('app.moreControls')}
             data-testid="track-toolbar-mobile-menu"
             data-disable-playback-hotkeys="true"
             className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
             style={{ borderRadius: 'var(--r-glass)' }}
+            // Auto-focus the first button so screen readers announce the menu
+            ref={(el) => el?.querySelector<HTMLButtonElement>('button')?.focus()}
           >
             <div className="space-y-2">
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => runAndCloseMenu(onStartNewTrack)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
                 style={{ color: 'var(--t1)' }}
@@ -154,7 +154,6 @@ export default function TrackToolbar({
               </button>
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => runAndCloseMenu(onCycleStyle)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
                 style={{ color: 'var(--t1)' }}
@@ -163,7 +162,6 @@ export default function TrackToolbar({
               </button>
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => runAndCloseMenu(onOpenHelp)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
                 style={{ color: 'var(--t1)' }}
