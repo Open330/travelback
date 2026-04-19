@@ -146,13 +146,15 @@ export function useExportController({
       setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        addToast(t('app.exportCancelled'), 'info')
-      } else {
-        console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
-        addToast(`${t('app.exportFailed')} ${t('app.exportFailedSuffix')}`, 'error')
+      if (mountedRef.current) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          addToast(t('app.exportCancelled'), 'info')
+        } else {
+          console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
+          addToast(`${t('app.exportFailed')} ${t('app.exportFailedSuffix')}`, 'error')
+        }
+        setExportState('idle')
       }
-      setExportState('idle')
     } finally {
       exportAbortRef.current = null
       mapViewRef.current?.resetSize()
