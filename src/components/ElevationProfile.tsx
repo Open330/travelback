@@ -66,22 +66,11 @@ export default function ElevationProfile({ track, progress, onSeek, units }: Ele
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const clickFraction = (e.clientX - rect.left) / rect.width
-    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
-    if (totalDist <= 0 || track.points.length < 2) {
-      onSeek(Math.max(0, Math.min(1, clickFraction)))
-      return
-    }
-    // The x-axis is based on cumulative distance, not uniform point distribution.
-    // Binary search on cumulDist to convert distance fraction to point-index progress.
-    const targetDist = clickFraction * totalDist
-    let lo = 0, hi = cumulDist.length - 1
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (cumulDist[mid] < targetDist) lo = mid + 1
-      else hi = mid
-    }
-    const seekProgress = lo / (track.points.length - 1)
-    onSeek(Math.max(0, Math.min(1, seekProgress)))
+    // The SVG x-axis is proportional to cumulative distance (see pathD computation),
+    // so clickFraction already represents the correct distance-based progress value.
+    // No binary search conversion is needed — using point-index progress would
+    // produce incorrect seek targets when points are unevenly distributed by distance.
+    onSeek(Math.max(0, Math.min(1, clickFraction)))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
