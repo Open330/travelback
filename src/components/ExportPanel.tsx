@@ -66,6 +66,7 @@ export default function ExportPanel({
   useEffect(() => {
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally sync derived state from prop once on panel open
         setDuration(playbackDuration)
       }
       panelOpenedRef.current = true
