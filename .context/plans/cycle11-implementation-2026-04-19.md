@@ -13,7 +13,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
 - Handle `NaN` from empty input by keeping the previous `duration` value instead of defaulting to `30`.
 - The `parseInt` call should be: `const parsed = parseInt(e.target.value); setDuration(Number.isFinite(parsed) ? Math.max(EXPORT_LIMITS.duration.min, Math.min(EXPORT_LIMITS.duration.max, parsed)) : duration)`
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -30,7 +30,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
   ```
 - This ensures that if abort happens during the synchronous renderFrame call, we exit immediately rather than continuing to waitForIdle and the frame capture.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -45,7 +45,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
 - Add a new i18n key `export.downloadStarted` in `src/lib/i18n.ts` for all locales with text like "Download started" (more honest than "saved to Downloads" since we can't confirm the save).
 - Keep `saved: true` in the return value since the download was initiated (not confirmed).
 
-**Status:** TODO
+**Status:** DONE — Already correct in current code: i18n `export.savedToDownloads` text already says "download has started" rather than "saved to Downloads", and the display logic correctly differentiates between picker (confirmed) and fallback (started).
 
 ---
 
@@ -61,7 +61,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
   - End key on end handle: set endPercent to 1
 - Use `onChangeRef.current` to update, same as existing arrow key handlers.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -75,7 +75,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
 - The `{messages.map(...)}` will naturally render nothing when the array is empty
 - This keeps the live region stable in the accessibility tree so screen readers can properly detect additions and removals
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -94,7 +94,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 11).
 - Since `resolveRangeIndexes` is a `useCallback` that depends on `endRatio`, `points.length`, `startRatio`, and `cumulDist`, the memo deps should be `[startRatio, endRatio, cumulativeDistances]` (points.length is derived from track prop which changes infrequently).
 - Actually, since `resolveRangeIndexes` is itself a `useCallback`, we should use it as a dep too. But simpler: just memo the result with the same effective deps.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
