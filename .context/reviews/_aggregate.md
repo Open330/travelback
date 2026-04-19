@@ -1,163 +1,145 @@
-# Prompt 1 aggregate review — cycle 5
+# Cycle 6 Aggregate Review — 2026-04-19
 
-Generated on 2026-04-19 after a fresh comprehensive review of the current `main` branch.
+Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle5-comprehensive-2026-04-19.md`) covering code quality, security, performance, UX, correctness, architecture, accessibility
-- Prior cycle 4 aggregate (`_aggregate.md`) and all per-agent reviews reviewed for carried-forward items
+- Fresh comprehensive review (`cycle6-comprehensive-2026-04-19.md`)
+- All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C4 active findings confirmed FIXED in prior cycle.
+- All C5 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C5-AGG.
+- New findings from this cycle are prefixed C6-AGG.
 
-## All cycle 4 active findings verified as FIXED
+## All cycle 5 active findings verified as FIXED
 
 | Prior ID | Description | Fix verification |
 |----------|-------------|------------------|
-| C4-AGG-001 | Worker `continue` scope in `parseSemanticSegments` | Worker restructured with nested `if` — no `continue` at loop level |
-| C4-AGG-002 | Export success message differentiated by download path | `downloadMethod` tracked; `export.videoSaved` vs `export.savedToDownloads` shown correctly |
-| C4-AGG-003 | `computeCumulativeDistances` redundantly computed | Passed as prop from `page.tsx` through `TrackWorkspace` to children |
-| C4-AGG-004 | SceneRangeEditor keyboard accessibility | Has `role="slider"`, `tabIndex={0}`, `aria-*`, `onKeyDown`, focus ring |
-| C4-AGG-006 | Waypoint proximity validation | Both click handler and `handleSelectPlace` check `PROXIMITY_THRESHOLD_METERS` |
-| C4-AGG-007 | ErrorBoundary emoji replaced with SVG | SVG circle-exclamation icon at `ErrorBoundary.tsx:43` |
-| C4-AGG-005 | `preserveDrawingBuffer` trade-off documented | Comment at `MapView.tsx:554-558` explains the trade-off |
+| C5-AGG-001 | `downloadVideo` fallback `<a>` removal timing | `setTimeout` at `videoEncoder.ts:193` |
+| C5-AGG-002 | `exportVideo` accepts optional `cumulDistParam` | Parameter added at `videoEncoder.ts:48` |
+| C5-AGG-003 | `formatDuration` NaN/Infinity guard | Guard at `interpolate.ts:179` |
+| C5-AGG-004 | Worker `var` to `const`/`let` | Worker lines 116-128 use `const` |
+| C5-AGG-005 | Worker boundary-check style parity comment | Comment at worker line 120-121 |
+| C5-AGG-006 | JourneyCreator search error message clarity | Already clear |
+| C5-AGG-007 | Controls `totalDistance` memo deps | Fixed at `Controls.tsx:42` |
+| C5-AGG-008 | Reduced-motion spinner | Fixed at `globals.css:44-47` |
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C5-AGG-001 — MEDIUM — `downloadVideo` fallback `<a>` removal is synchronous, may not trigger download on all browsers
+### C6-AGG-001 — MEDIUM — `cumulativeDistances` memo depends on `track` object reference
 
-**Cross-agent agreement:** cycle5-comprehensive
+**Cross-agent agreement:** cycle6-comprehensive
 **Primary locations:**
-- `src/lib/videoEncoder.ts:182-189` — `appendChild → click → removeChild` is synchronous
+- `src/app/page.tsx:246-249` — `useMemo(() => computeCumulativeDistances(...), [track])`
 
 **Why it matters:**
-Some browsers (notably Safari < 15.4 and certain mobile WebViews) require the `<a>` element to remain in the DOM for at least one event loop tick for the download to initiate. The synchronous removal can cause the download to silently fail — the user sees "Your video download has started" but nothing happens, and the video is irretrievable.
+The `track` object is a new reference on every `setTrack()` call. This triggers an O(n) haversine recomputation unnecessarily when only the reference changed but the data is the same. The same issue was fixed in `Controls.tsx` last cycle but persists here. Additionally, `computeCumulativeDistances` is redundantly called inside `MapView.tsx:765` — a second O(n) computation on every track change.
 
 **Suggested fix:**
-Delay the removal: `setTimeout(() => { document.body.removeChild(a) }, 100)`.
+1. Change memo deps to `[track?.points, track?.segmentStartIndices]` in `page.tsx:248`.
+2. Pass `cumulativeDistances` as a prop to `MapView` and use it instead of recomputing internally.
+
+**Confidence:** High
+
+---
+
+### C6-AGG-002 — MEDIUM — `MapView` recomputes `cumulDist` internally despite caller already computing it
+
+**Cross-agent agreement:** cycle6-comprehensive
+**Primary locations:**
+- `src/components/MapView.tsx:765` — `computeCumulativeDistances(track.points, track.segmentStartIndices)`
+
+**Why it matters:**
+Redundant O(n) computation. `page.tsx` already computes `cumulativeDistances` and passes it through `TrackWorkspace` to children. `MapView` is rendered directly from `page.tsx` but does not receive `cumulativeDistances` as a prop.
+
+**Suggested fix:**
+Add `cumulativeDistances` as a prop to `MapView` and use it to populate `cumulDistRef` instead of recomputing. Fall back to computing only when the prop is empty/undefined.
+
+**Confidence:** High
+
+---
+
+### C6-AGG-003 — LOW — `useExportController` still computes `cumulDist` locally despite `cumulDistParam` existing in `exportVideo`
+
+**Cross-agent agreement:** cycle6-comprehensive
+**Primary locations:**
+- `src/lib/useExportController.ts:131` — `const cumulDist = computeCumulativeDistances(...)`
+
+**Why it matters:**
+Cycle 5 added `cumulDistParam` support to `exportVideo`, but the controller still computes locally and passes it. The `page.tsx` already has `cumulativeDistances` available but does not pass it to `useExportController`.
+
+**Suggested fix:**
+Add `cumulativeDistances` to `UseExportControllerOptions` and pass it through to `exportVideo` as `cumulDistParam`.
+
+**Confidence:** High
+
+---
+
+### C6-AGG-004 — LOW — Main-thread `parseSemanticSegments` uses `continue` which skips segment-start index recording for invalid visits
+
+**Cross-agent agreement:** cycle6-comprehensive
+**Primary locations:**
+- `src/lib/parser.ts:305` — `if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue`
+- `public/workers/trackParser.worker.js:128` — uses `if` guard instead (correct behavior)
+
+**Why it matters:**
+When a semantic segment has a timelinePath with valid points followed by a visit with invalid coordinates, the main-thread `continue` skips the segment-start recording on line 311. The worker correctly falls through because it uses an `if` guard. This creates inconsistent segmentation between the two parser paths.
+
+**Suggested fix:**
+Replace the `continue` in `parser.ts:305` with an `if` guard (same pattern as the worker), so execution falls through to the segment-start recording.
+
+**Confidence:** Medium (main-thread fallback is low-frequency path, but inconsistency is real)
+
+---
+
+### C6-AGG-005 — LOW — `buildReferenceGridData` uses `expandedMinLng` instead of `expandedMinLat` for latitude count calculation
+
+**Cross-agent agreement:** cycle6-comprehensive
+**Primary locations:**
+- `src/components/MapView.tsx:306` — `Math.floor(expandedMinLng / step)` should be `Math.floor(expandedMinLat / step)`
+
+**Why it matters:**
+Clear copy-paste bug. The latitude grid line count uses the longitude minimum instead of the latitude minimum, producing an incorrect starting position and count. For most tracks this creates a slightly misaligned grid that still looks acceptable, but for tracks near the poles or with large latitude spans, the grid may be visibly off.
+
+**Suggested fix:**
+Change `Math.floor(expandedMinLng / step)` to `Math.floor(expandedMinLat / step)` on line 306.
+
+**Confidence:** High — this is a clear copy-paste bug
+
+---
+
+### C6-AGG-006 — LOW — GlobalToolbar locale select uses `appearance-none` without a custom dropdown indicator
+
+**Cross-agent agreement:** cycle6-comprehensive
+**Primary locations:**
+- `src/components/GlobalToolbar.tsx:53` — `appearance-none` class hides native dropdown arrow
+
+**Why it matters:**
+On most browsers, the select element appears as plain text with no indication it's interactive. Other selects in the app (ExportPanel, SceneEditor) retain their native indicators.
+
+**Suggested fix:**
+Remove `appearance-none` from the locale select in GlobalToolbar.
 
 **Confidence:** Medium
 
 ---
 
-### C5-AGG-002 — LOW — `exportVideo` computes `cumulDist` internally when caller already has it
+### C6-AGG-007 — LOW — Toast redundant `aria-live="polite"` with `role="status"`
 
-**Cross-agent agreement:** cycle5-comprehensive
+**Cross-agent agreement:** cycle6-comprehensive
 **Primary locations:**
-- `src/lib/videoEncoder.ts:65` — `computeCumulativeDistances(track.points, track.segmentStartIndices)`
-- `src/app/page.tsx:246-248` — already computes `cumulativeDistances`
+- `src/components/Toast.tsx:66` — `role="status" aria-live="polite"`
 
 **Why it matters:**
-Redundant O(n) computation with ~250K trig operations for a max-size track. While small compared to the export itself, it's wasteful and inconsistent with the pattern used for `normalizedScenes` (passed in pre-computed).
+`role="status"` already implies `aria-live="polite"` per the ARIA spec. The explicit attribute is redundant but harmless.
 
 **Suggested fix:**
-Accept an optional `cumulDist` parameter in `exportVideo`. Compute only if not provided.
+Remove the explicit `aria-live="polite"` since `role="status"` already provides it.
 
-**Confidence:** High
-
----
-
-### C5-AGG-003 — LOW — `formatDuration` does not guard `NaN`/`Infinity` input
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `src/lib/interpolate.ts:179` — `if (seconds < 0) seconds = 0`
-
-**Why it matters:**
-If `NaN` or `Infinity` is passed, the function returns broken output like `NaN:NaN:NaN`.
-
-**Suggested fix:**
-Change guard to `if (!Number.isFinite(seconds) || seconds < 0) seconds = 0`.
-
-**Confidence:** High
-
----
-
-### C5-AGG-004 — MEDIUM — Worker `parseSemanticSegments` uses `var` declarations instead of `const`/`let`
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `public/workers/trackParser.worker.js:116-128` — `var afterPathLen`, `var visit`, `var m`, `var lat`, `var lng`
-
-**Why it matters:**
-`var` is function-scoped and hoisted, which is a well-known source of bugs in `for` loop bodies. The main-thread `parser.ts` correctly uses `const`/`let`. The inconsistency could confuse maintainers and introduces latent scoping risk if the loop is ever restructured.
-
-**Suggested fix:**
-Convert `var` to `const`/`let` in the worker's `parseSemanticSegments` to match the main-thread parser.
-
-**Confidence:** High
-
----
-
-### C5-AGG-005 — LOW — Worker and main-thread `parseSemanticSegments` use inconsistent boundary-check style
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `public/workers/trackParser.worker.js:125` — `Math.abs(lat) <= 90 && Math.abs(lng) <= 180`
-- `src/lib/parser.ts:305` — `Math.abs(lat) > 90 || Math.abs(lng) > 180`
-
-**Why it matters:**
-Both checks are semantically equivalent (both accept boundary values), but the worker uses whitelist style (`<=`) while the main-thread uses blacklist style (`>`). Inconsistency can confuse maintainers.
-
-**Suggested fix:**
-Normalize the worker to use the same `> 90` / `> 180` pattern as the main-thread parser.
-
-**Confidence:** High (cosmetic, not a bug)
-
----
-
-### C5-AGG-006 — LOW — `JourneyCreator` search error message could be clearer about coordinate-only limitation
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `src/components/JourneyCreator.tsx:446-463` — `runSearch` only parses coordinate queries
-- `src/components/JourneyCreator.tsx:457` — shows `journey.searchInvalid` for non-coordinate text
-
-**Why it matters:**
-Users typing place names get "Invalid coordinates" which is confusing when the UI invites free-text input.
-
-**Suggested fix:**
-Update the error message to explicitly say coordinate input is required, or add a helper text below the search input.
-
-**Confidence:** High
-
----
-
-### C5-AGG-007 — LOW — `Controls` component `totalDistance` memo depends on `track` object reference
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `src/components/Controls.tsx:42` — `useMemo(() => totalDistance(...), [track])`
-
-**Why it matters:**
-If `track` is a new object reference on each render (e.g., from slicing), the memo recomputes unnecessarily. This is O(n) haversine work per render.
-
-**Suggested fix:**
-Use `track.points` and `track.segmentStartIndices` as memo dependencies, or accept `cumulativeDistances` as a prop and derive total distance from the last element.
-
-**Confidence:** Medium
-
----
-
-### C5-AGG-008 — LOW — Export overlay and file-upload spinners leave a broken-looking static circle under `prefers-reduced-motion`
-
-**Cross-agent agreement:** cycle5-comprehensive
-**Primary locations:**
-- `src/app/page.tsx:319` — `animate-spin` on export overlay spinner
-- `src/components/FileUpload.tsx:152` — `animate-spin` on loading spinner
-- `src/app/globals.css:38` — `prefers-reduced-motion` sets `animation-duration: 0.01ms`
-
-**Why it matters:**
-With reduced motion, the spinner freezes mid-rotation showing a partial circle with one transparent border edge. This looks broken rather than intentionally static.
-
-**Suggested fix:**
-In the `prefers-reduced-motion` media query, replace the spinner with a static loading indicator or a "Loading..." text.
-
-**Confidence:** Medium
+**Confidence:** High (cosmetic)
 
 ---
 
@@ -167,7 +149,7 @@ These remain in their existing files and are NOT scheduled for this cycle:
 
 From `deferred-findings-cycle2-2026-04-19.md`:
 - DF-C2-001: Mobile information architecture gaps
-- DF-C2-002: Playback progress drives whole-app rerenders
+- DF-C2-002: Playback progress drives whole-app rerenders (HIGH/HIGH — still the most impactful perf issue)
 - DF-C2-003: Large GPX/KML imports parse on main thread
 - DF-C2-004: Manual route dragging is O(n) on pointer move
 - DF-C2-005: Export settings permit browser-hostile combinations
@@ -175,7 +157,7 @@ From `deferred-findings-cycle2-2026-04-19.md`:
 - DF-C2-007: Large default variable font payload
 - DF-C2-008: E2E suite serialized and sleep-heavy
 - DF-C2-009: Residual CSP allows inline styles
-- DF-C2-010: Local-only bundled styles ship without real basemap
+- DF-C2-010: Local-only bundled styles ship without real basemap layer
 
 From `deferred-findings-cycle1-2026-04-19.md`:
 - DF-C1-001: Mobile information architecture and discoverability polish
@@ -184,23 +166,23 @@ From `deferred-findings-cycle1-2026-04-19.md`:
 From cycle 4:
 - DF-C4-001: `preserveDrawingBuffer: true` always on, wasting GPU resources
 
+From cycle 5:
+- DF-C5-001: TrackToolbar mobile menu focus trapping
+- DF-C5-002: MapView animation effect stable callback dependencies (latent risk)
+
 ## Items verified as already fixed or not actual issues
 
 | Prior ID | Description | Why closed |
 |----------|-------------|------------|
-| C5-004 | MapView animation effect depends on stable callbacks | `addTrackLayers` and `ensureMarker` are stable `useCallback([])` — not a current bug, latent risk too low to schedule |
-| C5-005 | SceneRangeEditor keyboard step is 1% | Subjective UX preference, not a bug |
-| C5-006 | GoogleGuide tab reset flash | Too brief to notice, not worth the complexity |
-| C5-009 | Debug window exposed via URL param in production | Intentional feature for production debugging, not a security issue (read-only, non-sensitive) |
-| C5-012 | TrackToolbar mobile menu focus trapping | Enhancement beyond current a11y scope, deferred |
-| C5-014 | ErrorBoundary reset recurrence | Standard React pattern, low priority UX |
+| C6-005 | ElevationProfile SVG `useId()` colons | `useId()` is the correct React pattern; colon IDs work in modern browsers. Not a real issue. |
+| C6-009 | `downloadVideo` fallback URL race condition | The URL is held in React state by the caller and revoked only on cleanup/reset. The 100ms `<a>` removal timeout is well within the URL's lifetime. Risk is negligible. |
 
 ## Recommended implementation order for this cycle
-1. **C5-AGG-001 (MEDIUM)**: Fix `downloadVideo` fallback `<a>` removal timing — download reliability
-2. **C5-AGG-004 (MEDIUM)**: Convert worker `var` to `const`/`let` — code quality, latent bug risk
-3. **C5-AGG-005 (LOW)**: Normalize worker boundary-check style — consistency
-4. **C5-AGG-002 (LOW)**: Accept optional `cumulDist` in `exportVideo` — performance
-5. **C5-AGG-003 (LOW)**: Guard `NaN`/`Infinity` in `formatDuration` — robustness
-6. **C5-AGG-006 (LOW)**: Improve JourneyCreator search error message — UX clarity
-7. **C5-AGG-007 (LOW)**: Fix Controls `totalDistance` memo dependency — performance
-8. **C5-AGG-008 (LOW)**: Fix reduced-motion spinner appearance — a11y
+
+1. **C6-AGG-001 (MEDIUM)**: Fix `cumulativeDistances` memo deps — performance
+2. **C6-AGG-002 (MEDIUM)**: Pass `cumulativeDistances` to MapView — performance (eliminates redundant O(n) computation)
+3. **C6-AGG-003 (LOW)**: Pass `cumulativeDistances` through `useExportController` — completes the C5-AGG-002 fix
+4. **C6-AGG-004 (LOW)**: Fix `parseSemanticSegments` `continue` → `if` guard — correctness / parser consistency
+5. **C6-AGG-005 (LOW)**: Fix `buildReferenceGridData` `expandedMinLng` → `expandedMinLat` — copy-paste bug
+6. **C6-AGG-006 (LOW)**: Remove `appearance-none` from GlobalToolbar locale select — UX
+7. **C6-AGG-007 (LOW)**: Remove redundant `aria-live` from Toast — code cleanliness
