@@ -397,6 +397,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const normalizedScenesRef = useRef<Scene[]>([])
   const durationRef = useRef(duration)
   const transitionDurationRef = useRef(transitionDuration)
+  const [mapError, setMapError] = useState<string | null>(null)
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -414,7 +415,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const container = containerRef.current
     if (!container) return
 
-    if (!track) {
+    if (!track && !mapError) {
       container.setAttribute('inert', '')
       container.setAttribute('aria-hidden', 'true')
       return
@@ -422,7 +423,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     container.removeAttribute('inert')
     container.removeAttribute('aria-hidden')
-  }, [track])
+  }, [mapError, track])
 
 
   useImperativeHandle(ref, () => ({
@@ -523,9 +524,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     },
   }))
-
-  const [mapError, setMapError] = useState<string | null>(null)
-
   // Initialize map
   useEffect(() => {
     if (!containerRef.current) return
@@ -906,7 +904,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       ref={containerRef}
       data-testid="map-container"
       className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}
-      aria-hidden={!track}
+      aria-hidden={!track && !mapError}
     >
       {mapError && (
         <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
