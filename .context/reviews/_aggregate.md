@@ -1,10 +1,10 @@
-# Prompt 1 aggregate review — cycle 3
+# Prompt 1 aggregate review — cycle 4
 
 Generated on 2026-04-19 after a fresh comprehensive review of the current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle3-comprehensive-2026-04-19.md`) covering code quality, security, performance, UX, correctness, architecture, accessibility
-- Prior cycle 2 aggregate (`_aggregate.md`) and all per-agent reviews reviewed for carried-forward items
+- Fresh comprehensive review (`cycle4-comprehensive-2026-04-19.md`) covering code quality, security, performance, UX, correctness, architecture, accessibility
+- Prior cycle 3 aggregate (`_aggregate.md`) and all per-agent reviews reviewed for carried-forward items
 - Prior deferred findings (`deferred-findings-cycle1-2026-04-19.md`, `deferred-findings-cycle2-2026-04-19.md`) reviewed for items that should re-open
 
 ## Aggregation method
@@ -12,156 +12,139 @@ Generated on 2026-04-19 after a fresh comprehensive review of the current `main`
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Marked items as NOT CONFIRMED where the current code already handles the issue.
 - Carried forward still-valid deferred items as-is (they remain deferred per the existing rules).
-- New findings from this cycle are prefixed C3-AGG.
+- New findings from this cycle are prefixed C4-AGG.
+
+## All cycle 3 active findings verified as FIXED
+
+| Prior ID | Description | Fix verification |
+|----------|-------------|------------------|
+| C3-AGG-001 | `parseSemanticSegments` segment boundaries | `parser.ts:291-292` adds break between timelinePath and visit; worker also patched |
+| C3-AGG-002 | Scene editor dead normalization warnings | `SceneEditor.tsx:201-210` validates raw scenes BEFORE normalization |
+| C3-AGG-003 | Worker fallback rejects instead of retrying | `parser.ts:471-476`, `parser.ts:501-505` fall back to main-thread parser |
+| C3-AGG-004 | Map error shows raw WebGL dump | `MapView.tsx:928-935` friendly message with `<details>` disclosure |
+| C3-AGG-005 | Timeline handles not keyboard-accessible | `TimelineSelector.tsx:321-360` has slider role, tabIndex, aria, keyboard handlers, focus ring |
+| C3-AGG-006 | Error toast/file-upload lack live regions | `Toast.tsx:66` has role="status" aria-live="polite"; `FileUpload.tsx:250` has role="alert" |
+| C3-AGG-007 | Export download fallback claims success | `i18n.ts:120` key changed to "Your video download has started." |
+| C3-AGG-008 | Misleading `--err-rgb` fallback | `page.tsx:325` now uses `rgba(var(--err-rgb),.7)` without fallback |
+| C3-AGG-009 | No build guard against tool-state leakage | `smoke-static.mjs:131-146` adds `assertNoToolResidue`; `.gitignore` has `.omc/` and `.omx/` |
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C3-AGG-001 — HIGH — `parseSemanticSegments` misses inter-timelinePath/visit segment boundaries
+### C4-AGG-001 — MEDIUM — Worker `parseSemanticSegments` uses `continue` in wrong scope, skipping segment boundaries for invalid visits
 
-**Cross-agent agreement:** code-reviewer, cycle2-comprehensive, cycle3-comprehensive, tracer
+**Cross-agent agreement:** cycle4-comprehensive
 **Primary locations:**
-- `src/lib/parser.ts:269-307`
+- `public/workers/trackParser.worker.js:122-126` — `continue` applies to the outer `for` loop
 
 **Why it matters:**
-Google phone exports with `semanticSegments` that have both `timelinePath` and `visit` entries within a single segment object produce continuous routes without segment breaks. The `segStarts` array only records boundaries between top-level segments, not between `timelinePath` and `visit` sub-sections within the same segment.
+In the worker's `parseSemanticSegments`, when a visit has invalid coordinates (failing the `Math.abs(lat) > 90 || Math.abs(lng) > 180` check at line 125), the `continue` statement skips the ENTIRE remaining processing for that segment, including the segment-start push at line 129 (`if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)`). This means invalid visit coordinates can cause missing segment boundaries.
+
+The main-thread `parser.ts:305` does NOT have this bug because the `continue` is inside the `if (m)` block within the `if (visit)` block — it only skips the invalid point, not the segment boundary push.
 
 **Suggested fix:**
-Add `segStarts.push(out.length)` between the `timelinePath` processing block and the `visit` processing block within `parseSemanticSegments`. This ensures that a walk segment followed by a visit within the same `semanticSegments` entry produces separate route segments.
+In the worker's `parseSemanticSegments`, restructure the visit block to avoid using `continue` at the top level of the `for` loop. Use nested `if` blocks or an `else` structure to skip only the invalid visit, not the segment boundary logic.
 
 **Confidence:** High
 
 ---
 
-### C3-AGG-002 — MEDIUM — Scene editor normalization warnings are dead code
+### C4-AGG-002 — MEDIUM — Export success message is too hedged for `showSaveFilePicker` path
 
-**Cross-agent agreement:** tracer, cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive, critic (cycle 3)
 **Primary locations:**
-- `src/components/SceneEditor.tsx:201-213`
-- `src/lib/camera.ts:33-43`
+- `src/components/ExportPanel.tsx:204-205` — always shows `t('export.savedToDownloads')`
+- `src/lib/videoEncoder.ts:154-181` — `downloadVideo` returns `true` for both paths
 
 **Why it matters:**
-`commitScenes` calls `normalizeScenes()` first, which eliminates any `startPercent >= endPercent` scenarios. The warning check runs on the already-normalized output, so it can never fire. Users who enter invalid ranges see their scenes silently disappear or auto-correct without feedback.
+The cycle 3 fix softened the message from "Your video is in your Downloads folder" to "Your video download has started." This is accurate for the `<a>` fallback path but inaccurate for the `showSaveFilePicker` path where the user explicitly chose a save location and the file was written successfully. The message "download has started" implies uncertainty that doesn't exist when the picker completed.
 
 **Suggested fix:**
-Validate raw scenes BEFORE normalization, or keep invalid scenes in a "draft" state with inline warnings until the user corrects them.
+Track which download path was used and show different messages, or use a neutral message like "Your video is ready." that works for both paths.
 
 **Confidence:** High
 
 ---
 
-### C3-AGG-003 — MEDIUM — Worker fallback rejects instead of retrying main-thread parser
+### C4-AGG-003 — MEDIUM — `computeCumulativeDistances` redundantly computed 4+ times for the same track
 
-**Cross-agent agreement:** tracer, cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive, perf-reviewer (cycle 2)
 **Primary locations:**
-- `src/lib/parser.ts:459-482` — `worker.onmessage` error and `worker.onerror` both reject outright
+- `src/app/page.tsx:245-248` — computes `cumulativeDistances` from `track`
+- `src/components/MapView.tsx:760` — recomputes from `track`
+- `src/components/TimelineSelector.tsx:67-69` — recomputes from `track`
+- `src/components/ElevationProfile.tsx:23-25` — recomputes from `track`
 
 **Why it matters:**
-When a worker crashes during parsing (e.g., memory pressure on large JSON), the user gets a rejection even though the main-thread parser could handle the file. Only worker creation failure falls back correctly.
+`computeCumulativeDistances` iterates over all points with haversine calculations (~250K trig operations for a max-size track). This computation is done independently in at least 4 components for the same track data. `page.tsx` already computes it but doesn't pass it down.
 
 **Suggested fix:**
-In both `worker.onmessage` error path and `worker.onerror`, fall back to `parseGoogleLocationHistory(decodeJsonBuffer(buffer))` instead of rejecting.
+Compute `cumulativeDistances` once in `page.tsx` and pass it as a prop to MapView, TimelineSelector, and ElevationProfile instead of having them recompute it.
 
 **Confidence:** High
 
 ---
 
-### C3-AGG-004 — MEDIUM — Map error shows raw WebGL dump to non-technical users
+### C4-AGG-004 — LOW — `SceneRangeEditor` handles lack keyboard accessibility (same class of issue as fixed C3-AGG-005)
 
-**Cross-agent agreement:** designer, non-tech-traveler-reviewer, cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive, designer (cycle 3)
 **Primary locations:**
-- `src/components/MapView.tsx:928` — `t('app.mapLoadFailed').replace('{error}', mapError)`
+- `src/components/SceneEditor.tsx:165-182` — start/end handle divs have no tabIndex, role, or keyboard handlers
 
 **Why it matters:**
-Raw WebGL context errors (GPU vendor, renderer, etc.) are shown directly to users. This is confusing for non-technical users and exposes internal browser/GPU information.
+The `SceneRangeEditor` component has handle divs with `onPointerDown` but no `tabIndex`, `role`, `aria-*` attributes, or keyboard handlers. Unlike the `TimelineSelector` handles fixed in cycle 3, these remain pointer-only.
 
 **Suggested fix:**
-Show a user-friendly message and put the raw error behind a "Show technical details" disclosure. Update the i18n key to not include `{error}` interpolation in the primary message.
+Add `tabIndex={0}`, `role="slider"`, `aria-*` attributes, and keyboard handlers to the scene editor range handles.
 
 **Confidence:** High
 
 ---
 
-### C3-AGG-005 — MEDIUM — Timeline selector handles are not keyboard-accessible
+### C4-AGG-005 — MEDIUM — `preserveDrawingBuffer: true` is always on, wasting GPU resources except during export
 
-**Cross-agent agreement:** designer, cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive, perf-reviewer (cycle 2 as Perf-5)
 **Primary locations:**
-- `src/components/TimelineSelector.tsx:317-375`
+- `src/components/MapView.tsx:554` — `canvasContextAttributes: { preserveDrawingBuffer: true }`
 
 **Why it matters:**
-The timeline range handles have no `tabIndex`, no `role="slider"`, no `aria-valuenow/min/max`, and no arrow-key handlers. Keyboard-only users cannot adjust the time window at all.
+This flag forces the browser to keep the WebGL drawing buffer intact after compositing, which disables a common GPU optimization. The flag is only needed for video export (canvas capture), but it's set unconditionally on map creation. During normal playback and browsing, it adds GPU overhead for no benefit.
 
 **Suggested fix:**
-Add `tabIndex={0}`, `role="slider"`, `aria-valuenow/min/max` attributes, arrow-key/Home/End handlers, and visible focus rings to both handles.
+Defer to a performance-focused cycle. The fix requires destroying and recreating the map with the flag only during export, which is a significant refactor. Document the trade-off with a comment in the meantime.
 
 **Confidence:** High
 
 ---
 
-### C3-AGG-006 — MEDIUM — Error toast and file-upload errors lack live-region semantics
+### C4-AGG-006 — MEDIUM — `JourneyCreator` does not validate waypoint proximity — duplicate/near-duplicate points create zero-length segments
 
-**Cross-agent agreement:** designer, cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive
 **Primary locations:**
-- `src/components/Toast.tsx:31-55`
-- `src/components/FileUpload.tsx:249-250`
+- `src/components/JourneyCreator.tsx:257-266` — click handler adds waypoints without proximity check
 
 **Why it matters:**
-Error messages in toasts and file-upload error states are visual-only. Screen readers will not announce them when they appear.
+Double-clicking or clicking very close to an existing waypoint creates near-duplicate points. While the app handles zero-length segments gracefully, the track has redundant points that waste memory and produce misleading point counts.
 
 **Suggested fix:**
-Add `aria-live="polite"` or `role="status"` to the toast container, and `role="alert"` to inline error messages.
-
-**Confidence:** High
-
----
-
-### C3-AGG-007 — MEDIUM — Export download fallback claims success unconditionally
-
-**Cross-agent agreement:** critic, cycle3-comprehensive
-**Primary locations:**
-- `src/lib/videoEncoder.ts:173-181` — `<a>` fallback always returns `true`
-- `src/components/ExportPanel.tsx:205` — `t('export.savedToDownloads')` shown on success
-
-**Why it matters:**
-The `<a>` download fallback cannot confirm that the browser actually saved the file. The UI says "Your video is in your Downloads folder" even when the download may have been silently blocked.
-
-**Suggested fix:**
-Change the success copy from "saved to Downloads" to "download started" for the `<a>` fallback path, or reword the i18n key to be less specific about file location.
+Before adding a new waypoint, check if it's within a minimum distance threshold (e.g., 5 meters) of the last waypoint. If so, ignore the click or update the existing waypoint instead.
 
 **Confidence:** Medium
 
 ---
 
-### C3-AGG-008 — LOW — `--err-rgb` fallback in `page.tsx` is misleading but harmless
+### C4-AGG-007 — LOW — ErrorBoundary uses emoji that may not render on all systems
 
-**Cross-agent agreement:** cycle2-comprehensive, cycle3-comprehensive
-**Primary location:**
-- `src/app/page.tsx:325`
-
-**Why it matters:**
-The CSS variable is always defined; the fallback value is redundant.
-
-**Suggested fix:**
-Remove the fallback or add a comment.
-
-**Confidence:** High
-
----
-
-### C3-AGG-009 — MEDIUM — No build guard against future tool-state leakage into static output
-
-**Cross-agent agreement:** critic (derived), cycle3-comprehensive
+**Cross-agent agreement:** cycle4-comprehensive
 **Primary locations:**
-- `scripts/harden-static-export.mjs`
-- `scripts/smoke-static.mjs`
-- `.gitignore`
+- `src/components/ErrorBoundary.tsx:43` — `<p aria-hidden="true">😵</p>`
 
 **Why it matters:**
-The `.omc` directory was cleaned up in cycle 2, but there is no guard to prevent recurrence. Any future tool run that writes hidden directories to `public/` or `out/` will silently ship those artifacts.
+The dizzy face emoji may render as a square or question mark on minimal systems. Since it's `aria-hidden`, it doesn't affect accessibility, but it could confuse users.
 
 **Suggested fix:**
-Add a post-build scan in `smoke-static.mjs` or `harden-static-export.mjs` that fails if hidden directories (`.omc`, `.omx`, `.claude`, etc.) are found in `out/`. Also add `.omc/` and `.omx/` to `.gitignore`.
+Replace with an SVG icon or remove entirely. The text message is sufficient.
 
-**Confidence:** High
+**Confidence:** Medium
 
 ---
 
@@ -187,27 +170,20 @@ And from cycle 1:
 
 | Prior ID | Description | Why closed |
 |----------|-------------|------------|
-| C2-AGG-001 | CSP blocks CARTO tiles | Fixed: layout.tsx includes CARTO domains |
-| C2-AGG-002 | Dead `public/theme-init.js` | Fixed: file deleted |
-| C2-AGG-003 | `navigator.webdriver` debug surface | Fixed: removed from src/ and e2e/ |
-| C2-AGG-004 | Sequential codec probing | Fixed: parallel + cache |
-| C2-AGG-005 | Single-point `buildFitBounds` | Fixed: DEGENERATE_PADDING guard |
-| C2-AGG-006 | Mobile menu ARIA | Fixed: no role="menu", auto-focus first button |
-| C2-AGG-007 | `<html lang>` mismatch | Fixed: bootstrap script sets lang from localStorage |
-| Debug-1 | Export cancel non-abortable cleanup | Fixed: waitForIdle receives abort signal |
-| Debug-3 | Zero-distance interpolation | Fixed: guard returns first point |
-| Sec-2 | `.omc` state artifact in `public/` | Fixed: directory deleted |
-| CodeRev-2 | Antimeridian interpolation | NOT CONFIRMED: code uses shortestLngDelta correctly |
-| Debug-2 | Export starts before codec check | NOT CONFIRMED: codecReady guard blocks button |
-| Debug-4 | Theme toggle assumes modern APIs | NOT CONFIRMED: addListener fallback exists |
+| C3-AGG-001 through C3-AGG-009 | Cycle 3 active findings | All verified fixed in current code |
+| C4R-003 | Playback hotkeys block range inputs | `tagName === 'INPUT'` guard returns early, native behavior preserved |
+| C4R-004 | Worker lacks JSON depth check | `checkJsonDepth` is called at worker line 246 before parsing |
+| C4R-009 | downloadVideo doesn't revoke URL | URL intentionally kept for video preview; revoked on session reset |
+| C4R-010 | MapView initial style race | Style-change effect handles changes; initial style consistent with first render |
+| C3R-003 | Export can start with unknown codec | `codecReady === true` guard correctly blocks while null/false |
+| C3R-002 | Antimeridian interpolation | Code uses `shortestLngDelta`, `wrapLngNear`, shifted-longitude lerp correctly |
+| C3R-012 | Theme toggle assumes modern APIs | `addListener` fallback already exists at ThemeToggle.tsx:48-53 |
 
 ## Recommended implementation order for this cycle
-1. **C3-AGG-001 (HIGH)**: Fix `parseSemanticSegments` segment boundaries — correctness bug in Google phone export parsing
-2. **C3-AGG-003 (MEDIUM)**: Add worker fallback to main-thread parser — prevents user-visible failures
-3. **C3-AGG-004 (MEDIUM)**: Replace raw WebGL error with user-friendly message — UX accessibility
-4. **C3-AGG-005 (MEDIUM)**: Add keyboard accessibility to timeline handles — WCAG compliance
-5. **C3-AGG-006 (MEDIUM)**: Add live-region semantics to error messages — WCAG compliance
-6. **C3-AGG-002 (MEDIUM)**: Fix scene editor dead warnings — UX correctness
-7. **C3-AGG-007 (MEDIUM)**: Soften download success language — UX honesty
-8. **C3-AGG-009 (MEDIUM)**: Add build guard for tool-state leakage — build hygiene
-9. **C3-AGG-008 (LOW)**: Remove misleading `--err-rgb` fallback — code clarity
+1. **C4-AGG-001 (MEDIUM)**: Fix worker `continue` scope in `parseSemanticSegments` — correctness bug
+2. **C4-AGG-002 (MEDIUM)**: Differentiate export success message by download path — UX honesty
+3. **C4-AGG-003 (MEDIUM)**: Pass `cumulativeDistances` as prop instead of recomputing — performance
+4. **C4-AGG-004 (LOW)**: Add keyboard a11y to SceneRangeEditor handles — accessibility
+5. **C4-AGG-006 (MEDIUM)**: Add waypoint proximity validation in JourneyCreator — UX correctness
+6. **C4-AGG-007 (LOW)**: Replace ErrorBoundary emoji with SVG — robustness
+7. **C4-AGG-005 (MEDIUM)**: Defer `preserveDrawingBuffer` to perf cycle — needs significant refactor, add comment
