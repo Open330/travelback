@@ -16,7 +16,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 8).
 - The `initialMode` state and its `hadExplicitMode` field become unused after removing the mount effect. Clean up `detectInitialMode` to return just the mode string, or inline the detection.
 - Verify that `HomeInner`'s `handleModeChange` is not called on initial render after this change (it currently is, due to ThemeToggle's mount effect).
 
-**Status:** PENDING
+**Status:** DONE — Commit `ef983b5`
 
 ---
 
@@ -33,7 +33,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 8).
 - Wait — need to verify. Let me re-check Controls.tsx... Controls uses `track` only in the `total` computation on line 42. The component doesn't reference `track` anywhere else. So removing `track` from props is correct.
 - Actually, I need to double-check: `track` is passed as a prop. If we remove it, we need to update the call sites. `TrackWorkspace` passes `track` to `Controls`. After this change, it should pass `cumulativeDistances` instead.
 
-**Status:** PENDING
+**Status:** DONE — Commit `5508959`
 
 ---
 
@@ -46,9 +46,17 @@ Derived from `.context/reviews/_aggregate.md` (cycle 8).
 - Add an eslint-disable comment explaining that these are stable `useCallback([], ...)` references and including them introduces a latent risk of unnecessary re-execution if their deps ever change (same rationale as line 926).
 - The effect already handles missing layers and markers through the `addTrackLayers`/`ensureMarker` function calls inside the effect body.
 
-**Status:** PENDING
+**Status:** DONE — Commit `c44e264`
 
 ---
+
+## Quality gates
+- `eslint` — PASS (0 errors, 0 warnings)
+- `tsc --noEmit` — PASS (0 errors)
+- `next build` — PASS (compiled successfully, static export)
+
+## Deployed
+- Pushed to `main` at `c5fc632`
 
 ## Deferred findings (not scheduled this cycle)
 
