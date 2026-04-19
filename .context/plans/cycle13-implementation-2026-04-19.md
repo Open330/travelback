@@ -18,7 +18,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 13).
   ```
 - This makes the handler self-consistent with the NaN guard pattern established in Controls.tsx and ExportPanel.tsx.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -46,7 +46,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 13).
   ```
 - Remove the existing prop-sync effect (lines 65-68).
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -71,7 +71,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 13).
   ```
 - This establishes consistency with the NaN guard pattern used for the progress input.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
