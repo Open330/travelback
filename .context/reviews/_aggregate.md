@@ -1,83 +1,117 @@
-# Cycle 10 Aggregate Review — 2026-04-19
+# Cycle 11 Aggregate Review — 2026-04-19
 
 Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle10-comprehensive-2026-04-19.md`)
+- Fresh comprehensive review (`cycle11-comprehensive-2026-04-19.md`)
 - All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C9 active findings confirmed FIXED in prior cycle.
+- All C10 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C10-AGG.
+- New findings from this cycle are prefixed C11-AGG.
 
-## All cycle 9 active findings verified as FIXED
-
-| Prior ID | Description | Fix verification |
-|----------|-------------|------------------|
-| C9-AGG-001 | Export finally block awaits waitForIdle with aborted signal | `useExportController.ts:181` — `abortController.signal.aborted` guard present |
-| C9-AGG-002 | Toast container role="status" suppresses sequential announcements | `Toast.tsx:66` — now `role="log" aria-live="polite"` |
-| C9-AGG-003 | Duplicate segment-start indices in Google JSON parser | `parser.ts:429` — `[...new Set(adjustedSegStarts)]` dedup applied |
-
-Additionally verified as now resolved from earlier cycles:
-- `navigator.webdriver` debug surface: removed from MapView
-- `.omc` tool-state artifact: removed from `public/`
-- ThemeToggle `addListener` fallback: already present
-- TimelineSelector RAF cleanup: already present via `rafRef`
-- ExportPanel codec gating: `codecReady` blocks when support unknown
+## Prior incorrect findings corrected
+- `--err-rgb` IS defined in `:root` at vitro-base.css:30 (cycle-15 review was wrong)
+- `--gi-sh` and `--gs-sh` ARE defined in `[data-mode=dark]` at vitro-base.css:276,286 (cycle-15 review was wrong)
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C10-AGG-001 — MEDIUM — TrackToolbar mobile menu callback ref steals focus on every re-render
+### C11-AGG-001 — MEDIUM — ExportPanel duration input hard-codes limits and resets to 30 on empty input
 
-**Cross-agent agreement:** cycle10-comprehensive
+**Cross-agent agreement:** cycle11-comprehensive
 **Primary locations:**
-- `src/components/TrackToolbar.tsx:144`
+- `src/components/ExportPanel.tsx:270-277`
 
 **Why it matters:**
-The inline callback ref `(el) => el?.querySelector<HTMLButtonElement>('button')?.focus()` creates a new function reference on every render. React calls the ref callback with `null` (old ref) then with the DOM node (new ref) each time the function reference changes. This re-focuses the first button on every re-render while the menu is open, disrupting keyboard and screen reader navigation.
+The HTML `min`/`max` and `onChange` clamp hard-code `5`/`600` instead of `EXPORT_LIMITS.duration.min`/`max`. More importantly, `parseInt(e.target.value)` returns `NaN` for empty input, and `|| 30` silently resets the field to 30 mid-keystroke when the user clears it to type a new value.
 
 **Suggested fix:**
-Replace the inline callback ref with a `useRef` + `useEffect` pattern that only focuses when `menuOpen` transitions to `true`:
-```tsx
-const menuPanelRef = useRef<HTMLDivElement>(null)
-useEffect(() => {
-  if (menuOpen && menuPanelRef.current) {
-    menuPanelRef.current.querySelector<HTMLButtonElement>('button')?.focus()
-  }
-}, [menuOpen])
-```
-Then use `ref={menuPanelRef}` on the menu div instead of the inline callback.
+Use `EXPORT_LIMITS` constants, and handle NaN from empty input by keeping the previous value.
 
 **Confidence:** High
 
 ---
 
-### C10-AGG-002 — LOW — `seekTo` does not guard against NaN progress
+### C11-AGG-002 — MEDIUM — exportVideo frame loop does not check abort between renderFrame and waitForIdle
 
-**Cross-agent agreement:** cycle10-comprehensive
+**Cross-agent agreement:** cycle11-comprehensive
 **Primary locations:**
-- `src/lib/usePlaybackController.ts:63-66`
-- `src/components/Controls.tsx:45-47`
+- `src/lib/videoEncoder.ts:93-126`
 
 **Why it matters:**
-`Math.max(0, NaN) === NaN` and `Math.min(1, NaN) === NaN`. If `NaN` ever reaches `seekTo`, it propagates into the `progress` state, breaking the animation loop, display calculations, and elevation profile rendering.
-
-While `<input type="range">` always produces numeric values in normal operation, a `Number.isFinite` guard is a cheap safety net against corrupted DOM state, SSR mismatches, or synthetic events in tests.
+If the user cancels during `renderFrame`, the loop continues through `waitForIdle` (which does check the signal and will reject). But `renderFrame` itself runs synchronously and is not abort-aware, so a cancelled export still applies one more camera state and progress update before the abort is detected.
 
 **Suggested fix:**
-Add a `Number.isFinite` guard at the top of `seekTo`:
-```ts
-const seekTo = useCallback((nextProgress: number) => {
-  const safe = Number.isFinite(nextProgress) ? nextProgress : 0
-  const clampedProgress = Math.min(1, Math.max(0, safe))
-  setPlaybackProgress(clampedProgress)
-  setSeekNonce((nonce) => nonce + 1)
-}, [setPlaybackProgress])
-```
+Add `if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError')` after `await renderFrame()`.
+
+**Confidence:** Medium
+
+---
+
+### C11-AGG-003 — MEDIUM — downloadVideo fallback returns saved:true but download may not complete
+
+**Cross-agent agreement:** cycle11-comprehensive, critic.md (prior), debugger.md (prior)
+**Primary locations:**
+- `src/lib/videoEncoder.ts:183-194`
+- `src/components/ExportPanel.tsx:208`
+
+**Why it matters:**
+The `<a download>` fallback returns `{ saved: true }` immediately, but browsers (especially Safari < 15.4, mobile WebViews) may silently fail. The UI shows "saved to Downloads" even when no file was saved.
+
+**Suggested fix:**
+Change the fallback success message from "Video saved" / "saved to Downloads" to "Download started" when `method === 'fallback'`, since the save cannot be confirmed. Use the existing `downloadMethod` prop that is already tracked.
+
+**Confidence:** High (prior finding carried forward from multiple reviewers)
+
+---
+
+### C11-AGG-004 — LOW — SceneRangeEditor keyboard navigation missing Home/End keys
+
+**Cross-agent agreement:** cycle11-comprehensive
+**Primary locations:**
+- `src/components/SceneEditor.tsx:183-204`
+
+**Why it matters:**
+WCAG 2.1 SC 4.1.2 requires slider widgets to support expected keyboard patterns. Home/End are standard slider key bindings per WAI-ARIA authoring practices.
+
+**Suggested fix:**
+Add Home/End key handlers for the SceneRangeEditor slider handles.
+
+**Confidence:** High
+
+---
+
+### C11-AGG-005 — LOW — Toast returns null when messages empty, removing live region from DOM
+
+**Cross-agent agreement:** cycle11-comprehensive
+**Primary locations:**
+- `src/components/Toast.tsx:63-66`
+
+**Why it matters:**
+When the Toast component returns `null`, the live region (`role="log"`) is removed from the DOM. Screen readers that have already announced toasts need the region to persist so they can detect removals. Removing and re-adding the live region can cause inconsistent announcements.
+
+**Suggested fix:**
+Always render the container `div` with `role="log" aria-live="polite"`, even when messages is empty.
+
+**Confidence:** Medium
+
+---
+
+### C11-AGG-006 — LOW — TimelineSelector resolveRangeIndexes called on every render outside memo
+
+**Cross-agent agreement:** cycle11-comprehensive
+**Primary locations:**
+- `src/components/TimelineSelector.tsx:245`
+
+**Why it matters:**
+During timeline drag, every pointer move triggers `resolveRangeIndexes()` which does binary search. Wrapping in `useMemo` would avoid unnecessary recomputation.
+
+**Suggested fix:**
+Wrap the result in `useMemo` keyed on `[startRatio, endRatio, cumulativeDistances]`.
 
 **Confidence:** Medium
 
@@ -85,15 +119,13 @@ const seekTo = useCallback((nextProgress: number) => {
 
 ## Carried-forward deferred items (not re-opened this cycle)
 
-These remain in their existing files and are NOT scheduled for this cycle:
-
 From `deferred-findings-cycle1-2026-04-19.md`:
 - DF-C1-001: Mobile information architecture and discoverability polish
 - DF-C1-002: Broad maintainability/performance restructuring
 
 From `deferred-findings-cycle2-2026-04-19.md`:
 - DF-C2-001: Mobile information architecture gaps
-- DF-C2-002: Playback progress drives whole-app rerenders (HIGH/HIGH — still the most impactful perf issue)
+- DF-C2-002: Playback progress drives whole-app rerenders (HIGH/HIGH)
 - DF-C2-003: Large GPX/KML imports parse on main thread
 - DF-C2-004: Manual route dragging is O(n) on pointer move
 - DF-C2-005: Export settings permit browser-hostile combinations
@@ -104,12 +136,16 @@ From `deferred-findings-cycle2-2026-04-19.md`:
 - DF-C2-010: Local-only bundled styles ship without real basemap layer
 
 From cycle 4:
-- DF-C4-001: `preserveDrawingBuffer: true` always on, wasting GPU resources
+- DF-C4-001: `preserveDrawingBuffer: true` always on
 
 From cycle 5:
-- DF-C5-001: TrackToolbar mobile menu focus trapping (partially addressed by C7-AGG-003 — added ARIA roles, but not full focus trap)
+- DF-C5-001: TrackToolbar mobile menu focus trapping
 
 ## Recommended implementation order for this cycle
 
-1. **C10-AGG-001 (MEDIUM)**: Replace inline callback ref with useRef+useEffect in TrackToolbar mobile menu
-2. **C10-AGG-002 (LOW)**: Add NaN guard in seekTo
+1. **C11-AGG-001 (MEDIUM)**: Fix ExportPanel duration input hard-coded limits and NaN handling
+2. **C11-AGG-002 (MEDIUM)**: Add abort check in exportVideo after renderFrame
+3. **C11-AGG-003 (MEDIUM)**: Fix fallback download success message
+4. **C11-AGG-004 (LOW)**: Add Home/End key handlers in SceneRangeEditor
+5. **C11-AGG-005 (LOW)**: Keep Toast live region in DOM when empty
+6. **C11-AGG-006 (LOW)**: Memoize resolveRangeIndexes in TimelineSelector
