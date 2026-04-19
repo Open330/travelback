@@ -262,6 +262,7 @@ body {
   --bg: #0A0D14;
   --bg2: #101420;
   --upload-overlay: rgba(0, 0, 0, .52);
+  --gc-solid-bg: rgba(10, 13, 20, .92);
 
   --t1: #FFFFFF;
   --t2: #D8E0F4;
