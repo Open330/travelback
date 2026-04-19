@@ -63,7 +63,7 @@ export default function Toast({ messages, onDismiss }: ToastProps) {
   if (messages.length === 0) return null
 
   return (
-    <div role="status" className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
+    <div role="log" aria-live="polite" className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
       {messages.map(msg => (
         <ToastItem key={msg.id} message={msg} onDismiss={() => onDismiss(msg.id)} />
       ))}
