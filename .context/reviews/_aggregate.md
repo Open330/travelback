@@ -1,84 +1,79 @@
-# Cycle 8 Aggregate Review — 2026-04-19
+# Cycle 9 Aggregate Review — 2026-04-19
 
 Generated after comprehensive full-repo review of current `main` branch.
 
 ## Review lanes considered
-- Fresh comprehensive review (`cycle8-comprehensive-2026-04-19.md`)
+- Fresh comprehensive review (`cycle9-comprehensive-2026-04-19.md`)
 - All prior cycle reviews and aggregates reviewed for carried-forward items
 - Prior deferred findings reviewed for items that should re-open
 
 ## Aggregation method
 - Re-verified every prior finding against the current codebase.
-- All C7 active findings confirmed FIXED in prior cycle.
+- All C8 active findings confirmed FIXED in prior cycle.
 - Deduped overlapping findings and kept the highest severity / confidence.
 - Carried forward still-valid deferred items as-is.
-- New findings from this cycle are prefixed C8-AGG.
+- New findings from this cycle are prefixed C9-AGG.
 
-## All cycle 7 active findings verified as FIXED
+## All cycle 8 active findings verified as FIXED
 
 | Prior ID | Description | Fix verification |
 |----------|-------------|------------------|
-| C7-AGG-001 | `ElevationProfile` memo depends on `track` object reference | `ElevationProfile.tsx:22` uses `[track.points]` |
-| C7-AGG-002 | `MapView` animation effect has stable callbacks in deps | `MapView.tsx:926` excludes them, has eslint-disable |
-| C7-AGG-003 | TrackToolbar mobile menu lacks ARIA roles | `TrackToolbar.tsx:137` has `role="menu"`, buttons have `role="menuitem"` |
-| C7-AGG-004 | MapView style-change effect has `track` in deps | `MapView.tsx:663` excludes `track`, has eslint-disable |
-| C7-AGG-005 | `export.videoSaved` i18n key missing | Verified present in all 5 locales |
-| C7-AGG-006 | `cumulDistRef` may be stale | `MapView.tsx:927` includes `cumulativeDistancesProp` in deps |
+| C8-AGG-001 | ThemeToggle fires `onModeChange` on mount | ThemeToggle.tsx:32-49 only has `prefers-color-scheme` listener, no mount-time callback |
+| C8-AGG-002 | Controls recomputes `totalDistance` | Controls.tsx:41 uses `cumulativeDistances[cumulativeDistances.length - 1] ?? 0` |
+| C8-AGG-003 | MapView track-load effect stable callbacks in deps | MapView.tsx:812 deps are `[track, cumulativeDistancesProp]` with eslint-disable |
 
 ## Merged findings (active, to be addressed this cycle)
 
-### C8-AGG-001 — MEDIUM — ThemeToggle fires `onModeChange` on mount, causing redundant side effects
+### C9-AGG-001 — MEDIUM — Export `finally` block awaits `waitForIdle` with already-aborted signal, wasting cleanup time
 
-**Cross-agent agreement:** cycle8-comprehensive
+**Cross-agent agreement:** cycle9-comprehensive, debugger (prior cycle finding 1)
 **Primary locations:**
-- `src/components/ThemeToggle.tsx:33-35` — `useEffect(() => { onModeChange?.(initialMode.mode) }, [initialMode, onModeChange])`
+- `src/lib/useExportController.ts:175-188`
 
 **Why it matters:**
-The bootstrap script in `layout.tsx` already sets `data-mode` and `data-mapstyle` on `<html>` before React hydrates. `HomeInner` initializes `colorMode` from the same DOM attribute. When ThemeToggle mounts, it calls `onModeChange` with the same mode value already set, triggering `handleModeChange` in `page.tsx`, which:
-1. Calls `applyDocumentMode(mode)` — redundant, attribute already set
-2. Writes to `localStorage` — redundant, same value
-3. May call `setMapStyleKey` + `applyDocumentMapStyle` — redundant if map style already initialized
+When the user cancels an export, `abortController.abort()` is called. The `finally` block then passes the same already-aborted signal to `waitForIdle()`, which immediately rejects. The catch swallows it, so no crash occurs. However, `resetSize()` has already been called before the idle wait, making the wait pointless on the abort path. The map container is already resized back before any idle check could succeed.
 
-While `setColorMode` with the same value is a no-op, the side effects in `handleModeChange` still execute. This wastes work on every page load.
+While not a crash, this is wasted async work on every cancellation path and makes the cleanup flow harder to reason about.
 
 **Suggested fix:**
-Remove the mount-time `onModeChange` effect entirely. The parent (`HomeInner`) already initializes `colorMode` and `mapStyleKey` from the DOM before ThemeToggle renders. ThemeToggle already communicates user-initiated toggles via the `toggle` callback.
+Skip the `waitForIdle` call entirely when the export was aborted. Check `abortController.signal.aborted` before calling `waitForIdle`, or simply skip the idle wait in the `finally` block since `resetSize()` + `map.resize()` handles the visual recovery.
 
 **Confidence:** High
 
 ---
 
-### C8-AGG-002 — LOW — Controls recomputes `totalDistance` when parent already has `cumulativeDistances`
+### C9-AGG-002 — MEDIUM — Toast container `role="status"` may suppress rapid sequential announcements for assistive technology
 
-**Cross-agent agreement:** cycle8-comprehensive
+**Cross-agent agreement:** cycle9-comprehensive, designer (prior cycle finding about live-region semantics)
 **Primary locations:**
-- `src/components/Controls.tsx:42` — `useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track.points, track.segmentStartIndices])`
+- `src/components/Toast.tsx:66`
 
 **Why it matters:**
-The parent (`page.tsx`) already computes `cumulativeDistances` via `computeCumulativeDistances`, and passes it to sibling components. The total distance is simply `cumulativeDistances[cumulativeDistances.length - 1]`. Controls recomputes the same total via `totalDistance()`, which is an O(n) haversine iteration. This is redundant work that duplicates a value already computed upstream.
+`role="status"` has `aria-live="polite"` and `aria-atomic="true"` by default. When multiple toasts appear rapidly (e.g., export cancelled + error), assistive technology typically only announces the most recent content, missing intermediate messages. The `aria-atomic="true"` default means the entire container is announced as a unit, which can be verbose with multiple visible toasts.
 
 **Suggested fix:**
-Pass `cumulativeDistances` as a prop to `Controls` and derive total from `cumulativeDistances[cumulativeDistances.length - 1] ?? 0` in O(1) time.
+Change the container from `role="status"` to `role="log"` with `aria-live="polite"`. `role="log"` is designed for sequential entries where new items are added over time, which matches the toast pattern. This ensures each new toast is announced individually rather than the entire container being re-announced.
 
-**Confidence:** High
+**Confidence:** Medium (a11y improvement, not a functional bug)
 
 ---
 
-### C8-AGG-003 — LOW — MapView track-load effect includes stable `useCallback` refs in dependency array (latent risk)
+### C9-AGG-003 — LOW — `parseSemanticSegments` dedup can create duplicate segment-start indices
 
-**Cross-agent agreement:** cycle8-comprehensive
+**Cross-agent agreement:** cycle9-comprehensive
 **Primary locations:**
-- `src/components/MapView.tsx:811` — `[track, addTrackLayers, ensureMarker, cumulativeDistancesProp]`
+- `src/lib/parser.ts:393-424`
 
 **Why it matters:**
-Same pattern as C7-AGG-002 (which was fixed for the animation effect). `addTrackLayers` and `ensureMarker` are stable `useCallback([], ...)` references. Including them introduces a latent risk: if a future refactor adds a dependency to either callback, the track-load effect would re-run unnecessarily on every track change.
-
-The track-load effect is less sensitive than the animation effect (it doesn't run per-frame), so practical impact is lower. But the same defensive principle applies.
+After the dedup/sort step in `parseGoogleLocationHistory`, the `adjustedSegStarts` remapping can map two different original segment-start indices to the same deduplicated index, creating duplicate segment starts. The `.filter(idx => idx > 0)` at line 424 removes index 0 but does not deduplicate positive indices. Downstream code (`normalizeSegmentStarts` in MapView) handles this via `new Set(...)`, but the data itself is impure.
 
 **Suggested fix:**
-Remove `addTrackLayers` and `ensureMarker` from the dependency array and add an eslint-disable comment explaining why (same rationale as line 926).
+Deduplicate `adjustedSegStarts` before returning:
+```ts
+const dedupedSegStarts = [...new Set(adjustedSegStarts)]
+```
 
-**Confidence:** Medium (latent risk, not a current bug)
+**Confidence:** Medium (cosmetic, downstream handles it)
 
 ---
 
@@ -110,12 +105,15 @@ From cycle 5:
 
 ## Items verified as already fixed or not actual issues
 
-| Prior ID | Description | Why closed |
+| Prior ID / Area | Description | Why closed |
 |----------|-------------|------------|
-| (none new this cycle) | | |
+| C9-001 | Export codec cache staleness across sessions | Cache is populated per-session from live probe; cross-session staleness is an extreme edge case with no practical impact |
+| C9-003 | `handleRangeChange` segment index trimming | Verified correct: index 0 is not a segment start by definition |
+| C9-006 | Controls step={0.001} | 1000 steps is reasonable for the playback duration range |
+| C9-007 | exportTrack scenes closure | Correct behavior: mid-export scene changes should not affect running export |
 
 ## Recommended implementation order for this cycle
 
-1. **C8-AGG-001 (MEDIUM)**: Remove ThemeToggle mount-time `onModeChange` effect — eliminates redundant side effects on page load
-2. **C8-AGG-002 (LOW)**: Pass `cumulativeDistances` to Controls and derive total in O(1) — performance
-3. **C8-AGG-003 (LOW)**: Remove stable callbacks from track-load effect deps — latent risk defense
+1. **C9-AGG-001 (MEDIUM)**: Skip `waitForIdle` in export finally block when aborted — cleaner cleanup path
+2. **C9-AGG-002 (MEDIUM)**: Change Toast container from `role="status"` to `role="log"` — better a11y for sequential toasts
+3. **C9-AGG-003 (LOW)**: Deduplicate `adjustedSegStarts` in parser — data purity
