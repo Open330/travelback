@@ -8,7 +8,7 @@
 - **Severity:** LOW
 - **Confidence:** HIGH
 - **File:** `src/lib/usePlaybackController.ts:118`
-- **Status:** PENDING
+- **Status:** DONE
 
 ### Problem
 
@@ -30,6 +30,14 @@ Similarly, `setFollowCamera` is exposed (line 117) but also never called directl
 - `tsc --noEmit` passes
 - No consumer code breaks
 - Playback toggle, pause, and follow camera toggle all work correctly
+
+### Implementation
+
+- Removed `setIsPlaying` and `setFollowCamera` from the return object of `usePlaybackController`
+- No consumers referenced these raw setters -- all use the proper callback interfaces
+- `tsc --noEmit` passes clean
+- LSP diagnostics show 0 errors
+- Committed and pushed as `1eb109c`
 
 ---
 
