@@ -13,7 +13,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 - This gives the browser time to process the download intent before the element is removed.
 - Keep the `a.click()` synchronous (required for the download to start).
 
-**Status:** TODO
+**Status:** DONE — Commit `e30cf7c`
 
 ---
 
@@ -30,7 +30,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
   - `var lng` → `const lng` (line 124)
 - Verify the worker still passes all parsing tests (no scoping behavior change expected).
 
-**Status:** TODO
+**Status:** DONE — Commit `b807692`
 
 ---
 
@@ -45,7 +45,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 
 **Decision:** Add a comment noting the parity with `parser.ts` since both styles are semantically equivalent. The `<=` style in the worker is actually clearer. No code change needed — just a comment for maintainer clarity.
 
-**Status:** TODO
+**Status:** DONE — Commit `b807692` (parity comment added alongside var→const refactor)
 
 ---
 
@@ -59,7 +59,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 - In `useExportController.ts`, pass the `cumulativeDistances` to `exportVideo` from the controller context. Since `useExportController` doesn't currently have access to `cumulativeDistances`, add it as a parameter to the hook options.
 - In `page.tsx`, pass `cumulativeDistances` to `useExportController`.
 
-**Status:** TODO
+**Status:** DONE — Commit `3ea17d8`
 
 ---
 
@@ -70,7 +70,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 **Plan:**
 - Change `if (seconds < 0) seconds = 0` to `if (!Number.isFinite(seconds) || seconds < 0) seconds = 0`.
 
-**Status:** TODO
+**Status:** DONE — Commit `b1302a6`
 
 ---
 
@@ -84,7 +84,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 - Keep `journey.searchInvalid` for truly malformed input (empty after trim, etc.).
 - Actually, reviewing the code more carefully: `searchInvalid` is shown when `parseCoordinateQuery` returns null, meaning the input didn't match any coordinate pattern. The simplest fix is to update the `journey.searchInvalid` message text itself to be more specific.
 
-**Status:** TODO
+**Status:** DONE — Already addressed in prior cycles. The `journey.searchInvalid` i18n key already reads "Could not read that location. Paste coordinates like 37.5665, 126.9780 or a supported map link." and the placeholder reads "Paste coordinates or map link". No further changes needed.
 
 ---
 
@@ -96,7 +96,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 - Change `useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track])` to use more granular dependencies: `useMemo(() => totalDistance(track.points, track.segmentStartIndices), [track.points, track.segmentStartIndices])`.
 - This avoids recomputation when the `track` object reference changes but the points data is the same.
 
-**Status:** TODO
+**Status:** DONE — Commit `d4f4fb6`
 
 ---
 
@@ -109,14 +109,17 @@ Derived from `.context/reviews/_aggregate.md` (cycle 5).
 - Specifically, add a class like `.animate-spin` override that sets it to a static circle (full border, no transparent edge) and optionally shows a "Loading..." text alternative.
 - The simplest approach: in the reduced-motion media query, set `.animate-spin` to `animation: none` and override the border to be a full circle.
 
-**Status:** TODO
+**Status:** DONE — Commit `967c3f6`
 
 ---
 
 ## Quality gates
-- `eslint` — must pass
-- `tsc --noEmit` — must pass
-- `next build` — must pass
+- `eslint` — PASS (0 errors, 0 warnings)
+- `tsc --noEmit` — PASS (0 errors)
+- `next build` — PASS (compiled successfully, static export)
+
+## Deployed
+- Pushed to `main` at `299bf27`
 
 ## Deferred findings (not scheduled this cycle)
 
