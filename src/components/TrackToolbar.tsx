@@ -7,6 +7,15 @@ import type { MapStyleKey } from '@/types'
 import type { UnitSystem } from '@/lib/interpolate'
 import ThemeToggle from '@/components/ThemeToggle'
 
+// Reusable focus-first-button effect for menu panels
+function useFocusFirstOnOpen(isOpen: boolean, panelRef: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    if (isOpen && panelRef.current) {
+      panelRef.current.querySelector<HTMLButtonElement>('button')?.focus()
+    }
+  }, [isOpen, panelRef])
+}
+
 interface TrackToolbarProps {
   mapStyleKey: MapStyleKey
   showSceneEditor: boolean
@@ -41,6 +50,7 @@ export default function TrackToolbar({
   const { t } = useLocale()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  useFocusFirstOnOpen(menuOpen, menuRef)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -140,8 +150,8 @@ export default function TrackToolbar({
             data-disable-playback-hotkeys="true"
             className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
             style={{ borderRadius: 'var(--r-glass)' }}
-            // Auto-focus the first button so screen readers announce the menu
-            ref={(el) => el?.querySelector<HTMLButtonElement>('button')?.focus()}
+            // Focus is managed by useFocusFirstOnOpen — fires once when menu opens
+            ref={menuRef}
           >
             <div className="space-y-2">
               <button
