@@ -200,6 +200,24 @@ function SceneRangeEditor({
                   const [, en] = clampRange(startPercent, Math.max(endPercent - step, startPercent + MIN_SCENE_SPAN))
                   onChangeRef.current(startPercent, en)
                 }
+              } else if (e.key === 'Home') {
+                e.preventDefault()
+                if (type === 'start') {
+                  const [s] = clampRange(0, endPercent)
+                  onChangeRef.current(s, endPercent)
+                } else {
+                  const [, en] = clampRange(startPercent, startPercent + MIN_SCENE_SPAN)
+                  onChangeRef.current(startPercent, en)
+                }
+              } else if (e.key === 'End') {
+                e.preventDefault()
+                if (type === 'start') {
+                  const [s] = clampRange(endPercent - MIN_SCENE_SPAN, endPercent)
+                  onChangeRef.current(s, endPercent)
+                } else {
+                  const [, en] = clampRange(startPercent, 1)
+                  onChangeRef.current(startPercent, en)
+                }
               }
             }}
           >
