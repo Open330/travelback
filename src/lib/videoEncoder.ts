@@ -45,6 +45,7 @@ export async function exportVideo(
   onProgress?: ExportProgressCallback,
   waitForIdle?: () => Promise<void>,
   signal?: AbortSignal,
+  cumulDistParam?: number[],
 ): Promise<VideoExportResult> {
   // Dynamic import mediabunny (it uses WebCodecs, browser-only)
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource } = await import('mediabunny')
@@ -62,7 +63,7 @@ export async function exportVideo(
 
   const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))
   const frameDuration = 1 / safeFps
-  const cumulDist = computeCumulativeDistances(track.points, track.segmentStartIndices)
+  const cumulDist = cumulDistParam ?? computeCumulativeDistances(track.points, track.segmentStartIndices)
 
   // Pre-normalize scenes once before the frame loop (US-002)
   const normalizedScenes = normalizeScenes(scenes)
@@ -185,7 +186,11 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
   a.download = filename
   document.body.appendChild(a)
   a.click()
-  document.body.removeChild(a)
+  // Delay removal so the browser has time to process the download intent.
+  // Synchronous removal can silently fail on some browsers (Safari < 15.4,
+  // certain mobile WebViews) because the download may not initiate within the
+  // same microtask.
+  setTimeout(() => { a.remove() }, 100)
   return { saved: true, method: 'fallback' }
 }
 
