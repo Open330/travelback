@@ -1,11 +1,12 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle1-implementation-2026-04-19.md` — Cycle 1 remediation plan derived from `.context/reviews/_aggregate.md`
-- `deferred-findings-cycle1-2026-04-19.md` — Explicit deferred follow-up from Cycle 1
-- `deferred-findings-cycle2-2026-04-19.md` — Previously deferred follow-up retained for traceability
+- `cycle2-implementation-2026-04-19.md` — Cycle 2 remediation plan derived from the current `.context/reviews/_aggregate.md`
+- `deferred-findings-cycle2-2026-04-19.md` — Explicit deferred follow-up from the current cycle-2 review set
+- `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `cycle1-implementation-2026-04-19.md`
 - `cycle6-implementation-2026-04-19.md`
 - `cycle7-implementation-2026-04-19.md`
 - `cycle8-implementation-2026-04-19.md`

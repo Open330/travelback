@@ -1,250 +1,204 @@
-# Prompt 1 aggregate review — cycle 1
+# Prompt 1 aggregate review — cycle 2
 
-Generated on 2026-04-19 after a multi-agent review fan-out across:
-- code-reviewer
-- security-reviewer
-- critic
-- verifier
-- test-engineer
-- architect
-- debugger
-- designer
-- perf-reviewer
-- tracer
-- document-specialist
-- non-tech-traveler-reviewer (failed after one retry; see AGENT FAILURES)
+Generated on 2026-04-19 after a review fan-out and a manual aggregation pass across the current per-agent outputs in `.context/reviews/`.
+
+## Review lanes considered
+- security-reviewer — **fresh cycle-2 output**
+- perf-reviewer — **fresh cycle-2 output**
+- designer — latest repo-local output reviewed for UX carry-forward
+- code-reviewer / critic / verifier / test-engineer / architect / debugger / document-specialist / tracer — latest repo-local outputs reviewed for cross-checking and de-duplication where still relevant
 
 ## Aggregation method
-- Deduped overlapping findings across all completed agent reports.
-- Preserved the highest severity / confidence among duplicates.
-- Noted cross-agent agreement, since repeated findings are higher-signal.
-- Kept per-agent reports in `.context/reviews/*.md` for provenance.
+- Preferred fresh cycle-2 review files where they existed.
+- Deduped overlapping findings and kept the highest severity / confidence.
+- Marked which findings are still current in the present repository state.
+- Preserved older stale findings in provenance files but did **not** carry forward issues already fixed in `main`.
 
 ## AGENT FAILURES
-- **non-tech-traveler-reviewer** — initial run blocked on a long-running E2E verification pass and never wrote `./.context/reviews/non-tech-traveler-reviewer.md`.
-- **Retry 1** was launched with a narrowed brief that explicitly avoided blocking on the full E2E suite, but the lane still did not produce an output file before shutdown.
-- Outcome: this reviewer lane is recorded as failed for Prompt 1.
+Fresh retry lanes for `code-reviewer`, `critic`, `verifier`, `designer`, and `non-tech-traveler-reviewer` did not return a completion signal before timeout / shutdown. Existing repo-local review files were used for provenance where available. This aggregate therefore prioritizes the fresh `security-reviewer` and `perf-reviewer` outputs plus still-current UX items from the latest designer review.
 
 ## Merged findings
 
-### AGG-001 — HIGH — Confirmed — Runtime map styles still violate the local-only contract and keep third-party CARTO dependencies alive
-**Cross-agent agreement:** code-reviewer, security-reviewer, verifier, critic, architect, tracer, document-specialist  
+### C2-AGG-001 — HIGH — Confirmed — Closed export UI eagerly imports export code and probes codecs on the startup path
+**Cross-agent agreement:** perf-reviewer
 **Primary locations:**
-- `public/map-styles/{voyager,positron,dark,liberty,bright}.json:5-20`
-- `scripts/fetch-map-styles.mjs:1-136`
-- `scripts/smoke-static.mjs:104-127`
-- `.context/project/01-overview.md:14`
-- `.context/project/02-architecture.md:100-103`
-- `src/app/layout.tsx:57-60`
+- `src/app/page.tsx:406-417`
+- `src/components/ExportPanel.tsx:53-111`
+- `src/lib/videoEncoder.ts:155-177`
 
 **Why it matters:**
-The repo docs and smoke gate say map assets are fully local, but the shipped style JSON still references remote CARTO tiles, sprites, and glyphs. This is simultaneously a privacy leak, a documentation mismatch, and the direct reason `npm run smoke:static` is red.
+`HomeInner` mounts `<ExportPanel />` even while the panel is closed. `ExportPanel` immediately runs codec-support probing, which imports export code before the user has asked to export anything.
 
 **Concrete failure scenario:**
-A privacy-sensitive or offline user loads a route and the app still makes CARTO requests for map assets. CI/release verification also fails because the shipped build does not match the local-only contract.
+A first-time mobile visitor who only wants to upload a track still pays extra startup JS work and export-code initialization, hurting responsiveness on the landing route.
 
 **Suggested fix:**
-Choose one contract and enforce it everywhere. The strongest fix is to ship truly local map styles with no external source/sprite/glyph dependency. If that is not the product direction, then docs/tests/CSP must be rewritten to match the remote-basemap reality.
+Lazy-mount `ExportPanel` only when opened, and keep codec probing behind the open state.
 
 **Confidence:** High
 
 ---
 
-### AGG-002 — HIGH — Confirmed — Timeline default range mapping drops the final point of a loaded track
-**Cross-agent agreement:** code-reviewer  
-**Primary locations:**
-- `src/components/TimelineSelector.tsx:107-138`
-- `src/app/page.tsx:144-165`
-
-**Why it matters:**
-The end handle uses the lower-bound distance index even at `endRatio === 1`, so the default loaded range excludes the actual last point.
-
-**Concrete failure scenario:**
-A user loads a track and never touches the trim controls, but playback/export still ends one point early.
-
-**Suggested fix:**
-Make the end-handle mapping inclusive of the last point (e.g. explicit `ratio >= 1 -> lastIndex`, or upper-bound search for the end side) and add a regression test.
-
-**Confidence:** High
-
----
-
-### AGG-003 — HIGH — Confirmed — Google JSON intake is too expensive and too permissive for in-browser safety
-**Cross-agent agreement:** security-reviewer, code-reviewer, critic, perf-reviewer, tracer  
-**Primary locations:**
-- `src/lib/parser.ts:317-545`
-- `public/workers/trackParser.worker.js:200-267`
-- `src/components/FileUpload.tsx:34-47`
-
-**Why it matters:**
-The app accepts JSON uploads up to 500MB, reads the full file as text on the main thread, then clones that full string into a worker. The JSON depth guard is only heuristic / sampled, and worker failures over 50MB reject instead of retrying the canonical parser path.
-
-**Concrete failure scenario:**
-A large Google export freezes or crashes the tab from memory pressure before parsing completes, or a deep-nesting payload bypasses the sampled depth scan and still reaches `JSON.parse()`.
-
-**Suggested fix:**
-- Reduce the practical JSON size cap to a browser-safe bound.
-- Move JSON decode/parse off the main thread with transferable buffers.
-- Replace sampled depth checks with a full scan.
-- Align worker fallback behavior with the supported-file contract.
-
-**Confidence:** High
-
----
-
-### AGG-004 — HIGH — Confirmed — Export flow has correctness bugs around transition duration, save cancellation, and cancellation cleanup
-**Cross-agent agreement:** architect, code-reviewer, debugger  
-**Primary locations:**
-- `src/lib/videoEncoder.ts:65-113,154-169`
-- `src/lib/useExportController.ts:77-170`
-- `src/components/ExportPanel.tsx:92-118,273-331`
-- `src/components/MapView.tsx:783-787`
-- `src/types.ts:109-116`
-
-**Why it matters:**
-The export path hardcodes scene transition duration instead of honoring the scene editor value, reports success even if the user cancels the native save dialog, and still waits on a non-abortable idle-cleanup path after export cancellation.
-
-**Concrete failure scenario:**
-- Preview and export disagree about scene blending.
-- Canceling a save dialog still shows “saved” UI.
-- Canceling an export appears hung because cleanup still waits for idle.
-
-**Suggested fix:**
-Thread transition duration through the export config, propagate save-dialog cancellation as a true cancellation, and make cleanup waits abort-aware or skip them on cancellation.
-
-**Confidence:** High
-
----
-
-### AGG-005 — MEDIUM — Confirmed — The static/exported CSP is internally inconsistent with the app’s heavy use of inline style attributes
-**Cross-agent agreement:** designer, security-reviewer  
+### C2-AGG-002 — MEDIUM — Confirmed — Static anti-framing protection is incomplete because `frame-ancestors` is delivered only via meta CSP
+**Cross-agent agreement:** security-reviewer
 **Primary locations:**
 - `src/app/layout.tsx:57-60`
-- `scripts/harden-static-export.mjs:8-23`
-- many component `style={{...}}` callsites, e.g. `src/components/GlobalToolbar.tsx`, `src/components/TrackToolbar.tsx`, `src/components/FileUpload.tsx`
+- `scripts/harden-static-export.mjs:8-24,66-97`
+- `scripts/serve-static.mjs:147-158`
 
 **Why it matters:**
-The exported app ships `style-src 'unsafe-inline'` together with `style-src-attr 'none'` while also emitting many inline style attributes. The designer review found actual missing active-state affordances and repeated CSP console violations at runtime.
+The static artifact relies on `<meta http-equiv="Content-Security-Policy">` for `frame-ancestors 'none'`, but anti-framing protections are only reliably enforced when delivered as response headers. The local preview server adds `X-Frame-Options`, but the exported app itself cannot guarantee that protection on generic static hosts.
 
 **Concrete failure scenario:**
-Selected controls lose their visual highlight in Chromium, and the console floods with CSP violations.
+A plain static deployment can be embedded in an attacker-controlled iframe, undermining the app's privacy-first positioning.
 
 **Suggested fix:**
-Either move the required inline styles into CSS classes/custom properties, or remove the contradictory `style-src-attr 'none'` directive so the shipped CSP matches the actual rendering model.
+Add a client-side anti-framing fallback in the bootstrap path and document that deployment hosts must still send `Content-Security-Policy: frame-ancestors 'none'` or `X-Frame-Options: DENY`.
 
 **Confidence:** High
 
 ---
 
-### AGG-006 — MEDIUM — Confirmed — Static Playwright coverage is brittle and partly aimed at dev-only hooks
-**Cross-agent agreement:** critic, verifier, test-engineer  
+### C2-AGG-003 — MEDIUM — Confirmed — Internal OMX tool-state residue under `public/` can ship in static builds
+**Cross-agent agreement:** security-reviewer, code-reviewer (asset inventory)
 **Primary locations:**
-- `e2e/travelback.spec.ts:42-66,561-692,734-757`
-- `src/components/MapView.tsx:513-541`
-- `playwright.static.config.ts:5-45`
+- `public/fonts/.omc/state/last-tool-error.json:1-7`
+- generated output path `out/fonts/.omc/state/last-tool-error.json`
 
 **Why it matters:**
-The static suite relies on `window.__travelbackDebug`, but `MapView` only exposes that hook in development. The suite also uses several fixed sleeps. Verifier runs also observed the static server disappearing mid-suite.
+A hidden tooling artifact inside `public/` becomes part of the published static app. The current file leaks tool names, prompt-preview content, and timestamps; future residue could expose more sensitive internal metadata.
 
 **Concrete failure scenario:**
-The static E2E suite cannot reliably validate production behavior, or fails later in the run due to timing and server instability rather than product regressions.
+A deployment unintentionally serves agent/tooling state files from the public asset tree.
 
 **Suggested fix:**
-Replace dev-only-hook assertions with production-safe DOM/state checks, remove hard sleeps, and harden the static test server lifecycle.
+Remove the stray `.omc` directory and add a build/smoke guard that rejects hidden tool-state directories inside `public/` or `out/`.
 
 **Confidence:** High
 
 ---
 
-### AGG-007 — MEDIUM — Confirmed — Playback/interpolation edge cases remain under-protected
-**Cross-agent agreement:** code-reviewer, debugger  
+### C2-AGG-004 — MEDIUM — Confirmed — Production debug inspection surface is still exposed whenever `navigator.webdriver` is true
+**Cross-agent agreement:** security-reviewer, older critic review (same surface previously used for static E2E)
 **Primary locations:**
-- `src/lib/interpolate.ts:55-129`
-- `src/components/MapView.tsx:69-74,711-716`
+- `src/components/MapView.tsx:529-565`
+- `e2e/travelback.spec.ts:46-88,586-663,770-777`
 
 **Why it matters:**
-Zero-distance tracks can resolve to the wrong point, and antimeridian routes still use naive longitude-space calculations in `MapView` even though `camera.ts` already has better helpers.
+The app exposes `window.__travelbackDebug` in production-like builds whenever the browser reports automation. That keeps a stable global inspection surface alive outside development.
 
 **Concrete failure scenario:**
-Repeated-coordinate tracks start from the wrong point, or dateline-crossing routes zoom/snap across the world instead of taking the short path.
+Production sessions running under automation or instrumentation expose map and camera state through a predictable global object.
 
 **Suggested fix:**
-Special-case zero-total-distance interpolation and reuse antimeridian-aware helpers for bounds and camera jump calculations.
+Remove the `navigator.webdriver` escape hatch and switch tests to an explicit opt-in debug flag (for example a query param checked only by tests).
 
 **Confidence:** High
 
 ---
 
-### AGG-008 — MEDIUM — Confirmed — Core docs and runtime behavior drift in several user-facing areas
-**Cross-agent agreement:** document-specialist, critic  
-**Primary locations:**
-- `.context/project/01-overview.md:17-24,31-35,77-78`
-- `package.json:8-9`
-- `scripts/serve-static.mjs:24-80`
-- `src/lib/parser.ts:190-303,370-402`
-- `src/types.ts:80-84`
-
-**Why it matters:**
-The docs describe `npm run start` like a normal production server even though it serves `out/` statically with a `/travelback` base path. The Google JSON support matrix is incomplete, and the documented animation-duration range does not match export limits.
-
-**Concrete failure scenario:**
-Contributors follow incorrect run instructions, and users believe some valid Google export shapes or export durations are unsupported.
-
-**Suggested fix:**
-Update the overview docs to describe the static preview server accurately, expand the supported Google JSON matrix, and document the real playback vs export duration ranges.
-
-**Confidence:** High
-
----
-
-### AGG-009 — MEDIUM — Confirmed — Mobile/IA UX still has a few discoverability and accessibility gaps
-**Cross-agent agreement:** designer  
+### C2-AGG-005 — MEDIUM — Confirmed — Mobile information architecture still hides key session identity and primary structure
+**Cross-agent agreement:** designer
 **Primary locations:**
 - `src/components/FileUpload.tsx:193-197`
 - `src/components/TrackWorkspace.tsx:115-121`
-- `src/components/FileUpload.tsx:111-123`
-- `src/components/GlobalToolbar.tsx:23-26`
 - `src/components/TrackToolbar.tsx:123-220`
 
 **Why it matters:**
-The landing page has no semantic `h1`, the loaded mobile workspace hides the current track name entirely, and common mobile actions/preferences collapse behind low-discoverability affordances.
+The landing page still lacks a semantic `h1`, and the loaded mobile workspace hides the current track name entirely below `lg`. Users lose page structure and trip identity exactly where orientation matters most.
 
 **Concrete failure scenario:**
-Mobile users lose orientation after loading a track and can miss file-switch / preference controls.
+A mobile user loads a trip and sees controls but no visible trip name, making session switching and confirmation harder.
 
 **Suggested fix:**
-Add a proper `h1`, keep a compact mobile route title visible, and make key mobile actions/preferences more explicit.
+Add a semantic `h1` on the landing flow and preserve a compact visible track title on mobile after load.
 
 **Confidence:** High
 
 ---
 
-### AGG-010 — MEDIUM — Likely — Performance and maintainability hotspots are accumulating in core paths
-**Cross-agent agreement:** architect, perf-reviewer, test-engineer  
+### C2-AGG-006 — HIGH — Confirmed — Export settings still allow browser-hostile combinations that can explode time and memory
+**Cross-agent agreement:** perf-reviewer
 **Primary locations:**
-- `src/app/page.tsx:32-419`
-- `src/lib/parser.ts` + `public/workers/trackParser.worker.js`
-- `src/components/MapView.tsx:500-506,754-777`
-- `src/lib/i18n.ts:11-1662`
-- `e2e/travelback.spec.ts:1-975`
+- `src/types.ts:52-79`
+- `src/components/ExportPanel.tsx:84-119,298-312`
+- `src/lib/videoEncoder.ts:52-91`
 
 **Why it matters:**
-The app shell still owns too much state, parser logic is duplicated across main thread and worker, live map rendering pays `preserveDrawingBuffer` cost at all times, the trail is rebuilt every frame, and key test/i18n files have become monoliths.
+The UI permits 4K, 120 FPS, and 10-minute exports, while the encoder buffers the entire MP4 in memory. The current product does not warn or block obviously unsafe combinations.
 
 **Concrete failure scenario:**
-Future fixes become harder to land safely, and performance degrades on large tracks or weaker devices.
+A user starts a long 4K/high-FPS export and the tab stalls or crashes under memory pressure.
 
 **Suggested fix:**
-Treat this as follow-up structural work after the blocking correctness/security fixes are handled.
+Add product safety caps / preflight validation for unsafe export combinations, or move away from all-in-memory output.
 
-**Confidence:** Medium-High
+**Confidence:** High
+
+---
+
+### C2-AGG-007 — HIGH — Confirmed — Google phone-export `semanticSegments` currently lose real segment boundaries
+**Cross-agent agreement:** fresh code-reviewer
+**Primary locations:**
+- `src/lib/parser.ts:267-303`
+- `public/workers/trackParser.worker.js:99-123`
+
+**Why it matters:**
+Supported Google phone exports can contain multiple disconnected semantic segments, but the parser currently appends those points into one continuous route without recording segment boundaries.
+
+**Concrete failure scenario:**
+A walk → flight → visit export is rendered as one continuous line with impossible straight bridges between unrelated segments, corrupting distance, elevation, playback, and export behavior.
+
+**Suggested fix:**
+Track `segmentStartIndices` for `semanticSegments` in both the main-thread parser and the worker parser.
+
+**Confidence:** High
+
+---
+
+### C2-AGG-008 — HIGH — Confirmed — Antimeridian routes interpolate and render through the wrong side of the world
+**Cross-agent agreement:** fresh code-reviewer
+**Primary locations:**
+- `src/lib/interpolate.ts:112-118`
+- `src/components/MapView.tsx:132-152`
+
+**Why it matters:**
+Interpolation and rendered route geometry currently use raw longitude deltas, so tracks near `+180/-180` go the long way around the globe instead of taking the wrapped shortest path.
+
+**Concrete failure scenario:**
+A trans-Pacific route crossing the dateline visibly jumps toward Greenwich during playback and renders a world-spanning trail/export line.
+
+**Suggested fix:**
+Use wrapped shortest-path longitude deltas for interpolation, bearing, and rendered route geometry.
+
+**Confidence:** High
+
+---
+
+### C2-AGG-009 — MEDIUM — Confirmed — `<html lang>` never follows the selected locale
+**Cross-agent agreement:** fresh code-reviewer
+**Primary locations:**
+- `src/app/layout.tsx:52`
+- `src/app/page.tsx:33`
+- `src/lib/i18n.ts:8`
+
+**Why it matters:**
+The app supports multiple locales, but the document root remains `lang=\"en\"` even after the user switches language, which hurts screen-reader pronunciation and language metadata.
+
+**Concrete failure scenario:**
+Switching the UI to Korean or Japanese leaves the document language stuck on English.
+
+**Suggested fix:**
+Update `document.documentElement.lang` whenever locale changes, and add a regression assertion in E2E if needed.
+
+**Confidence:** High
 
 ---
 
 ## Recommended implementation order
-1. Fix the map-style contract so `npm run smoke:static` is green and the privacy/offline story is truthful.
-2. Fix JSON import safety (size cap + non-main-thread handling + full depth scan + consistent fallback).
-3. Fix export correctness bugs (transition duration, save cancellation, cleanup abort behavior, codec gating).
-4. Fix timeline / interpolation edge cases.
-5. Fix CSP/style mismatch and user-facing doc/runtime drift.
-6. Harden the static E2E suite and cover the fixed edge cases.
+1. Remove the shipped `.omc` residue and add a guard so it cannot come back.
+2. Remove the webdriver-based production debug surface and switch E2E to an explicit opt-in test hook.
+3. Lazy-mount the export panel so closed export UI no longer pulls export code into startup.
+4. Fix the semantic-segment and antimeridian correctness bugs.
+5. Add a client-side anti-framing fallback and document the required host-level headers.
+6. Follow with UX and export-workload guardrail work in later cycles.

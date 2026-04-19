@@ -1,71 +1,92 @@
-# Deferred Findings — Cycle 2 (2026-04-19)
+# Deferred Findings — Cycle 2
 
-Findings from the cycle 2 review that are not scheduled for implementation this cycle.
+These entries come from the current review set (`.context/reviews/_aggregate.md`, fresh `security-reviewer.md`, fresh `perf-reviewer.md`, and the latest carried-forward designer review). Every active review finding not scheduled in `cycle2-implementation-2026-04-19.md` is recorded here.
 
----
+## DF-C2-001 — Mobile information architecture gaps (designer carry-forward)
+- **Source finding:** `C2-AGG-005`
+- **Original severity / confidence:** MEDIUM / HIGH
+- **File citations:**
+  - `src/components/FileUpload.tsx:193-197`
+  - `src/components/TrackWorkspace.tsx:115-121`
+  - `src/components/TrackToolbar.tsx:123-220`
+- **Reason for deferral:** This cycle is focused on security hardening, startup-path performance, and test-surface preservation. The mobile IA issues are real but are not security, correctness, or data-loss blockers.
+- **Exit criterion:** Re-open in the next UX-focused cycle once the blocking security/startup fixes are merged.
 
-## F4. Reference grid dominates sparse map (MEDIUM)
-- **File:** `src/components/MapView.tsx:165-321`
-- **Original severity/confidence:** MEDIUM / CONFIRMED
-- **Reason for deferral:** Depends on F1 (map style fix) being completed first. After full CARTO styles are restored, the grid may no longer dominate visually.
-- **Exit criterion:** Re-evaluate after F1 is fixed. If grid still dominates with full styles, schedule for implementation.
+## DF-C2-002 — Playback progress still drives whole-app rerenders and per-frame trail rebuilds
+- **Source finding:** `perf-reviewer.md` finding 2
+- **Original severity / confidence:** HIGH / HIGH
+- **File citations:**
+  - `src/lib/usePlaybackController.ts:71-87`
+  - `src/app/page.tsx:295-417`
+  - `src/components/MapView.tsx:775-882`
+- **Reason for deferral:** The fix is a deeper architecture/performance refactor touching playback state ownership and map update strategy. It is too broad for this security/startup-focused cycle.
+- **Exit criterion:** Re-open when a dedicated performance cycle can safely restructure playback state and map animation ownership.
 
-## F5. Map navigation control placement conflicts with toolbar (LOW)
-- **File:** `src/components/MapView.tsx:508`
-- **Original severity/confidence:** LOW / CONFIRMED
-- **Reason for deferral:** Minor cosmetic issue. Does not affect functionality.
-- **Exit criterion:** When UI polish pass is scheduled.
+## DF-C2-003 — Large GPX/KML imports still parse on the main thread
+- **Source finding:** `perf-reviewer.md` finding 3
+- **Original severity / confidence:** HIGH / HIGH
+- **File citations:**
+  - `src/lib/parser.ts:484-535`
+  - `src/lib/parser.ts:102-162`
+  - `src/components/FileUpload.tsx:34-79`
+- **Reason for deferral:** Workerizing XML parsing or redefining file-size product limits is broader than this cycle and needs careful regression coverage across supported formats.
+- **Exit criterion:** Re-open when a parser-performance cycle can either workerize XML parsing or intentionally lower/document XML limits.
 
-## F6. ErrorBoundary has no i18n for error messages (LOW)
-- **File:** `src/components/ErrorBoundary.tsx`
-- **Original severity/confidence:** LOW / CONFIRMED
-- **Reason for deferral:** Error boundary is rarely shown. i18n coverage is nice-to-have.
-- **Exit criterion:** When i18n completeness pass is scheduled.
+## DF-C2-004 — Manual route dragging is O(n) on every pointer move
+- **Source finding:** `perf-reviewer.md` finding 4
+- **Original severity / confidence:** MEDIUM / HIGH
+- **File citations:**
+  - `src/components/JourneyCreator.tsx:129-149`
+  - `src/components/JourneyCreator.tsx:294-301`
+  - `src/components/JourneyCreator.tsx:468-479`
+- **Reason for deferral:** Valuable, but not blocking compared with the current security/startup/test preservation work.
+- **Exit criterion:** Re-open during the next map-interaction or journey-creator performance pass.
 
-## F7. downloadVideo fallback fetches URL that may already be revoked (MEDIUM)
-- **File:** `src/lib/videoEncoder.ts:162-163`
-- **Original severity/confidence:** MEDIUM / LOW
-- **Reason for deferral:** Latent risk — current code always passes `blob`, so the `fetch(url)` fallback is never reached in practice.
-- **Exit criterion:** If video download logic changes to not pass blob, or if blob becomes optional.
+## DF-C2-005 — Export settings still permit browser-hostile workload combinations
+- **Source finding:** `C2-AGG-006`
+- **Original severity / confidence:** HIGH / HIGH
+- **File citations:**
+  - `src/types.ts:52-79`
+  - `src/components/ExportPanel.tsx:84-119,298-312`
+  - `src/lib/videoEncoder.ts:52-91`
+- **Reason for deferral:** Fixing this cleanly requires a product decision on the supported export matrix and may impact UX copy, validation, and possibly encoder strategy. It is not a direct security/correctness/data-loss bug in the current cycle instructions.
+- **Exit criterion:** Re-open when the product/export matrix is defined and can be enforced with matching UI validation and tests.
 
-## F8. ElevationProfile SVG useId() SSR mismatch (LOW)
-- **File:** `src/components/ElevationProfile.tsx:17`
-- **Original severity/confidence:** LOW / LOW
-- **Reason for deferral:** App is fully client-rendered (`'use client'`), so SSR mismatch is theoretical.
-- **Exit criterion:** If SSR is introduced for this component.
+## DF-C2-006 — Locale/help content remains eagerly bundled
+- **Source finding:** `perf-reviewer.md` finding 6
+- **Original severity / confidence:** HIGH / HIGH
+- **File citations:**
+  - `src/lib/i18n.ts:11-1664`
+  - `src/components/GoogleGuide.tsx:146-248`
+  - `src/app/page.tsx:329-417`
+- **Reason for deferral:** Splitting locale payloads and lazily loading modal content is worthwhile but broader than the current focused startup/export/security changes.
+- **Exit criterion:** Re-open in a bundle-size / localization architecture pass.
 
-## F9. Worker parser fallback may silently lose data for large files (MEDIUM)
-- **File:** `src/lib/parser.ts:450-516`
-- **Original severity/confidence:** MEDIUM / MEDIUM
-- **Reason for deferral:** Edge case affecting only very large (>50MB) files when worker creation fails. Current fallback behavior (reject with error message) is acceptable for now.
-- **Exit criterion:** When large file handling improvements are prioritized.
+## DF-C2-007 — Large default variable font payload
+- **Source finding:** `perf-reviewer.md` finding 7
+- **Original severity / confidence:** MEDIUM / HIGH
+- **File citations:**
+  - `src/app/layout.tsx:47-51`
+  - `public/fonts/pretendard.css:1-7`
+  - `src/app/globals.css:7-15`
+- **Reason for deferral:** Reducing the font payload requires asset-pipeline decisions (subsetting, locale-specific loading, or next/font migration) that are outside this cycle’s scope.
+- **Exit criterion:** Re-open when font-loading strategy is explicitly in scope.
 
-## F11. Map interactive when aria-hidden (LOW)
-- **File:** `src/components/MapView.tsx:382-391`
-- **Original severity/confidence:** LOW / CONFIRMED
-- **Reason for deferral:** Minor accessibility issue. The `inert` attribute should prevent keyboard interaction, but mouse events may still reach the map canvas.
-- **Exit criterion:** When accessibility audit is scheduled.
+## DF-C2-008 — E2E suite remains serialized and sleep-heavy
+- **Source finding:** `perf-reviewer.md` finding 8
+- **Original severity / confidence:** MEDIUM / HIGH
+- **File citations:**
+  - `playwright.config.ts:5-12`
+  - `playwright.static.config.ts:5-12`
+  - `e2e/travelback.spec.ts:138,351,367,586,614,689,704,954,986`
+- **Reason for deferral:** The suite currently acts as a broad regression net; parallelizing and de-sleeping it is valuable but larger than the blocking fixes in this cycle.
+- **Exit criterion:** Re-open once the current security/startup fixes are stable and the suite can be split safely.
 
-## F12. TimelineSelector stale closure risk (MEDIUM)
-- **File:** `src/components/TimelineSelector.tsx`
-- **Original severity/confidence:** MEDIUM / LOW
-- **Reason for deferral:** Theoretical risk — no reported bugs from this. Would need careful analysis of event handler lifecycles.
-- **Exit criterion:** If timeline selector bugs are reported, or when component is refactored.
-
-## F14. JourneyCreator coordinate validation (LOW)
-- **File:** `src/components/JourneyCreator.tsx`
-- **Original severity/confidence:** LOW / LOW
-- **Reason for deferral:** Low impact — invalid coordinates would place markers in the ocean, which is self-correcting via drag.
-- **Exit criterion:** When input validation pass is scheduled.
-
-## F16. SceneEditor start >= end validation (MEDIUM)
-- **File:** `src/lib/camera.ts:19-44`, `src/components/SceneEditor.tsx`
-- **Original severity/confidence:** MEDIUM / MEDIUM
-- **Reason for deferral:** The `normalizeScenes()` function handles this gracefully. The UX could be improved but it's not broken.
-- **Exit criterion:** When scene editor UX improvements are scheduled.
-
-## NEW-R3-2. Reference grid visible on empty map creates visual noise (LOW)
-- **File:** `src/components/MapView.tsx:543-548, 692`
-- **Original severity/confidence:** LOW / MEDIUM
-- **Reason for deferral:** Overlaps with existing F4. The grid provides a visual reference for the empty map state; removing it entirely is a design decision. With full 93-layer CARTO styles, the grid is less visually dominant than before.
-- **Exit criterion:** When empty-map UX improvements are scheduled, or if the grid continues to cause readability issues alongside other dark mode visual problems.
+## DF-C2-009 — Residual CSP still allows inline styles
+- **Source finding:** `security-reviewer.md` residual risk 4
+- **Original severity / confidence:** LOW / HIGH
+- **File citations:**
+  - `src/app/layout.tsx`
+  - `scripts/harden-static-export.mjs`
+- **Reason for deferral:** The app intentionally uses inline style attributes across the UI. Tightening this without regression requires a coordinated CSS migration rather than a tactical change.
+- **Exit criterion:** Re-open when inline-style removal is intentionally scheduled and verified across the UI.

@@ -1,63 +1,12 @@
-# Travelback UI/UX Review — Designer
+# Travelback UI/UX review
 
-**Scope:** `.context/**`, `package.json`, configs, `src/**`, `e2e/**`, `public/**`, and runtime inspection at `http://127.0.0.1:3105/travelback/`
-**Runtime:** Chromium via Playwright on desktop and mobile viewports
+Inventory checked before review: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/components/{Controls, ElevationProfile, ErrorBoundary, ExportPanel, FileUpload, GlobalToolbar, GoogleGuide, JourneyCreator, KeyboardHelp, MapView, ModalDialog, SceneEditor, ThemeToggle, TimelineSelector, Toast, TrackToolbar, TrackWorkspace}`, plus `src/styles/vitro-base.css` and `public/theme-init.js`.
 
-## Summary
+Live browser checks: Chromium desktop `1440×1200` and mobile `390×844` against `http://127.0.0.1:3000`. No blocking horizontal overflow or clipping showed up in those viewport checks; the issues below are the high-signal ones.
 
-I found 4 UX/accessibility regressions worth fixing. The app is otherwise coherent and well-structured, but a few structural issues are hurting affordances and mobile clarity.
-
----
-
-### 1) CSP blocks inline style attributes, stripping key visual affordances
-
-- **File / region:** `src/app/layout.tsx:57-60` and the many `style={{...}}` usages across `src/components/GlobalToolbar.tsx`, `src/components/TrackToolbar.tsx`, `src/components/FileUpload.tsx`, `src/components/Controls.tsx`, etc.
-- **Selector / evidence:** In runtime, the selected unit button (`button[aria-label="Metric units"]`) computes to `background-color: rgba(0, 0, 0, 0)` and `color: rgb(0, 0, 0)` instead of the accent-filled active state. Chromium also logs repeated CSP violations for `style-src-attr 'none'`.
-- **User-visible problem:** Important active-state styling is lost, so selected controls look unselected. The browser console is also flooded with style violations on every load.
-- **Reproduction:** Open the landing page or loaded workspace in Chromium at `http://127.0.0.1:3105/travelback/`. In the console, watch for repeated `Applying inline style violates...` errors. Inspect the units toggle; the selected state is visually flat instead of highlighted.
-- **Suggested fix:** Either move critical inline styles to CSS classes / custom properties, or relax the static-export CSP so style attributes are allowed where the app depends on them. Verify the selected-state highlight survives on both landing and loaded states.
-- **Confidence:** High
-- **Status:** Confirmed
-
----
-
-### 2) Landing page has no semantic `h1`
-
-- **File / region:** `src/components/FileUpload.tsx:193-197`; `src/app/page.tsx` has no page-level heading.
-- **Selector / evidence:** Runtime inspection on the landing page showed `document.querySelectorAll('h1').length === 0`.
-- **User-visible problem:** The page’s primary identity (“Travelback”) is only an `h2` inside the upload card, so the document has no top-level heading for screen readers or IA.
-- **Reproduction:** Load the landing page and inspect the heading tree. The first meaningful title is an `h2`, not an `h1`.
-- **Suggested fix:** Promote the landing title to `h1` or add a visually hidden `h1` in the app shell and keep the card title as supporting content.
-- **Confidence:** High
-- **Status:** Confirmed
-
----
-
-### 3) Loaded mobile workspace hides the current track name entirely
-
-- **File / region:** `src/components/TrackWorkspace.tsx:115-121`
-- **Selector / evidence:** The title block is `hidden lg:block`, and on a 390px viewport it has zero visible geometry. Runtime body text on mobile showed the workspace chrome but no route name.
-- **User-visible problem:** After loading a track on a phone, users lose the current trip’s name and location count. The workspace becomes “anonymous,” which makes orientation and session switching harder.
-- **Reproduction:** Load the sample trip on a 390px-wide viewport. The top chrome shows `Camera`, `Export`, and `More controls`, but no visible journey title.
-- **Suggested fix:** Add a compact mobile title treatment — e.g. a one-line pill above the controls or inside the top toolbar — so the route name stays visible below `lg`.
-- **Confidence:** High
-- **Status:** Confirmed
-
----
-
-### 4) Mobile session controls collapse to low-discoverability affordances
-
-- **File / region:** `src/components/FileUpload.tsx:111-123`, `src/components/GlobalToolbar.tsx:23-26`, `src/components/TrackToolbar.tsx:123-220`
-- **Selector / evidence:** On mobile after track load, the top-left session button is a 44×44 icon-only button (`button[aria-label="Load a new track file"]`), and locale/units/theme disappear from the visible toolbar into the `More controls` menu.
-- **User-visible problem:** Common tasks become harder to discover on phones: switching files is visually reduced to an icon, and changing units/locale/theme requires an extra menu tap.
-- **Reproduction:** Load the sample trip on a narrow viewport. The top-left file action is icon-only, and the only visible toolbar buttons are `Camera`, `Export`, and `More controls`.
-- **Suggested fix:** Keep a short visible label for the file-switch action at mobile widths, and surface at least one preference control inline in the loaded toolbar instead of burying all of them in the menu.
-- **Confidence:** High
-- **Status:** Confirmed
-
----
-
-## Notes
-
-- Loading, export, dialogs, and i18n were broadly functional in runtime.
-- The app’s visual system is cohesive, but the CSP/style-attribute mismatch is undermining some of the intended affordances.
+| Severity | Confidence | Status | File / selector citation | Failure scenario | Suggested fix |
+|---|---|---:|---|---|---|
+| High | High | Open | `src/components/TimelineSelector.tsx:255-375` — `div[data-testid="timeline-selector"]`, `div[data-testid="timeline-start-handle"]`, `div[data-testid="timeline-end-handle"]` | The timeline range is mouse/touch only. In tab order, focus jumps from the toolbar straight to elevation/playback controls; the range selector itself never receives focus, so keyboard users cannot adjust the time window. | Make the handles focusable and operable from the keyboard (`tabIndex=0`, arrow/Home/End handlers, `aria-valuenow/min/max` or slider semantics) and expose a visible focus state. |
+| High | Medium | Open | `src/components/MapView.tsx:592-595, 885-899` — `div[data-testid="map-container"]`, `div[data-testid="map-error"]` | In Chromium headless / no-WebGL contexts, MapLibre throws on mount and the whole map area collapses to a retry panel immediately. That turns the primary experience into an error state instead of a graceful fallback. | Feature-detect WebGL before mounting MapLibre, or lazy-mount behind user intent; provide a static preview/explanatory fallback when WebGL is unavailable. |
+| Medium | High | Open | `src/components/FileUpload.tsx:249-250` and `src/components/Toast.tsx:31-55` — `p.mt-4.text-sm`, `div.fixed.bottom-28 sm:bottom-24`, `.go` | Error messaging is visual-only in two places: invalid file uploads render plain inline text, and sample/export failures show toast text with no live-region semantics. Screen-reader users can miss both the failure and its recovery path. | Mark inline errors with `role="alert"`/`aria-live`, and give the toast stack a live region or announce messages through a shared notification region. |
+| Medium | High | Open | `src/components/FileUpload.tsx:163-169` — `button[aria-label="Try with a sample trip"] img.landing-preview-image` | The landing preview image is the page’s LCP, and the browser flagged it as needing eager loading. On slower connections, the first impression feels delayed even though the layout is already on screen. | Add `priority` or `loading="eager"` to the hero image and tighten the responsive image sizing so the landing CTA paints sooner. |
