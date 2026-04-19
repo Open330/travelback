@@ -245,7 +245,7 @@ function HomeInner() {
 
   const cumulativeDistances = useMemo(
     () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
-    [track]
+    [track?.points, track?.segmentStartIndices]
   )
 
   const handlePreviewScene = useCallback((scene: Scene | null) => {
