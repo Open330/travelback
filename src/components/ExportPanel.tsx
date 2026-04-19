@@ -268,10 +268,15 @@ export default function ExportPanel({
                 <label className="vitro-label mb-1 block text-sm font-medium">{t('export.duration')}</label>
                 <input
                   type="number"
-                  min={5}
-                  max={600}
+                  min={EXPORT_LIMITS.duration.min}
+                  max={EXPORT_LIMITS.duration.max}
                   value={duration}
-                  onChange={e => setDuration(Math.max(5, Math.min(600, parseInt(e.target.value) || 30)))}
+                  onChange={e => {
+                    const parsed = parseInt(e.target.value, 10)
+                    setDuration(Number.isFinite(parsed)
+                      ? Math.max(EXPORT_LIMITS.duration.min, Math.min(EXPORT_LIMITS.duration.max, parsed))
+                      : duration)
+                  }}
                   className="vitro-input min-h-11 w-full px-3 py-2 text-sm"
                 />
               </div>
