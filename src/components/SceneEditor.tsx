@@ -199,16 +199,17 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
-    const normalized = normalizeScenes(nextScenes)
-    const sorted = [...normalized].sort((a, b) => a.startPercent - b.startPercent)
+    // Validate raw scenes BEFORE normalization so invalid ranges are caught
+    // and surfaced to the user (normalizeScenes silently removes/corrects them).
     const w: string[] = []
-    for (let i = 0; i < sorted.length; i++) {
-      const s = sorted[i]
+    for (const s of nextScenes) {
       if (s.startPercent >= s.endPercent) {
         w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
       }
     }
     setNormalizationWarnings(w)
+
+    const normalized = normalizeScenes(nextScenes)
     onChange(normalized)
   }, [onChange, t])
 
