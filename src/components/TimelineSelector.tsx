@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GripHorizontal, RotateCcw } from 'lucide-react'
 import { Track } from '@/types'
+import { computeCumulativeDistances } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 
 const HINT_DISMISSED_KEY = 'travelback-timeline-hint-dismissed'
@@ -63,19 +64,32 @@ function TimelineSelector({
 
   const points = track.points
 
-  // Compute bucket densities
+  const cumulDist = useMemo(
+    () => computeCumulativeDistances(track.points, track.segmentStartIndices),
+    [track]
+  )
+
+  // Compute bucket densities using distance-based bucketing
+  // (consistent with the distance-based paradigm used in ElevationProfile and playback)
   const buckets = useMemo(() => {
     const arr = new Array<number>(BUCKET_COUNT).fill(0)
     if (points.length === 0) return arr
+    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
+    if (totalDist <= 0) {
+      // Fallback: use index-based bucketing when no distance data
+      for (let i = 0; i < points.length; i++) {
+        const b = Math.min(BUCKET_COUNT - 1, Math.floor((i / points.length) * BUCKET_COUNT))
+        arr[b]++
+      }
+      return arr
+    }
     for (let i = 0; i < points.length; i++) {
-      const b = Math.min(
-        BUCKET_COUNT - 1,
-        Math.floor((i / points.length) * BUCKET_COUNT)
-      )
+      const dist = cumulDist[i] ?? 0
+      const b = Math.min(BUCKET_COUNT - 1, Math.floor((dist / totalDist) * BUCKET_COUNT))
       arr[b]++
     }
     return arr
-  }, [points])
+  }, [points, cumulDist])
 
   const maxBucket = useMemo(() => Math.max(...buckets, 1), [buckets])
 
