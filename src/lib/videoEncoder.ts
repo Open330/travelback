@@ -106,6 +106,13 @@ export async function exportVideo(
       // Apply camera state to the map (caller implements this)
       await renderFrame(progress, cameraState)
 
+      // Check abort again after the synchronous renderFrame call — the
+      // top-of-loop check may have passed but the user can cancel during
+      // the map camera update, so re-check before the expensive idle wait.
+      if (signal?.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
+
       // Wait for the map to finish rendering tiles
       if (waitForIdle) {
         await waitForIdle()
