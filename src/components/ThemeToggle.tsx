@@ -4,35 +4,30 @@ import { useEffect, useState, useCallback } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
 
-function detectInitialMode(): { mode: 'dark' | 'light'; hadExplicitMode: boolean } {
+function detectInitialMode(): 'dark' | 'light' {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
-    return { mode: 'light', hadExplicitMode: true }
+    return 'light'
   }
 
   const current = document.documentElement.getAttribute('data-mode')
   if (current === 'dark' || current === 'light') {
-    return { mode: current, hadExplicitMode: true }
+    return current
   }
 
   if (typeof window.matchMedia !== 'function') {
     document.documentElement.setAttribute('data-mode', 'light')
-    return { mode: 'light', hadExplicitMode: false }
+    return 'light'
   }
 
   const inferredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   document.documentElement.setAttribute('data-mode', inferredMode)
-  return { mode: inferredMode, hadExplicitMode: false }
+  return inferredMode
 }
 
 export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mode?: 'dark' | 'light'; onModeChange?: (mode: 'dark' | 'light') => void }) {
   const { t } = useLocale()
-  const [initialMode] = useState(() => detectInitialMode())
-  const [mode, setMode] = useState<'dark' | 'light'>(initialMode.mode)
+  const [mode, setMode] = useState<'dark' | 'light'>(() => detectInitialMode())
   const effectiveMode = controlledMode ?? mode
-
-  useEffect(() => {
-    onModeChange?.(initialMode.mode)
-  }, [initialMode, onModeChange])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
