@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw } from 'lucide-react'
 import type { VideoCodec, ExportConfig } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
@@ -154,19 +154,10 @@ export default function ExportPanel({
     }
   }, [exportedVideoBlob])
 
-  if (!isOpen) return null
-
-  const platformTip = (() => {
-    const r = RESOLUTION_PRESETS[resolutionIdx]
-    if (r.width === 1080 && r.height === 1920) return t('export.tipTikTok')
-    if (r.width === 1080 && (r.height === 1080 || r.height === 1350)) return t('export.tipInstagram')
-    return t('export.tipYouTube')
-  })()
-
   // Check both navigator.share and navigator.canShare with a test file.
   // Some browsers support navigator.share for URLs but not for files,
   // which would cause the Share button to appear but silently fail on click.
-  const canShare = (() => {
+  const canShare = useMemo(() => {
     if (typeof navigator === 'undefined') return false
     if (typeof navigator.share !== 'function') return false
     try {
@@ -175,6 +166,15 @@ export default function ExportPanel({
     } catch {
       return false
     }
+  }, [])
+
+  if (!isOpen) return null
+
+  const platformTip = (() => {
+    const r = RESOLUTION_PRESETS[resolutionIdx]
+    if (r.width === 1080 && r.height === 1920) return t('export.tipTikTok')
+    if (r.width === 1080 && (r.height === 1080 || r.height === 1350)) return t('export.tipInstagram')
+    return t('export.tipYouTube')
   })()
 
   return (
@@ -265,7 +265,7 @@ export default function ExportPanel({
             <div className="mb-6 space-y-4">
               <div>
                 <label className="vitro-label mb-1 block text-sm font-medium">{t('export.resolution')}</label>
-                <select value={resolutionIdx} onChange={e => setResolutionIdx(parseInt(e.target.value))} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                <select value={resolutionIdx} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setResolutionIdx(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                   {RESOLUTION_PRESETS.map((_r, i) => (
                     <option key={i} value={i}>{t(RESOLUTION_KEYS[i] as 'resolution.youtube')}</option>
                   ))}
@@ -326,7 +326,7 @@ export default function ExportPanel({
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="vitro-label mb-1 block text-sm font-medium">{t('export.fps')}</label>
-                      <select value={fps} onChange={e => setFps(parseInt(e.target.value))} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                      <select value={fps} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setFps(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                         <option value={24}>24</option>
                         <option value={30}>30</option>
                         <option value={60}>60</option>
