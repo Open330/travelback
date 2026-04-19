@@ -607,7 +607,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
                 style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
                 {searchResults.map((r, i) => (
-                  <button key={i} role="option" onClick={() => handleSelectPlace(r.lat, r.lon)}
+                  <button key={i} role="option" aria-selected={false} onClick={() => handleSelectPlace(r.lat, r.lon)}
                     className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
                     style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
                     {r.display_name}
