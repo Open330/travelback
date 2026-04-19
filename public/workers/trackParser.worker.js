@@ -112,17 +112,21 @@ function parseSemanticSegments(segments, out, segStarts) {
       }
     }
 
-    const visit = seg.visit
+    // Segment break between timelinePath and visit within the same segment
+    var afterPathLen = out.length
+    if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
+
+    var visit = seg.visit
     if (visit && visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
-      const m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
+      var m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
       if (!m) continue
-      const lat = parseOptionalNumber(m[1])
-      const lng = parseOptionalNumber(m[2])
+      var lat = parseOptionalNumber(m[1])
+      var lng = parseOptionalNumber(m[2])
       if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
       out.push({ lat, lng, time: gTime(seg.startTime) })
     }
 
-    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
+    if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)
   }
 }
 

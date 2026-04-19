@@ -285,6 +285,12 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         })
       }
     }
+    // Segment break between timelinePath and visit within the same segment
+    // (a single semanticSegment can contain both a walk path and a stationary
+    // visit — they should not be connected by a straight line).
+    const afterPathLen = out.length
+    if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
+
     // visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
     const visit = seg.visit as Record<string, unknown> | undefined
     if (visit) {
@@ -302,7 +308,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
       }
     }
 
-    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
+    if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)
   }
 }
 
