@@ -15,13 +15,10 @@ function detectInitialMode(): 'dark' | 'light' {
   }
 
   if (typeof window.matchMedia !== 'function') {
-    document.documentElement.setAttribute('data-mode', 'light')
     return 'light'
   }
 
-  const inferredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  document.documentElement.setAttribute('data-mode', inferredMode)
-  return inferredMode
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mode?: 'dark' | 'light'; onModeChange?: (mode: 'dark' | 'light') => void }) {

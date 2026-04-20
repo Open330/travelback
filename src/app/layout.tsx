@@ -49,7 +49,7 @@ export default function RootLayout({
   const bootstrapScript = `(function(){try{if(window.top!==window.self){try{window.top.location=window.self.location.href;return}catch{document.documentElement.style.display='none';window.location.replace('about:blank');return}}}catch{}try{var d=document.documentElement;var s=null;try{s=localStorage.getItem('travelback-theme')}catch{};var m;if(s==='dark'||s==='light'){m=s}else{m=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'};if(!d.getAttribute('data-mode'))d.setAttribute('data-mode',m);if(!d.getAttribute('data-mapstyle'))d.setAttribute('data-mapstyle',m==='dark'?'dark':'voyager')}catch{}try{var l=null;try{l=localStorage.getItem('travelback-locale')}catch{};if(l==='en'||l==='ko'||l==='ja'||l==='zh'||l==='es'){d.lang=l}}catch{}})()`
 
   return (
-    <html lang="en" data-svc="travelback" data-mesh="on" suppressHydrationWarning>
+    <html lang="en" data-svc="travelback" data-mesh="on" data-mode="light" data-mapstyle="voyager" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
@@ -70,7 +70,7 @@ export default function RootLayout({
       </head>
       <body
         className="antialiased"
-        style={{ background: 'var(--bg)', color: 'var(--t1)' }}
+        style={{ background: 'var(--bg,#EBEEF4)', color: 'var(--t1,#050810)' }}
         suppressHydrationWarning
       >
         <div className="vitro-mesh fixed inset-0 z-0" />
