@@ -35,17 +35,24 @@ function HomeInner() {
   const [track, setTrack] = useState<Track | null>(null)
   const [colorMode, setColorMode] = useState<'dark' | 'light'>(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return 'light'
+    // Prefer the attribute set by the inline bootstrap script (which reads localStorage + matchMedia).
+    // Fall back to reading localStorage directly, then matchMedia, then 'light'.
     const currentMode = document.documentElement.getAttribute('data-mode')
     if (currentMode === 'dark' || currentMode === 'light') return currentMode
+    try {
+      const stored = localStorage.getItem('travelback-theme')
+      if (stored === 'dark' || stored === 'light') return stored
+    } catch { /* ignore */ }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
   const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(false)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
     if (typeof document === 'undefined') return 'voyager'
     const mode = document.documentElement.getAttribute('data-mode')
-    const key = mode === 'dark' ? 'dark' : 'voyager'
-    document.documentElement.setAttribute('data-mapstyle', key)
-    return key
+    // Do NOT write to the DOM during useState initializer (side effect during render).
+    // The bootstrap script already sets data-mapstyle. If it didn't run, the useEffect
+    // below will set it after mount.
+    return mode === 'dark' ? 'dark' : 'voyager'
   })
   const [showExport, setShowExport] = useState(false)
   const [isCreatingJourney, setIsCreatingJourney] = useState(false)

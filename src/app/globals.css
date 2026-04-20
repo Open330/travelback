@@ -1,6 +1,14 @@
 @import "tailwindcss";
-@import "maplibre-gl/dist/maplibre-gl.css";
+@import "maplibre-gl/dist/maplibre-gl.css" layer(third-party);
 @import "../styles/vitro-base.css" layer(base);
+
+/* MapLibre GL adds .maplibregl-map { position: relative } to the container,
+   which overrides Tailwind's `absolute` utility when the third-party CSS
+   is un-layered or has higher cascade priority. Force the map container
+   back to absolute positioning so inset-0 works as intended. */
+.maplibregl-map.absolute {
+  position: absolute !important;
+}
 
 @theme inline {
   --color-background: var(--bg);

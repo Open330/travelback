@@ -74,13 +74,13 @@ export default function Controls({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div data-testid="controls-primary-row" className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+          <div data-testid="controls-primary-row" className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3" style={{ rowGap: '0.375rem' }}>
             {/* Play/Pause */}
             <button
               onClick={onTogglePlay}
               aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
               title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
-              className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer transition-colors shrink-0"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors"
               style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
             >
               {isPlaying ? (
@@ -91,7 +91,7 @@ export default function Controls({
             </button>
 
             {/* Speed */}
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <span className="text-[10px] font-medium hidden sm:inline" style={{ color: 'var(--t4)' }}>{t('controls.speedLabel')}</span>
               <select
                 value={speed}
@@ -118,7 +118,7 @@ export default function Controls({
                   }}
               aria-label={t('controls.animationDuration')}
               title={t('controls.animationDuration')}
-              className="vitro-select min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
+              className="vitro-select shrink-0 min-h-11 px-2 py-1.5 text-xs sm:text-sm font-medium"
             >
               {DURATIONS.map((d) => (
                 <option key={d} value={d}>{formatDuration(d)}</option>
@@ -130,7 +130,7 @@ export default function Controls({
               onClick={onFollowCameraToggle}
               aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
               title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
-              className="gi min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer"
+              className="gi shrink-0 min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer"
               style={followCamera
                 ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
                 : { color: 'var(--t3)' }

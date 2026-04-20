@@ -85,12 +85,13 @@ export default function TrackToolbar({
     <div
       data-testid="track-toolbar"
       className={`absolute top-4 right-4 z-10 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 ${showSceneEditor ? 'sm:right-[18rem] sm:max-w-[calc(100vw-20rem)]' : 'sm:max-w-[calc(100vw-2rem)]'}`}
+      style={{ rowGap: '0.375rem' }}
     >
       <button
         type="button"
         onClick={onStartNewTrack}
         title={t('app.newJourneyAria')}
-        className="gi hidden min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
+        className="gi hidden shrink-0 min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
         style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
       >
         <Plus size={14} strokeWidth={2.5} />
@@ -101,7 +102,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onToggleSceneEditor}
         title={t('app.openSceneEditor')}
-        className="gi min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer sm:px-3"
+        className="gi shrink-0 min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer sm:px-3"
         style={showSceneEditor
           ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
           : { color: 'var(--t1)' }
@@ -115,7 +116,7 @@ export default function TrackToolbar({
         data-testid="map-style-button"
         onClick={onCycleStyle}
         title={t('app.cycleMapStyle')}
-        className="gi hidden min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
+        className="gi hidden shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
         style={{ color: 'var(--t1)' }}
       >
         {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
@@ -125,7 +126,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onOpenExport}
         title={t('app.exportVideoKey')}
-        className="vitro-btn-primary min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:px-4"
+        className="vitro-btn-primary shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:px-4"
       >
         {t('app.export')}
       </button>

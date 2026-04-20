@@ -24,7 +24,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
       data-testid="global-toolbar"
       className={`absolute right-4 z-10 items-center gap-2 ${hasTrack ? 'hidden sm:flex sm:top-[4.75rem]' : 'top-4 flex'}`}
     >
-      <div className="gi inline-flex items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
+      <div className="gi inline-flex shrink-0 items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
         <button
           type="button"
           onClick={() => onUnitsChange('metric')}
@@ -50,7 +50,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
         value={locale}
         onChange={e => setLocale(e.target.value as Locale)}
         aria-label={t('locale.label')}
-        className="gi min-h-11 px-2 py-1.5 text-xs font-medium cursor-pointer text-center"
+        className="gi min-h-11 shrink-0 px-2 py-1.5 text-xs font-medium cursor-pointer text-center"
         style={{ color: 'var(--t2)', minWidth: '3.75rem' }}
       >
         <option value="en">EN</option>
@@ -59,7 +59,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
         <option value="zh">ZH</option>
         <option value="es">ES</option>
       </select>
-      <div className="gi flex min-h-11 items-center gap-1.5 px-1.5 py-1">
+      <div className="gi flex min-h-11 shrink-0 items-center gap-1.5 px-1.5 py-1">
         <span className="hidden text-[10px] font-medium sm:inline" style={{ color: 'var(--t4)' }}>
           {t('theme.label')}
         </span>
