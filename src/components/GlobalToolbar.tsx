@@ -22,7 +22,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
   return (
     <div
       data-testid="global-toolbar"
-      className={`absolute right-4 z-10 items-center gap-2 ${hasTrack ? 'hidden sm:flex sm:top-[4.75rem]' : 'top-4 flex'}`}
+      className={`absolute right-4 z-20 items-center gap-2 ${hasTrack ? 'hidden sm:flex sm:top-[4.75rem]' : 'top-4 flex'}`}
     >
       <div className="gi inline-flex shrink-0 items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
         <button
