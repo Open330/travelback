@@ -614,6 +614,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
       map.on('style.load', onGlobalStyleLoad)
 
+      const onMapError = (e: { error?: Error | string }) => {
+        const message = e.error instanceof Error ? e.error.message : typeof e.error === 'string' ? e.error : 'Map failed to load'
+        console.error('[Travelback] Map error:', message)
+        setMapError(message)
+      }
+      map.on('error', onMapError)
+
       return () => {
         markerRef.current?.remove()
         markerRef.current = null
@@ -622,6 +629,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           markerEl.current = null
         }
         map.off('style.load', onGlobalStyleLoad)
+        map.off('error', onMapError)
         map.remove()
         mapRef.current = null
         lastCameraStateRef.current = null
