@@ -190,6 +190,16 @@ test.describe('Travelback App', () => {
     await page.addInitScript(() => {
       window.localStorage.setItem('travelback-debug', '1')
     })
+    // Hide Next.js dev overlay before page loads. Hydration mismatches from the
+    // bootstrap script (which sets data-mode before React hydrates) trigger the
+    // overlay in dev mode, interfering with test locators and keyboard focus.
+    await page.addInitScript({
+      content: `
+        const style = document.createElement('style')
+        style.textContent = '[id^="nextjs"]{display:none!important;}'
+        document.documentElement.appendChild(style)
+      `,
+    })
     await page.goto('/')
     await waitForApp(page)
   })
@@ -938,7 +948,7 @@ test.describe('Travelback App', () => {
       const fileInput = page.locator('input[type="file"]')
       await fileInput.setInputFiles(tmpFile)
       // Should show an error message (error text in the upload area)
-      await expect(page.locator('text=/Unsupported file format|parse|error/i')).toBeVisible({ timeout: 10_000 })
+      await expect(page.locator('p[role="alert"]')).toContainText('Unsupported file format', { timeout: 10_000 })
       // App should not crash — heading should still be visible
       await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
     } finally {

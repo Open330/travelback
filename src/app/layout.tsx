@@ -71,6 +71,7 @@ export default function RootLayout({
       <body
         className="antialiased"
         style={{ background: 'var(--bg)', color: 'var(--t1)' }}
+        suppressHydrationWarning
       >
         <div className="vitro-mesh fixed inset-0 z-0" />
         <div className="vitro-noise" />
