@@ -286,6 +286,51 @@ test.describe('Travelback App', () => {
     await expect.poll(async () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(10, 13, 20)')
   })
 
+  test('theme toggle persists across page reload', async ({ page }) => {
+    // Start in light mode (default)
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light')
+
+    // Toggle to dark mode
+    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i })
+    await expect(themeToggle).toBeVisible({ timeout: 10_000 })
+    await themeToggle.click({ force: true })
+
+    // Verify dark mode is applied
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('dark')
+
+    // Verify it's saved to localStorage
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('travelback-theme'))).toBe('dark')
+
+    // Reload the page — the bootstrap script should restore dark mode
+    await page.reload()
+    await waitForApp(page)
+
+    // After reload, dark mode should persist without any toggle click
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('dark')
+
+    // Toggle back to light mode
+    const lightToggle = page.getByRole('button', { name: /switch to light mode/i })
+    await expect(lightToggle).toBeVisible({ timeout: 10_000 })
+    await lightToggle.click({ force: true })
+
+    // Verify light mode and reload persistence
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light')
+    await page.reload()
+    await waitForApp(page)
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light')
+  })
+
+  test('map error UI appears when map style fails to load', async ({ page }) => {
+    // Block the map style JSON to simulate a failed map load
+    await page.route('**/map-styles/voyager.json', route => route.abort('failed'))
+    await page.goto('/')
+    await waitForApp(page)
+
+    // The map error UI should appear
+    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('alert')).toBeVisible()
+  })
+
   test('loads sample trip from landing CTA', async ({ page }) => {
     const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
     await expect(sampleBtn).toBeVisible({ timeout: 10_000 })
