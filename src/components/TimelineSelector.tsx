@@ -62,6 +62,7 @@ function TimelineSelector({
     originStart: number
     originEnd: number
   }>({ dragging: null, originX: 0, originStart: 0, originEnd: 1 })
+  const dragMovedRef = useRef(false)
 
   const points = track.points
 
@@ -161,6 +162,7 @@ function TimelineSelector({
       rafRef.current = requestAnimationFrame(() => {
         const ds = dragState.current
         if (!ds.dragging) return
+        dragMovedRef.current = true
         const width = getWidth()
         const dx = (clientX - ds.originX) / width
 
@@ -201,6 +203,7 @@ function TimelineSelector({
       originStart: startRatio,
       originEnd: endRatio,
     }
+    dragMovedRef.current = false
   }
 
   const endDrag = useCallback(() => {
@@ -209,10 +212,11 @@ function TimelineSelector({
       rafRef.current = null
     }
     dragState.current.dragging = null
-    if (points.length > 0) {
+    if (dragMovedRef.current && points.length > 0) {
       const { startIdx, endIdx } = resolveRangeIndexes()
       onRangeChangeRef.current(startIdx, endIdx)
     }
+    dragMovedRef.current = false
   }, [resolveRangeIndexes, points.length])
 
   // Global mouse/touch listeners for drag
