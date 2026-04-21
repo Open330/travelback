@@ -331,6 +331,35 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('alert')).toBeVisible()
   })
 
+  test('map error reload button restores the map after unblocking the style', async ({ page }) => {
+    // Block the map style JSON to trigger the error UI
+    let styleBlocked = true
+    await page.route('**/map-styles/voyager.json', async (route) => {
+      if (styleBlocked) {
+        await route.abort('failed')
+      } else {
+        await route.fallback()
+      }
+    })
+    await page.goto('/')
+    await waitForApp(page)
+
+    // The map error UI should appear with a reload button
+    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    const reloadBtn = page.getByRole('button', { name: /reload page/i })
+    await expect(reloadBtn).toBeVisible()
+
+    // Unblock the map style so the next load will succeed
+    styleBlocked = false
+
+    // Click the reload button
+    await reloadBtn.click({ force: true })
+    await waitForApp(page)
+
+    // After reload, the error UI should be gone and the map should load
+    await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
+  })
+
   test('loads sample trip from landing CTA', async ({ page }) => {
     const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
     await expect(sampleBtn).toBeVisible({ timeout: 10_000 })
