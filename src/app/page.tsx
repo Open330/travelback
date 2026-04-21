@@ -69,6 +69,12 @@ function HomeInner() {
     document.documentElement.lang = locale
   }, [locale])
 
+  useEffect(() => {
+    applyDocumentMode(colorMode)
+    applyDocumentMapStyle(mapStyleKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after mount to apply client-detected theme
+  }, [])
+
   const mapViewRef = useRef<MapViewHandle>(null)
   const playback = usePlaybackController(track)
   const {
