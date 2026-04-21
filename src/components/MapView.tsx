@@ -932,7 +932,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of per-frame re-execution if their deps ever change. The effect already handles missing layers via the guard on line 824.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of per-frame re-execution if their deps ever change. The effect already handles missing layers via the isStyleLoaded + layer-existence guard above.
   }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp])
 
   return (
