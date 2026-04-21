@@ -1,13 +1,13 @@
-# Aggregate Review -- Cycle 6 (2026-04-21)
+# Aggregate Review -- Cycle 7 (2026-04-21)
 
 **Date:** 2026-04-21
-**Source reviews:** cycle6-code-reviewer, cycle6-perf-reviewer, cycle6-security-reviewer, cycle6-critic, cycle6-verifier, cycle6-test-engineer, cycle6-tracer, cycle6-architect, cycle6-debugger, cycle6-document-specialist, cycle6-designer
+**Source reviews:** cycle7-code-reviewer, cycle7-perf-reviewer, cycle7-security-reviewer, cycle7-critic, cycle7-verifier, cycle7-test-engineer, cycle7-tracer, cycle7-architect, cycle7-debugger, cycle7-document-specialist, cycle7-designer
 
 ---
 
 ## Summary
 
-Deep review across 11 specialist angles. All cycle 5 fixes confirmed still applied and correct. **2 new findings** identified this cycle (after deduplication), both LOW severity.
+Deep review across 11 specialist angles. All prior cycle fixes confirmed still applied and correct. **6 new findings** identified this cycle (after deduplication), all LOW severity. The codebase has converged -- findings are increasingly edge-case-level.
 
 ---
 
@@ -15,25 +15,28 @@ Deep review across 11 specialist angles. All cycle 5 fixes confirmed still appli
 
 ### LOW Severity
 
-| ID | Finding | Source | Files | Confidence |
-|----|---------|--------|-------|------------|
-| C6-A1 | ElevationProfile click handler does not account for chart padding offset | code-reviewer | src/components/ElevationProfile.tsx:68-71 | HIGH (FALSE POSITIVE -- SVG viewBox maps correctly, no padding issue) |
-| C6-A2 | MapView eslint-disable comment references wrong line number | document-specialist | src/components/MapView.tsx:935 | HIGH |
+| ID | Finding | Source(s) | Files | Confidence |
+|----|---------|-----------|-------|------------|
+| C7-A1 | TimelineSelector endDrag fires onRangeChange even when no drag occurred | code-reviewer | src/components/TimelineSelector.tsx:206-216 | MEDIUM |
+| C7-A2 | ExportPanel module-level codecSupportCache never invalidated | code-reviewer | src/components/ExportPanel.tsx:31 | LOW |
+| C7-A3 | SceneEditor deletedScene undo timer can fire after unmount | code-reviewer, debugger | src/components/SceneEditor.tsx:276-282 | MEDIUM |
+| C7-A4 | Controls progress bar slider lacks visible focus indicator on Firefox | designer | src/components/Controls.tsx:56-73, src/app/globals.css:79-111 | MEDIUM |
+| C7-A5 | Architecture doc component tree is incomplete (missing TrackWorkspace children) | document-specialist | .context/project/02-architecture.md:6-14 | MEDIUM |
+| C7-A6 | Export panel "estimated time" can be misleading for 4K AV1 exports | critic | src/components/ExportPanel.tsx:98-105 | MEDIUM |
 
 ---
 
 ## Cross-Finding Analysis
 
-Both findings are minor and isolated. C6-A1 was only found by the code-reviewer; C6-A2 was only found by the document-specialist. No cross-agent agreement on new findings this cycle, which is expected given the thoroughness of prior cycles -- the codebase is in good shape and the remaining issues are edge-case-level.
+- **C7-A3** was independently discovered by both the code-reviewer (C7-CR-3) and debugger (C7-DB-1), increasing signal strength. The setTimeout cleanup gap on unmount is a real but low-impact pattern (React 18+ silently swallows the state update).
+- No other findings had cross-agent agreement, which is expected given the codebase's maturity.
+- The verifier confirmed all prior fixes are still in place and all key flows remain correct.
+- The tracer found no new data flow issues or race conditions.
+- The security reviewer found no new vulnerabilities.
 
 ---
 
 ## Deferred Findings (Carried Forward)
-
-### New Deferred Items from This Cycle
-
-- DF-C6-001: ~~ElevationProfile click handler does not account for chart padding offset~~ (C6-A1) -- FALSE POSITIVE -- SVG viewBox maps correctly to progress, no padding issue
-- DF-C6-002: ~~MapView eslint-disable comment references wrong line number~~ (C6-A2) -- FIXED -- comment updated to describe guard generically
 
 ### Previously Deferred (Carried Forward)
 
@@ -63,7 +66,15 @@ Both findings are minor and isolated. C6-A1 was only found by the code-reviewer;
 - DF-C4-006: Export time estimate accuracy
 - DF-C4-007: Duplicate theme initialization
 - DF-C4-008: Deferred items triage process
-- DF-C5-001: Worker buffer transfer fallback uses detached ArrayBuffer (FIXED in cycle 5 -- should be removed from deferred list)
+- DF-C4-009: generateId() fallback uses Math.random()
+- DF-C4-010: isTouchDevice detection runs once on mount
+- DF-C4-011: Multiple eslint-disable comments
+- DF-C4-012: fullTrack and track set to same value initially
+- DF-C4-013: Export progress floating-point edge case
+- DF-C4-014: localStorage write failure silently ignored
+- DF-C4-015: Bootstrap script minified with no source reference
+- DF-C4-016: eslint-disable comments lack consistent format
+- DF-C4-017: No unit test for parser error code mapping
 
 ---
 
@@ -71,13 +82,15 @@ Both findings are minor and isolated. C6-A1 was only found by the code-reviewer;
 
 Based on severity and fix complexity:
 
-1. **C6-A1** (LOW): Fix ElevationProfile click handler to account for chart padding -- minor code change, low risk. Optional given severity.
-2. **C6-A2** (LOW): Fix MapView eslint-disable comment line reference -- trivial text fix. Optional given severity.
-
-Both items are minor and can be addressed opportunistically. No HIGH or MEDIUM severity findings this cycle.
+1. **C7-A1** (LOW): Add drag-moved tracking to TimelineSelector to avoid unnecessary onRangeChange on click-without-drag. Minor code change, low risk.
+2. **C7-A3** (LOW): Add cleanup for SceneEditor deletedScene undo timer on unmount. Trivial fix.
+3. **C7-A4** (LOW): Add Firefox-compatible focus-visible styles for range input sliders. Minor CSS addition.
+4. **C7-A5** (LOW): Update architecture doc to list TrackWorkspace children and trim data flow. Documentation only.
+5. **C7-A6** (LOW): Add qualifier text to export time estimate. Minor i18n string update.
+6. **C7-A2** (LOW): Defer -- codec support cache invalidation has negligible practical impact.
 
 ---
 
 ## Convergence Assessment
 
-The codebase has converged: cycles 5 and 6 both found only LOW-severity issues, and the findings are becoming increasingly edge-case-level (comment accuracy, click-seek precision at canvas edges). The core functionality is stable and the prior HIGH/MEDIUM fixes are holding.
+Cycles 5, 6, and 7 all found only LOW-severity issues. The codebase has clearly converged. Findings are increasingly edge-case-level (timer cleanup, focus indicators, doc accuracy). Core functionality is stable and prior HIGH/MEDIUM fixes are holding across cycles.
