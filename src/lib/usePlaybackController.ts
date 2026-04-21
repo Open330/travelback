@@ -23,11 +23,12 @@ export function usePlaybackController(track: Track | null) {
   const [seekNonce, setSeekNonce] = useState(0)
 
   const animFrameRef = useRef<number>(0)
-  const lastTimeRef = useRef<number>(0)
   const progressRef = useRef(0)
   const speedRef = useRef(speed)
   const durationRef = useRef(duration)
   const isPlayingRef = useRef(false)
+  const startTimestampRef = useRef<number>(0)
+  const startProgressRef = useRef<number>(0)
 
   useEffect(() => {
     isPlayingRef.current = isPlaying
@@ -78,16 +79,18 @@ export function usePlaybackController(track: Track | null) {
   useEffect(() => {
     if (!isPlaying || !track) return
 
-    lastTimeRef.current = performance.now()
+    // Use accumulator-based progress: record the timestamp and progress
+    // when playback starts so each frame computes nextProgress from
+    // elapsed wall-clock time rather than accumulating dt values.  This
+    // eliminates both floating-point accumulation error and frame-rate
+    // dependency (e.g. when rAF is throttled in background tabs).
+    startTimestampRef.current = performance.now()
+    startProgressRef.current = progressRef.current
 
     const animate = (now: number) => {
       if (!isPlayingRef.current) return
-      const rawDt = (now - lastTimeRef.current) / 1000
-      const dt = Math.min(rawDt, 1 / 30)
-      lastTimeRef.current = now
-
-      const increment = (dt * speedRef.current) / durationRef.current
-      const nextProgress = progressRef.current + increment
+      const elapsedSec = (now - startTimestampRef.current) / 1000
+      const nextProgress = startProgressRef.current + (elapsedSec * speedRef.current) / durationRef.current
 
       if (nextProgress >= 1) {
         setPlaybackProgress(1)
