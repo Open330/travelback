@@ -443,6 +443,12 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
   }
 
   return new Promise((resolve, reject) => {
+    // Keep a copy of the buffer text before transferring the ArrayBuffer to
+    // the worker.  After `postMessage(..., [buffer])` the main-thread
+    // `buffer` is detached (zero-length), so any fallback that needs the
+    // data must use this pre-transfer copy.
+    const textCopy = decodeJsonBuffer(buffer)
+
     let worker: Worker
     try {
       const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
@@ -450,7 +456,7 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
       try {
-        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+        resolve(parseGoogleLocationHistory(textCopy))
       } catch (error) {
         reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
       }
@@ -466,20 +472,17 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string; code?: string }>) => {
       cleanup()
       if (event.data.error) {
-        // Worker reported a parse error — fall back to main-thread parser
-        // instead of rejecting outright, so the user still has a chance to
-        // import their file.
-        try {
-          resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
-        } catch {
-          reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
-        }
+        // Worker reported a parse error — the worker already tried and
+        // failed, so reject with its error rather than falling back to
+        // the main-thread parser (which would likely fail the same way).
+        reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
         return
       }
       if (!event.data.track) {
-        // Worker returned no track and no error — fall back to main-thread parser
+        // Worker returned no track and no error — fall back to main-thread
+        // parser using the pre-transfer text copy.
         try {
-          resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+          resolve(parseGoogleLocationHistory(textCopy))
         } catch {
           reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
         }
@@ -498,9 +501,10 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     worker.onerror = (event) => {
       cleanup()
       // Worker crashed (e.g., memory pressure) — fall back to main-thread
-      // parser instead of rejecting outright.
+      // parser using the pre-transfer text copy. This gives the user a
+      // chance to import their file even when the Worker environment fails.
       try {
-        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+        resolve(parseGoogleLocationHistory(textCopy))
       } catch {
         reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
       }
