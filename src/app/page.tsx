@@ -301,11 +301,6 @@ function HomeInner() {
     setUnits(nextUnits)
   }, [])
 
-  useEffect(() => {
-    applyDocumentMode(colorMode)
-    applyDocumentMapStyle(mapStyleKey)
-  }, [applyDocumentMapStyle, applyDocumentMode, colorMode, mapStyleKey])
-
   return (
     <ErrorBoundary>
       <div className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true">
