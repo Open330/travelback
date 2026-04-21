@@ -174,7 +174,21 @@ export function useExportController({
       }
     } finally {
       exportAbortRef.current = null
-      mapViewRef.current?.resetSize()
+      try {
+        mapViewRef.current?.resetSize()
+      } catch (resetError) {
+        // resetSize() can fail if the map was destroyed during export.
+        // Force-reset the container dimensions as a fallback so the layout
+        // isn't stuck at the export resolution (e.g. 3840x2160 for 4K).
+        console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
+        try {
+          const container = document.querySelector('[data-testid="map-container"]') as HTMLElement | null
+          if (container) {
+            container.style.width = ''
+            container.style.height = ''
+          }
+        } catch { /* best effort */ }
+      }
       // Wait for map to settle after resize on the normal-completion path.
       // Skip the idle wait when the export was aborted — the signal is already
       // aborted so waitForIdle would reject immediately, making the wait a no-op.
