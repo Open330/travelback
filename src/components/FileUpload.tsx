@@ -60,7 +60,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const message = err instanceof Error ? err.message : ''
       const matchedKey = code && code in errorCodeMap ? code : ''
       // FILE_TOO_LARGE uses the parser's dynamic message (includes correct limit per file type)
-      const isFileTooLarge = code === 'FILE_TOO_LARGE' || message.includes('File is too large')
+      const isFileTooLarge = code === 'FILE_TOO_LARGE'
       const isSafe = !!matchedKey || isFileTooLarge
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
       if (matchedKey) {
