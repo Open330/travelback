@@ -10,8 +10,15 @@ page.tsx (Client Component — app shell / track-session boundary)
 ├── FileUpload            — File input + drag-and-drop parsing
 ├── JourneyCreator        — Manual route creation by clicking on map
 ├── TrackWorkspace        — Loaded-track UI (trim + scenes + playback chrome)
+│   ├── Controls          — Playback controls (play/pause, speed, progress, follow)
+│   ├── ElevationProfile  — Elevation chart with gradient shading
+│   ├── TimelineSelector  — Drag-based time range selector with density histogram
+│   ├── SceneEditor       — Scene editor panel (camera mode, start/end %, params)
+│   └── TrackToolbar      — Track-level toolbar (theme, locale, reset)
 ├── ExportPanel           — Video export settings (resolution, codec, FPS, bitrate)
-└── GoogleGuide           — Google Takeout import guide modal
+├── GoogleGuide           — Google Takeout import guide modal
+├── Toast                 — Non-intrusive notification toast
+└── KeyboardHelp          — Keyboard shortcuts reference overlay
 ```
 
 ## Data Flow
@@ -21,7 +28,9 @@ File Upload / Journey Creator → parser.ts → Track { name, points: TrackPoint
                                                 ↓
                           page.tsx (track-session boundary + modal state)
                                                 ↓
-                        TrackWorkspace / TimelineSelector (optional filtering)
+                        TrackWorkspace / TimelineSelector (optional trim filtering)
+                                                ↓
+                               handleRangeChange → filtered track
                                                 ↓
                      usePlaybackController (progress, seek, follow, hotkeys)
                                                 ↓

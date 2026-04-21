@@ -58,6 +58,8 @@ src/
 │   ├── TrackWorkspace.tsx      # Loaded-track workspace (trim, scenes, playback, export entry points)
 │   ├── JourneyCreator.tsx      # Manual route creator (click-to-add waypoints on map)
 │   ├── SceneEditor.tsx         # Scene editor panel (camera mode, start/end %, params)
+│   ├── Toast.tsx               # Non-intrusive notification toast
+│   ├── KeyboardHelp.tsx        # Keyboard shortcuts reference overlay
 │   └── GoogleGuide.tsx         # Google Takeout import guide modal
 ├── lib/
 │   ├── parser.ts               # GPX/KML/Google JSON parsing to Track
