@@ -18,46 +18,37 @@ Deep review focused on 4 user-reported issues. **13 new findings** identified, 5
 - **Root Cause:** `RootLayout` renders `<html>` WITHOUT `data-mode`. Bootstrap script adds it. React hydration removes it because virtual DOM lacks it. `useEffect` re-adds it, causing a flash.
 - **Files:** `src/app/layout.tsx` line 52
 - **Fix:** Add `data-mode="light"` and `data-mapstyle="voyager"` to the `<html>` element in the server render. The bootstrap script already guards with `if(!d.getAttribute('data-mode'))` so it won't double-set if dark mode is preferred. React's virtual DOM now includes `data-mode`, preventing hydration from stripping it.
-- **Status:** TODO
+- **Status:** DONE (commit 015d528)
 
 ### TASK-2: Add CSS variable fallbacks to body style [U1-2] -- MEDIUM/HIGH
 - **User Issue:** #1
 - **Root Cause:** `style="background:var(--bg);color:var(--t1)"` has no fallback values. If variables are undefined, background is transparent and text color is invalid.
 - **Files:** `src/app/layout.tsx` line 73
 - **Fix:** Change to `style="background:var(--bg,#EBEEF4);color:var(--t1,#050810)"` so there are safe defaults even if CSS variables are temporarily undefined.
-- **Status:** TODO
+- **Status:** DONE (commit 015d528)
 
 ### TASK-3: Fix ThemeToggle DOM mutation during render [U2-2] -- MEDIUM/HIGH
 - **User Issue:** #2
 - **Root Cause:** `detectInitialMode()` calls `document.documentElement.setAttribute('data-mode', inferredMode)` during `useState` initializer (render phase). This is a React anti-pattern.
 - **Files:** `src/components/ThemeToggle.tsx` lines 7-25, especially line 23
 - **Fix:** Remove the `document.documentElement.setAttribute` call from `detectInitialMode()`. Since the component is always controlled (parent provides `controlledMode`), the DOM mutation is unnecessary. The bootstrap script and the parent component's `useEffect` already handle setting `data-mode`.
-- **Status:** TODO
+- **Status:** DONE (commit 015d528)
 
 ### TASK-4: Fix GlobalToolbar hidden behind FileUpload overlay [U3-1] -- MEDIUM/HIGH
 - **User Issue:** #3
 - **Root Cause:** Both `GlobalToolbar` and `FileUpload` use `z-10`. FileUpload renders after GlobalToolbar in the DOM, so it stacks on top. The semi-transparent blurred overlay makes toolbar buttons hard to read.
 - **Files:** `src/components/GlobalToolbar.tsx` line 25
 - **Fix:** Change GlobalToolbar z-index from `z-10` to `z-20` so it renders above the file upload overlay. The toolbar should always be accessible.
-- **Status:** TODO
+- **Status:** DONE (commit cd1430c)
 
 ### TASK-5: Add MapLibre error event listener for silent map failures [U4-1] -- HIGH/HIGH
 - **User Issue:** #4
 - **Root Cause:** MapView constructor only catches `new maplibregl.Map()` errors. Style fetch failures fire `error` events on the map instance but the component doesn't listen for them. Map shows blank with no error message.
 - **Files:** `src/components/MapView.tsx` lines 547-639
 - **Fix:** Add `map.on('error', handler)` listener in the map initialization useEffect. The handler should set `mapError` state so the error UI is shown. Also listen for `style.load` errors specifically.
-- **Status:** TODO
-
-### TASK-6: Add CSS variable defaults in :root for theme-independent fallback [U1-1 supplementary] -- MEDIUM/HIGH
-- **User Issue:** #1
-- **Root Cause:** The `:root` block in `vitro-base.css` defines utility variables (`--ok`, `--err`, etc.) but NOT the core theme variables (`--bg`, `--t1`, `--t2`, etc.). These are only defined in `:root:not([data-mode])` and `[data-mode=light/dark]`. If `data-mode` is missing or has an unexpected value, all theme variables are undefined.
-- **Files:** `src/styles/vitro-base.css` lines 14-43
-- **Fix:** Add the core theme variable defaults (`--bg`, `--t1`, `--t2`, `--t3`, `--t4`, `--gc-bg`, `--gc-bd`, `--gc-sh`, etc.) directly to the `:root` block (outside of any `[data-mode]` selector), using light-mode values as defaults. This ensures that even if `data-mode` is somehow not set, the UI will still look correct.
-- **Status:** TODO
+- **Status:** DONE (commit bc5e338)
 
 ## Deferred Items
-
-All previously deferred findings from prior cycles remain deferred per their existing exit criteria.
 
 ### New Deferred Findings from This Cycle
 
