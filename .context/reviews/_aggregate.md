@@ -1,13 +1,13 @@
-# Aggregate Review -- Cycle 7 (2026-04-21)
+# Aggregate Review -- Cycle 8 (2026-04-21)
 
 **Date:** 2026-04-21
-**Source reviews:** cycle7-code-reviewer, cycle7-perf-reviewer, cycle7-security-reviewer, cycle7-critic, cycle7-verifier, cycle7-test-engineer, cycle7-tracer, cycle7-architect, cycle7-debugger, cycle7-document-specialist, cycle7-designer
+**Source reviews:** cycle8-code-reviewer, cycle8-perf-reviewer, cycle8-security-reviewer, cycle8-critic, cycle8-verifier, cycle8-test-engineer, cycle8-tracer, cycle8-architect, cycle8-debugger, cycle8-document-specialist, cycle8-designer
 
 ---
 
 ## Summary
 
-Deep review across 11 specialist angles. All prior cycle fixes confirmed still applied and correct. **6 new findings** identified this cycle (after deduplication), all LOW severity. The codebase has converged -- findings are increasingly edge-case-level.
+Deep review across 11 specialist angles. All prior cycle fixes confirmed still applied and correct. **1 new finding** identified this cycle (after deduplication), LOW severity. The codebase has fully converged -- the only finding is a minor i18n consistency issue in a fallback code path.
 
 ---
 
@@ -17,22 +17,19 @@ Deep review across 11 specialist angles. All prior cycle fixes confirmed still a
 
 | ID | Finding | Source(s) | Files | Confidence |
 |----|---------|-----------|-------|------------|
-| C7-A1 | TimelineSelector endDrag fires onRangeChange even when no drag occurred | code-reviewer | src/components/TimelineSelector.tsx:206-216 | MEDIUM |
-| C7-A2 | ExportPanel module-level codecSupportCache never invalidated | code-reviewer | src/components/ExportPanel.tsx:31 | LOW |
-| C7-A3 | SceneEditor deletedScene undo timer can fire after unmount | code-reviewer, debugger | src/components/SceneEditor.tsx:276-282 | MEDIUM |
-| C7-A4 | Controls progress bar slider lacks visible focus indicator on Firefox | designer | src/components/Controls.tsx:56-73, src/app/globals.css:79-111 | MEDIUM |
-| C7-A5 | Architecture doc component tree is incomplete (missing TrackWorkspace children) | document-specialist | .context/project/02-architecture.md:6-14 | MEDIUM |
-| C7-A6 | Export panel "estimated time" can be misleading for 4K AV1 exports | critic | src/components/ExportPanel.tsx:98-105 | MEDIUM |
+| C8-A1 | FileUpload error fallback uses English message text check alongside i18n-safe error code | code-reviewer, critic | src/components/FileUpload.tsx:63 | MEDIUM |
 
 ---
 
 ## Cross-Finding Analysis
 
-- **C7-A3** was independently discovered by both the code-reviewer (C7-CR-3) and debugger (C7-DB-1), increasing signal strength. The setTimeout cleanup gap on unmount is a real but low-impact pattern (React 18+ silently swallows the state update).
-- No other findings had cross-agent agreement, which is expected given the codebase's maturity.
+- **C8-A1** was independently identified by both the code-reviewer (C8-CR-1) and critic (C8-CR-1), increasing signal strength. The finding is a soft i18n consistency violation -- the code comments explicitly say "avoids relying on English message text" but then does exactly that as a fallback.
 - The verifier confirmed all prior fixes are still in place and all key flows remain correct.
 - The tracer found no new data flow issues or race conditions.
 - The security reviewer found no new vulnerabilities.
+- The perf reviewer found no new performance issues.
+- The designer found no new UI/UX issues.
+- The architect found no new structural concerns.
 
 ---
 
@@ -75,6 +72,7 @@ Deep review across 11 specialist angles. All prior cycle fixes confirmed still a
 - DF-C4-015: Bootstrap script minified with no source reference
 - DF-C4-016: eslint-disable comments lack consistent format
 - DF-C4-017: No unit test for parser error code mapping
+- DF-C7-001: ExportPanel module-level codecSupportCache never invalidated
 
 ---
 
@@ -82,15 +80,10 @@ Deep review across 11 specialist angles. All prior cycle fixes confirmed still a
 
 Based on severity and fix complexity:
 
-1. **C7-A1** (LOW): Add drag-moved tracking to TimelineSelector to avoid unnecessary onRangeChange on click-without-drag. Minor code change, low risk.
-2. **C7-A3** (LOW): Add cleanup for SceneEditor deletedScene undo timer on unmount. Trivial fix.
-3. **C7-A4** (LOW): Add Firefox-compatible focus-visible styles for range input sliders. Minor CSS addition.
-4. **C7-A5** (LOW): Update architecture doc to list TrackWorkspace children and trim data flow. Documentation only.
-5. **C7-A6** (LOW): Add qualifier text to export time estimate. Minor i18n string update.
-6. **C7-A2** (LOW): Defer -- codec support cache invalidation has negligible practical impact.
+1. **C8-A1** (LOW): Remove `message.includes('File is too large')` fallback from FileUpload.tsx error handler. The `code === 'FILE_TOO_LARGE'` check is sufficient and consistent with the i18n design principle. Trivial code removal.
 
 ---
 
 ## Convergence Assessment
 
-Cycles 5, 6, and 7 all found only LOW-severity issues. The codebase has clearly converged. Findings are increasingly edge-case-level (timer cleanup, focus indicators, doc accuracy). Core functionality is stable and prior HIGH/MEDIUM fixes are holding across cycles.
+Cycles 5, 6, 7, and 8 all found only LOW-severity issues. The codebase has clearly converged. This cycle found only 1 finding (down from 6 in cycle 7), and it's a minor i18n consistency cleanup in a fallback path. Core functionality is stable and prior HIGH/MEDIUM fixes are holding across cycles.
