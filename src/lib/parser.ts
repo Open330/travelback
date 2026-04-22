@@ -183,7 +183,7 @@ function pushE7(
   if (latE7 == null || lngE7 == null) return
   const lat = e7(latE7)
   const lng = e7(lngE7)
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
 }
 
@@ -193,7 +193,7 @@ function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
   for (const loc of locations) {
     const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7 as number) : undefined)
     const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7 as number) : undefined)
-    if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
     out.push({
       lat, lng,
       ele: parseOptionalNumber(loc.altitude),
@@ -278,7 +278,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         if (!m) continue
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
-        if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
         out.push({
           lat, lng,
           time: gTime(pt.timestamp as string),
@@ -302,7 +302,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
           const dur = seg.startTime as string | undefined
           const lat = parseOptionalNumber(m[1])
           const lng = parseOptionalNumber(m[2])
-          if (lat != null && lng != null && !(Math.abs(lat) > 90 || Math.abs(lng) > 180)) {
+          if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) && !(Math.abs(lat) > 90 || Math.abs(lng) > 180)) {
             out.push({ lat, lng, time: gTime(dur) })
           }
         }

@@ -28,7 +28,7 @@ function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
   if (latE7 == null || lngE7 == null) return
   const lat = e7(latE7)
   const lng = e7(lngE7)
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   out.push({
     lat,
     lng,
@@ -41,7 +41,7 @@ function parseRecords(locations, out) {
   for (const loc of locations) {
     const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7) : undefined)
     const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7) : undefined)
-    if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
     out.push({
       lat,
       lng,
@@ -107,7 +107,7 @@ function parseSemanticSegments(segments, out, segStarts) {
         if (!m) continue
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
-        if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
         out.push({ lat, lng, time: gTime(pt.timestamp) })
       }
     }
@@ -125,7 +125,7 @@ function parseSemanticSegments(segments, out, segStarts) {
       if (m) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
-        if (lat != null && lng != null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
           out.push({ lat, lng, time: gTime(seg.startTime) })
         }
       }
