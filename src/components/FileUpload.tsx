@@ -76,6 +76,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+    if (loading) return
     const file = e.dataTransfer.files[0]
     if (file) {
       const ext = file.name.split('.').pop()?.toLowerCase()
@@ -87,7 +88,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       handleFile(file)
     }
     setTimeout(() => setIsDragging(false), 200)
-  }, [handleFile, t])
+  }, [handleFile, t, loading])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -100,9 +101,10 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   }, [])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (loading) return
     const file = e.target.files?.[0]
     if (file) handleFile(file)
-  }, [handleFile])
+  }, [handleFile, loading])
 
   if (hasTrack) {
     return (
