@@ -48,10 +48,13 @@ function HomeInner() {
   const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(false)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
     if (typeof document === 'undefined') return 'voyager'
+    // Prefer an explicitly-saved map style from localStorage (set by cycleStyle).
+    try {
+      const saved = localStorage.getItem('travelback-mapstyle')
+      if (saved && (MAP_STYLES as Record<string, unknown>)[saved]) return saved as MapStyleKey
+    } catch { /* ignore */ }
+    // Fall back to the theme-derived style set by the bootstrap script.
     const mode = document.documentElement.getAttribute('data-mode')
-    // Do NOT write to the DOM during useState initializer (side effect during render).
-    // The bootstrap script already sets data-mapstyle. If it didn't run, the useEffect
-    // below will set it after mount.
     return mode === 'dark' ? 'dark' : 'voyager'
   })
   const [showExport, setShowExport] = useState(false)
@@ -181,7 +184,7 @@ function HomeInner() {
             segmentStartIndices: fullTrack.segmentStartIndices
               .filter((index) => index >= startIdx && index <= endIdx)
               .map((index) => index - startIdx)
-              .filter((index) => index > 0),
+              .filter((index) => index >= 0),
           }
         : {}),
     }
@@ -287,6 +290,7 @@ function HomeInner() {
       const key = mode === 'dark' ? 'dark' : 'voyager'
       setMapStyleKey(key)
       applyDocumentMapStyle(key)
+      try { localStorage.setItem('travelback-mapstyle', key) } catch { /* ignore */ }
     }
   }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice])
 
@@ -300,6 +304,8 @@ function HomeInner() {
     setColorMode(nextMode)
     applyDocumentMapStyle(nextKey)
     applyDocumentMode(nextMode)
+    try { localStorage.setItem('travelback-mapstyle', nextKey) } catch { /* ignore */ }
+    try { localStorage.setItem('travelback-theme', nextMode) } catch { /* ignore */ }
   }, [applyDocumentMapStyle, applyDocumentMode, mapStyleKey])
 
   const handleUnitsChange = useCallback((nextUnits: UnitSystem) => {
