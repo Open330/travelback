@@ -5,7 +5,7 @@ import { ArrowRight, FolderOpen, MapPin } from 'lucide-react'
 import Image from 'next/image'
 import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
-import { parseTrackFile, ParseError, MAX_FILE_SIZE, JSON_MAX_FILE_SIZE } from '@/lib/parser'
+import { parseTrackFile, ParseError } from '@/lib/parser'
 import { useLocale } from '@/lib/i18n'
 
 interface FileUploadProps {
@@ -35,11 +35,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     setError(null)
     setLoading(true)
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase()
-      const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : MAX_FILE_SIZE
-      if (file.size > maxForType) {
-        throw new Error(t('fileUpload.fileTooLarge').replace('{max}', String(Math.round(maxForType / 1024 / 1024))))
-      }
       if (file.size > WARN_FILE_SIZE) {
         console.warn(`[Travelback] Large file (${(file.size / 1024 / 1024).toFixed(0)} MB) — parsing may take a moment`)
       }
@@ -55,6 +50,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         INVALID_GOOGLE_JSON: 'fileUpload.parseFailed',
         JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
         UNSUPPORTED_GOOGLE_FORMAT: 'fileUpload.parseFailed',
+        READ_FAILED: 'fileUpload.parseFailed',
       }
       const code = err instanceof ParseError ? err.code : ''
       const message = err instanceof Error ? err.message : ''
