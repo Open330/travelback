@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHand
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeCumulativeDistances, computeBearing } from '@/lib/interpolate'
+import { interpolateAlongTrack, computeCumulativeDistances, computeBearing, shortestLngDelta } from '@/lib/interpolate'
 import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
@@ -58,12 +58,8 @@ const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }>
   bright: { minor: 'rgba(173, 150, 120, 0.22)', major: 'rgba(173, 150, 120, 0.38)' },
 }
 
-function shortestLongitudeDelta(from: number, to: number): number {
-  return ((to - from + 540) % 360) - 180
-}
-
 function smoothAngle(from: number, to: number, factor: number): number {
-  const diff = ((to - from + 540) % 360) - 180
+  const diff = shortestLngDelta(from, to)
   return from + diff * factor
 }
 
@@ -73,13 +69,13 @@ function angleDelta(from: number, to: number): number {
 
 function centerDistanceMeters(a: [number, number], b: [number, number]): number {
   const avgLatRad = ((a[1] + b[1]) / 2) * (Math.PI / 180)
-  const dLngMeters = shortestLongitudeDelta(a[0], b[0]) * 111320 * Math.cos(avgLatRad)
+  const dLngMeters = shortestLngDelta(a[0], b[0]) * 111320 * Math.cos(avgLatRad)
   const dLatMeters = (b[1] - a[1]) * 110540
   return Math.hypot(dLngMeters, dLatMeters)
 }
 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
-  const lngResult = ((previous.center[0] + shortestLongitudeDelta(previous.center[0], target.center[0]) * factor + 180) % 360 + 360) % 360 - 180
+  const lngResult = ((previous.center[0] + shortestLngDelta(previous.center[0], target.center[0]) * factor + 180) % 360 + 360) % 360 - 180
   return {
     center: [
       lngResult,

@@ -2,8 +2,8 @@ import type { TrackPoint } from '@/types'
 
 const toRad = (deg: number) => (deg * Math.PI) / 180
 const toDeg = (rad: number) => (rad * 180) / Math.PI
-const normalizeLng = (lng: number) => ((lng + 180) % 360 + 360) % 360 - 180
-const shortestLngDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180
+export const normalizeLng = (lng: number) => ((lng + 180) % 360 + 360) % 360 - 180
+export const shortestLngDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180
 
 function haversineDistance(a: TrackPoint, b: TrackPoint): number {
   const R = 6371000
