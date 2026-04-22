@@ -16,7 +16,7 @@ All 3 P0/P1 items from cycle 2 are verified as correctly applied in the main-thr
 - **Root Cause**: The worker file has `.filter(idx => idx > 0)` on line 200, which is the exact same bug that was fixed in `src/lib/parser.ts:424` during cycle 2 (changed to `idx >= 0`). The worker file was not updated when the main-thread parser was fixed. Since the worker is the PRIMARY code path for Google Location History parsing (used when `typeof Worker !== 'undefined'`, which is true in all modern browsers), this means the cycle 2 fix only applied to the fallback path.
 - **Action**: Change `.filter(idx => idx > 0)` to `.filter(idx => idx >= 0)` on line 200 of `public/workers/trackParser.worker.js`.
 - **Verify**: After fixing, grep for `idx > 0` across the entire codebase to confirm no other instances of this bug class remain.
-- **Status**: TODO
+- **Status**: DONE
 
 ### P1-1: Synchronize worker error code mapping with main-thread parser
 - **Source**: C3-F3
@@ -26,7 +26,7 @@ All 3 P0/P1 items from cycle 2 are verified as correctly applied in the main-thr
 - **Root Cause**: The worker maps errors to codes via `message.includes(...)` string matching, while the main-thread parser uses a `ParseError` class with explicit codes. If error messages in the main-thread parser are ever reworded, the worker's string matching will break silently, causing all worker errors to fall through to `'INVALID_GOOGLE_JSON'`.
 - **Action**: Add explicit error code constants at the top of the worker file and use them in both the throw sites and the catch block, rather than relying on message string matching. Define constants like `const ERROR_CODES = { UNSUPPORTED_FORMAT: 'UNSUPPORTED_GOOGLE_FORMAT', JSON_DEPTH: 'JSON_DEPTH_EXCEEDED', TOO_LARGE: 'FILE_TOO_LARGE', INVALID: 'INVALID_GOOGLE_JSON' }` and throw errors with a `.code` property, then check `.code` in the catch block instead of matching on message text.
 - **Verify**: Ensure that after the change, all worker error paths still produce the correct error codes that the main-thread `parseGoogleLocationHistoryInWorkerBuffer` handler expects (UNSUPPORTED_GOOGLE_FORMAT, JSON_DEPTH_EXCEEDED, FILE_TOO_LARGE, INVALID_GOOGLE_JSON).
-- **Status**: TODO
+- **Status**: DONE
 
 ## Deferred Items
 
