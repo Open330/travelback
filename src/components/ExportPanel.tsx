@@ -256,9 +256,16 @@ export default function ExportPanel({
             <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
               <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width .3s linear' }} />
             </div>
-            <p className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
-              {t('export.frame')} {Math.round(exportProgress * Math.ceil(duration * fps))} / {Math.ceil(duration * fps)}
-            </p>
+            {(() => {
+              const clampedDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+              const clampedFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))
+              const totalFrames = Math.ceil(clampedDuration * clampedFps)
+              return (
+                <p className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
+                  {t('export.frame')} {Math.round(exportProgress * totalFrames)} / {totalFrames}
+                </p>
+              )
+            })()}
           </div>
         ) : (
           <>
