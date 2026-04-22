@@ -172,6 +172,7 @@ function SceneRangeEditor({
             tabIndex={0}
             aria-label={type === 'start' ? `${ariaLabel} start` : `${ariaLabel} end`}
             aria-valuenow={Math.round(value * 100)}
+            aria-valuetext={`${Math.round(value * 100)}% ${type === 'start' ? 'start' : 'end'}`}
             aria-valuemin={0}
             aria-valuemax={100}
             className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
@@ -526,6 +527,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.zoomAria').replace('{name}', scene.name)}
+                      aria-valuetext={`Zoom ${scene.params.zoom}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.zoomFar')}</span><span>{t('scenes.zoomClose')}</span>
@@ -541,6 +543,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.pitchAria').replace('{name}', scene.name)}
+                      aria-valuetext={`Tilt ${scene.params.pitch}°`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.pitchFlat')}</span><span>{t('scenes.pitchAngled')}</span>
@@ -559,6 +562,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.bearingAria').replace('{name}', scene.name)}
+                      aria-valuetext={`Direction ${scene.params.bearingOffset}°`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.bearingLeft')}</span><span>{t('scenes.bearingRight')}</span>
@@ -574,6 +578,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                       }}
                       onPointerUp={clearPreview}
                       aria-label={t('scenes.rotationAria').replace('{name}', scene.name)}
+                      aria-valuetext={`Orbit speed ${scene.params.rotationSpeed}°/s`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.rotationStill')}</span><span>{t('scenes.rotationSpin')}</span>
