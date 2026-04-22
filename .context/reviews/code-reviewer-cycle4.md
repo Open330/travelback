@@ -1,44 +1,36 @@
-# Code Reviewer -- Cycle 4 (2026-04-21)
+# Code Reviewer -- Cycle 4 (2026-04-23)
 
 ## Summary
-The codebase is well-structured with consistent patterns. All cycle 3 fixes confirmed applied. Found 6 new issues ranging from MEDIUM to LOW severity.
+All cycle 3 fixes confirmed applied (worker segment filter `idx >= 0`, worker error code constants). Found 4 new issues: 1 HIGH (NaN coordinates bypassing validation), 1 MEDIUM (drag-drop race), 1 MEDIUM (unnecessary normalization), 1 LOW (estimate accuracy).
 
 ## Findings
 
-### C4-001: Module-level mutable state in ExportPanel [MEDIUM]
-- **File:** `src/components/ExportPanel.tsx` line 31
-- **Issue:** `let codecSupportCache: Record<VideoCodec, boolean> | null = null` is module-level mutable state. In React concurrent mode or if the component is used in multiple trees, this shared cache could cause stale or cross-contaminated results. The cache is only written, never invalidated (e.g., on browser codec support changes via OS updates).
-- **Impact:** Low practical impact today since the app is single-instance, but breaks React's single-direction data flow principle and makes testing harder.
+### C4-F1: FileUpload handleDrop missing loading guard [MEDIUM / HIGH]
+- **File:** `src/components/FileUpload.tsx` line 77-90
+- **Issue:** `handleDrop` calls `handleFile(file)` without checking the `loading` state. If a user drops a second file while the first is still parsing, both parse operations run concurrently. The second call's `setLoading(true)` is a no-op (already true), but its `setLoading(false)` in the `finally` block fires first, causing the UI to exit the loading state while the first parse is still running. This also means the second file's `onTrackLoaded` callback could overwrite the first file's track.
+- **Fix:** Add a `loading` guard at the top of `handleDrop` (and also `handleFileInput` if not already guarded). If `loading` is true, return early or queue the file.
+- **Cross-agent:** Also identified by debugger perspective.
 
-### C4-002: Module-level mutable state in ModalDialog [MEDIUM]
-- **File:** `src/components/ModalDialog.tsx` lines 31-32
-- **Issue:** `const openModalStack: string[] = []` and `let lockedBodyOverflow: string | null = null` are module-level mutable arrays/variables. Same concern as C4-001 -- shared across all instances, not reset between component trees, and not safe for server-side rendering (though guarded by `canRenderPortal`).
-- **Impact:** Works correctly in practice because modals are opened/closed in LIFO order and the app is single-page. But if two React trees were mounted (e.g., during hot reload), state would cross-contaminate.
+### C4-F2: pushE7/parseRecords NaN coordinates pass validation [HIGH / HIGH]
+- **File:** `src/lib/parser.ts` lines 184-186 (pushE7), 196 (parseRecords), `public/workers/trackParser.worker.js` lines 30-31 (pushE7), 44 (parseRecords)
+- **Issue:** `Math.abs(NaN) > 90` evaluates to `false`, meaning NaN coordinates pass the validation check. If a malformed Google Location History record has non-numeric `latitudeE7` or `longitudeE7` values (e.g., strings like `"NaN"` or `undefined` after E7 conversion), the resulting NaN lat/lng will pass both `Math.abs(lat) > 90` and `Math.abs(lng) > 180` guards. This introduces NaN coordinates into the track data, which can cause rendering artifacts on the map (MapLibre GL handles NaN poorly) and break distance calculations.
+- **Fix:** Add `Number.isFinite(lat) && Number.isFinite(lng)` checks in both `pushE7` and `parseRecords`, in both parser.ts and the worker. Alternatively, `Number.isFinite` can replace the `Math.abs` checks since `Number.isFinite` rejects NaN, Infinity, and out-of-range values in one call.
+- **Cross-agent:** Affects both the main-thread parser and the worker (primary code path).
 
-### C4-003: `generateId()` fallback uses `Math.random()` [LOW]
-- **File:** `src/types.ts` lines 1-6
-- **Issue:** When `crypto.randomUUID` is unavailable, the fallback `${Date.now()}-${Math.random().toString(36).slice(2)}` is not cryptographically safe. This is acceptable for UI keys (scene IDs) since they're never used for security, but the collision probability under rapid creation is non-trivial: `Date.now()` has millisecond resolution and `Math.random()` provides ~52 bits of entropy.
-- **Impact:** Negligible for current usage (scene IDs are created one at a time by user interaction).
+### C4-F3: ExportPanel estimated time multiplier may be inaccurate [LOW / MEDIUM]
+- **File:** `src/components/ExportPanel.tsx` line 105
+- **Issue:** `estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)` uses a 0.5x base multiplier. For 4K AV1 exports, the actual encoding time can be significantly longer than this estimate. The estimate is labeled with "~" and "approx" qualifiers (from cycle 2 fix), so user expectations are managed, but the estimate could be more accurate.
+- **Impact:** Low. The estimate is approximate and clearly labeled as such.
 
-### C4-004: `isTouchDevice` detection runs once on mount only [LOW]
-- **File:** `src/components/FileUpload.tsx` lines 29-32
-- **Issue:** `setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)` runs once in a useEffect and never updates. On devices with both touch and pointer (e.g., Surface Pro, convertible laptops), the detection is static. If a user detaches a keyboard, the touch state becomes stale.
-- **Impact:** Only affects the display of an iOS tip hint text (`fileUpload.iosTip`). Very low user impact.
-
-### C4-005: `next/image` for static SVG adds unnecessary optimization layer [LOW]
-- **File:** `src/components/FileUpload.tsx` lines 163-168, 185-189
-- **Issue:** Using `next/image` for `landing-preview.svg` (a static SVG) adds the Image Optimization API overhead. SVGs are already resolution-independent and don't benefit from next/image's resizing or format conversion. The `width` and `height` props are required but meaningless for SVG.
-- **Impact:** Adds an unnecessary API call in dev mode and a slight processing overhead. Already deferred as DF-C3-005.
-
-### C4-006: Multiple `eslint-disable` comments across codebase [LOW]
-- **Files:** `src/app/page.tsx` lines 94-95, `src/components/MapView.tsx` lines 646-647, 671, 819-820, 935-936
-- **Issue:** Several `eslint-disable-next-line react-hooks/exhaustive-deps` and `eslint-disable-next-line react-hooks/exhaustive-deps` comments. While the justifications are documented in comments, some (particularly the MapView ones) could mask future dependency bugs if the component logic changes.
-- **Impact:** Low risk but worth periodic review.
+### C4-F4: SceneEditor normalizes scenes on every name keystroke [MEDIUM / MEDIUM]
+- **File:** `src/components/SceneEditor.tsx` lines 330-344 (updateScene), 442-443 (name input)
+- **Issue:** `updateScene` calls `commitScenes`, which calls `normalizeScenes` on every change. When the user types in the scene name input, each keystroke triggers a full scene normalization pass (sorting, zero-duration filtering, etc.) even though name changes cannot affect scene ranges. This is unnecessary computation, especially with many scenes.
+- **Fix:** Skip `normalizeScenes` when only the scene name has changed. One approach: check if the patch only contains `name` and, if so, call `onChange` with the updated scenes directly without normalization.
+- **Impact:** Low practical impact with typical scene counts (2-10), but the principle violation is clear.
 
 ## Positive Observations
-- Clean separation of concerns between hooks and components
-- Consistent use of `useCallback` with proper dependency arrays
-- Proper error boundary usage wrapping the entire app
-- Clean TypeScript types with no `any` usage in application code
-- Good use of `useImperativeHandle` for MapView's ref API
-- ParseError with machine-readable codes is a strong pattern for i18n
+- Cycle 3 fixes correctly applied in both code paths
+- Worker error code constants properly synchronized with main-thread parser
+- Clean error code mapping in FileUpload (no string matching on error messages)
+- Proper use of `useCallback` with correct dependency arrays throughout
+- Good separation of concerns between hooks and components

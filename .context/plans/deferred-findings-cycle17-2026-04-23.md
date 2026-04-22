@@ -128,3 +128,21 @@ Findings from `_aggregate.md` not scheduled in `cycle17-implementation-2026-04-2
 - **Severity / Confidence**: LOW / MEDIUM
 - **Reason for deferral**: Minor display inaccuracy, not a correctness bug.
 - **Exit criterion**: Re-open when export panel is next modified.
+
+---
+
+## Cycle 4 New Deferrals (2026-04-23)
+
+## DF-C4-001 — SceneEditor normalizes on every name keystroke
+- **Source finding**: C4-F3
+- **Severity / Confidence**: MEDIUM / MEDIUM
+- **File**: `src/components/SceneEditor.tsx:330-344` (updateScene), `442-443` (name input)
+- **Reason for deferral**: The performance impact is negligible with typical scene counts (2-10). The fix requires adding logic to detect name-only patches and skip normalization, which adds complexity to `updateScene` and `commitScenes`. Not a correctness bug.
+- **Exit criterion**: Re-open if SceneEditor performance becomes an issue with large scene counts, or during a SceneEditor refactor pass.
+
+## DF-C4-002 — ExportPanel estimated time multiplier inaccuracy
+- **Source finding**: C4-F4
+- **Severity / Confidence**: LOW / MEDIUM
+- **File**: `src/components/ExportPanel.tsx:105`
+- **Reason for deferral**: The estimate is clearly labeled as approximate with "~" and "approx" qualifiers. The inaccuracy is a cosmetic issue, not a correctness bug. Making the estimate more accurate would require benchmarking actual encoding times across resolutions/codecs, which is hardware-dependent.
+- **Exit criterion**: Re-open when export panel is next modified or if users report confusion about estimates.
