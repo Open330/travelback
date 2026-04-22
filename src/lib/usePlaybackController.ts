@@ -29,6 +29,7 @@ export function usePlaybackController(track: Track | null) {
   const isPlayingRef = useRef(false)
   const startTimestampRef = useRef<number>(0)
   const startProgressRef = useRef<number>(0)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
     isPlayingRef.current = isPlaying
@@ -76,6 +77,12 @@ export function usePlaybackController(track: Track | null) {
     setFollowCamera((following) => !following)
   }, [])
 
+  // Mount guard to prevent state updates after unmount
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
   useEffect(() => {
     if (!isPlaying || !track) return
 
@@ -88,7 +95,7 @@ export function usePlaybackController(track: Track | null) {
     startProgressRef.current = progressRef.current
 
     const animate = (now: number) => {
-      if (!isPlayingRef.current) return
+      if (!isPlayingRef.current || !mountedRef.current) return
       const elapsedSec = (now - startTimestampRef.current) / 1000
       const nextProgress = startProgressRef.current + (elapsedSec * speedRef.current) / durationRef.current
 
