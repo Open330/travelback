@@ -22,7 +22,7 @@ Both P0/P1 items from cycle 4 are verified as correctly applied:
   3. In `src/components/SceneEditor.tsx:565`: Change `aria-valuetext={`Direction ${scene.params.bearingOffset}°`}` to `aria-valuetext={`${t('scenes.bearing')} ${scene.params.bearingOffset}°`}`
   4. In `src/components/SceneEditor.tsx:581`: Change `aria-valuetext={`Orbit speed ${scene.params.rotationSpeed}°/s`}` to `aria-valuetext={`${t('scenes.rotation')} ${scene.params.rotationSpeed}°/s`}`
 - **Verify**: After fixing, run `next build` and `tsc --noEmit`. Confirm that screen readers in Korean/Japanese/Chinese/Spanish locales announce the slider values in the correct language.
-- **Status**: TODO
+- **Status**: DONE — committed as 0000000877e82fc34c0e54c921e50c82e09d0505
 
 ### P1-1: Refactor parseSemanticSegments visit path for consistency
 - **Source**: C5-F2
@@ -38,7 +38,7 @@ Both P0/P1 items from cycle 4 are verified as correctly applied:
      ```
   2. In `public/workers/trackParser.worker.js:128`: Apply the same refactor to match the main-thread parser.
 - **Verify**: After fixing, run `next build` and `tsc --noEmit`. Grep for `Math.abs(lat)` in both files to confirm all coordinate validations follow the same pattern.
-- **Status**: TODO
+- **Status**: DONE — committed as 000000037463feab6a950083b8b0da13c7b926bb
 
 ### P2-1: Deduplicate longitude wrapping functions
 - **Source**: C5-F3
@@ -49,7 +49,7 @@ Both P0/P1 items from cycle 4 are verified as correctly applied:
   1. In `src/lib/camera.ts`: Remove the local `normalizeLng` and `shortestLngDelta` functions. Add imports from `./interpolate`.
   2. In `src/components/MapView.tsx`: Remove the local `shortestLongitudeDelta` function. Add import from `@/lib/interpolate` (the function is named `shortestLngDelta` there). Update call sites to use the imported name.
 - **Verify**: After fixing, run `next build` and `tsc --noEmit`. Verify no behavioral change by checking the import resolution.
-- **Status**: TODO
+- **Status**: DONE — committed as 0000000642d59b19d9e6b794870741cf6db78e3e
 
 ## Deferred Items
 

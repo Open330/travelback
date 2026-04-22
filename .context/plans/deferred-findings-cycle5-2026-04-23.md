@@ -21,7 +21,7 @@ All deferred items from `deferred-findings-cycle17-2026-04-23.md` remain valid a
 - DF-C17-004: Video export sequential waitForIdle performance (MEDIUM/HIGH)
 - DF-C17-005: MapView re-renders every progress change (MEDIUM/HIGH)
 - DF-C17-006: HomeInner 440-line god component (MEDIUM/HIGH)
-- DF-C17-007: Missing aria-valuetext on SceneEditor sliders (MEDIUM/HIGH) -- addressed by C5-F1
+- DF-C17-007: Missing aria-valuetext on SceneEditor sliders (MEDIUM/HIGH) -- RESOLVED by C5-F1/P0-1 in cycle 5
 - DF-C17-008: No unit tests (HIGH/HIGH)
 - DF-C17-009: No undo/redo for scene edits (MEDIUM/HIGH)
 - DF-C17-010: CSS custom properties without fallbacks (LOW/MEDIUM)
