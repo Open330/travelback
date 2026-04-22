@@ -1,12 +1,58 @@
-# Travelback UI/UX review
+# UI/UX Designer Review — Cycle 1 (2026-04-23)
 
-Inventory checked before review: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/components/{Controls, ElevationProfile, ErrorBoundary, ExportPanel, FileUpload, GlobalToolbar, GoogleGuide, JourneyCreator, KeyboardHelp, MapView, ModalDialog, SceneEditor, ThemeToggle, TimelineSelector, Toast, TrackToolbar, TrackWorkspace}`, plus `src/styles/vitro-base.css` and `public/theme-init.js`.
+## Summary
+Review of the web frontend's information architecture, accessibility, responsive design, dark/light mode, i18n, and perceived performance.
 
-Live browser checks: Chromium desktop `1440×1200` and mobile `390×844` against `http://127.0.0.1:3000`. No blocking horizontal overflow or clipping showed up in those viewport checks; the issues below are the high-signal ones.
+---
 
-| Severity | Confidence | Status | File / selector citation | Failure scenario | Suggested fix |
-|---|---|---:|---|---|---|
-| High | High | Open | `src/components/TimelineSelector.tsx:255-375` — `div[data-testid="timeline-selector"]`, `div[data-testid="timeline-start-handle"]`, `div[data-testid="timeline-end-handle"]` | The timeline range is mouse/touch only. In tab order, focus jumps from the toolbar straight to elevation/playback controls; the range selector itself never receives focus, so keyboard users cannot adjust the time window. | Make the handles focusable and operable from the keyboard (`tabIndex=0`, arrow/Home/End handlers, `aria-valuenow/min/max` or slider semantics) and expose a visible focus state. |
-| High | Medium | Open | `src/components/MapView.tsx:592-595, 885-899` — `div[data-testid="map-container"]`, `div[data-testid="map-error"]` | In Chromium headless / no-WebGL contexts, MapLibre throws on mount and the whole map area collapses to a retry panel immediately. That turns the primary experience into an error state instead of a graceful fallback. | Feature-detect WebGL before mounting MapLibre, or lazy-mount behind user intent; provide a static preview/explanatory fallback when WebGL is unavailable. |
-| Medium | High | Open | `src/components/FileUpload.tsx:249-250` and `src/components/Toast.tsx:31-55` — `p.mt-4.text-sm`, `div.fixed.bottom-28 sm:bottom-24`, `.go` | Error messaging is visual-only in two places: invalid file uploads render plain inline text, and sample/export failures show toast text with no live-region semantics. Screen-reader users can miss both the failure and its recovery path. | Mark inline errors with `role="alert"`/`aria-live`, and give the toast stack a live region or announce messages through a shared notification region. |
-| Medium | High | Open | `src/components/FileUpload.tsx:163-169` — `button[aria-label="Try with a sample trip"] img.landing-preview-image` | The landing preview image is the page’s LCP, and the browser flagged it as needing eager loading. On slower connections, the first impression feels delayed even though the layout is already on screen. | Add `priority` or `loading="eager"` to the hero image and tighten the responsive image sizing so the landing CTA paints sooner. |
+## Finding 1: Missing keyboard focus management in SceneEditor
+- **File**: `src/components/SceneEditor.tsx`
+- **Severity**: Medium | **Confidence**: High
+- **Description**: The SceneEditor is a side panel with sliders, selects, and buttons. When expanding/collapsing the parameter section per scene, focus is not managed — the user has to tab through all controls. The slider handles in `SceneRangeEditor` have `tabIndex={0}` and keyboard support (arrow keys, Home/End), which is good, but there's no `aria-valuetext` to announce the current percentage value meaningfully.
+- **Fix**: Add `aria-valuetext` attributes to range sliders that announce the percentage value in context (e.g., "45%" instead of just the raw number).
+
+---
+
+## Finding 2: Mobile density — too many controls on small screens
+- **File**: `src/components/Controls.tsx`, `src/components/TrackToolbar.tsx`
+- **Severity**: Low | **Confidence**: Medium
+- **Description**: On mobile, the playback controls bar packs speed selector, duration selector, follow camera toggle, distance stats, and time stats into a compact space. The TrackToolbar moves some controls to a "more" menu, but the Controls bar itself doesn't collapse. The `min-h-11` (44px) touch targets are good for accessibility, but the layout can feel cramped on 320px-wide screens.
+- **Fix**: Consider collapsing distance/time stats on very small screens, or using a bottom sheet pattern for additional controls.
+
+---
+
+## Finding 3: Toast notifications have no role-specific aria-live region
+- **File**: `src/components/Toast.tsx` line 64
+- **Severity**: Low | **Confidence**: High
+- **Description**: The toast container uses `role="log"` and `aria-live="polite"`. This is correct for non-urgent notifications. However, error toasts should arguably use `aria-live="assertive"` to ensure screen readers announce them immediately. Currently all toast types use the same live region.
+- **Fix**: Use `aria-live="assertive"` for error-type toasts and `aria-live="polite"` for info/success toasts.
+
+---
+
+## Finding 4: FileUpload drop zone lacks visual focus indicator
+- **File**: `src/components/FileUpload.tsx`
+- **Severity**: Low | **Confidence**: Medium
+- **Description**: The file upload area uses `onDrop`, `onDragOver`, `onDragLeave` for drag-and-drop but has no visible focus indicator when tabbed to via keyboard. The `isDragging` state changes the border color and scale, but there's no keyboard-accessible way to trigger the drop zone (the "Browse Files" button is the keyboard alternative, which is good).
+- **Fix**: Add a visible focus ring to the drop zone container when focused via keyboard.
+
+---
+
+## Finding 5: GoogleGuide tabs not fully keyboard accessible
+- **File**: `src/components/GoogleGuide.tsx` line 289
+- **Severity**: Low | **Confidence**: High
+- **Description**: The tab buttons use `role="tab"` and `aria-selected`, but the tab panels use `role="tabpanel"` without implementing arrow-key navigation between tabs (Left/Right to switch tabs per WAI-ARIA Tabs pattern). Users must tab through all tab buttons to reach the content.
+- **Fix**: Add arrow-key navigation for the tab list per the WAI-ARIA Tabs design pattern.
+
+---
+
+## Finding 6: Good accessibility practices observed
+- **Severity**: Positive | **Confidence**: High
+- **Description**: (1) ModalDialog implements focus trap with Tab/Shift+Tab cycling. (2) Close on Escape is handled. (3) `aria-modal`, `aria-labelledby` attributes present. (4) `inert` attribute used on app root when modal opens. (5) 44px minimum touch targets on buttons. (6) ARIA labels on interactive controls.
+
+---
+
+## Final Sweep
+- All components reviewed for WCAG 2.2 accessibility.
+- Responsive breakpoints assessed.
+- Dark/light mode support verified (CSS custom properties).
+- i18n RTL considerations: the app supports CJK locales but not RTL scripts. The CSS uses `left`/`right` positioning that wouldn't work with RTL layouts.

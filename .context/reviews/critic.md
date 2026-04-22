@@ -1,29 +1,67 @@
-# Critic repo sweep — 2026-04-19
+# Multi-Perspective Critic Review — Cycle 1 (2026-04-23)
 
-Reviewed inventory: root configs/scripts (`package.json`, `tsconfig.json`, `next.config.ts`, Playwright configs), CI workflow, `src/app/*`, major `src/components/*`, `src/lib/*`, `public/workers/trackParser.worker.js`, `scripts/*`, and `e2e/travelback.spec.ts`.
+## Summary
+Cross-cutting review examining overall system design, user-facing behavior, and cross-component interactions.
 
-## Highest-signal issues
+---
 
-### 1) Static build artifact is not hermetic; current output already contains tool-state residue
-- **Citations:** `package.json:5-17`, `.github/workflows/deploy-pages.yml:18-36`, `scripts/smoke-static.mjs:131-161`, `out/fonts/.omc/state/last-tool-error.json`
-- **Failure scenario:** On the current tree, `npm run build && npm run smoke:static` fails with `Forbidden tool-state directory found in static assets: out/fonts/.omc`. If this gate is bypassed, Pages can publish stale internal metadata alongside real assets.
-- **Suggested fix:** Make the export clean-room: delete `out/` before build, add a postbuild prune for hidden tool dirs, and keep tooling away from generated asset directories.
-- **Severity:** high
-- **Confidence:** high
-- **Status:** reproduced
+## Finding 1: Dual state management for theme causes consistency issues
+- **Files**: `src/app/page.tsx`, `src/components/ThemeToggle.tsx`
+- **Severity**: Medium | **Confidence**: High
+- **Description**: Theme state is managed in three places: (1) bootstrap script sets DOM attributes; (2) `HomeInner` has `colorMode` state; (3) `ThemeToggle` has its own internal `mode` state. When parent controls `mode` via `controlledMode`, `ThemeToggle` still has internal `mode` state. The `matchMedia` listener also calls `onModeChange` creating confusing dual-state.
+- **Fix**: Simplify by removing internal state from `ThemeToggle` when `controlledMode` is provided. Make `ThemeToggle` a fully controlled component.
 
-### 2) Typecheck is stateful/noisy because generated `.next/dev` validators are included in the main TS program
-- **Citations:** `tsconfig.json:25-31`, `.next/dev/types/validator.ts:39-60`
-- **Failure scenario:** `npm run typecheck` initially failed on this repo with generated-route errors (`Type '"/"' does not satisfy the constraint 'never'`) coming from `.next/dev/types/validator.ts`, not authored source. After a fresh production build it passed again, so local correctness depends on whatever stale dev artifacts happen to be in `.next/`.
-- **Suggested fix:** Remove `.next/dev/types/**/*.ts` from the main `tsconfig` include list, or run typecheck against a clean/generated-only-specific config so developer checks are deterministic.
-- **Severity:** medium
-- **Confidence:** high
-- **Status:** reproduced (state-coupled)
+---
 
-### 3) Export path can claim success even when the browser never actually saves the file
-- **Citations:** `src/lib/videoEncoder.ts:153-180`, `src/lib/useExportController.ts:141-153`, `src/components/ExportPanel.tsx:186-200`
-- **Failure scenario:** On browsers that fall back from `showSaveFilePicker()` to the synthetic `<a download>` path, `downloadVideo()` always returns `true` immediately after `a.click()`. If the browser blocks/ignores that download, the app still sets export state to `done` and tells the user the video was saved to Downloads.
-- **Suggested fix:** Downgrade the fallback UX to “download started” instead of “saved”, or move the success state behind a browser flow that can actually confirm a save/share action.
-- **Severity:** medium
-- **Confidence:** medium
-- **Status:** inferred from code path (no matching automated check found)
+## Finding 2: No undo/redo for scene edits beyond single-delete
+- **File**: `src/components/SceneEditor.tsx`
+- **Severity**: Medium | **Confidence**: High
+- **Description**: Only supports undo of the most recent scene deletion (5-second timeout). No undo for: parameter changes, scene additions, preset applications, or range modifications. Users who accidentally apply a preset lose all custom scenes.
+- **Fix**: Implement a basic undo/redo stack for scene operations.
+
+---
+
+## Finding 3: Timeline selector range change fires only on drag end
+- **File**: `src/components/TimelineSelector.tsx` lines 209-220
+- **Severity**: Medium | **Confidence**: High
+- **Description**: `onRangeChangeRef.current` is only called in `endDrag`, not during `applyDrag`. The track data doesn't update while dragging — the visual selection changes but the actual filtered track doesn't update until release. This feels disconnected.
+- **Fix**: Call `onRangeChangeRef.current` during drag (throttled via existing rAF mechanism).
+
+---
+
+## Finding 4: `export.at` translation key has empty string for Korean locale
+- **File**: `src/lib/i18n.ts` line 443
+- **Severity**: Low | **Confidence**: High
+- **Description**: Korean translation for `'export.at'` is empty string `''`. This makes the output spec line render as "1920x1080 MP4  Mbps" (double space where "at" should be).
+- **Fix**: Add appropriate Korean word for "at" in this context, or use a consistent symbol.
+
+---
+
+## Finding 5: SceneEditor doesn't validate overlap between scenes
+- **File**: `src/components/SceneEditor.tsx`
+- **Severity**: Medium | **Confidence**: High
+- **Description**: `normalizeScenes` handles overlapping scenes by clamping, but SceneEditor only warns about `startPercent >= endPercent`, NOT about overlaps between different scenes. If user creates Scene A: 0-60% and Scene B: 50-80%, `normalizeScenes` silently adjusts Scene B to 60-80%, but the user isn't told.
+- **Fix**: Add overlap detection to the `commitScenes` validation step.
+
+---
+
+## Finding 6: SceneEditor overlap warning labels exist but are never triggered
+- **File**: `src/lib/i18n.ts` — keys `scenes.overlap` and `scenes.overlapSuffix`
+- **Severity**: Low | **Confidence**: High
+- **Description**: Translation keys `scenes.overlap` ("and") and `scenes.overlapSuffix` ("overlap") exist in all locales but are never used in the code. The overlap detection that would use these keys is missing from the SceneEditor.
+- **Fix**: Implement the overlap detection that uses these keys.
+
+---
+
+## Finding 7: ExportPanel shows incorrect frame count display
+- **File**: `src/components/ExportPanel.tsx` line 260
+- **Severity**: Low | **Confidence**: Medium
+- **Description**: Frame count display uses `Math.round(exportProgress * Math.ceil(duration * fps))` but `exportProgress` is `frame / (totalFrames - 1)`, causing slight inaccuracy in the displayed frame number.
+- **Fix**: Use actual frame count from export controller.
+
+---
+
+## Final Sweep
+- Cross-cutting concerns between components reviewed.
+- State management patterns checked for consistency.
+- i18n completeness verified for all 5 locales.

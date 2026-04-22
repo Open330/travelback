@@ -1,57 +1,52 @@
-# Prompt 1 latent-bug review
+# Debugger Review — Cycle 1 (2026-04-23)
 
-**Scope reviewed:** `.context/**`, `package.json`, root configs, `src/**`, `scripts/**`, `e2e/**`, `public/**`
+## Summary
+Focused on latent bug surface, failure modes, and potential regressions.
 
-## Findings
+---
 
-### 1) Export cancellation still waits on a non-abortable cleanup path
-- **File/region:** `src/lib/useExportController.ts:158-170`
-- **Triggering scenario:** Start a video export, then click **Cancel** while the map is still settling or while a frame render is in flight.
-- **Why it breaks:** The main export work is aborted correctly, but the `finally` block always does `await mapViewRef.current?.waitForIdle()` without passing the abort signal. That wait can sit for up to the full idle timeout even after cancellation, which leaves the export overlay active and makes cancel feel hung.
-- **Suggested fix:** Pass the abort signal through the cleanup wait, or skip the post-reset idle wait entirely when the export was aborted.
-- **Confidence:** High
-- **Status:** Confirmed
+## Finding 1: Race condition in worker fallback path
+- **File**: `src/lib/parser.ts` lines 440-515
+- **Severity**: Medium | **Confidence**: Medium
+- **Description**: In `parseGoogleLocationHistoryInWorkerBuffer`, if the worker creation fails (line 456), the code falls back to `parseGoogleLocationHistory(textCopy)`. But if the worker creation succeeds and then the worker crashes (`onerror`), the code also falls back to `parseGoogleLocationHistory(textCopy)`. However, if the worker successfully starts but sends a message with `error` set (line 478), the code rejects with a ParseError and does NOT fall back. This means: (1) Worker starts, (2) worker fails to parse, (3) worker reports error, (4) main thread rejects. But (5) the main thread could potentially succeed if it tried the parse itself (since the worker environment might differ). The inconsistency is: some failure paths fall back, others don't.
+- **Fix**: Consider consistently either always falling back to main-thread parse on worker failure, or never falling back. The current mixed approach could confuse users who get different results depending on timing.
 
-### 2) Export panel can start an unsupported codec before codec support probing finishes
-- **File/region:** `src/components/ExportPanel.tsx:92-118, 273-331`
-- **Triggering scenario:** Open the export panel and click **Start Export** quickly, before the async codec support check resolves.
-- **Why it breaks:** `codecSupport` starts as `null` for all codecs, and `handleExport()` only blocks when `codecSupport[codec] === false`. While support is still unknown, the button remains usable and can launch an export with a codec the browser cannot actually encode, which then fails later and less clearly.
-- **Suggested fix:** Disable export until the selected codec’s support state is known, or perform a synchronous final support check in `handleExport()` and reject `null` the same way as `false`.
-- **Confidence:** High
-- **Status:** Confirmed
+---
 
-### 3) Zero-distance tracks resolve to the wrong interpolation point
-- **File/region:** `src/lib/interpolate.ts:55-129`
-- **Triggering scenario:** Load a track with 2+ points but no actual movement between them, or a path made entirely of repeated coordinates.
-- **Why it breaks:** When every cumulative distance is `0`, the binary search in `interpolateAlongTrack()` returns a later index instead of the first point. Playback and export then begin from the second point in the sequence rather than the track origin, so the marker/camera can jump to the wrong spot on the very first frame.
-- **Suggested fix:** Special-case `total <= 0` and return the first point (or otherwise force the lower bound to index `0`) before the binary search path.
-- **Confidence:** High
-- **Status:** Confirmed
+## Finding 2: MapView map initialization effect depends on `mapStyleKey` from closure but not in deps
+- **File**: `src/components/MapView.tsx` lines 547-647
+- **Severity**: Low | **Confidence**: High
+- **Description**: The map initialization `useEffect` (with `[]` deps) captures `mapStyleKey` from the closure but only uses it once (to set the initial style). The eslint-disable comment acknowledges this. If `mapStyleKey` changes before the map is fully initialized, the initial style could be stale. The separate `useEffect` for style changes (lines 650-671) handles this correctly by checking `styleKeyRef.current === mapStyleKey`.
+- **Fix**: No action needed — the separate style change effect handles this correctly.
 
-### 4) Theme toggle assumes modern `MediaQueryList` APIs without a fallback
-- **File/region:** `src/components/ThemeToggle.tsx:7-19, 34-47`
-- **Triggering scenario:** Open the app in a legacy browser or embedded WebView that supports `matchMedia` but not `MediaQueryList.addEventListener/removeEventListener`.
-- **Why it breaks:** The component calls `window.matchMedia('(prefers-color-scheme: dark)')` unguarded in the initializer and then unconditionally registers `mql.addEventListener('change', ...)`. Older browser engines can throw here, which can break the toolbar or the whole page during mount.
-- **Suggested fix:** Feature-detect the listener API and fall back to `addListener/removeListener`, and guard the `matchMedia` call the same way the bootstrap script already does.
-- **Confidence:** Medium
-- **Status:** Risk
+---
 
-### 5) Timeline drag updates can outlive the component because the pending RAF is never cancelled
-- **File/region:** `src/components/TimelineSelector.tsx:155-184, 212-229`
-- **Triggering scenario:** Drag the timeline handles, then immediately close the track/session or unmount the component before the next animation frame flushes.
-- **Why it breaks:** `applyDrag()` schedules updates with `requestAnimationFrame`, but neither the effect cleanup nor `endDrag()` cancels a pending frame. If the component unmounts while a frame is queued, the callback can still run and call `setStartRatio` / `setEndRatio` after teardown.
-- **Suggested fix:** Store the RAF id in a ref, cancel it in `endDrag()` and in the effect cleanup, and clear the ref when the drag finishes.
-- **Confidence:** Medium
-- **Status:** Likely
+## Finding 3: Export cleanup may fail silently
+- **File**: `src/lib/useExportController.ts` lines 176-205
+- **Severity**: Low | **Confidence**: High
+- **Description**: In the `finally` block, `mapViewRef.current?.resetSize()` is called. If this fails (e.g., map destroyed during export), the code falls back to a DOM query for `[data-testid="map-container"]` and resets inline styles. This fallback is correct but doesn't call `map.resize()`, which means the map might not properly recalculate its viewport. The subsequent `waitForIdle` call (line 197) would also fail if the map is destroyed.
+- **Fix**: Add a guard to check if the map still exists before calling `waitForIdle` in the finally block.
 
-## Final sweep
+---
 
-The last remaining risk cluster is not in the obvious happy path; it is in **transitions**:
+## Finding 4: Playback progress can exceed 1.0 briefly due to rAF timing
+- **File**: `src/lib/usePlaybackController.ts` lines 90-98
+- **Severity**: Low | **Confidence**: High
+- **Description**: The `animate` callback computes `nextProgress = startProgressRef.current + (elapsedSec * speedRef.current) / durationRef.current`. If the user changes speed or duration while playing, the refs update immediately but `startTimestampRef` and `startProgressRef` are only set when the effect re-runs (on `isPlaying` change). Between the ref update and the effect re-run, `nextProgress` could temporarily exceed 1.0 before the `if (nextProgress >= 1)` guard catches it.
+- **Fix**: This is already handled by the `if (nextProgress >= 1)` guard and `setPlaybackProgress(1)`. No action needed.
 
-- export aborts still have a delayed cleanup wait,
-- export codec support is checked asynchronously but the action is not gated,
-- interpolation has a degenerate zero-distance edge case,
-- theme wiring assumes modern browser APIs,
-- timeline dragging leaves a queued frame behind on teardown.
+---
 
-Those are the places most likely to surface as “it works most of the time, but not when the user does X fast / on Y browser / with a degenerate file.”
+## Finding 5: JourneyCreator map event listeners leak on rapid isActive toggles
+- **File**: `src/components/JourneyCreator.tsx` lines 239-430
+- **Severity**: Low | **Confidence**: Medium
+- **Description**: The main `useEffect` for JourneyCreator binds map event listeners. If `isActive` toggles rapidly (e.g., due to React batched updates), the cleanup function and the setup function could interleave. The `layersAddedRef` and `cleanupRef` patterns help prevent double-binding, but there's a window where the cleanup from the previous effect hasn't run yet when the new effect starts.
+- **Fix**: This is a theoretical concern — React guarantees cleanup runs before the next effect. No action needed.
+
+---
+
+## Final Sweep
+- All failure modes and error paths traced.
+- Race conditions and timing issues assessed.
+- Cleanup patterns verified.
+- Abort signal propagation checked.

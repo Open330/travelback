@@ -1,18 +1,59 @@
-# Performance review — current state
+# Performance Review — Cycle 1 (2026-04-23)
 
-## Inventory reviewed
-- App shell / routing: `package.json`, `next.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`
-- Playback / map / export path: `src/components/MapView.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/Controls.tsx`, `src/components/ElevationProfile.tsx`, `src/components/TimelineSelector.tsx`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `src/lib/camera.ts`, `src/lib/interpolate.ts`, `src/types.ts`
-- Import path: `src/components/FileUpload.tsx`, `src/lib/parser.ts`, `public/workers/trackParser.worker.js`
-- Other client payload surfaces checked: `src/lib/i18n.ts`, `src/components/JourneyCreator.tsx`, `src/components/SceneEditor.tsx`, `src/components/ExportPanel.tsx`, `public/map-styles/*.json`, `scripts/*.mjs`, `e2e/travelback.spec.ts`
+## Summary
+Performance concerns center on large file parsing, map rendering during animation, video export frame loop, and memory management.
 
-## Highest-signal issues
+---
 
-| Area | Exact citation | Issue | Concrete failure scenario | Suggested fix | Severity | Confidence | Status |
-|---|---|---|---|---|---|---|---|
-| Playback / export trail rendering | `src/components/MapView.tsx:120-159`, `src/components/MapView.tsx:776-798` | The trail geometry is rebuilt from scratch on every progress tick via `slice(...).map(...)` across prior points, then pushed through `GeoJSONSource.setData(...)`. This makes playback/export cost grow with track length and creates heavy allocation churn. | A 50k-250k point track played live or exported at 60fps repeatedly rebuilds most of the route each frame, producing GC spikes, scrub lag, and dropped frames. | Precompute segment coordinate arrays once per track; advance an index/window incrementally; avoid full geometry reconstruction per frame. If needed, keep immutable route data in refs and update only the active tail segment. | High | High | Open |
-| React render frequency | `src/lib/usePlaybackController.ts:17-42`, `src/lib/usePlaybackController.ts:77-106`, `src/app/page.tsx:32-99`, `src/app/page.tsx:295-419`, `src/components/TrackWorkspace.tsx:49-154` | Playback progress is committed to React state on every animation frame, and that state lives high enough in the tree that the whole page shell re-renders continuously during playback/export preview. | While playback is running, opening panels, dragging timeline handles, or using slower mobile CPUs will feel janky because map, workspace, toolbars, overlays, and modal parents all reconcile at frame rate. | Move the hot playback clock to refs/external store or an imperative map controller; only publish UI progress at a throttled rate; memoize or split heavy subtrees so frame updates do not re-render the full shell. | High | High | Open |
-| Map rendering baseline cost | `src/components/MapView.tsx:524-530` | The main interactive MapLibre instance is always created with `preserveDrawingBuffer: true`, which is a known steady-state GPU/throughput penalty and is only really needed for canvas capture/export workflows. | On integrated GPUs or mobile Safari-class hardware, ordinary pan/zoom/playback pays the export capture cost all the time, lowering frame rate and increasing power use. | Use a dedicated export-only map/canvas, or recreate/toggle an export map only while encoding instead of keeping the primary interactive map in preserve-drawing-buffer mode. | Medium-High | High | Open |
-| Export memory envelope | `src/types.ts:80-107`, `src/lib/videoEncoder.ts:73-85`, `src/lib/videoEncoder.ts:127-149`, `src/lib/useExportController.ts:141-151` | Export writes the MP4 to an in-memory `BufferTarget`, then creates a `Blob`, then keeps that blob/URL in state. Current presets permit up to 10 minutes, 4K, 120fps, and 50 Mbps, so the allowed config envelope far exceeds what a browser tab can safely buffer. | A long 4K export (especially near the 10 min / high bitrate end) can balloon into multi-GB transient memory usage and crash or kill the tab before save completes. | Add a hard preflight memory budget using resolution × fps × duration × bitrate; cap unsafe presets in-browser; prefer streaming to a writable target instead of buffering the whole MP4 in memory; avoid retaining the blob unless the user requests preview/download reuse. | High | High | Open |
-| Large JSON import memory / latency | `src/lib/parser.ts:422-431`, `src/lib/parser.ts:429-481`, `src/lib/parser.ts:484-510`, `public/workers/trackParser.worker.js:125-177`, `public/workers/trackParser.worker.js:219-244` | JSON import avoids main-thread blocking, but still decodes the full `ArrayBuffer` to a full string, scans it once for depth, parses the entire JSON object, then builds `points`, `unique`, sorted arrays, and remap structures. This is a large transient-memory multiplier near the 100 MB limit. | An 80-100 MB Google Location History file can briefly occupy several copies of the data in worker memory, leading to long import latency or worker/tab termination on lower-memory devices. | Replace the full-text + full-object pipeline with streaming/incremental parsing in the worker, or reduce the accepted JSON size substantially; eliminate the separate full-string depth scan; dedupe/sort in a more memory-bounded way. | High | Medium-High | Open |
+## Finding 1: Video export frame loop uses sequential `waitForIdle` — potentially very slow
+- **File**: `src/lib/videoEncoder.ts` lines 93-133
+- **Severity**: Medium | **Confidence**: High
+- **Description**: Each frame waits for map idle (up to 5 seconds). For 30s at 30fps (900 frames), even at 50ms/frame this takes 45 seconds. The 5-second timeout is a safety valve but could cause very long exports.
+- **Fix**: Reduce `WAIT_FOR_IDLE_TIMEOUT_MS` for the export case (e.g., 2000ms), or use a progressive approach where frames with missing tiles are captured anyway.
 
+---
+
+## Finding 2: `parseGoogleLocationHistory` dedup/sort is O(n log n) for large files
+- **File**: `src/lib/parser.ts` lines 393-429
+- **Severity**: Medium | **Confidence**: High
+- **Description**: For very large Google Location History files (100MB+), the dedup step creates a Set of string keys and sorts all unique points. For millions of points, this uses significant memory and CPU.
+- **Fix**: Consider using a Web Worker for the entire parse+dedup+sort pipeline, or a more memory-efficient dedup strategy.
+
+---
+
+## Finding 3: MapView re-renders on every progress change during playback
+- **File**: `src/components/MapView.tsx` lines 822-936
+- **Severity**: Medium | **Confidence**: High
+- **Description**: During playback, `progress` changes every ~16ms, triggering this effect. Each execution calls `interpolateAlongTrack`, updates trail source data, and potentially calls `map.jumpTo`. The `shouldApplyCamera` guard helps skip unnecessary calls, but the effect still runs every frame.
+- **Fix**: Consider using `requestAnimationFrame` directly in MapView instead of relying on React's render cycle.
+
+---
+
+## Finding 4: `buildTrackGeometry` called on every progress update
+- **File**: `src/components/MapView.tsx` line 847-850
+- **Severity**: Medium | **Confidence**: High
+- **Description**: During playback, `buildTrackGeometry` is called every frame to update the trail. For large tracks (10,000+ points), this is a per-frame O(n) operation.
+- **Fix**: Optimize by only recomputing the trail segment that changed, rather than rebuilding the entire trail geometry.
+
+---
+
+## Finding 5: No unmount guard in usePlaybackController
+- **File**: `src/lib/usePlaybackController.ts` lines 79-110
+- **Severity**: Low | **Confidence**: High
+- **Description**: If the component unmounts between `setPlaybackProgress` and the next `requestAnimationFrame` callback, the state update could be applied to an unmounted component.
+- **Fix**: Add a mounted ref guard similar to `useExportController`.
+
+---
+
+## Finding 6: i18n translations object is ~1700 lines bundled inline
+- **File**: `src/lib/i18n.ts`
+- **Severity**: Low | **Confidence**: High
+- **Description**: All 5 locales bundled into the main JS chunk. For a static-export site this is less critical.
+- **Fix**: Consider code-splitting translations by locale. Low priority.
+
+---
+
+## Final Sweep
+- No memory leaks found beyond the noted missing unmount guard.
+- Web Worker usage for JSON parsing is a positive pattern.
+- `preserveDrawingBuffer: true` has a known performance cost but is necessary for video export.

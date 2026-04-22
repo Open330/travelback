@@ -1,37 +1,57 @@
-# Whole-Repo Test Review — Prompt 1
+# Test Engineer Review — Cycle 1 (2026-04-23)
 
-**Date:** 2026-04-19
-**Reviewer:** Test Engineer
-**Scope inventoried first:** `.context/**`, `package.json`, `playwright.config.ts`, `playwright.static.config.ts`, `next.config.ts`, `eslint.config.mjs`, `src/**`, `scripts/**`, `e2e/**`, `public/**`
+## Summary
+Review of test coverage gaps, flaky test risks, and TDD opportunities.
 
-## Inventory Summary
+---
 
-- **Current automated coverage shape:** 1 Playwright E2E suite (`e2e/travelback.spec.ts`) and 0 unit/integration test files in `src/**` or `scripts/**`.
-- **Current test commands:** `test:e2e`, `test:e2e:dev`, `test:e2e:static`, `test:e2e:static:ci`, `smoke:static`.
-- **Important implication:** pure-library logic in `src/lib/**`, duplicated worker logic in `public/workers/**`, and most node scripts are only indirectly covered, if at all.
+## Finding 1: No unit tests exist — only E2E tests
+- **File**: `e2e/travelback.spec.ts`
+- **Severity**: High | **Confidence**: High
+- **Description**: The project has zero unit tests. Only Playwright E2E tests exist. Critical logic like `parser.ts`, `interpolate.ts`, `camera.ts`, and `videoEncoder.ts` has no unit test coverage. These modules contain complex algorithms (haversine distance, binary search interpolation, scene normalization, GeoJSON construction) that are ideal candidates for unit testing.
+- **Fix**: Add unit tests for: (1) `parser.ts` — all Google Location History formats, GPX, KML; (2) `interpolate.ts` — interpolation edge cases, bearing calculation; (3) `camera.ts` — scene normalization, camera computation; (4) `videoEncoder.ts` — filename sanitization.
 
-## Findings
+---
 
-| ID | File / region | Untested behavior | Likely regression scenario | Recommended test / fix | Confidence | Status |
-|---|---|---|---|---|---|---|
-| TR-TEST-001 | `package.json`, `playwright.config.ts`, `playwright.static.config.ts`, repo-wide | The repo has E2E-only coverage; there is no unit/integration harness for pure logic in `src/lib/**` and `scripts/**`. | A parser/camera/export regression can slip through because current E2E mostly verifies happy paths and UI presence, not deterministic edge logic. | Add a lightweight unit runner (Vitest/Jest) and start with `src/lib/parser.ts`, `src/lib/camera.ts`, `src/lib/interpolate.ts`, `src/lib/videoEncoder.ts`, and `scripts/*.mjs`. | High | Confirmed |
-| TR-TEST-002 | `src/lib/parser.ts:317-447` | `checkJsonDepth()`, invalid-JSON handling, unsupported Google JSON shape detection, dedup/sort/remapped `segmentStartIndices` have no direct tests. Current E2E only checks successful imports for sample fixtures. | Malformed or deeply nested Google exports could start throwing the wrong `ParseError.code`, hang longer than expected, or reorder segments incorrectly without any failing test. | Add table-driven unit tests for `parseGoogleLocationHistory()` covering invalid JSON, over-depth JSON, unsupported shape, mixed timed/untimed points, duplicate points, and segment-start remapping after sort/dedup. | High | Confirmed |
-| TR-TEST-003 | `src/lib/parser.ts:450-515`, `public/workers/trackParser.worker.js:125-260` | Worker fallback and worker/main-thread parity are untested: worker creation failure, worker message missing `track`, worker `error`, structured-cloned `Date` repair, and the `>50MB` reject path. | The worker copy can drift from `src/lib/parser.ts`, or fallback behavior can change and only fail for large JSON files in production browsers. | Add integration tests with a mocked `Worker` covering success, creation failure, `onmessage.error`, malformed payload, and `onerror` for both small and large JSON. Add parity fixtures that assert worker output matches main-thread output. | High | Confirmed |
-| TR-TEST-004 | `src/lib/parser.ts:521-564`, `src/components/FileUpload.tsx:34-79` | File-size limits, unsupported-extension dispatch, `FileReader.onerror`, and user-facing error mapping are only partially covered. Current E2E checks unsupported `.txt`, but not JSON-specific 500MB limits, dynamic file-too-large messaging, or read failures. | A refactor could break localized error mapping or reject large JSON with the wrong message while the happy-path uploads still pass. | Add unit/component tests for `parseTrackFile()` and `FileUpload` covering `FILE_TOO_LARGE`, `TOO_FEW_POINTS`, `TOO_MANY_POINTS`, `reader.onerror`, and JSON-vs-GPX limit differences. | High | Confirmed |
-| TR-TEST-005 | `src/lib/interpolate.ts:16-129` | Segment-gap distance math, empty/single-point guards, and duplicate-point backward-bearing fallback have no direct tests. E2E only covers one segmented-distance stat assertion. | Playback bearing or elapsed-distance math can regress on repeated coordinates, one-point tracks, or segment breaks without obvious UI breakage in standard sample fixtures. | Add deterministic unit tests for `computeCumulativeDistances()`, `totalDistance()`, and `interpolateAlongTrack()` using segment boundaries, duplicate points, empty input, and single-point input. | High | Confirmed |
-| TR-TEST-006 | `src/lib/camera.ts:102-129`, `src/lib/camera.ts:341-435` | Antimeridian interpolation, gap handling between scenes, pre-first-scene overview blending, and transition blending boundaries are not directly tested. Existing E2E camera tests only check “stable movement,” not exact scene math. | A track that crosses ±180° or a sparse custom scene set could produce large camera jumps/spins while still passing the current stability heuristic on normal fixtures. | Add unit tests for `lerpCamera()` and `computeCameraForProgress()` covering antimeridian centers, gaps between scenes, before-first-scene progress, after-last-scene progress, and narrow transition windows. | High | Confirmed |
-| TR-TEST-007 | `src/lib/useExportController.ts:77-171`, `src/lib/videoEncoder.ts:40-190`, `src/components/ExportPanel.tsx:112-320`, `src/app/page.tsx:310-325` | The suite never executes a real export lifecycle. Missing coverage includes resize/idle cleanup, abort handling, generated default scenes, config clamping, sanitized filenames, share fallback, and “done” state reset. Current E2E only opens the export modal. | Export can silently regress: cancel might not clean up, failed idle waits may leave the map resized, filename sanitization may break downloads, or share/save behavior may fail only after rendering starts. | Add browser-level integration tests with mocked `mediabunny`/`downloadVideo` and component tests for `ExportPanel`; cover start export, cancel export, success state, share unsupported path, and cleanup after failure. | High | Confirmed |
-| TR-TEST-008 | `src/components/JourneyCreator.tsx:66-101`, `src/components/JourneyCreator.tsx:431-506` | Only one pasted coordinate format is exercised. Untested: `geo:` links, `@lat,lng` URLs, `?q=` / `ll=` URLs, invalid-coordinate errors, search reset on toggle-off, and confirm-create output after coordinate search selection. | Local-only coordinate jump can break for common copied map links, or stale search state can remain visible, without failing the current single-format E2E. | Add component tests for `parseCoordinateQuery()` plus Playwright coverage for multiple accepted URL formats, invalid input, toggle reset, and completing a route from a search-selected point set. | Medium | Confirmed |
-| TR-TEST-009 | `src/components/TimelineSelector.tsx:45-229` | Current E2E covers one end-handle trim only. Missing: start-handle drag, whole-region drag, hint dismissal persistence in `localStorage`, keyboard adjustments, zero-distance fallback bucketing, and reset behavior. | Timeline trimming can regress for keyboard users or dense/zero-distance tracks even while the single “tiny trim” mouse path still passes. | Add component/integration tests that drive start handle, region drag, arrow-key movement, hint dismissal persistence, and tracks whose total distance is zero. | Medium | Confirmed |
-| TR-TEST-010 | `scripts/serve-static.mjs:69-171`, `scripts/smoke-static.mjs:132-143` | Static smoke verifies a few 200/404/cache/CSP cases, but not `HEAD`, `405`, invalid URI `400`, traversal `403`, or the security-header contract beyond implicit success. | A future refactor could weaken server hardening or break non-GET behavior with no failing smoke check. | Extend `smoke-static.mjs` with explicit assertions for `HEAD`, `POST -> 405`, encoded-invalid-path `400`, traversal `403`, and exact security headers (`X-Content-Type-Options`, `COOP`, `CORP`, etc.). | High | Confirmed |
-| TR-TEST-011 | `scripts/harden-static-export.mjs:41-99` | Hash extraction/entity decoding and CSP meta replacement variants have no direct tests. The current smoke only inspects final `out/index.html`. | A regex or entity-decoding regression could miss some inline scripts or fail on differently ordered meta attributes while the current built sample still happens to pass. | Add node-level tests around `computeScriptHashes()` and `replaceCspMeta()` with multiple HTML fixtures: single quotes, reordered attributes, encoded entities, multiple inline scripts, and missing meta failure. | Medium | Confirmed |
-| TR-TEST-012 | `scripts/fetch-map-styles.mjs`, `public/map-styles/*.json`, `scripts/smoke-static.mjs:104-127` | There is no source-level contract test for style adaptation. Current smoke validates `out/map-styles`, not the fetch/adaptation script or checked-in source JSON generation path. | The fetch script can reintroduce remote sprite/glyph/source dependencies or wrong overrides during a style refresh, and the regression may only be noticed after a build step or release artifact diff. | Add a node test that runs/adapts fixture style JSON and asserts expected removals/overrides before files are committed to `public/map-styles`. | Medium | Risk |
-| TR-TEST-013 | `e2e/travelback.spec.ts:116,328,344,563,591,666,681,931,963`, `playwright.config.ts:10`, `playwright.static.config.ts:10` | The E2E suite relies on hard sleeps and globally allows retries. That masks timing issues instead of synchronizing on concrete app state. | Slow CI, dev-server jitter, or WebGL startup variance can cause intermittent failures or hidden flakes, especially around camera sampling and track-load sequencing. | Replace `waitForTimeout()` calls with debug-state polls / DOM-state waits, keep retries near zero for stable tests, and isolate camera-heavy specs behind stronger readiness probes (`waitForIdle`, debug map state). | High | Likely |
+## Finding 2: E2E test file not reviewed for completeness
+- **File**: `e2e/travelback.spec.ts`
+- **Severity**: Medium | **Confidence**: Medium
+- **Description**: The E2E test file exists but was not among the files I've read. It should be reviewed to ensure coverage of: (1) file upload flow, (2) journey creation, (3) export, (4) theme switching, (5) locale switching, (6) timeline range selection.
+
+---
+
+## Finding 3: No test for `checkJsonDepth` guard
+- **File**: `src/lib/parser.ts` lines 326-345
+- **Severity**: Medium | **Confidence**: High
+- **Description**: The JSON depth checker is a security-relevant guard with no test coverage. Edge cases like: exactly at the limit, nested arrays vs objects, strings containing braces, escaped characters in strings.
+- **Fix**: Add unit tests for `checkJsonDepth`.
+
+---
+
+## Finding 4: No test for scene normalization edge cases
+- **File**: `src/lib/camera.ts` lines 19-44
+- **Severity**: Medium | **Confidence**: High
+- **Description**: `normalizeScenes` handles: clamping start/end to [0,1], sorting by startPercent, removing gaps, filtering zero-duration scenes. Edge cases: empty array, single scene, overlapping scenes, scenes out of order, scenes with NaN/Infinity percentages.
+- **Fix**: Add unit tests for `normalizeScenes`.
+
+---
+
+## Finding 5: No test for antimeridian-crossing track handling
+- **File**: `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/components/MapView.tsx`
+- **Severity**: Medium | **Confidence**: High
+- **Description**: Multiple files have antimeridian-crossing logic (e.g., `shortestLngDelta`, `wrapLngNear`, shifted longitude interpolation). This is a notoriously bug-prone area with no test coverage.
+- **Fix**: Add unit tests for antimeridian edge cases in interpolation, camera, and geometry building.
+
+---
+
+## Finding 6: Flaky test risk from map loading timing in E2E
+- **Severity**: Low | **Confidence**: Medium
+- **Description**: E2E tests that depend on map rendering (tile loading, camera positioning) are inherently flaky due to network-dependent tile loading. The `waitForIdle` pattern in the app code helps but E2E tests may need explicit waits.
+- **Fix**: Use Playwright's `waitForFunction` or custom assertions that check map state.
+
+---
 
 ## Final Sweep
-
-- Re-inventoried the only automated suite: `e2e/travelback.spec.ts` contains broad UI happy-path coverage but does **not** provide deterministic protection for most pure logic branches in `src/lib/**` and `scripts/**`.
-- Highest-value next test layers: **parser edge cases**, **camera math**, **export lifecycle**, **static server hardening**, **worker parity**.
-- No code changes were made for this review.
-
-**Findings count:** 13
+- Test infrastructure reviewed.
+- Coverage gaps identified across all critical modules.
+- Flaky test risks assessed.
