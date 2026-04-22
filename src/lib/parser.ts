@@ -421,7 +421,7 @@ export function parseGoogleLocationHistory(text: string): Track {
       }
       return -1
     })
-    .filter(idx => idx > 0)
+    .filter(idx => idx >= 0)
 
   return {
     name: 'Google Location History',
