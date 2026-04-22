@@ -192,7 +192,8 @@ export function useExportController({
       // Wait for map to settle after resize on the normal-completion path.
       // Skip the idle wait when the export was aborted — the signal is already
       // aborted so waitForIdle would reject immediately, making the wait a no-op.
-      if (!abortController.signal.aborted) {
+      // Also skip if the map was destroyed during export to avoid unhandled rejections.
+      if (!abortController.signal.aborted && mapViewRef.current) {
         try {
           await mapViewRef.current?.waitForIdle(abortController.signal)
         } catch {

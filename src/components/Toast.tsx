@@ -60,8 +60,12 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
 }
 
 export default function Toast({ messages, onDismiss }: ToastProps) {
+  // Use assertive for error toasts so screen readers announce them immediately;
+  // use polite for all other types to avoid interrupting the user.
+  // When both types are present, use assertive to ensure errors are heard.
+  const hasError = messages.some(m => m.type === 'error')
   return (
-    <div role="log" aria-live="polite" className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
+    <div role="log" aria-live={hasError ? 'assertive' : 'polite'} className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
       {messages.map(msg => (
         <ToastItem key={msg.id} message={msg} onDismiss={() => onDismiss(msg.id)} />
       ))}
