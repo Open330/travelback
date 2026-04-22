@@ -36,6 +36,8 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
         setMode(newMode)
         onModeChange?.(newMode)
       }
+      // When a parent controls the mode, ignore OS-level preference changes
+      // so the user's explicit choice is preserved.
     }
     if (typeof mql.addEventListener === 'function') {
       mql.addEventListener('change', handler)
