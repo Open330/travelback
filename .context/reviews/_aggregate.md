@@ -1,60 +1,82 @@
-# Aggregate Review — Cycle 4 (2026-04-23)
+# Aggregate Review — Cycle 5 (2026-04-23)
 
 ## Methodology
-3 review agents: code-reviewer, debugger, security-reviewer. All 30+ source files examined. Findings deduplicated with prior cycle reviews. Cross-agent agreement noted.
+10 review agents: code-reviewer, security-reviewer, perf-reviewer, architect, designer, test-engineer, debugger, verifier, critic, tracer, document-specialist. All 30+ source files examined. Findings deduplicated with prior cycle reviews. Cross-agent agreement noted.
 
 ---
 
-## CYCLE 3 FIX VERIFICATION
+## CYCLE 4 FIX VERIFICATION
 
-Both cycle 3 fixes are confirmed applied:
-- C3-F1 (worker segment remap filter): FIXED in `public/workers/trackParser.worker.js:200` (`idx >= 0`)
-- C3-F3 (worker error code mapping): FIXED — `ERROR_CODE` constants and `WorkerParseError` class with `.code` property replace fragile string matching
+Both cycle 4 fixes are confirmed applied:
+- C4-F1 (NaN coordinates bypass): FIXED — `Number.isFinite()` checks added in both `parser.ts` and worker across all 4 code paths
+- C4-F2 (FileUpload concurrent parse race): FIXED — `if (loading) return` guards in `handleDrop` and `handleInputChange`
 
 ---
 
 ## NEW FINDINGS (sorted by severity x confidence)
 
-### C4-F1. NaN coordinates bypass Math.abs validation in pushE7/parseRecords
-- **Severity**: HIGH | **Confidence**: HIGH
-- **Cross-agent**: code-reviewer (C4-F2)
-- **Files**: `src/lib/parser.ts:184-186` (pushE7), `src/lib/parser.ts:196` (parseRecords), `public/workers/trackParser.worker.js:30-31` (pushE7), `public/workers/trackParser.worker.js:44` (parseRecords)
-- **Issue**: `Math.abs(NaN) > 90` evaluates to `false`, so NaN coordinates pass the validation check. If a malformed Google Location History record has non-numeric `latitudeE7`/`longitudeE7` values (e.g., strings, undefined after E7 conversion), the resulting NaN lat/lng will pass both `Math.abs(lat) > 90` and `Math.abs(lng) > 180` guards. This introduces NaN coordinates into the track data, causing rendering artifacts in MapLibre GL and broken distance calculations. Affects both the main-thread parser and the worker (primary code path).
-- **Fix**: Add `Number.isFinite(lat)` and `Number.isFinite(lng)` checks in both `pushE7` and `parseRecords`, in both `parser.ts` and the worker file.
-
-### C4-F2. FileUpload handleDrop missing loading guard — concurrent parse race
+### C5-F1. SceneEditor aria-valuetext uses hardcoded English — i18n accessibility gap
 - **Severity**: MEDIUM | **Confidence**: HIGH
-- **Cross-agent**: code-reviewer (C4-F1), debugger (D4-F2)
-- **File**: `src/components/FileUpload.tsx:77-90`
-- **Issue**: `handleDrop` calls `handleFile(file)` without checking the `loading` state. If a user drops a second file while the first is still parsing, both parse operations run concurrently. The second `setLoading(false)` in `finally` fires first, causing the UI to exit loading state while the first parse is still running. The second file's `onTrackLoaded` also overwrites the first file's track.
-- **Fix**: Add `if (loading) return` guard at the top of `handleDrop`. Also check `handleFileInput` for the same issue.
+- **Cross-agent**: code-reviewer (C5-F1), designer (C5-D1), critic (C5-CR1)
+- **Files**: `src/components/SceneEditor.tsx:531, 547, 565, 581`
+- **Issue**: The `aria-valuetext` attributes on zoom, pitch, bearing, and rotation sliders use hardcoded English words ("Zoom", "Tilt", "Direction", "Orbit speed") instead of i18n translation keys. For non-English screen reader users, these labels are announced in English while the rest of the UI is in their locale. This undermines the comprehensive i18n investment (~170 keys across 5 locales).
+  - Line 531: `aria-valuetext={`Zoom ${scene.params.zoom}`}`
+  - Line 547: `aria-valuetext={`Tilt ${scene.params.pitch}°`}`
+  - Line 565: `aria-valuetext={`Direction ${scene.params.bearingOffset}°`}`
+  - Line 581: `aria-valuetext={`Orbit speed ${scene.params.rotationSpeed}°/s`}`
+- **Fix**: Add translation keys (e.g., `scenes.zoomValue`, `scenes.pitchValue`, `scenes.bearingValue`, `scenes.rotationValue`) to all 5 locales and use `t()` in the `aria-valuetext` attributes. Example: `aria-valuetext={`${t('scenes.zoom')} ${scene.params.zoom}`}`.
+- **Impact**: WCAG 2.2 language of parts (3.1.2) concern. Screen reader users in non-English locales hear inconsistent language.
 
-### C4-F3. SceneEditor normalizes scenes on every name keystroke
-- **Severity**: MEDIUM | **Confidence**: MEDIUM
-- **File**: `src/components/SceneEditor.tsx:330-344` (updateScene), `442-443` (name input)
-- **Issue**: `updateScene` calls `commitScenes` which calls `normalizeScenes` on every change. Name-only changes trigger a full normalization pass (sorting, zero-duration filtering) unnecessarily since name changes cannot affect scene ranges.
-- **Fix**: Skip `normalizeScenes` when the patch only contains `name`. Call `onChange` with the updated scenes directly without normalization for name-only patches.
+### C5-F2. Coordinate validation boundary inconsistency in parseSemanticSegments visit path
+- **Severity**: LOW | **Confidence**: HIGH
+- **Cross-agent**: code-reviewer (C5-F2), debugger (C5-DB1), verifier (C5-V1), critic (C5-CR2)
+- **Files**: `src/lib/parser.ts:281 vs 305`, `public/workers/trackParser.worker.js:110 vs 128`
+- **Issue**: In `parseSemanticSegments`, the timelinePath branch rejects coordinates at exactly ±90 lat / ±180 lng using `Math.abs(lat) > 90 || Math.abs(lng) > 180` (strict inequality, so ±90/±180 are accepted). Wait — `> 90` means lat=90 is NOT rejected (90 is not > 90). The visit branch uses `Math.abs(lat) <= 90 && Math.abs(lng) <= 180` (accepts ±90/±180). Meanwhile, `pushE7` and `parseRecords` use `Math.abs(lat) > 90` which accepts ±90. So actually all paths accept ±90/±180 consistently. Let me re-verify...
+  - `pushE7` (line 186): `Math.abs(lat) > 90` — lat=90 passes (90 is not > 90)
+  - `parseRecords` (line 196): `Math.abs(lat) > 90` — lat=90 passes
+  - timelinePath (line 281): `Math.abs(lat) > 90` — lat=90 passes
+  - visit (line 305): `Math.abs(lat) <= 90` — lat=90 passes
+  - All paths accept lat=90. The inconsistency is in the *style* of the comparison (`> 90` vs `<= 90`), not in the actual behavior. Both accept the boundary values. However, if someone changes one to use `>= 90` (rejecting boundary), the other would still accept it. The double-negative logic in the visit path (`!(Math.abs(lat) > 90 || Math.abs(lng) > 180)` would be clearer and more consistent.
+- **Fix**: Refactor the visit path in both `parser.ts:305` and worker line 128 to use the same pattern as the other branches: `if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue` instead of the current `if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) && !(Math.abs(lat) > 90 || Math.abs(lng) > 180))`.
+- **Impact**: No behavioral difference today, but the inconsistent pattern increases maintenance risk.
 
-### C4-F4. ExportPanel estimated time multiplier may be inaccurate
-- **Severity**: LOW | **Confidence**: MEDIUM
-- **File**: `src/components/ExportPanel.tsx:105`
-- **Issue**: `estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)` uses a 0.5x base multiplier that underestimates 4K AV1 encoding time. The estimate is labeled with "~" and "approx" qualifiers, so user expectations are managed.
-- **Fix**: Adjust the base multiplier or make it resolution/codec-dependent for better accuracy. Low priority since the estimate is clearly labeled as approximate.
+### C5-F3. Duplicate longitude wrapping logic across three modules
+- **Severity**: LOW | **Confidence**: HIGH
+- **Files**: `src/lib/interpolate.ts:5-6`, `src/lib/camera.ts` (local `shortestLngDelta` and `normalizeLng`), `src/components/MapView.tsx:61-63` (local `shortestLongitudeDelta`)
+- **Issue**: The `normalizeLng`, `shortestLngDelta`, and equivalent `shortestLongitudeDelta` functions are reimplemented locally in three files. `interpolate.ts` exports `normalizeLng` and `shortestLngDelta`, but `camera.ts` and `MapView.tsx` have their own copies with slightly different names. If the wrapping algorithm needs updating (e.g., for edge cases near antimeridian), all three copies must be found and updated.
+- **Fix**: Import from `interpolate.ts` in `camera.ts` and `MapView.tsx` instead of duplicating.
+- **Impact**: Maintenance risk from code duplication. No behavioral difference today.
+
+### C5-F4. Worker ERROR_CODE and MAX_MESSAGE_SIZE constants not enforced against parser.ts
+- **Severity**: LOW | **Confidence**: HIGH
+- **Files**: `public/workers/trackParser.worker.js:209-220`
+- **Issue**: The worker JS file has comments saying `// Must match JSON_MAX_FILE_SIZE in src/lib/parser.ts` and `// Error codes — must match ParseError codes in src/lib/parser.ts`, but there's no build-time or runtime enforcement. The worker is a plain JS file that isn't type-checked. If a new error code is added to `parser.ts` but not to the worker (or vice versa), the mismatch would only be caught by manual testing.
+- **Impact**: Currently the constants match. Low risk but noted for maintenance.
+- **Fix consideration**: Could add a build validation step or convert the worker to TypeScript.
 
 ---
 
 ## AGENT FAILURES
-None. All 3 review perspectives covered.
+None. All 10+ review perspectives covered.
 
 ## POSITIVE FINDINGS
-- Cycle 3 fixes verified as correctly applied in both code paths
-- Security posture remains strong — no new security issues
-- Worker error code synchronization working correctly
-- Export cleanup has good fallback behavior for resetSize failures
-- FileUpload error code mapping is clean (no string matching on error messages)
+- Cycle 4 fixes verified as correctly applied in both code paths
+- NaN validation fix covers all four code paths (pushE7/parseRecords in both parser.ts and worker)
+- Concurrent parse race fix is clean with guards in both handleDrop and handleInputChange
+- Worker/main-thread parser synchronization is consistent after recent fixes
+- Security posture remains strong — no new security issues found
+- Playback uses accumulator-based progress — eliminates float drift
+- Export controller has robust cleanup with mounted ref and abort signal
+- The codebase is in a mature, converging state
 
 ---
 
 ## PRIOR DEFERRED FINDINGS CARRIED FORWARD
 
-All 19 deferred items from `.context/plans/deferred-findings-cycle17-2026-04-23.md` remain valid and are carried forward without modification (DF-C17-001 through DF-C17-019).
+All 19 deferred items from `.context/plans/deferred-findings-cycle17-2026-04-23.md` remain valid and are carried forward without modification (DF-C17-001 through DF-C17-019), plus DF-C4-001 and DF-C4-002 from cycle 4.
+
+---
+
+## CONVERGENCE NOTE
+
+Cycle 5 found 4 new issues (1 Medium, 3 Low), continuing the convergence trend. The Medium-severity finding (C5-F1) is an i18n accessibility gap that affects real users in non-English locales. The three Low-severity findings are code hygiene/maintenance issues (boundary condition style, code duplication, unenforced constant synchronization). No new security, correctness, or data-loss issues were found.
