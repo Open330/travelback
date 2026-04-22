@@ -16,7 +16,7 @@ All 11 P0/P1 items from cycle 1 are verified as correctly applied in the codebas
 - **Root Cause**: The `adjustedSegStarts` array is filtered with `.filter(idx => idx > 0)`, which drops segment starts that remap to index 0 after the dedup+sort reordering. The same bug class was fixed in page.tsx (F3) where the filter was changed from `> 0` to `>= 0`, but this parser instance was not identified in cycle 1.
 - **Action**: Change `.filter(idx => idx > 0)` to `.filter(idx => idx >= 0)` on line 424 of `src/lib/parser.ts`.
 - **Verify**: Load a Google Location History JSON file with multiple semantic segments where dedup removes enough early points that a segment start remaps to index 0. Confirm the segment boundary is preserved in the resulting Track object.
-- **Status**: PENDING
+- **Status**: DONE
 
 ### P1-1: Add aria-valuetext to SceneEditor sliders
 - **Source**: C2-F2
@@ -31,7 +31,7 @@ All 11 P0/P1 items from cycle 1 are verified as correctly applied in the codebas
   4. For bearing slider (~line 553): Add `aria-valuetext={`Direction ${scene.params.bearingOffset}°`}`.
   5. For rotation slider (~line 569): Add `aria-valuetext={`Orbit speed ${scene.params.rotationSpeed}°/s`}`.
 - **Verify**: Use screen reader to navigate scene editor sliders, confirm values announced with context.
-- **Status**: PENDING
+- **Status**: DONE
 
 ### P1-2: Fix ExportPanel frame count display to match encoder clamping
 - **Source**: C2-F3
@@ -41,7 +41,7 @@ All 11 P0/P1 items from cycle 1 are verified as correctly applied in the codebas
 - **Root Cause**: Frame count display uses `Math.round(exportProgress * Math.ceil(duration * fps))` with the panel's local `duration`/`fps` state, but the videoEncoder clamps these values via EXPORT_LIMITS before computing `totalFrames`. This means the displayed frame count can differ from the actual encoder frame count when clamping occurs.
 - **Action**: Apply the same EXPORT_LIMITS clamping to the display formula: `const clampedDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))` and `const clampedFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))`, then use `Math.ceil(clampedDuration * clampedFps)` for the total frame count display.
 - **Verify**: Set duration to 1 (below min of 5), confirm displayed total frames shows the clamped value (5 * fps), not the raw value.
-- **Status**: PENDING
+- **Status**: DONE
 
 ## Deferred Items
 
