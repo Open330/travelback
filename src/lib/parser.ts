@@ -563,7 +563,7 @@ export function parseTrackFile(file: File): Promise<Track> {
         reject(err)
       }
     }
-    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.onerror = () => reject(new ParseError('Failed to read file', 'READ_FAILED'))
     reader.readAsText(file)
   })
 }
