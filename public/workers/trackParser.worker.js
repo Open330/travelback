@@ -117,17 +117,16 @@ function parseSemanticSegments(segments, out, segStarts) {
     if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
 
     // Visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
-    // Coordinate guard uses <= to match the main-thread parser's equivalent
-    // check in parser.ts:305 (Math.abs(lat) > 90 rejects; <= 90 accepts).
+    // Coordinate guard uses the same pattern as pushE7/parseRecords:
+    // reject if null, NaN, or out of bounds (Math.abs > 90/180).
     const visit = seg.visit
     if (visit && visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
       const m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
       if (m) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
-        if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-          out.push({ lat, lng, time: gTime(seg.startTime) })
-        }
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        out.push({ lat, lng, time: gTime(seg.startTime) })
       }
     }
 
