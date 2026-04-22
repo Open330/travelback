@@ -253,6 +253,17 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
         w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
       }
     }
+    // Check for overlapping ranges between different scenes
+    for (let i = 0; i < nextScenes.length; i++) {
+      for (let j = i + 1; j < nextScenes.length; j++) {
+        const a = nextScenes[i]
+        const b = nextScenes[j]
+        // Two ranges overlap if one starts before the other ends and vice versa
+        if (a.startPercent < b.endPercent && b.startPercent < a.endPercent) {
+          w.push(`"${a.name}" ${t('scenes.overlap')} "${b.name}" ${t('scenes.overlapSuffix')}`)
+        }
+      }
+    }
     setNormalizationWarnings(w)
 
     const normalized = normalizeScenes(nextScenes)
