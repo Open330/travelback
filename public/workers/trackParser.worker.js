@@ -166,7 +166,7 @@ function parseGoogleLocationHistory(text) {
     parseSemanticSegments(data.semanticSegments, points, segStarts)
   }
 
-  if (!recognizedFormat) throw new Error('Unsupported Google Location History format')
+  if (!recognizedFormat) throw new WorkerParseError('Unsupported Google Location History format', ERROR_CODE.UNSUPPORTED_GOOGLE_FORMAT)
 
   const seen = new Set()
   const unique = []
@@ -197,7 +197,7 @@ function parseGoogleLocationHistory(text) {
       }
       return -1
     })
-    .filter(idx => idx > 0)
+    .filter(idx => idx >= 0)
 
   return {
     name: 'Google Location History',
@@ -209,6 +209,22 @@ function parseGoogleLocationHistory(text) {
 // Must match JSON_MAX_FILE_SIZE in src/lib/parser.ts
 const MAX_MESSAGE_SIZE = 100 * 1024 * 1024 // 100MB
 const MAX_JSON_DEPTH = 64
+
+// Error codes — must match ParseError codes in src/lib/parser.ts
+const ERROR_CODE = {
+  UNSUPPORTED_GOOGLE_FORMAT: 'UNSUPPORTED_GOOGLE_FORMAT',
+  JSON_DEPTH_EXCEEDED: 'JSON_DEPTH_EXCEEDED',
+  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
+  INVALID_GOOGLE_JSON: 'INVALID_GOOGLE_JSON',
+  TOO_MANY_POINTS: 'TOO_MANY_POINTS',
+}
+
+class WorkerParseError extends Error {
+  constructor(message, code) {
+    super(message)
+    this.code = code
+  }
+}
 
 function checkJsonDepth(text) {
   let depth = 0
@@ -222,7 +238,7 @@ function checkJsonDepth(text) {
     if (inString) continue
     if (ch === '{' || ch === '[') {
       depth++
-      if (depth > MAX_JSON_DEPTH) throw new Error('JSON nesting depth exceeds limit')
+      if (depth > MAX_JSON_DEPTH) throw new WorkerParseError('JSON nesting depth exceeds limit', ERROR_CODE.JSON_DEPTH_EXCEEDED)
     } else if (ch === '}' || ch === ']') {
       depth--
     }
@@ -245,25 +261,21 @@ self.onmessage = (event) => {
       throw new Error('Invalid worker message: missing or invalid buffer field')
     }
     if (data.buffer.byteLength > MAX_MESSAGE_SIZE) {
-      throw new Error('Input too large: exceeds 100MB limit')
+      throw new WorkerParseError('Input too large: exceeds 100MB limit', ERROR_CODE.FILE_TOO_LARGE)
     }
     const text = new TextDecoder('utf-8', { fatal: false }).decode(data.buffer)
     checkJsonDepth(text)
 
     const track = parseGoogleLocationHistory(text)
     if (track.points.length > 250000) {
-      throw new Error('Track contains too many points (max 250,000)')
+      throw new WorkerParseError('Track contains too many points (max 250,000)', ERROR_CODE.TOO_MANY_POINTS)
     }
     self.postMessage({ track })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to parse track file'
-    const code = message.includes('Unsupported Google Location History format')
-      ? 'UNSUPPORTED_GOOGLE_FORMAT'
-      : message.includes('JSON nesting depth exceeds limit')
-        ? 'JSON_DEPTH_EXCEEDED'
-        : message.includes('Input too large')
-          ? 'FILE_TOO_LARGE'
-          : 'INVALID_GOOGLE_JSON'
+    const code = (error instanceof WorkerParseError && error.code)
+      ? error.code
+      : 'INVALID_GOOGLE_JSON'
     self.postMessage({ error: message, code })
   }
 }
