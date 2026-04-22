@@ -156,6 +156,46 @@ function TimelineSelector({
     return [s, e]
   }
 
+  // Helper to resolve a ratio pair to point indexes without reading React state.
+  // Used during drag to fire onRangeChange with the latest ratios immediately.
+  const resolveIndexesForRatios = useCallback((sRatio: number, eRatio: number) => {
+    const lastIndex = points.length - 1
+    if (lastIndex <= 0) return { startIdx: 0, endIdx: 0 }
+
+    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
+
+    const ratioToIndex = (ratio: number, edge: 'start' | 'end'): number => {
+      const clamped = Math.max(0, Math.min(1, ratio))
+      if (clamped >= 1) return lastIndex
+      if (totalDist <= 0) {
+        return edge === 'end'
+          ? Math.ceil(clamped * lastIndex)
+          : Math.floor(clamped * lastIndex)
+      }
+      const targetDist = clamped * totalDist
+      let lo = 0
+      let hi = cumulDist.length - 1
+      while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1
+        if (cumulDist[mid] <= targetDist) lo = mid
+        else hi = mid
+      }
+      return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
+    }
+
+    let startIdx = ratioToIndex(sRatio, 'start')
+    let endIdx = ratioToIndex(eRatio, 'end')
+
+    if (startIdx >= lastIndex) {
+      startIdx = lastIndex - 1
+    }
+    if (endIdx <= startIdx) {
+      endIdx = Math.min(lastIndex, startIdx + 1)
+    }
+
+    return { startIdx, endIdx }
+  }, [points.length, cumulDist])
+
   const applyDrag = useCallback(
     (clientX: number) => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
@@ -166,25 +206,42 @@ function TimelineSelector({
         const width = getWidth()
         const dx = (clientX - ds.originX) / width
 
+        let newStartRatio = 0
+        let newEndRatio = 1
+
         if (ds.dragging === 'start') {
           const newStart = Math.max(0, Math.min(ds.originStart + dx, ds.originEnd - 0.01))
           const [s, e] = clampRatios(newStart, ds.originEnd)
+          newStartRatio = s
+          newEndRatio = e
           setStartRatio(s)
           setEndRatio(e)
         } else if (ds.dragging === 'end') {
           const newEnd = Math.max(ds.originStart + 0.01, Math.min(1, ds.originEnd + dx))
           const [s, e] = clampRatios(ds.originStart, newEnd)
+          newStartRatio = s
+          newEndRatio = e
           setStartRatio(s)
           setEndRatio(e)
         } else if (ds.dragging === 'region') {
           const span = ds.originEnd - ds.originStart
-          let newStart = ds.originStart + dx
-          let newEnd = ds.originEnd + dx
-          if (newStart < 0) { newStart = 0; newEnd = span }
-          if (newEnd > 1) { newEnd = 1; newStart = 1 - span }
-          setStartRatio(newStart)
-          setEndRatio(newEnd)
+          let ns = ds.originStart + dx
+          let ne = ds.originEnd + dx
+          if (ns < 0) { ns = 0; ne = span }
+          if (ne > 1) { ne = 1; ns = 1 - span }
+          newStartRatio = ns
+          newEndRatio = ne
+          setStartRatio(ns)
+          setEndRatio(ne)
         }
+
+        // Fire onRangeChange during drag (throttled by rAF) so the filtered
+        // track updates live rather than only on drag end.
+        if (points.length > 0) {
+          const { startIdx, endIdx } = resolveIndexesForRatios(newStartRatio, newEndRatio)
+          onRangeChangeRef.current(startIdx, endIdx)
+        }
+
         rafRef.current = null
       })
     },
