@@ -49,15 +49,17 @@ class ErrorBoundaryInner extends React.Component<
             </p>
             <div className="flex gap-3 justify-center">
               <button
+                type="button"
                 onClick={this.handleReset}
-                className="gi px-4 py-2 text-sm font-medium cursor-pointer"
+                className="gi px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
                 {t('error.tryAgain')}
               </button>
               <button
+                type="button"
                 onClick={this.handleReload}
-                className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer"
+                className="vitro-btn-primary px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               >
                 {t('error.reloadPage')}
               </button>
