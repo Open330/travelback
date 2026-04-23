@@ -230,6 +230,13 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
   })
 
+  test('exposes a main landmark at the app root', async ({ page }) => {
+    // Cycle r4 promoted the app root <div> to <main id="app"> for WCAG 1.3.1
+    // landmark navigation; cycle r5 codifies that as a regression guard.
+    const main = page.locator('main#app[data-travelback-app-root="true"]')
+    await expect(main).toBeAttached()
+  })
+
   test('shows file upload area on initial load', async ({ page }) => {
     // The file upload drop zone should be visible
     await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
