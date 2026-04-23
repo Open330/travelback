@@ -311,7 +311,7 @@ function HomeInner() {
 
   return (
     <ErrorBoundary>
-      <div className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true">
+      <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true">
         <MapView
           ref={mapViewRef}
           track={track}
@@ -446,7 +446,7 @@ function HomeInner() {
         ) : null}
 
         <Toast messages={toasts} onDismiss={dismissToast} />
-      </div>
+      </main>
     </ErrorBoundary>
   )
 }
