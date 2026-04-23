@@ -31,6 +31,24 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
   }, [])
 
+  // Track the drag-leave timer so we can clear it on unmount or re-schedule without leaking.
+  const dragEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (dragEndTimerRef.current != null) {
+        clearTimeout(dragEndTimerRef.current)
+        dragEndTimerRef.current = null
+      }
+    }
+  }, [])
+  const scheduleDragEnd = useCallback(() => {
+    if (dragEndTimerRef.current != null) clearTimeout(dragEndTimerRef.current)
+    dragEndTimerRef.current = setTimeout(() => {
+      dragEndTimerRef.current = null
+      setIsDragging(false)
+    }, 200)
+  }, [])
+
   const handleFile = useCallback(async (file: File) => {
     setError(null)
     setLoading(true)
@@ -82,13 +100,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const ext = file.name.split('.').pop()?.toLowerCase()
       if (!ext || !VALID_EXTENSIONS.has(ext)) {
         setError(t('fileUpload.unsupportedFormat'))
-        setTimeout(() => setIsDragging(false), 200)
+        scheduleDragEnd()
         return
       }
       handleFile(file)
     }
-    setTimeout(() => setIsDragging(false), 200)
-  }, [handleFile, t, loading])
+    scheduleDragEnd()
+  }, [handleFile, t, loading, scheduleDragEnd])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
