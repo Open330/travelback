@@ -946,7 +946,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             <summary className="cursor-pointer" style={{ color: 'var(--t5, var(--t4))' }}>{t('app.showTechnicalDetails')}</summary>
             <pre className="mt-1 text-left whitespace-pre-wrap break-all opacity-70">{mapError}</pre>
           </details>
-          <button onClick={() => window.location.reload()} className="gi mt-4 px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t1)' }}>
+          <button onClick={() => window.location.reload()} className="gi mt-4 min-h-11 px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t1)' }}>
             {t('error.reloadPage')}
           </button>
         </div>
