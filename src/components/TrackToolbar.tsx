@@ -91,7 +91,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onStartNewTrack}
         title={t('app.newJourneyAria')}
-        className="gi hidden shrink-0 min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
+        className="gi hidden shrink-0 min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
         style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
       >
         <Plus size={14} strokeWidth={2.5} />
@@ -102,7 +102,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onToggleSceneEditor}
         title={t('app.openSceneEditor')}
-        className="gi shrink-0 min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer sm:px-3"
+        className="gi shrink-0 min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
         style={showSceneEditor
           ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
           : { color: 'var(--t1)' }
@@ -116,7 +116,7 @@ export default function TrackToolbar({
         data-testid="map-style-button"
         onClick={onCycleStyle}
         title={t('app.cycleMapStyle')}
-        className="gi hidden shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:inline-flex"
+        className="gi hidden shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
         style={{ color: 'var(--t1)' }}
       >
         {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
@@ -126,7 +126,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onOpenExport}
         title={t('app.exportVideoKey')}
-        className="vitro-btn-primary shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer sm:px-4"
+        className="vitro-btn-primary shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-4"
       >
         {t('app.export')}
       </button>
@@ -137,7 +137,7 @@ export default function TrackToolbar({
           onClick={() => setMenuOpen((open) => !open)}
           aria-label={t('app.moreControls')}
           aria-expanded={menuOpen}
-          className="gi flex min-h-11 min-w-11 items-center justify-center px-2.5 py-2 text-sm font-medium cursor-pointer sm:px-3"
+          className="gi flex min-h-11 min-w-11 items-center justify-center px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
           style={{ color: 'var(--t1)' }}
         >
           <Settings size={18} strokeWidth={2.5} />
@@ -162,7 +162,7 @@ export default function TrackToolbar({
                 type="button"
                 role="menuitem"
                 onClick={() => runAndCloseMenu(onStartNewTrack)}
-                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
+                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
                 <span>{t('app.new')}</span>
@@ -172,7 +172,7 @@ export default function TrackToolbar({
                 type="button"
                 role="menuitem"
                 onClick={() => runAndCloseMenu(onCycleStyle)}
-                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
+                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
                 <span>{t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}</span>
@@ -181,7 +181,7 @@ export default function TrackToolbar({
                 type="button"
                 role="menuitem"
                 onClick={() => runAndCloseMenu(onOpenHelp)}
-                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer"
+                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
                 <span>{t('app.help')}</span>
@@ -196,7 +196,7 @@ export default function TrackToolbar({
                 <button
                   type="button"
                   onClick={() => onUnitsChange('metric')}
-                  className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer"
+                  className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
                 >
                   {t('units.km')}
@@ -204,7 +204,7 @@ export default function TrackToolbar({
                 <button
                   type="button"
                   onClick={() => onUnitsChange('imperial')}
-                  className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer"
+                  className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
                 >
                   {t('units.mi')}
