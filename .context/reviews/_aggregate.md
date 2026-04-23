@@ -1,125 +1,182 @@
-# Aggregate Review — Cycle 3 (2026-04-23, orchestrator run r3)
+# Aggregate Review — Cycle r4 (2026-04-23)
 
 ## Methodology
-Multi-angle deep review across 12 lanes (code-reviewer, security, perf, accessibility, architect, debugger, critic, verifier, test-engineer, tracer, documentation, designer) performed in-process. All of `src/` re-read; `scripts/harden-static-export.mjs` assumed unchanged vs. cycles r1-r2; gates run end-to-end; deferred list cross-checked against current code.
 
-Per-agent review files this cycle are preserved under `.context/reviews/cycle-r3-<agent>-2026-04-23.md`. This aggregate dedupes overlapping findings and records cross-agent agreement.
+Cycle r4 fused a multi-agent source review with a browser-driven UI/UX probe
+(user-injected TODO **U-2026-04-23-01**). Eleven source-side lanes ran in
+parallel (code-reviewer, perf, security, critic, verifier, test-engineer,
+tracer, architect, debugger, document-specialist, accessibility) plus the
+designer lane which is the authoritative UI/UX reviewer and drove a real
+Chromium session against `npm run start` at `http://localhost:3737/travelback/`.
 
----
+Per-agent reviews are preserved at:
 
-## GATE STATUS — all green this cycle
+- `./.context/reviews/cycle-r4-ui-ux-browser-2026-04-23.md` (authoritative browser-driven findings, with hard evidence)
+- `./.context/reviews/cycle-r4-designer-2026-04-23.md`
+- `./.context/reviews/cycle-r4-code-reviewer-2026-04-23.md`
+- `./.context/reviews/cycle-r4-perf-2026-04-23.md`
+- `./.context/reviews/cycle-r4-security-2026-04-23.md`
+- `./.context/reviews/cycle-r4-critic-2026-04-23.md`
+- `./.context/reviews/cycle-r4-verifier-2026-04-23.md`
+- `./.context/reviews/cycle-r4-test-engineer-2026-04-23.md`
+- `./.context/reviews/cycle-r4-tracer-2026-04-23.md`
+- `./.context/reviews/cycle-r4-architect-2026-04-23.md`
+- `./.context/reviews/cycle-r4-debugger-2026-04-23.md`
+- `./.context/reviews/cycle-r4-document-specialist-2026-04-23.md`
+- `./.context/reviews/cycle-r4-accessibility-2026-04-23.md`
 
-- ESLint: **PASS** (0 errors, 0 warnings).
-- TypeScript (`tsc --noEmit`): **PASS** (0 errors).
-- Next.js build: **PASS**; `harden-static-export` ran.
-- `npm audit --audit-level=high`: **PASS** (0 vulnerabilities).
-- `npm run smoke:static`: **PASS**.
-- `npm run test:e2e:static:ci`: **PASS** (0 failures).
-
-No gate regressions vs. cycle r2.
-
----
-
-## NEW FINDINGS (cycle r3)
-
-Three findings are schedulable this cycle (one-line fixes, high confidence, no risk). Everything else recorded as deferred or carry-over.
-
-### R3-AGG-1 (LOW, HIGH confidence) — `FileUpload.handleDrop` leaks a `setTimeout(setIsDragging)` pair
-- **Files**: `src/components/FileUpload.tsx:85, 90`.
-- **Agreement**: code-reviewer (R3-CR-1), debugger (R3-DB-1), tracer (T-1).
-- **Failure scenario**: after a fast-drop + parse, `setIsDragging(false)` runs on the new render state (`hasTrack=true`), which is redundant and wastes a scheduled task. If the component later unmounts through a different path, the setTimeout can fire with no cleanup.
-- **Fix**: track the timer id in a `useRef`; clear in `useEffect` cleanup AND before scheduling a new one in the second branch.
-- **Schedule this cycle**: **YES** (P2 quick-win — converges toward explicit-cleanup pattern used by other components).
-
-### R3-AGG-2 (LOW, HIGH confidence) — `videoEncoder.isCodecSupported` silently swallows module-load errors
-- **Files**: `src/lib/videoEncoder.ts:205-212`.
-- **Agreement**: code-reviewer (R3-CR-3), debugger (R3-DB-5).
-- **Failure scenario**: If mediabunny dynamic-import fails (CSP/network), the user sees "codec unavailable" for every codec with no diagnostic breadcrumb.
-- **Fix**: `console.debug('[Travelback] codec probe failed:', err)` inside the catch (single line). No user-facing change; keeps `return false` for the probe.
-- **Schedule this cycle**: **YES** (P3 diagnostics polish).
-
-### R3-AGG-3 (LOW, HIGH confidence) — Exporting overlay needs `role="dialog" aria-modal="true"` + `aria-labelledby`
-- **Files**: `src/app/page.tsx:329-345`.
-- **Agreement**: accessibility (R3-A11Y-4), designer (R3-UX-1).
-- **Failure scenario**: Screen reader users have no signal that the rest of the page is inert during export; keyboard can Tab out of the overlay.
-- **Fix**: add `role="dialog" aria-modal="true" aria-labelledby="export-overlay-title"` to the overlay div; give the "Rendering video" `<p>` the matching `id`.
-- **Schedule this cycle**: **YES** (P2 a11y improvement — two single-line attribute additions).
+Browser JSON evidence: `/tmp/tb-uiux-review.json` (1,219 lines / 43 KB), probe
+script authored at `e2e/_tmp-uiux-review.mjs` and removed after collection.
 
 ---
 
-## OTHER NEW FINDINGS — all deferred
+## GATE STATUS — all green at the start of cycle r4
 
-### R3-AGG-4 (LOW, MEDIUM) — `videoEncoder.ts` `showSaveFilePicker` uses `(window as unknown as ...)` casts
-- File: `src/lib/videoEncoder.ts:173-183`.
-- Agreement: code-reviewer (R3-CR-2).
-- Schedule: **NO** — typing cleanup; defer.
-
-### R3-AGG-5 (LOW, MEDIUM) — Nominatim search vs. CSP `connect-src 'self'`
-- File: `src/components/JourneyCreator.tsx` (search path) + `src/app/layout.tsx:62`.
-- Agreement: security (R3-SEC-2), tracer (T-3).
-- Schedule: **NO** — needs a hands-on production-build verification; defer with an exit criterion.
-
-### R3-AGG-6 (LOW, MEDIUM) — `ElevationProfile` double-iterates elevations
-- File: `src/components/ElevationProfile.tsx:20-60`.
-- Agreement: perf (R3-PERF-2).
-- Schedule: **NO** — cosmetic.
-
-### R3-AGG-7 (LOW, MEDIUM) — `computeCameraForScene` rebuilds bbox every frame in overview
-- File: `src/lib/camera.ts:154`.
-- Agreement: perf (R3-PERF-3).
-- Schedule: **NO** — not current bottleneck.
-
-### R3-AGG-8 (LOW, MEDIUM) — `SceneEditor` `role="slider"` lacks `aria-orientation`
-- File: `src/components/SceneEditor.tsx:170-184`.
-- Agreement: a11y (R3-A11Y-3).
-- Schedule: **NO** — informational only.
-
-### R3-AGG-9 (LOW, MEDIUM) — `FileUpload` parsing-button `aria-label` doesn't swap with label
-- File: `src/components/FileUpload.tsx:206-210`.
-- Agreement: designer (R3-UX-3).
-- Schedule: **NO** — polish.
-
-### R3-AGG-10 (LOW, MEDIUM) — No antimeridian unit-test coverage
-- Agreement: test-engineer (R3-TE-1).
-- Schedule: **NO** — test-writing; defer.
-
-### R3-AGG-11 (LOW, MEDIUM) — `videoEncoder.exportVideo` fallback recomputes cumulative distances
-- File: `src/lib/videoEncoder.ts:66`.
-- Agreement: debugger (R3-DB-2).
-- Schedule: **NO** — no current-caller bug.
-
-### R3-AGG-12 (LOW, MEDIUM) — Export clamp warning is console-only
-- File: `src/lib/videoEncoder.ts:60-62`.
-- Agreement: critic (R3-CR-C-3).
-- Schedule: **NO** — UX polish, needs new i18n key.
-
-### R3-AGG-13 (LOW, MEDIUM) — Frame-break fallback goes to `about:blank` with no explanation
-- File: `src/app/layout.tsx:49`.
-- Agreement: critic (R3-CR-C-1).
-- Schedule: **NO** — edge case.
-
-### R3-AGG-14 (INFO) — `.context/reviews/` file growth
-- Agreement: critic (R3-CR-C-5).
-- Schedule: **NO** — meta-process, not code.
+- ESLint: **PASS** (0 errors, 0 warnings)
+- TypeScript (`tsc --noEmit`): **PASS**
+- Next.js build: **PASS**; `harden-static-export` hardened 3 HTML files
+- `npm audit --audit-level=high`: **PASS**
+- `npm run smoke:static`: **PASS**
+- `npm run test:e2e:static:ci`: **PASS**
 
 ---
 
-## CARRY-OVER FINDINGS (unchanged from prior deferred lists)
+## NEW FINDINGS — SCHEDULED THIS CYCLE
 
-- DF-R2-001..-017 (cycle r2) all remain active and re-validated this cycle.
-- DF-C17-* items remain per cycle-17 review.
-- DF-C4-001, DF-C4-002, DF-C2-010 remain.
+### R4-AGG-1 (MEDIUM, HIGH) — Drop `frame-ancestors 'none'` from meta CSP (dev + prod hardened output)
+
+- **Files**: `src/app/layout.tsx:62`, `scripts/harden-static-export.mjs:12`.
+- **Agreement**: designer/UX (BUI-1), security (SEC-1), tracer (T-1), architect (AR-2), document-specialist (DS-1, DS-4), test-engineer (TE-1).
+- **Evidence**: browser console emits `The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.` on every page load. Defense remains via the JS frame-buster (`src/app/layout.tsx:49`) and host-level headers documented in `.context/project/02-architecture.md:117`.
+- **Fix**: remove directive from both meta CSP sites; add a short note in `.context/project/02-architecture.md`; extend `scripts/smoke-static.mjs` to assert the emitted HTML contains NO `frame-ancestors` substring in the CSP meta (regression guard).
+- **Schedule**: YES.
+
+### R4-AGG-2 (MEDIUM, HIGH) — Root wrapper should be `<main>` not `<div>` (WCAG 1.3.1, 2.4.1)
+
+- **Files**: `src/app/page.tsx:314`.
+- **Agreement**: designer/UX (BUI-2), code-reviewer (CR-1), architect (AR-1), accessibility (A11Y-1).
+- **Evidence**: CDP AX tree lists only the Map region. No `main` landmark.
+- **Fix**: `<div>` → `<main>`. The `ModalDialog` inert-toggling code targets `[data-travelback-app-root="true"]` via attribute selector; change is source-compatible.
+- **Schedule**: YES.
+
+### R4-AGG-3 (MEDIUM, HIGH) — Landing drop-zone has no role / aria-label (WCAG 1.3.1, 2.4.6, 4.1.2)
+
+- **Files**: `src/components/FileUpload.tsx:153-165`.
+- **Agreement**: designer/UX (BUI-3), accessibility (A11Y-2).
+- **Evidence**: landing DOM probe returns `dropZoneRole: null, dropZoneAriaLabel: null, dropZoneTag: "DIV"`.
+- **Fix**: add `role="group" aria-labelledby="fileupload-title" aria-describedby="fileupload-drop-hint"`; wire matching `id`s on the h2 and the drop-hint `<p>`.
+- **Schedule**: YES.
+
+### R4-AGG-4 (LOW, HIGH) — Sample-preview button: caption concatenates into accessible name (WCAG 4.1.2)
+
+- **Files**: `src/components/FileUpload.tsx:176-195`.
+- **Agreement**: designer/UX (BUI-4), code-reviewer (CR-2), critic (CT-1), tracer (T-3), accessibility (A11Y-3).
+- **Evidence**: tab-order entry at 1440w shows `text: "Sample output previewTry with a sample tripLoad demo"` while `aria-label` says "Try with a sample trip".
+- **Fix**: wrap the caption `<div>` with `aria-hidden="true"`.
+- **Schedule**: YES.
+
+### R4-AGG-5 (LOW, HIGH) — `Reload Page` button in map-error fallback is 38px tall (WCAG 2.2 2.5.8)
+
+- **Files**: `src/components/MapView.tsx:949`.
+- **Agreement**: designer/UX (BUI-18), code-reviewer (CR-3), accessibility (A11Y-5), tracer (T-4).
+- **Fix**: add `min-h-11`.
+- **Schedule**: YES.
+
+### R4-AGG-6 (LOW, HIGH) — Sample-preview button has no visible focus outline (WCAG 2.4.7)
+
+- **Files**: `src/components/FileUpload.tsx:176-195`.
+- **Agreement**: designer/UX (BUI-19), code-reviewer (CR-4), accessibility (A11Y-4).
+- **Fix**: add `focus-visible:ring-2 focus-visible:ring-[rgb(var(--gl))] focus-visible:ring-offset-2`.
+- **Schedule**: YES.
+
+### R4-AGG-7 (LOW, HIGH) — Smoke test should assert meta CSP has no `frame-ancestors`
+
+- **Files**: `scripts/smoke-static.mjs`.
+- **Agreement**: test-engineer (TE-1).
+- **Fix**: extend the existing walk to fail if any HTML file's CSP `meta` content contains `frame-ancestors`.
+- **Schedule**: YES.
+
+---
+
+## NEW FINDINGS — DEFERRED
+
+### R4-AGG-D1 (MEDIUM, MEDIUM) — Primary CTA contrast 3.08:1 below WCAG AA 4.5:1
+
+- Defer (BUI-8 / A11Y-6). Visual-brand change requires owner sign-off.
+- Exit criterion: design-owner decides whether to darken cyan to at least `rgb(8,145,178)` (white-on-cyan-700 ≈ 4.78:1) OR accept as an out-of-scope AA gap and document.
+
+### R4-AGG-D2 (LOW, MEDIUM) — Tab order in WebGL-fail path puts map-error controls before the upload overlay
+
+- Defer (T-2 / DB-1).
+- Exit criterion: if we add an SSR-safe pre-MapView mount for the upload overlay OR raise the upload overlay's document order, revisit.
+
+### R4-AGG-D3 (LOW, MEDIUM) — 320w + ko touch-target audit not yet performed
+
+- Defer (BUI-11b).
+- Exit criterion: next UI-UX cycle runs the probe script at 320×640 with `localStorage['travelback-locale']='ko'`.
+
+### R4-AGG-D4 (LOW, MEDIUM) — Real-WebGL LCP / CLS / INP numbers not captured this cycle
+
+- Defer (BUI-11c). Playwright SwiftShader did not emit LargestContentfulPaint entries.
+- Exit criterion: retry with Chromium `--use-gl=angle` or real hardware.
+
+### R4-AGG-D5 (LOW, MEDIUM) — Forced-colors audit incomplete for brand-colored buttons
+
+- Defer (A11Y-8). Needs Windows High Contrast probe.
+
+### R4-AGG-D6 (LOW, MEDIUM) — Landmark e2e test not authored
+
+- Defer (TE-2). Would require axe-core or aria-landmark assertions.
+
+### R4-AGG-D7 (LOW, MEDIUM) — `preserveDrawingBuffer=true` as default; documented trade-off
+
+- Defer (PR-2 / AR-3). Carryover.
+
+### R4-AGG-D8 (LOW, MEDIUM) — `videoEncoder.ts` `window as unknown as …` casts
+
+- Defer (CR-6). Cycle-r3 carryover.
+
+### R4-AGG-D9 (LOW, MEDIUM) — Nominatim search CSP
+
+- Defer (SEC-2). Cycle-r3 carryover.
+
+### R4-AGG-D10 (LOW, MEDIUM) — Language `<select>` shows 2-letter codes instead of native names
+
+- Defer (BUI-7 / CT-4). Stylistic.
+
+### R4-AGG-D11 (LOW, MEDIUM) — "Need help finding your file?" button could mention Google Location History in aria-label
+
+- Defer (BUI-5). Copy question.
+
+### R4-AGG-D12 (LOW, MEDIUM) — Playwright spec for `prefers-reduced-motion` not authored
+
+- Defer (TE-4).
+
+### R4-AGG-D13 (LOW, MEDIUM) — Lighthouse / LCP / INP e2e spec not authored
+
+- Defer (TE-3).
+
+---
+
+## USER-INJECTED INPUT — U-2026-04-23-01
+
+Ingested verbatim from `.context/plans/user-injected/pending-next-cycle.md`.
+
+- Browser-driven review delivered at `./.context/reviews/cycle-r4-ui-ux-browser-2026-04-23.md`.
+- Shorter restatement in `./.context/reviews/cycle-r4-designer-2026-04-23.md`.
+- Six schedulable findings this cycle: R4-AGG-1 through R4-AGG-6 (all sourced from the browser probe).
+- Deferred items with exit criteria: R4-AGG-D1 through R4-AGG-D5.
+- Entry removed from the user-injected pending queue after ingestion (see plan PROMPT 2).
+
+---
+
+## CARRY-OVER STATUS (cycle r3 → r4)
+
+- R3-AGG-1, R3-AGG-2, R3-AGG-3 all verified present and correct — no regressions (see verifier V-2).
+- Cycle-r3 deferred items unchanged (R3-AGG-4/5/6/7/...): each remains in `deferred-findings-cycle-r3-2026-04-23.md`; re-evaluated here with no status change.
 
 ---
 
 ## AGENT FAILURES
 
-None. All 12 lanes produced review files.
-
----
-
-## Summary
-
-- 14 new findings; 3 scheduled; 11 deferred this cycle.
-- All gates green; no correctness/security regressions.
-- Code quality is stable; cycle focuses on tiny accessibility + diagnostics polish.
+None this cycle.

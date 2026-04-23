@@ -1,21 +1,15 @@
-# User-Injected TODOs — Cycle 2 Status
+# User-injected TODOs (pending for the next cycle)
 
-These issues were reported by the user during cycle 1 and addressed in cycle 2.
+Items queued while the review-plan-fix loop was running. Each item lists the
+user's wording verbatim, when it was injected, and how it should be honored.
+The orchestrator feeds these items into the next cycle's PROMPT 1/PROMPT 2 as
+explicit user-injected TODOs so they flow through review → plan → implement
+like any other finding, and do not skip review.
 
-## 1. Map not showing up (HIGH priority) — FIXED
-- **Description:** Map is not rendering/displaying at all. The map tiles are not appearing.
-- **Context:** Recent commit cb898d1 attempted to restore CARTO basemap tiles and update CSP, but maps are still not showing.
-- **Fix:** Replaced sparse 10-layer map style JSONs with complete 93-layer CARTO basemap styles including labels, road names, POIs, glyphs, and sprites. Commit a22c404.
-- **Status:** FIXED (needs manual browser verification for visual confirmation)
+Historical user-injected items from earlier review-plan-fix runs have been
+archived into their respective cycle implementation plans once addressed.
 
-## 2. Theme wrongly rendered on first visit (HIGH priority) — FIXED
-- **Description:** Theme is incorrectly rendered on first visit. It only becomes correct after at least one toggle of dark/light mode.
-- **Context:** Recent commit a6f76b9 attempted to fix FOUC by inlining theme-init script, but the issue persists.
-- **Fix:** Added `:root:not([data-mode])` CSS fallback block providing light-mode defaults for all theme variables, ensuring correct rendering even before the inline script sets `data-mode`. Also fixed duplicate CSS property declarations. Commit c9e535c.
-- **Status:** FIXED (needs manual browser verification for visual confirmation)
+---
 
-## 3. Set default unit to km/SI (MEDIUM priority) — ALREADY FIXED
-- **Description:** Default unit should be km (SI/metric) for all locales.
-- **Context:** Recent commit 2d49433 attempted to default to metric for all locales, but may not be fully working.
-- **Fix:** No code change needed — verified that `getUnitPreference()` already returns `'metric'` as the default when no stored preference exists. The existing implementation is correct.
-- **Status:** VERIFIED (already working correctly from commit 2d49433)
+(no pending items — U-2026-04-23-01 was ingested and removed in cycle r4;
+see `.context/plans/cycle-r4-implementation-2026-04-23.md` for routing.)
