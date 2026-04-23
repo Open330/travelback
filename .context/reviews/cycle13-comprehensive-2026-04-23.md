@@ -1,7 +1,7 @@
-# Aggregate Review — Cycle 13 (2026-04-23)
+# Cycle 13 Comprehensive Deep Code Review (2026-04-23)
 
-## Methodology
-Comprehensive single-agent deep review covering all 12 perspectives (code quality, security, performance, architecture, accessibility, test coverage, debugging, verification, documentation, tracing, critique, UI/UX). All 28 source files examined individually and in cross-file context. Findings deduplicated against cycles 1-12 and all prior deferred items. Focus on genuinely new issues.
+**Reviewer:** Multi-angle analysis (code quality, security, performance, architecture, accessibility, correctness, UX, debugging, verification, documentation, tracing, critique)
+**Scope:** All 28 source files, e2e tests, configuration files
 
 ---
 
@@ -74,7 +74,7 @@ All 28 source files were examined individually and in cross-file context. Every 
 - Export controller has robust cleanup with mounted ref and abort signal
 - ModalDialog implements proper focus trap, Escape handling, and `aria-modal`
 - i18n coverage comprehensive with 170+ keys across 5 locales
-- CSP harden script correctly computes Sha-256 hashes for inline scripts
+- CSP harden script correctly computes SHA-256 hashes for inline scripts
 - Controls progress bar has `aria-valuetext` with human-readable progress
 - Toast uses `aria-live` with `aria-atomic="false"` (no `role="log"`)
 - ExportPanel bitrate input uses only `readOnly` (no conflicting `aria-disabled`)
