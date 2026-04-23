@@ -177,7 +177,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                 onClick={onLoadSample}
                 aria-label={t('fileUpload.trySample')}
                 title={t('fileUpload.trySample')}
-                className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg"
+                className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               >
                 <Image
                   src={`${basePath}/landing-preview.svg`}
