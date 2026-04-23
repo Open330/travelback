@@ -69,10 +69,6 @@ function HomeInner() {
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   useEffect(() => {
-    document.documentElement.lang = locale
-  }, [locale])
-
-  useEffect(() => {
     applyDocumentMode(colorMode)
     applyDocumentMapStyle(mapStyleKey)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after mount to apply client-detected theme
