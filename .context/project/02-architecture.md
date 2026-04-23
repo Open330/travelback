@@ -115,6 +115,7 @@ Security hardening note:
 - The app ships with a CSP and blocks `object-src`, `base-uri`, framing, and inline script attributes by default
 - Static exports are post-processed to replace the development `unsafe-inline` placeholder with hash-based `script-src` directives for the emitted inline Next.js bootstrap scripts
 - The static bundle also rejects framed execution in the early bootstrap path, but production deployments should still send host-level anti-framing headers (`frame-ancestors 'none'` and/or `X-Frame-Options: DENY`) because meta CSP alone is not sufficient for that control
+- As of cycle r4 (2026-04-23), the meta CSP no longer advertises `frame-ancestors 'none'` because Chromium/Firefox emit a console error when that directive is delivered via `<meta>` (it is header-only per the CSP spec). Anti-framing is therefore delivered exclusively by (1) the JS frame-buster in the `layout.tsx` bootstrap script and (2) the host-level `Content-Security-Policy: frame-ancestors 'none'` response header, both of which remain authoritative. `scripts/smoke-static.mjs` has a regression guard that fails the build if `frame-ancestors` reappears in the emitted meta CSP.
 
 ### Distance-Based Interpolation
 Animation progress is mapped to distance traveled (not point index). This ensures uniform visual speed regardless of point density in the track.
