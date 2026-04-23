@@ -5,11 +5,16 @@ import crypto from 'node:crypto'
 const outDir = path.resolve(process.cwd(), 'out')
 const htmlFiles = []
 
+// `frame-ancestors` intentionally omitted from the meta CSP: the directive is
+// header-only per the CSP spec (https://www.w3.org/TR/CSP3/#frame-ancestors)
+// and Chromium/Firefox emit a console error when it is delivered via <meta>.
+// Anti-framing is enforced instead by (1) the JS frame-buster in layout.tsx
+// and (2) the host-level response header documented in
+// .context/project/02-architecture.md.
 const STYLE_POLICY = [
   "default-src 'self'",
   "base-uri 'none'",
   "object-src 'none'",
-  "frame-ancestors 'none'",
   "form-action 'self'",
   "script-src __SCRIPT_HASHES__",
   "script-src-attr 'none'",
