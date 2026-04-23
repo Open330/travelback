@@ -545,7 +545,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
           <button
             type="button"
             onClick={() => { if (pointCount >= 1) setShowDiscardConfirm(true); else onCancel() }}
-            className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
+            className="text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t3)' }}
           >
             {t('journey.cancel')}
           </button>
@@ -572,7 +572,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 type="button"
                 data-testid="journey-enable-search"
                 onClick={handleToggleSearch}
-                className="rounded-md px-2.5 py-1 text-[10px] font-medium cursor-pointer"
+                className="rounded-md px-2.5 py-1 text-[10px] font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'rgb(var(--gl))', border: '1px solid rgba(var(--gl), .35)' }}
               >
                 {t('journey.searchEnableAction')}
@@ -604,7 +604,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                   disabled={searchQuery.trim().length < MIN_SEARCH_QUERY_LENGTH}
                   aria-label={t('journey.searchAction')}
                   title={t('journey.searchAction')}
-                  className="rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={{ color: 'rgb(var(--gl))' }}
                 >
                   {t('journey.searchAction')}
@@ -612,7 +612,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 <button
                   type="button"
                   onClick={handleToggleSearch}
-                  className="rounded-md px-2 py-1 text-[10px] cursor-pointer"
+                  className="rounded-md px-2 py-1 text-[10px] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={{ color: 'var(--t4)' }}
                 >
                   {t('journey.searchDisableAction')}
@@ -631,8 +631,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
                 style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
                 {searchResults.map((r, i) => (
-                  <button key={i} role="option" aria-selected={false} onClick={() => handleSelectPlace(r.lat, r.lon)}
-                    className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate"
+                  <button type="button" key={i} role="option" aria-selected={false} onClick={() => handleSelectPlace(r.lat, r.lon)}
+                    className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                     style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
                     {r.display_name}
                   </button>
@@ -659,7 +659,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 aria-label={optionLabel}
                 title={optionLabel}
                 onClick={() => setSelectedIconId(option.id)}
-                className="gi px-2 py-1 text-xs cursor-pointer"
+                className="gi px-2 py-1 text-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{
                   color: 'var(--t1)',
                   borderColor: isSelected ? 'rgb(var(--gl))' : undefined,
@@ -711,13 +711,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             {pointCount} {t('timeline.points')} · {formatDistance(distanceMeters, units)}
           </p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowConfirm(false)}
-              className="gi px-3 py-1.5 text-xs font-medium cursor-pointer"
+            <button type="button" onClick={() => setShowConfirm(false)}
+              className="gi px-3 py-1.5 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t1)' }}>
               {t('journey.confirmEdit')}
             </button>
-            <button onClick={handleConfirmCreate}
-              className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer transition-colors"
+            <button type="button" onClick={handleConfirmCreate}
+              className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ background: 'rgb(var(--gl))' }}>
               {t('journey.confirmCreate')}
               <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
@@ -730,25 +730,28 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       {!showConfirm && (
         <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
           <button
+            type="button"
             onClick={handleUndo}
             disabled={pointCount === 0}
-            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ color: 'var(--t1)' }}
           >
             {t('journey.undo')}
           </button>
           <button
+            type="button"
             onClick={handleClear}
             disabled={pointCount === 0}
-            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            className="gi px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ color: 'var(--t1)' }}
           >
             {t('journey.clear')}
           </button>
           <button
+            type="button"
             onClick={handleDone}
             disabled={pointCount < 2}
-            className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ background: 'rgb(var(--gl))' }}
           >
             {t('journey.done')}
@@ -766,11 +769,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         <ModalDialog open onClose={() => setShowDiscardConfirm(false)} labelledBy="journey-discard-title">
           <p id="journey-discard-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('journey.discardConfirm')}</p>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowDiscardConfirm(false)}
-              className="gi px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+            <button type="button" onClick={() => setShowDiscardConfirm(false)}
+              className="gi px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
               {t('app.cancel')}
             </button>
-            <button onClick={() => { setShowDiscardConfirm(false); onCancel() }}
+            <button type="button" onClick={() => { setShowDiscardConfirm(false); onCancel() }}
               className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
               {t('app.discard')}
             </button>
