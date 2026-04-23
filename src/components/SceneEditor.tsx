@@ -355,13 +355,13 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <h3 id="scene-editor-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
         <div className="flex gap-2">
-          <button onClick={addScene}
+          <button type="button" onClick={addScene}
             className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer">
             {t('scenes.add')}
           </button>
-          <button onClick={onClose}
+          <button type="button" onClick={onClose}
             aria-label={t('app.closePanel')}
-            className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer" style={{ color: 'var(--t4)' }}>
+            className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t4)' }}>
             <X size={16} strokeWidth={2} />
           </button>
         </div>
@@ -370,20 +370,20 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('cinematic'); else commitScenes(generateDefaultScenes()) }}
-          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('cinematic'); else commitScenes(generateDefaultScenes()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('simple'); else commitScenes(generateSimpleFlyover()) }}
-          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('simple'); else commitScenes(generateSimpleFlyover()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('birdeye'); else commitScenes(generateBirdeyeFlyover()) }}
-          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('birdeye'); else commitScenes(generateBirdeyeFlyover()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button onClick={() => { if (scenes.length > 0) setPendingPresetType('dynamic'); else commitScenes(generateDynamicScenes()) }}
-          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('dynamic'); else commitScenes(generateDynamicScenes()) }}
+          className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
       </div>
@@ -446,8 +446,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                 style={{ color: 'var(--t1)', borderBottomColor: focusedInput === scene.id ? 'rgb(var(--gl))' : 'var(--div)', transition: 'border-color .15s ease' }}
                 onFocus={() => setFocusedInput(scene.id)}
                 onBlur={() => setFocusedInput(null)} />
-              <button onClick={() => removeScene(scene.id)}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-xs cursor-pointer" style={{ color: 'var(--t4)' }} aria-label={t('scenes.deleteScene').replace('{name}', scene.name)}>
+              <button type="button" onClick={() => removeScene(scene.id)}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t4)' }} aria-label={t('scenes.deleteScene').replace('{name}', scene.name)}>
                 <X size={14} strokeWidth={2} />
               </button>
             </div>
@@ -471,8 +471,9 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
 
             {/* Collapsible parameters */}
             <button
+              type="button"
               onClick={() => setExpandedSceneId(expandedSceneId === scene.id ? null : scene.id)}
-              className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer"
+              className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t4)' }}
               aria-expanded={expandedSceneId === scene.id}
             >
@@ -604,8 +605,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
           <span className="text-xs" style={{ color: 'var(--t3)' }}>
             {t('scenes.deleted')} &ldquo;{deletedScene.scene.name}&rdquo;
           </span>
-          <button onClick={undoDelete}
-            className="text-xs px-2 py-0.5 font-medium cursor-pointer" style={{ color: 'rgb(var(--gl))' }}>
+          <button type="button" onClick={undoDelete}
+            className="text-xs px-2 py-0.5 font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'rgb(var(--gl))' }}>
             {t('scenes.undo')}
           </button>
         </div>
@@ -615,11 +616,11 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
         <ModalDialog open onClose={() => setPendingPresetType(null)} labelledBy="scene-confirm-title">
           <p id="scene-confirm-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('scenes.replaceConfirm')}</p>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setPendingPresetType(null)}
-              className="gi px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--t2)' }}>
+            <button type="button" onClick={() => setPendingPresetType(null)}
+              className="gi px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
               {t('app.cancel')}
             </button>
-            <button onClick={() => {
+            <button type="button" onClick={() => {
               switch (pendingPresetType) {
                 case 'cinematic': commitScenes(generateDefaultScenes()); break
                 case 'simple': commitScenes(generateSimpleFlyover()); break
