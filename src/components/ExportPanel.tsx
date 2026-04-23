@@ -27,8 +27,9 @@ const RESOLUTION_KEYS = [
   'resolution.4kPortrait',
 ] as const
 
-/** Module-level cache for codec support results — survives re-mounts */
-let codecSupportCache: Record<VideoCodec, boolean> | null = null
+/** Cache for codec support results — scoped to component state so it
+ *  re-probes after browser updates that add/remove codec support. */
+const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
 
 interface ExportPanelProps {
   isOpen: boolean
@@ -76,9 +77,7 @@ export default function ExportPanel({
   }, [isOpen, playbackDuration])
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(() =>
-    codecSupportCache ?? { h264: null, h265: null, av1: null },
-  )
+  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(initialCodecSupport)
 
   const bitrate = QUALITY_MAP[quality] ?? 8
   const codecReady = codecSupport[codec] === true
@@ -102,13 +101,10 @@ export default function ExportPanel({
     return 3.0
   })()
   const codecScale = codec === 'av1' ? 2.5 : codec === 'h265' ? 1.5 : 1.0
-  const estimatedSeconds = Math.round(duration * 0.5 * resScale * codecScale)
+  const estimatedSeconds = Math.max(1, Math.round(duration * 0.5 * resScale * codecScale))
 
   useEffect(() => {
     if (!isOpen) return
-
-    // Skip probing if cache is already populated (state was initialized from cache)
-    if (codecSupportCache != null) return
 
     let cancelled = false
     const checkAll = async () => {
@@ -124,7 +120,6 @@ export default function ExportPanel({
         }),
       )
       const results = Object.fromEntries(entries) as Record<VideoCodec, boolean>
-      codecSupportCache = results
       if (!cancelled) {
         setCodecSupport(results)
       }
