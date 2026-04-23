@@ -107,6 +107,16 @@ async function assertStaticCspWasHardened() {
   if (csp.includes('frame-ancestors')) {
     throw new Error("Static CSP meta must not declare frame-ancestors (header-only directive)")
   }
+
+  // Assert invariants pinned in scripts/harden-static-export.mjs STYLE_POLICY.
+  // If either directive regresses the hardened CSP loses meaningful protection
+  // against plugin-based content injection and <base> takeover respectively.
+  if (!csp.includes("object-src 'none'")) {
+    throw new Error("Static CSP must declare object-src 'none'")
+  }
+  if (!csp.includes("base-uri 'none'")) {
+    throw new Error("Static CSP must declare base-uri 'none'")
+  }
 }
 
 async function assertMapStylesPinnedLocally() {
