@@ -115,8 +115,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(false)
-  }, [])
+    // Debounce via scheduleDragEnd so a leave-then-immediate-enter bounce
+    // (common when the pointer crosses a child element inside the zone)
+    // does not flicker the border/scale transition off and on again.
+    scheduleDragEnd()
+  }, [scheduleDragEnd])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (loading) return
