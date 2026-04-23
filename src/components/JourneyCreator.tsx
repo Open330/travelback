@@ -534,15 +534,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   if (!isActive) return null
 
   return (
-    <div data-testid="journey-creator-panel" className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
+    <div data-testid="journey-creator-panel" role="region" aria-labelledby="journey-creator-title" className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
       style={{ borderRadius: 'var(--r-glass)' }}>
       {/* Header */}
       <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
+          <span id="journey-creator-title" className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
             {t('journey.title')}
           </span>
           <button
+            type="button"
             onClick={() => { if (pointCount >= 1) setShowDiscardConfirm(true); else onCancel() }}
             className="text-xs transition-colors" style={{ color: 'var(--t3)' }}
           >

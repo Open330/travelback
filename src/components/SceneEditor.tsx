@@ -349,11 +349,11 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   }, [onPreviewScene])
 
   return (
-    <div data-testid="scene-editor-panel" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
+    <div data-testid="scene-editor-panel" role="region" aria-labelledby="scene-editor-title" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
       style={{ borderRadius: 'var(--r-glass)' }}
       onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
-        <h3 className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
+        <h3 id="scene-editor-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
         <div className="flex gap-2">
           <button onClick={addScene}
             className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer">
