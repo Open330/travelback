@@ -427,6 +427,10 @@ test.describe('Travelback App', () => {
     await expect(drawRouteBtn).toBeVisible({ timeout: 10_000 })
     await drawRouteBtn.click({ force: true })
 
+    // Cycle r5 promoted the journey creator panel to role="region" with
+    // aria-labelledby; cycle r6 codifies that as a regression guard.
+    await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+
     await expect(page.getByTestId('journey-icon-walk')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByTestId('journey-icon-car')).toBeVisible()
     await expect(page.getByTestId('journey-icon-plane')).toBeVisible()
@@ -841,6 +845,10 @@ test.describe('Travelback App', () => {
 
     // Scene editor should appear
     await expect(page.getByText('No scenes yet')).toBeVisible({ timeout: 5_000 })
+
+    // Cycle r5 promoted the scene editor panel to role="region" with
+    // aria-labelledby; cycle r6 codifies that as a regression guard.
+    await expect(page.getByRole('region', { name: 'Camera' })).toBeVisible({ timeout: 5_000 })
 
     // Click add scene - use getByRole to avoid matching the instruction text
     const addBtn = page.getByRole('button', { name: '+ Add' })
