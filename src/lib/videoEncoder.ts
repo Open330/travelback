@@ -206,7 +206,10 @@ export async function isCodecSupported(codec: AppVideoCodec): Promise<boolean> {
   try {
     const { canEncode } = await import('mediabunny')
     return canEncode(toMediabunnyCodec(codec))
-  } catch {
+  } catch (err) {
+    // Surface dynamic-import / canEncode failures to devtools so a CSP or network
+    // block on the mediabunny module can be distinguished from an unsupported codec.
+    console.debug('[Travelback] codec probe failed:', err instanceof Error ? err.message : String(err))
     return false
   }
 }
