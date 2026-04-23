@@ -191,7 +191,7 @@ export default function ExportPanel({
               type="button"
               onClick={onClose}
               aria-label={t('app.closePanel')}
-              className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
+              className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t4)' }}
             >
               <X size={20} strokeWidth={2} />
@@ -225,7 +225,7 @@ export default function ExportPanel({
               <button
                 type="button"
                 onClick={onResetExport}
-                className="gi inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer"
+                className="gi inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
                 <RotateCcw size={14} strokeWidth={2} />
@@ -304,7 +304,7 @@ export default function ExportPanel({
               <button
                 type="button"
                 onClick={() => setShowAdvanced(v => !v)}
-                className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer"
+                className="inline-flex min-h-11 items-center gap-2 px-1 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t4)' }}
                 aria-expanded={showAdvanced}
               >
