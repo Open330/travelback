@@ -326,8 +326,9 @@ function TimelineSelector({
         {/* Drag hint overlay — shown on first appearance */}
         {showHint && (
           <button
+            type="button"
             onClick={dismissHint}
-            className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ background: 'rgba(var(--gl),.12)', borderRadius: '10px' }}
           >
             <GripHorizontal size={14} style={{ color: 'rgb(var(--gl))' }} />
