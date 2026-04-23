@@ -130,11 +130,12 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   if (hasTrack) {
     return (
       <button
+        type="button"
         data-testid="load-new-file-button"
         onClick={() => inputRef.current?.click()}
         aria-label={t('fileUpload.loadNewFileAria')}
         title={t('fileUpload.loadNewFileAria')}
-        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 items-center justify-center gap-2 px-3 py-2 text-sm font-medium cursor-pointer sm:px-4"
+        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 items-center justify-center gap-2 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-4"
         style={{ color: 'var(--t1)' }}
       >
         <FolderOpen size={16} strokeWidth={2} />
@@ -225,6 +226,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           {t('fileUpload.formatHint')}
         </p>
         <button
+          type="button"
           onClick={() => inputRef.current?.click()}
           disabled={loading}
           aria-label={t('fileUpload.browseAria')}
@@ -247,8 +249,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         {onCreateJourney && (
           <div className="mt-4 flex w-full justify-center">
             <button
+              type="button"
               onClick={onCreateJourney}
-              className="gi inline-flex min-h-11 w-full max-w-sm items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium cursor-pointer"
+              className="gi inline-flex min-h-11 w-full max-w-sm items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t2)' }}
             >
               <MapPin size={14} strokeWidth={2} />
@@ -259,8 +262,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         {onShowGoogleGuide && (
           <div className="mt-2 flex justify-center">
             <button
+              type="button"
               onClick={onShowGoogleGuide}
-              className="gi inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer"
+              className="gi inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'rgb(var(--gl))' }}
             >
               {t('fileUpload.importGuideLink')}
