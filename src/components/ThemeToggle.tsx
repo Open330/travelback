@@ -57,10 +57,11 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
 
   return (
     <button
+      type="button"
       onClick={toggle}
       title={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
       aria-label={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
-      className="gi flex h-11 w-11 items-center justify-center cursor-pointer"
+      className="gi flex h-11 w-11 items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
       style={{ color: 'var(--t2)' }}
     >
       {effectiveMode === 'dark' ? (
