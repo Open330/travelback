@@ -151,6 +151,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     <div className="absolute inset-0 z-10 flex items-center justify-center"
       style={{ background: 'var(--upload-overlay, rgba(0,0,0,.32))', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
       <div
+        role="group"
+        aria-labelledby="fileupload-title"
+        aria-describedby="fileupload-drop-hint"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -206,13 +209,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
             )
           )}
         </div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
+        <h2 id="fileupload-title" className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
           {t('fileUpload.title')}
         </h2>
         <p className="mb-6" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.subtitle')}
         </p>
-        <p className="text-sm mb-1" style={{ color: 'var(--t4)' }}>
+        <p id="fileupload-drop-hint" className="text-sm mb-1" style={{ color: 'var(--t4)' }}>
           {t('fileUpload.dropHint')}
         </p>
         <p className="text-xs mb-4" style={{ color: 'var(--t4)', opacity: 0.7 }}>
