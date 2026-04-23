@@ -937,6 +937,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       data-testid="map-container"
       className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}
       aria-hidden={!track && !mapError}
+      aria-label={!track && !mapError ? t('app.mapWaiting') : undefined}
     >
       {mapError && (
         <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>

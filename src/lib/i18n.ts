@@ -304,6 +304,7 @@ export const translations = {
     'app.sampleLoadFailed': 'Could not load sample trip',
     'app.cancelExportAria': 'Cancel export',
     'app.mapLoadFailed': 'Your browser couldn\'t start the map. Try reloading or using a different browser.',
+    'app.mapWaiting': 'Map area — load a travel file to begin',
     'app.showTechnicalDetails': 'Show technical details',
     'app.hideTechnicalDetails': 'Hide technical details',
 
@@ -641,6 +642,7 @@ export const translations = {
     'app.sampleLoadFailed': '샘플 여행을 불러올 수 없습니다',
     'app.cancelExportAria': '내보내기 취소',
     'app.mapLoadFailed': '브라우저에서 지도를 시작할 수 없습니다. 페이지를 새로고침하거나 다른 브라우저를 사용해 보세요.',
+    'app.mapWaiting': '지도 영역 — 여행 파일을 불러오세요',
     'app.showTechnicalDetails': '기술 세부 정보 표시',
     'app.hideTechnicalDetails': '기술 세부 정보 숨기기',
 
@@ -978,6 +980,7 @@ export const translations = {
     'app.sampleLoadFailed': 'サンプルの旅を読み込めませんでした',
     'app.cancelExportAria': 'エクスポートをキャンセル',
     'app.mapLoadFailed': 'ブラウザでマップを開始できませんでした。ページを再読み込みするか、別のブラウザをお試しください。',
+    'app.mapWaiting': 'マップエリア — 旅行ファイルを読み込んでください',
     'app.showTechnicalDetails': '技術的な詳細を表示',
     'app.hideTechnicalDetails': '技術的な詳細を非表示',
 
@@ -1315,6 +1318,7 @@ export const translations = {
     'app.sampleLoadFailed': '无法加载示例旅程',
     'app.cancelExportAria': '取消导出',
     'app.mapLoadFailed': '浏览器无法启动地图。请尝试刷新页面或使用其他浏览器。',
+    'app.mapWaiting': '地图区域 — 请加载旅行文件',
     'app.showTechnicalDetails': '显示技术详情',
     'app.hideTechnicalDetails': '隐藏技术详情',
 
@@ -1652,6 +1656,7 @@ export const translations = {
     'app.sampleLoadFailed': 'No se pudo cargar el viaje de ejemplo',
     'app.cancelExportAria': 'Cancelar exportación',
     'app.mapLoadFailed': 'Tu navegador no pudo iniciar el mapa. Intenta recargar la página o usar otro navegador.',
+    'app.mapWaiting': 'Área del mapa — carga un archivo de viaje para comenzar',
     'app.showTechnicalDetails': 'Mostrar detalles técnicos',
     'app.hideTechnicalDetails': 'Ocultar detalles técnicos',
 
