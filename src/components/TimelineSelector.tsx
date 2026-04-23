@@ -504,7 +504,7 @@ function TimelineSelector({
             }}
             aria-label={t('timeline.reset')}
             title={t('timeline.reset')}
-            className="inline-flex items-center gap-0.5 cursor-pointer"
+            className="inline-flex items-center gap-0.5 cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ color: 'rgb(var(--gl))' }}
           >
             <RotateCcw size={10} strokeWidth={2} />
