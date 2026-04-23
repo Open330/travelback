@@ -57,6 +57,7 @@ function SceneRangeEditor({
   onChange: (startPercent: number, endPercent: number) => void
   ariaLabel: string
 }) {
+  const { t } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{
     type: 'start' | 'end' | 'region' | null
@@ -170,9 +171,9 @@ function SceneRangeEditor({
             key={type}
             role="slider"
             tabIndex={0}
-            aria-label={type === 'start' ? `${ariaLabel} start` : `${ariaLabel} end`}
+            aria-label={type === 'start' ? `${ariaLabel} ${t('scenes.rangeStart')}` : `${ariaLabel} ${t('scenes.rangeEnd')}`}
             aria-valuenow={Math.round(value * 100)}
-            aria-valuetext={`${Math.round(value * 100)}% ${type === 'start' ? 'start' : 'end'}`}
+            aria-valuetext={`${Math.round(value * 100)}% ${type === 'start' ? t('scenes.rangeStart') : t('scenes.rangeEnd')}`}
             aria-valuemin={0}
             aria-valuemax={100}
             className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"

@@ -92,6 +92,8 @@ export const translations = {
     'scenes.pitchAria': 'Tilt for {name}',
     'scenes.bearingAria': 'Direction for {name}',
     'scenes.rotationAria': 'Orbit speed for {name}',
+    'scenes.rangeStart': 'start',
+    'scenes.rangeEnd': 'end',
     'scenes.deleteScene': 'Delete scene {name}',
 
     // ExportPanel
@@ -427,6 +429,8 @@ export const translations = {
     'scenes.pitchAria': '{name}의 기울기',
     'scenes.bearingAria': '{name}의 방향',
     'scenes.rotationAria': '{name}의 회전 속도',
+    'scenes.rangeStart': '시작',
+    'scenes.rangeEnd': '끝',
     'scenes.deleteScene': '{name} 장면 삭제',
 
     // ExportPanel
@@ -762,6 +766,8 @@ export const translations = {
     'scenes.pitchAria': '{name}の傾き',
     'scenes.bearingAria': '{name}の方向',
     'scenes.rotationAria': '{name}の回転速度',
+    'scenes.rangeStart': '開始',
+    'scenes.rangeEnd': '終了',
     'scenes.deleteScene': '{name} シーンを削除',
 
     // ExportPanel
@@ -1097,6 +1103,8 @@ export const translations = {
     'scenes.pitchAria': '{name}的倾斜',
     'scenes.bearingAria': '{name}的方向',
     'scenes.rotationAria': '{name}的旋转速度',
+    'scenes.rangeStart': '起始',
+    'scenes.rangeEnd': '结束',
     'scenes.deleteScene': '删除场景 {name}',
 
     // ExportPanel
@@ -1432,6 +1440,8 @@ export const translations = {
     'scenes.pitchAria': 'Inclinación de {name}',
     'scenes.bearingAria': 'Dirección de {name}',
     'scenes.rotationAria': 'Velocidad de giro de {name}',
+    'scenes.rangeStart': 'inicio',
+    'scenes.rangeEnd': 'fin',
     'scenes.deleteScene': 'Eliminar escena {name}',
 
     // ExportPanel
