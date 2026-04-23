@@ -286,7 +286,30 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </button>
         </div>
 
-        <div role="tablist" aria-label={t('google.title')} className="mb-3 flex gap-1.5 overflow-x-auto px-5 scrollbar-none sm:flex-wrap">
+        <div role="tablist" aria-orientation="horizontal" aria-label={t('google.title')} className="mb-3 flex gap-1.5 overflow-x-auto px-5 scrollbar-none sm:flex-wrap"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight') {
+              e.preventDefault()
+              const next = (tab + 1) % methods.length
+              setTab(next)
+              document.getElementById(`${tabsId}-tab-${next}`)?.focus()
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault()
+              const prev = (tab - 1 + methods.length) % methods.length
+              setTab(prev)
+              document.getElementById(`${tabsId}-tab-${prev}`)?.focus()
+            } else if (e.key === 'Home') {
+              e.preventDefault()
+              setTab(0)
+              document.getElementById(`${tabsId}-tab-0`)?.focus()
+            } else if (e.key === 'End') {
+              e.preventDefault()
+              const last = methods.length - 1
+              setTab(last)
+              document.getElementById(`${tabsId}-tab-${last}`)?.focus()
+            }
+          }}
+        >
           {methods.map((m, i) => (
             <button
               key={m.label}
@@ -295,6 +318,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
               role="tab"
               aria-selected={tab === i}
               aria-controls={`${tabsId}-panel-${i}`}
+              tabIndex={tab === i ? 0 : -1}
               onClick={() => setTab(i)}
               className="min-h-11 flex-shrink-0 whitespace-nowrap rounded-2xl px-3 py-2 text-[11px] font-medium cursor-pointer transition-colors"
               style={{
