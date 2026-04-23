@@ -23,7 +23,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 0) return (
-    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="56" height="48" {...box} rx={8} />
       <circle cx="32" cy="18" r="6" {...common} strokeWidth={1} />
@@ -40,7 +40,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 1) return (
-    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
       <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.takeout')}</text>
@@ -57,7 +57,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 2) return (
-    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 280 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="72" height="48" {...box} />
       <text x="40" y="24" textAnchor="middle" {...text}>{t('guide.profile')}</text>
@@ -73,7 +73,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 3) return (
-    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.activity')}</text>
@@ -86,7 +86,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 4) return (
-    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.trailPage')}</text>
@@ -99,7 +99,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 5) return (
-    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.tourPage')}</text>
@@ -112,7 +112,7 @@ function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   )
 
   if (tabIndex === 6) return (
-    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }}>
+    <svg viewBox="0 0 220 60" className="mb-2 w-full" style={{ maxHeight: 56 }} aria-hidden="true">
       {arrowDef}
       <rect x="4" y="6" width="80" height="48" {...box} />
       <text x="44" y="24" textAnchor="middle" {...text}>{t('guide.anyApp')}</text>
