@@ -20,7 +20,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 
 **Verification:** `tsc --noEmit`, `eslint`, `next build`, manual check that export panel still probes codecs
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -34,7 +34,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 
 **Verification:** `tsc --noEmit`, `eslint`, `next build`
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -54,7 +54,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 
 **Verification:** `tsc --noEmit`, `eslint`, `next build`, keyboard navigation test
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
@@ -70,7 +70,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 
 **Verification:** `tsc --noEmit`, `eslint`, `next build`
 
-**Status:** PENDING
+**Status:** DONE
 
 ---
 
