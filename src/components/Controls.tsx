@@ -78,10 +78,11 @@ export default function Controls({
           <div data-testid="controls-primary-row" className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3" style={{ rowGap: '0.375rem' }}>
             {/* Play/Pause */}
             <button
+              type="button"
               onClick={onTogglePlay}
               aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
               title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
             >
               {isPlaying ? (
@@ -128,10 +129,11 @@ export default function Controls({
 
             {/* Follow camera toggle — show ON/OFF on touch devices */}
             <button
+              type="button"
               onClick={onFollowCameraToggle}
               aria-label={followCamera ? t('controls.cameraFollowOn') : t('controls.cameraFollowOff')}
               title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
-              className="gi shrink-0 min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer"
+              className="gi shrink-0 min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={followCamera
                 ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
                 : { color: 'var(--t3)' }
