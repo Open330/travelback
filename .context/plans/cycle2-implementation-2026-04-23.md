@@ -1,76 +1,40 @@
 # Cycle 2 Implementation Plan (2026-04-23)
 
-Source: `.context/reviews/_aggregate.md` (cycle 2 fresh review, 9 agents)
+Source: `.context/reviews/_aggregate.md` (superseded by cycle 1 orchestrator-run aggregate)
 
-## Cycle 1 Fix Verification -- All Confirmed Applied
+## Status: SUPERSEDED BY `.context/plans/cycle1-implementation-2026-04-23.md`
 
-All 11 P0/P1 items from cycle 1 are verified as correctly applied in the codebase. See `_aggregate.md` for details.
+An earlier partial cycle authored this file and `.context/reviews/cycle2-*-2026-04-23.md` describing "no new findings". A subsequent full gate run in the current orchestrator cycle uncovered a blocking `npm run smoke:static` regression (C1-F1 in the updated aggregate) caused by commit `5788949` reintroducing remote CARTO/OSM basemap sources, which directly contradicts the product offline/local-only contract in `.context/project/02-architecture.md`.
 
-## Active Implementation Items
+Action items for C1-F1 (revert the 5 bundled style JSONs and drop `cartocdn.com` from both CSP policies) are scheduled in `.context/plans/cycle1-implementation-2026-04-23.md` as task C1-T1.
 
-### P0-1: Fix parser segment remap filter dropping index 0
-- **Source**: C2-F1
-- **Severity / Confidence**: MEDIUM / HIGH
-- **Cross-agent**: code-reviewer (N1), debugger (N1), verifier (N1), critic (N1)
-- **Files**: `src/lib/parser.ts:424`
-- **Root Cause**: The `adjustedSegStarts` array is filtered with `.filter(idx => idx > 0)`, which drops segment starts that remap to index 0 after the dedup+sort reordering. The same bug class was fixed in page.tsx (F3) where the filter was changed from `> 0` to `>= 0`, but this parser instance was not identified in cycle 1.
-- **Action**: Change `.filter(idx => idx > 0)` to `.filter(idx => idx >= 0)` on line 424 of `src/lib/parser.ts`.
-- **Verify**: Load a Google Location History JSON file with multiple semantic segments where dedup removes enough early points that a segment start remaps to index 0. Confirm the segment boundary is preserved in the resulting Track object.
-- **Status**: DONE
+### Prior Cycle 2 Fixes (from earlier session, all confirmed still applied)
 
-### P1-1: Add aria-valuetext to SceneEditor sliders
-- **Source**: C2-F2
-- **Severity / Confidence**: LOW / HIGH
-- **Cross-agent**: designer (N1, N2), critic (N2)
-- **Files**: `src/components/SceneEditor.tsx:171-228, 521-582`
-- **Root Cause**: All slider elements in SceneEditor have `aria-valuenow` but no `aria-valuetext`. Screen readers announce only the raw number without context. The SceneRangeEditor handles (lines 171-228) show "50" instead of "50% start of Scene 2". The parameter sliders (zoom, pitch, bearing, rotation) similarly lack value text context.
-- **Action**:
-  1. For `SceneRangeEditor` slider handles (lines 165-228): Add `aria-valuetext={`${Math.round(value * 100)}% ${type === 'start' ? 'start' : 'end'}`}`.
-  2. For zoom slider (~line 521): Add `aria-valuetext={`Zoom ${scene.params.zoom}`}`.
-  3. For pitch slider (~line 535): Add `aria-valuetext={`Tilt ${scene.params.pitch}°`}`.
-  4. For bearing slider (~line 553): Add `aria-valuetext={`Direction ${scene.params.bearingOffset}°`}`.
-  5. For rotation slider (~line 569): Add `aria-valuetext={`Orbit speed ${scene.params.rotationSpeed}°/s`}`.
-- **Verify**: Use screen reader to navigate scene editor sliders, confirm values announced with context.
-- **Status**: DONE
+| Item | Description | Status |
+|------|-------------|--------|
+| P0-1 | Fix parser segment remap filter dropping index 0 | CONFIRMED APPLIED |
+| P1-1 | Add aria-valuetext to SceneEditor sliders | CONFIRMED APPLIED |
+| P1-2 | Fix ExportPanel frame count display to match encoder clamping | CONFIRMED APPLIED |
 
-### P1-2: Fix ExportPanel frame count display to match encoder clamping
-- **Source**: C2-F3
-- **Severity / Confidence**: LOW / MEDIUM
-- **Cross-agent**: code-reviewer (N2)
-- **Files**: `src/components/ExportPanel.tsx:260`
-- **Root Cause**: Frame count display uses `Math.round(exportProgress * Math.ceil(duration * fps))` with the panel's local `duration`/`fps` state, but the videoEncoder clamps these values via EXPORT_LIMITS before computing `totalFrames`. This means the displayed frame count can differ from the actual encoder frame count when clamping occurs.
-- **Action**: Apply the same EXPORT_LIMITS clamping to the display formula: `const clampedDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))` and `const clampedFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))`, then use `Math.ceil(clampedDuration * clampedFps)` for the total frame count display.
-- **Verify**: Set duration to 1 (below min of 5), confirm displayed total frames shows the clamped value (5 * fps), not the raw value.
-- **Status**: DONE
+### Prior Cycle 1/17 Fixes (all confirmed still applied)
 
-## Deferred Items
+| Item | Description | Status |
+|------|-------------|--------|
+| C17-P0-1 | FileUpload duplicate size check removed | CONFIRMED APPLIED |
+| C17-P0-2 | Map style persisted to localStorage | CONFIRMED APPLIED |
+| C17-P0-3 | handleRangeChange segment filter `index >= 0` | CONFIRMED APPLIED |
+| C17-P0-4 | usePlaybackController mountedRef guard | CONFIRMED APPLIED |
+| C17-P0-5 | Korean `export.at` translation | CONFIRMED APPLIED |
+| C17-P0-6 | reader.onerror uses ParseError with READ_FAILED | CONFIRMED APPLIED |
+| C17-P0-7 | ThemeToggle matchMedia onModeChange guard | CONFIRMED APPLIED |
+| C17-P0-8 | Toast aria-live by severity | CONFIRMED APPLIED |
+| C17-P1-1 | Scene overlap detection in SceneEditor | CONFIRMED APPLIED |
+| C17-P1-2 | TimelineSelector onRangeChange during drag | CONFIRMED APPLIED |
 
-### No New Deferred Findings This Cycle
+### Gate Verification (from pre-regression partial cycle)
 
-### Previously Deferred (Carried Forward from Cycle 17)
-
-All deferred items from `deferred-findings-cycle17-2026-04-23.md` remain valid and are carried forward without modification:
-
-- DF-C17-001: normalizeScenes silently drops zero-duration scenes (MEDIUM/HIGH)
-- DF-C17-002: Worker fallback path inconsistency (MEDIUM/MEDIUM)
-- DF-C17-003: CSP unsafe-inline CI check (MEDIUM/HIGH)
-- DF-C17-004: Video export sequential waitForIdle performance (MEDIUM/HIGH)
-- DF-C17-005: MapView re-renders every progress change (MEDIUM/HIGH)
-- DF-C17-006: HomeInner 440-line god component (MEDIUM/HIGH)
-- DF-C17-007: Missing aria-valuetext on SceneEditor sliders (MEDIUM/HIGH) -- partially addressed by P1-1 above
-- DF-C17-008: No unit tests (HIGH/HIGH)
-- DF-C17-009: No undo/redo for scene edits (MEDIUM/HIGH)
-- DF-C17-010: CSS custom properties without fallbacks (LOW/MEDIUM)
-- DF-C17-011: No granular error boundaries (LOW/MEDIUM)
-- DF-C17-012: GoogleGuide tabs not keyboard accessible (LOW/HIGH)
-- DF-C17-013: interpolateAlongTrack edge case at progress=1.0 (LOW/MEDIUM)
-- DF-C17-014: showSaveFilePicker type casting (LOW/HIGH)
-- DF-C17-015: JourneyCreator totalDistance without segmentStartIndices (LOW/HIGH)
-- DF-C17-016: i18n translations bundled inline (LOW/HIGH)
-- DF-C17-017: Mobile density on small screens (LOW/MEDIUM)
-- DF-C17-018: FileUpload drop zone focus indicator (LOW/MEDIUM)
-- DF-C17-019: Export frame count display inaccuracy (LOW/MEDIUM) -- partially addressed by P1-2 above
-
-## Convergence Note
-
-Cycle 2 found 3 new issues (1 Medium, 2 Low), down from 30 in cycle 1. The codebase continues to converge. All correctness bugs from cycle 1 are fixed, and the only Medium-severity finding is a same-class variant of a previously fixed bug that was missed due to being in a different file. The deferred items are architectural or feature-level changes that require dedicated passes.
+- [x] ESLint: 0 errors, 0 warnings (PASSED)
+- [x] TypeScript (tsc --noEmit): 0 errors (PASSED)
+- [x] Next.js build: Compiled successfully (PASSED)
+- [ ] **`npm run smoke:static`: FAILED** (see C1-F1 / C1-T1) — fixed under `.context/plans/cycle1-implementation-2026-04-23.md`.
+- [x] Playwright E2E tests (last full pass): 53 passed (4.3m)

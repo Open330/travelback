@@ -1,109 +1,88 @@
-# Aggregate Review — Cycle 1 / Review 18 (2026-04-23)
+# Aggregate Review — Cycle 1 (2026-04-23, orchestrator run)
 
 ## Methodology
-Comprehensive single-agent deep review with multi-perspective fan-out covering all 12 perspectives (code quality, security, performance, architecture, accessibility, test coverage, debugging, verification, documentation, tracing, critique, UI/UX). All 28 source files examined individually and in cross-file context. Findings deduplicated against cycles 1-17 and all prior deferred items. Focus on genuinely new issues.
+Multi-perspective deep review across all 12 review angles (code quality, security, performance, architecture, accessibility, test engineering, debugger, verification, documentation, tracing, critique, UI/UX). Every `src/` file re-examined; gates run end-to-end; deferred-findings list cross-checked against current code; commit history reviewed for regressions.
 
-Per-agent review files written to `.context/reviews/cycle1-<agent>-2026-04-23.md`.
-
----
-
-## PRIOR CYCLE FIX VERIFICATION
-
-### C12-F1 (GoogleGuide SVG illustration elements missing `aria-hidden`): CONFIRMED FIXED
-- `src/components/GoogleGuide.tsx:26,42,59,76,89,102,115` — All 7 SVG elements in `GuideIllustration` now have `aria-hidden="true"`
-
-### C11-F1 (ElevationProfile SVG children missing `aria-hidden`): CONFIRMED FIXED (still fixed)
-- `src/components/ElevationProfile.tsx:104-125` — `<defs>`, `<path>`, `<line>`, and `<clipPath>` elements all have `aria-hidden="true"`
-
-### C10-F8 (Controls progress bar missing aria-valuetext): CONFIRMED FIXED (still fixed)
-- `src/components/Controls.tsx:63` — `aria-valuetext` present with traveled/total/percent
-
-### C10-F4 (Toast role="log" with redundant aria-live): CONFIRMED FIXED (still fixed)
-- `src/components/Toast.tsx:68` — Uses `aria-live` only, no `role="log"`
-
-### C10-F11 (ExportPanel bitrate conflicting readOnly + aria-disabled): CONFIRMED FIXED (still fixed)
-- `src/components/ExportPanel.tsx:341` — Uses `readOnly` only, no `aria-disabled`
-
-### C10-F12 (SceneRangeEditor missing userSelect:none for drag): CONFIRMED FIXED (still fixed)
-- `src/components/SceneEditor.tsx:145` — Has `userSelect: 'none'`
-
-### C10-F10 (TimelineSelector duplicated ratioToIndex logic): CONFIRMED FIXED (still fixed)
-- `src/components/TimelineSelector.tsx:25-48` — Binary search extracted into shared `ratioToIndex` helper; both `resolveRangeIndexes` and `resolveIndexesForRatios` call it
+Per-agent review files from this cycle are preserved under `.context/reviews/cycle1-<agent>-2026-04-23.md` (from earlier partial attempts) and `.context/reviews/cycle2-<agent>-2026-04-23.md` (from an immediately preceding partial cycle). Those files remain valid for their specialist angles; this aggregate supersedes them where conflicts exist and documents the GATE REGRESSION that they missed.
 
 ---
 
 ## GATE STATUS
 
-- ESLint: 0 errors, 0 warnings (PASSED)
-- TypeScript: 0 errors, `tsc --noEmit` clean (PASSED)
-- Next.js build: Compiled successfully, static pages generated (PASSED)
-- E2E tests: not re-run this cycle (no code changes yet)
+- ESLint: **PASS** (0 errors, 0 warnings)
+- TypeScript (`tsc --noEmit`): **PASS** (0 errors)
+- Next.js build: **PASS** (static pages generated, harden-static-export completed)
+- `npm audit --audit-level=high`: **PASS** (0 vulnerabilities)
+- `npm run smoke:static`: **FAIL** — `bright.json still declares external basemap sources: carto-voyager-bright`
+- `npm run test:e2e:static:ci`: webServer startup contention observed during parallel gate run; re-run required after smoke fix.
+
+The smoke failure is the **single blocking gate for this cycle** and must be fixed before commit.
 
 ---
 
 ## NEW FINDINGS
 
-**No new findings at any severity level.**
+### C1-F1 — All 5 bundled map styles ship remote CARTO/OSM raster sources, violating the offline/local-only product contract and failing the smoke gate
 
-All 28 source files were examined individually and in cross-file context by all 12 review perspectives. Every prior cycle finding was verified as still-fixed. The deferred items list was reviewed and all deferrals remain appropriate with valid exit criteria.
-
-### Areas explicitly checked with no new issues found:
-
-1. **Code quality**: No dead code, unused imports, `as any`, `@ts-ignore`, or `@ts-expect-error`; consistent naming and style
-2. **Security**: No eval/innerHTML/dangerouslySetInnerHTML, XML entity stripping, JSON depth limiting, file size limits, no secrets in source, CSP hardening with hash-based inline script policy
-3. **Performance**: Accumulator-based playback (no float drift), rAF throttling on drag, proper cleanup of event listeners/timers/object URLs
-4. **Architecture**: Clean component decomposition, unidirectional data flow, proper hook encapsulation, Web Worker isolation for parsing
-5. **Accessibility**: All SVG decorative elements have `aria-hidden`, all sliders have `aria-valuetext`, modals have focus traps and `aria-modal`, tab navigation follows WAI-ARIA patterns, `aria-live` used correctly on toasts
-6. **Test coverage**: E2E tests cover core flows, ParseError codes enable targeted assertions, `data-testid` attributes on key elements
-7. **Debuggability**: ParseError with machine-readable codes, ErrorBoundary with reset key, mountedRef guards prevent stale state errors
-8. **Documentation**: Key algorithms documented inline, eslint-disable comments justified, `.context/` directory comprehensive
-9. **Tracing**: Data flow is unidirectional and traceable, callback refs prevent stale closures, distance-based paradigm consistent across components
-10. **Critic**: No overlooked issues found; all deferred items remain appropriate
-11. **UI/UX**: Consistent glass-morphism design, responsive breakpoints, touch targets >= 44px, keyboard shortcuts documented
+- **Severity / Confidence**: CRITICAL / HIGH
+- **Files**:
+  - `public/map-styles/bright.json` — `sources.carto-voyager-bright.tiles` → `https://*.basemaps.cartocdn.com/...`
+  - `public/map-styles/voyager.json` — `sources.carto-voyager.tiles` → `https://*.basemaps.cartocdn.com/...`
+  - `public/map-styles/positron.json` — `sources.carto-light.tiles` → `https://*.basemaps.cartocdn.com/...`
+  - `public/map-styles/dark.json` — `sources.carto-dark.tiles` → `https://*.basemaps.cartocdn.com/...`
+  - `public/map-styles/liberty.json` — `sources.osm-standard.tiles` → `https://*.tile.openstreetmap.org/...`
+  - `scripts/smoke-static.mjs:108-133` — enforces zero-source contract
+  - `src/app/layout.tsx:62` — CSP placeholder still lists `cartocdn.com` (left over from the regression)
+  - `scripts/harden-static-export.mjs:11-20` — hardened CSP still lists `cartocdn.com`
+- **Agreement**: gate-detected; confirmed by comparing against git history and `.context/project/02-architecture.md`.
+- **Evidence (history)**:
+  - `ba5bd23 feat(local-map): remove the last external network path and restore offline map context` — committed the zero-source contract, updated docs, tightened CSP, and made the smoke assertion `assertMapStylesPinnedLocally` effective.
+  - `5788949 fix(map): replace stub map styles with CARTO/OSM raster tile sources` — added remote tile sources back, with commit message describing the previous state as "empty stubs" and ignoring the established product contract.
+  - The reintroduction of remote tiles:
+    - violates `.context/project/02-architecture.md` (**"Local style JSON, palette choices, and layer definitions are bundled with the app, so normal map display no longer needs any third-party map requests."** and **"Works offline after initial page load"**),
+    - causes `npm run smoke:static` to fail every run,
+    - re-establishes a third-party data leak to CARTO / OSM tileservers on every map render (privacy regression also called out in `.context/plans/deferred-findings-cycle2-2026-04-19.md` DF-C2-010).
+- **Failure scenario**: User loads the static export. The CSP in the hardened HTML still allows `cartocdn.com`, so the map silently fetches remote tiles — reintroducing the privacy leak and third-party dependency the offline contract was designed to eliminate. The smoke gate blocks the release path entirely.
+- **Fix**: restore the pre-`5788949` state of the 5 style JSONs (background-only, zero sources, zero symbol layers) and remove `https://*.basemaps.cartocdn.com` from both CSP policies so the shipped surface matches the contract + smoke test again.
+- **Trade-off acknowledged**: reverting the styles visually regresses the maps back to solid backgrounds (same constraint as DF-C2-010). That is the deliberate product contract per `ba5bd23` and `.context/project/02-architecture.md`. Any future richer basemap work must be done in a way that keeps the shipped styles local (offline vector/raster bundle), per that same commit's directive.
 
 ---
 
-## POSITIVE FINDINGS (no regression since cycle 17)
+## PRIOR CYCLE FIX VERIFICATION (still good)
 
-- ESLint: 0 errors, 0 warnings
-- TypeScript: 0 errors (`tsc --noEmit` passes clean)
-- No `as any`, no `@ts-ignore`, no `@ts-expect-error` in source code
-- All `eslint-disable` comments have explanatory justifications
-- localStorage access consistently wrapped in try/catch
-- `useId()` correctly used for unique SVG IDs in ElevationProfile, GoogleGuide
-- GoogleGuide tabs have WAI-ARIA arrow-key navigation (including Home/End)
-- ExportPanel codec probing uses component state, not module-level cache
-- SceneEditor has `aria-valuetext` on all sliders
-- MapView has accessible label when no track loaded
-- TimelineSelector uses shared `ratioToIndex` helper (no duplication)
-- Playback controller accumulator-based design eliminates float drift
-- Export controller has robust cleanup with mounted ref and abort signal
-- ModalDialog implements proper focus trap, Escape handling, and `aria-modal`
-- i18n coverage comprehensive with 170+ keys across 5 locales
-- CSP harden script correctly computes Sha-256 hashes for inline scripts
-- Controls progress bar has `aria-valuetext` with human-readable progress
-- Toast uses `aria-live` with `aria-atomic="false"` (no `role="log"`)
-- ExportPanel bitrate input uses only `readOnly` (no conflicting `aria-disabled`)
-- SceneRangeEditor has `userSelect: 'none'` for drag
-- ElevationProfile SVG children have `aria-hidden="true"`
-- GoogleGuide SVG illustrations have `aria-hidden="true"`
+- C12-F1 (GoogleGuide SVG `aria-hidden`) — still fixed (`src/components/GoogleGuide.tsx:26,42,59,76,89,102,115`).
+- C11-F1 (ElevationProfile SVG children `aria-hidden`) — still fixed (`src/components/ElevationProfile.tsx:104-125`).
+- C10-F8 (Controls progress bar `aria-valuetext`) — still fixed.
+- C10-F4 (Toast `role="log"` removed) — still fixed.
+- C10-F11 (ExportPanel bitrate conflict) — still fixed.
+- C10-F12 (SceneRangeEditor `userSelect`) — still fixed.
+- C10-F10 (TimelineSelector shared `ratioToIndex`) — still fixed.
+- Prior cycle 1 fixes (C17-P0-1 through C17-P0-8, C17-P1-1, C17-P1-2) — all still applied.
+
+## POSITIVE FINDINGS (no regression since cycle 17 besides the smoke regression above)
+
+- ESLint clean, TypeScript strict clean, `npm audit` clean.
+- No `as any`, no `@ts-ignore`, no `@ts-expect-error` in `src/`.
+- 28 addEventListener / 28 removeEventListener occurrences — balanced at file counts.
+- `URL.createObjectURL` (1) / `URL.revokeObjectURL` (3) — balanced (revoked in callback, pre-create cleanup, and unmount).
+- All `localStorage` access wrapped in try/catch (spot-checked: `TimelineSelector.tsx:79-86`, `MapView.tsx:567-571`, `interpolate.ts:150-158`, `i18n.ts:1747-1767`, `page.tsx:41-55,283-304`).
+- `dangerouslySetInnerHTML` used only for the theme-bootstrap script, hash-pinned in CSP by the post-build hardening step.
+- 10 `eslint-disable` comments, all justified with `--` inline rationale.
 
 ---
 
 ## PRIOR DEFERRED FINDINGS CARRIED FORWARD
 
-All deferred items from `.context/plans/deferred-findings-cycle17-2026-04-23.md` remain valid (DF-C17-001 through DF-C17-019), plus DF-C4-001, DF-C4-002 from cycle 4, DF-C5-001 from cycle 5.
+`.context/plans/deferred-findings-cycle17-2026-04-23.md` items DF-C17-001, -002, -003, -004, -005, -006, -008, -009, -010, -011, -013, -014, -015, -016, -017, -018, -019 remain valid and are carried forward.
 
-No new deferrals this cycle.
-
----
-
-## CONVERGENCE NOTE
-
-Cycle 1 (review 18) found **zero** new actionable findings at any severity level, consistent with cycles 13-17 which also found zero or near-zero findings. All 28 source files were individually re-examined across 12 review perspectives, all prior cycle fixes were verified as still in place, and all cross-file interactions were checked. The deferred item list remains comprehensive with appropriate exit criteria. The codebase is in a stable, well-hardened state. Further review cycles are unlikely to surface new findings without changes to the codebase or expanded scope (e.g., unit test infrastructure, performance profiling, CI hardening).
+- DF-C17-007 (SceneEditor `aria-valuetext`) — **RESOLVED** (was resolved earlier; re-confirmed this cycle).
+- DF-C17-012 (GoogleGuide keyboard tabs) — **RESOLVED** (was resolved earlier; re-confirmed this cycle).
+- DF-C4-001, DF-C4-002 — carried forward.
+- DF-C5-001 — carried forward.
+- DF-C2-010 (Local-only bundled styles ship without a real basemap layer) — **re-opened and superseded** by C1-F1 above. The deferred trade-off is exactly the one we are re-asserting by reverting the offending commit.
 
 ---
 
 ## AGENT FAILURES
 
-No agent failures — all 12 review perspectives completed successfully.
+No per-agent failures; the previous cycle's in-memory multi-agent fan-out had already written per-angle review files (`.context/reviews/cycle1-*-2026-04-23.md` and `.context/reviews/cycle2-*-2026-04-23.md`), all of which completed successfully for their own specialist angles. Their single collective blind spot — the smoke gate that verifies the static-export product contract — is corrected in this aggregate and scheduled for remediation in `.context/plans/cycle1-implementation-2026-04-23.md`.
