@@ -1,179 +1,151 @@
-# Aggregate Review — Cycle r4 (2026-04-23)
+# Aggregate Review — Cycle r5 (2026-04-23)
 
 ## Methodology
 
-Cycle r4 fused a multi-agent source review with a browser-driven UI/UX probe
-(user-injected TODO **U-2026-04-23-01**). Eleven source-side lanes ran in
-parallel (code-reviewer, perf, security, critic, verifier, test-engineer,
-tracer, architect, debugger, document-specialist, accessibility) plus the
-designer lane which is the authoritative UI/UX reviewer and drove a real
-Chromium session against `npm run start` at `http://localhost:3737/travelback/`.
+Cycle r5 ran a source-side multi-agent review on a repo whose last commit is cycle-r4's doc commit `00000002d`. All six quality gates were green at cycle start. User-injected queue was empty (ingested and handled in cycle r4).
 
-Per-agent reviews are preserved at:
-
-- `./.context/reviews/cycle-r4-ui-ux-browser-2026-04-23.md` (authoritative browser-driven findings, with hard evidence)
-- `./.context/reviews/cycle-r4-designer-2026-04-23.md`
-- `./.context/reviews/cycle-r4-code-reviewer-2026-04-23.md`
-- `./.context/reviews/cycle-r4-perf-2026-04-23.md`
-- `./.context/reviews/cycle-r4-security-2026-04-23.md`
-- `./.context/reviews/cycle-r4-critic-2026-04-23.md`
-- `./.context/reviews/cycle-r4-verifier-2026-04-23.md`
-- `./.context/reviews/cycle-r4-test-engineer-2026-04-23.md`
-- `./.context/reviews/cycle-r4-tracer-2026-04-23.md`
-- `./.context/reviews/cycle-r4-architect-2026-04-23.md`
-- `./.context/reviews/cycle-r4-debugger-2026-04-23.md`
-- `./.context/reviews/cycle-r4-document-specialist-2026-04-23.md`
-- `./.context/reviews/cycle-r4-accessibility-2026-04-23.md`
-
-Browser JSON evidence: `/tmp/tb-uiux-review.json` (1,219 lines / 43 KB), probe
-script authored at `e2e/_tmp-uiux-review.mjs` and removed after collection.
+Twelve lanes ran in this cycle: code-reviewer, perf, security, critic, verifier, test-engineer, tracer, architect, debugger, document-specialist, designer (UI/UX), accessibility. Per-agent reviews live in `.context/reviews/cycle-r5-*.md`.
 
 ---
 
-## GATE STATUS — all green at the start of cycle r4
+## GATE STATUS — all green at the start of cycle r5
 
-- ESLint: **PASS** (0 errors, 0 warnings)
-- TypeScript (`tsc --noEmit`): **PASS**
-- Next.js build: **PASS**; `harden-static-export` hardened 3 HTML files
-- `npm audit --audit-level=high`: **PASS**
-- `npm run smoke:static`: **PASS**
+- ESLint (`npm run lint`): **PASS**
+- TypeScript (`npm run typecheck`): **PASS**
+- Next.js build (`npm run build`): **PASS** (harden-static-export ran on 3 HTML files)
+- `npm run smoke:static`: **PASS** (frame-ancestors regression guard fires)
 - `npm run test:e2e:static:ci`: **PASS**
+- `npm audit --audit-level=high`: **PASS** (0 vulnerabilities)
 
 ---
 
 ## NEW FINDINGS — SCHEDULED THIS CYCLE
 
-### R4-AGG-1 (MEDIUM, HIGH) — Drop `frame-ancestors 'none'` from meta CSP (dev + prod hardened output)
+### R5-AGG-1 (LOW, HIGH) — TrackToolbar mobile menu duplicates `menuRef` on outer wrapper and inner panel
 
-- **Files**: `src/app/layout.tsx:62`, `scripts/harden-static-export.mjs:12`.
-- **Agreement**: designer/UX (BUI-1), security (SEC-1), tracer (T-1), architect (AR-2), document-specialist (DS-1, DS-4), test-engineer (TE-1).
-- **Evidence**: browser console emits `The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.` on every page load. Defense remains via the JS frame-buster (`src/app/layout.tsx:49`) and host-level headers documented in `.context/project/02-architecture.md:117`.
-- **Fix**: remove directive from both meta CSP sites; add a short note in `.context/project/02-architecture.md`; extend `scripts/smoke-static.mjs` to assert the emitted HTML contains NO `frame-ancestors` substring in the CSP meta (regression guard).
+- **Files**: `src/components/TrackToolbar.tsx:134-155`.
+- **Agreement**: code-reviewer (CR-1), critic (CT-1), tracer (T-1), debugger (DB-1).
+- **Evidence**: both `<div className="relative sm:hidden" ref={menuRef}>` (L134) and the inner `<div role="menu" … ref={menuRef}>` (L155) assign the same ref. React assigns "last one wins", so after the menu opens, `menuRef.current` points to the inner panel only. The outside-click listener at L58-60 (`menuRef.current?.contains(event.target as Node)`) then returns false for clicks on the trigger button (trigger is inside the wrapper but outside the panel), creating a flicker/race.
+- **Fix**: drop the inner `ref={menuRef}`. `useFocusFirstOnOpen` continues to resolve the first `<button>` descendant via the outer wrapper.
 - **Schedule**: YES.
 
-### R4-AGG-2 (MEDIUM, HIGH) — Root wrapper should be `<main>` not `<div>` (WCAG 1.3.1, 2.4.1)
+### R5-AGG-2 (LOW, HIGH) — FileUpload `handleDragLeave` does not debounce with `scheduleDragEnd`
 
-- **Files**: `src/app/page.tsx:314`.
-- **Agreement**: designer/UX (BUI-2), code-reviewer (CR-1), architect (AR-1), accessibility (A11Y-1).
-- **Evidence**: CDP AX tree lists only the Map region. No `main` landmark.
-- **Fix**: `<div>` → `<main>`. The `ModalDialog` inert-toggling code targets `[data-travelback-app-root="true"]` via attribute selector; change is source-compatible.
+- **Files**: `src/components/FileUpload.tsx:116-119`.
+- **Agreement**: code-reviewer (CR-2), critic (CT-2), tracer (T-2), debugger (DB-2).
+- **Evidence**: `handleDragOver`/`handleDrop` use debounced `scheduleDragEnd` (200ms) to survive leave-then-enter bounces, but `handleDragLeave` sets `setIsDragging(false)` synchronously and does not cancel any pending timer. Produces visible flicker when the pointer crosses child elements inside the zone.
+- **Fix**: replace `setIsDragging(false)` at L118 with `scheduleDragEnd()`.
 - **Schedule**: YES.
 
-### R4-AGG-3 (MEDIUM, HIGH) — Landing drop-zone has no role / aria-label (WCAG 1.3.1, 2.4.6, 4.1.2)
+### R5-AGG-3 (LOW, HIGH) — `GlobalToolbar` language `<select>` lacks focus-visible ring
 
-- **Files**: `src/components/FileUpload.tsx:153-165`.
-- **Agreement**: designer/UX (BUI-3), accessibility (A11Y-2).
-- **Evidence**: landing DOM probe returns `dropZoneRole: null, dropZoneAriaLabel: null, dropZoneTag: "DIV"`.
-- **Fix**: add `role="group" aria-labelledby="fileupload-title" aria-describedby="fileupload-drop-hint"`; wire matching `id`s on the h2 and the drop-hint `<p>`.
+- **Files**: `src/components/GlobalToolbar.tsx:49-61`.
+- **Agreement**: code-reviewer (CR-3), designer (UX-2), accessibility (A11Y-2).
+- **Evidence**: `gi` class suppresses default outlines. Other `gi` controls recently got `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]` — the language select is still missing it. Keyboard users cannot see focus on this control.
+- **Fix**: append focus-visible utilities to the `className` at L53.
 - **Schedule**: YES.
 
-### R4-AGG-4 (LOW, HIGH) — Sample-preview button: caption concatenates into accessible name (WCAG 4.1.2)
+### R5-AGG-4 (LOW, MEDIUM) — `TimelineSelector` reset button lacks focus-visible ring
 
-- **Files**: `src/components/FileUpload.tsx:176-195`.
-- **Agreement**: designer/UX (BUI-4), code-reviewer (CR-2), critic (CT-1), tracer (T-3), accessibility (A11Y-3).
-- **Evidence**: tab-order entry at 1440w shows `text: "Sample output previewTry with a sample tripLoad demo"` while `aria-label` says "Try with a sample trip".
-- **Fix**: wrap the caption `<div>` with `aria-hidden="true"`.
+- **Files**: `src/components/TimelineSelector.tsx:497-512`.
+- **Agreement**: critic (CT-3), designer (UX-1), accessibility (A11Y-1).
+- **Evidence**: rendered only when the user has actively trimmed; no keyboard focus indicator.
+- **Fix**: append `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]` (with rounded-full padding to match the tiny icon-only button).
 - **Schedule**: YES.
 
-### R4-AGG-5 (LOW, HIGH) — `Reload Page` button in map-error fallback is 38px tall (WCAG 2.2 2.5.8)
+### R5-AGG-5 (LOW, MEDIUM) — `SceneEditor` and `JourneyCreator` panels are unnamed landmarks
 
-- **Files**: `src/components/MapView.tsx:949`.
-- **Agreement**: designer/UX (BUI-18), code-reviewer (CR-3), accessibility (A11Y-5), tracer (T-4).
-- **Fix**: add `min-h-11`.
+- **Files**: `src/components/SceneEditor.tsx:352`, `src/components/JourneyCreator.tsx:537-544`.
+- **Agreement**: architect (AR-3, AR-4), designer (UX-4), accessibility (A11Y-3, A11Y-4).
+- **Evidence**: both panels exist as persistent on-screen regions but have no `role="region"` and no `aria-labelledby`. AT users lose landmark navigability.
+- **Fix**:
+  - `SceneEditor.tsx:352` — add `role="region" aria-labelledby="scene-editor-title"`; add `id="scene-editor-title"` to the existing `<h3>` at L356.
+  - `JourneyCreator.tsx:537` — add `role="region" aria-labelledby="journey-creator-title"`; add `id="journey-creator-title"` to the existing `<span>` at L542-544.
 - **Schedule**: YES.
 
-### R4-AGG-6 (LOW, HIGH) — Sample-preview button has no visible focus outline (WCAG 2.4.7)
+### R5-AGG-6 (LOW, MEDIUM) — JourneyCreator "Cancel" button is missing `type="button"`
 
-- **Files**: `src/components/FileUpload.tsx:176-195`.
-- **Agreement**: designer/UX (BUI-19), code-reviewer (CR-4), accessibility (A11Y-4).
-- **Fix**: add `focus-visible:ring-2 focus-visible:ring-[rgb(var(--gl))] focus-visible:ring-offset-2`.
+- **Files**: `src/components/JourneyCreator.tsx:545-550`.
+- **Agreement**: critic (CT-4), designer (UX-3), accessibility (A11Y-5).
+- **Evidence**: defensive hardening — no form ancestor today, but any future wrap in `<form>` would trigger submit-on-click.
+- **Fix**: add `type="button"`.
 - **Schedule**: YES.
 
-### R4-AGG-7 (LOW, HIGH) — Smoke test should assert meta CSP has no `frame-ancestors`
+### R5-AGG-7 (LOW, HIGH) — e2e has no `<main>` landmark assertion (cycle-r4 D6 exit criterion now satisfiable)
+
+- **Files**: `e2e/travelback.spec.ts`.
+- **Agreement**: test-engineer (TE-1), accessibility (A11Y-8).
+- **Evidence**: cycle-r4 P-2 added `<main id="app">`. The deferred exit criterion was "next cycle adds a tiny spec asserting the `<main>` landmark exists". Now trivial.
+- **Fix**: add a single Playwright assertion verifying `main#app[data-travelback-app-root="true"]` is attached.
+- **Schedule**: YES.
+
+### R5-AGG-8 (LOW, MEDIUM) — `smoke-static.mjs` doesn't assert `object-src` / `base-uri` CSP invariants
 
 - **Files**: `scripts/smoke-static.mjs`.
-- **Agreement**: test-engineer (TE-1).
-- **Fix**: extend the existing walk to fail if any HTML file's CSP `meta` content contains `frame-ancestors`.
+- **Agreement**: test-engineer (TE-2).
+- **Evidence**: `STYLE_POLICY` in `harden-static-export.mjs` pins `object-src 'none'` and `base-uri 'none'` but the smoke test does not assert them in the emitted CSP. Cheap regression guard.
+- **Fix**: add two `csp.includes` assertions to the existing `assertStaticCspWasHardened` function.
 - **Schedule**: YES.
+
+### R5-AGG-9 (DOC) — Architecture doc note for new region landmarks
+
+- **Files**: `.context/project/02-architecture.md`.
+- **Agreement**: document-specialist (DS-5) — only lands if R5-AGG-5 lands.
+- **Fix**: append one sentence noting SceneEditor and JourneyCreator panels are named regions as of cycle r5.
+- **Schedule**: YES (dependent on R5-AGG-5).
 
 ---
 
 ## NEW FINDINGS — DEFERRED
 
-### R4-AGG-D1 (MEDIUM, MEDIUM) — Primary CTA contrast 3.08:1 below WCAG AA 4.5:1
+### R5-AGG-D1..D13 — Cycle-r4 carryovers (unchanged)
 
-- Defer (BUI-8 / A11Y-6). Visual-brand change requires owner sign-off.
-- Exit criterion: design-owner decides whether to darken cyan to at least `rgb(8,145,178)` (white-on-cyan-700 ≈ 4.78:1) OR accept as an out-of-scope AA gap and document.
+All of cycle-r4's `R4-AGG-D1..R4-AGG-D13` deferred items remain unchanged this cycle. No exit criteria have been triggered:
 
-### R4-AGG-D2 (LOW, MEDIUM) — Tab order in WebGL-fail path puts map-error controls before the upload overlay
+- R4-AGG-D1 (primary CTA contrast) — design-owner sign-off still pending.
+- R4-AGG-D2 (WebGL-fail tab order) — architectural refactor pending.
+- R4-AGG-D3 (320w + ko probe) — no browser-driven probe this cycle.
+- R4-AGG-D4 (Real-WebGL LCP/INP/CLS) — no real-WebGL run this cycle.
+- R4-AGG-D5 (forced-colors audit) — no Windows probe.
+- R4-AGG-D7 (`preserveDrawingBuffer`) — carryover.
+- R4-AGG-D8 (`videoEncoder.ts` `window as unknown as` casts) — carryover.
+- R4-AGG-D9 (Nominatim CSP) — carryover; search path remains local-only.
+- R4-AGG-D10 (2-letter language codes) — copy-owner review pending.
+- R4-AGG-D11 (Google guide copy) — copy-owner review pending.
+- R4-AGG-D12 (prefers-reduced-motion spec) — out of cycle r5 scope.
+- R4-AGG-D13 (Lighthouse/LCP/INP e2e) — out of cycle r5 scope.
 
-- Defer (T-2 / DB-1).
-- Exit criterion: if we add an SSR-safe pre-MapView mount for the upload overlay OR raise the upload overlay's document order, revisit.
+### R5-AGG-D14 (NITS, HIGH) — `FileUpload` prop optionality is all-or-nothing
 
-### R4-AGG-D3 (LOW, MEDIUM) — 320w + ko touch-target audit not yet performed
+- **Source**: code-reviewer CR-5.
+- **File+line**: `src/components/FileUpload.tsx:17`.
+- **Original severity / confidence**: NITS / HIGH.
+- **Reason**: stylistic polish; the conditional guards do no harm and removing optionality is cosmetic refactoring out of cycle scope.
+- **Exit criterion**: next cleanup pass that touches `FileUpload`'s prop contract.
 
-- Defer (BUI-11b).
-- Exit criterion: next UI-UX cycle runs the probe script at 320×640 with `localStorage['travelback-locale']='ko'`.
+### R5-AGG-D15 (INFO, MEDIUM) — `Toast` onDismiss closure reallocated on parent render
 
-### R4-AGG-D4 (LOW, MEDIUM) — Real-WebGL LCP / CLS / INP numbers not captured this cycle
+- **Source**: perf PR-1.
+- **File+line**: `src/components/Toast.tsx:70`.
+- **Original severity / confidence**: INFO / MEDIUM.
+- **Reason**: negligible cost at ≤3 concurrent messages; ToastItem already uses `onDismissRef` to avoid re-render cascade.
+- **Exit criterion**: if toast volume grows or a profiler flags allocation pressure, revisit.
 
-- Defer (BUI-11c). Playwright SwiftShader did not emit LargestContentfulPaint entries.
-- Exit criterion: retry with Chromium `--use-gl=angle` or real hardware.
+### R5-AGG-D16 (INFO, MEDIUM) — `TimelineSelector.buckets` recomputes on `points` reference change
 
-### R4-AGG-D5 (LOW, MEDIUM) — Forced-colors audit incomplete for brand-colored buttons
+- **Source**: perf PR-2.
+- **File+line**: `src/components/TimelineSelector.tsx:103-121`.
+- **Original severity / confidence**: INFO / MEDIUM.
+- **Reason**: O(n) bucketing only runs at trim boundaries; acceptable for 250k-point maximum.
+- **Exit criterion**: if a real 250k-point profile shows this dominates the trim frame.
 
-- Defer (A11Y-8). Needs Windows High Contrast probe.
+### R5-AGG-D17 (INFO, MEDIUM) — `buildReferenceGridData` rebuilds on every style reload
 
-### R4-AGG-D6 (LOW, MEDIUM) — Landmark e2e test not authored
-
-- Defer (TE-2). Would require axe-core or aria-landmark assertions.
-
-### R4-AGG-D7 (LOW, MEDIUM) — `preserveDrawingBuffer=true` as default; documented trade-off
-
-- Defer (PR-2 / AR-3). Carryover.
-
-### R4-AGG-D8 (LOW, MEDIUM) — `videoEncoder.ts` `window as unknown as …` casts
-
-- Defer (CR-6). Cycle-r3 carryover.
-
-### R4-AGG-D9 (LOW, MEDIUM) — Nominatim search CSP
-
-- Defer (SEC-2). Cycle-r3 carryover.
-
-### R4-AGG-D10 (LOW, MEDIUM) — Language `<select>` shows 2-letter codes instead of native names
-
-- Defer (BUI-7 / CT-4). Stylistic.
-
-### R4-AGG-D11 (LOW, MEDIUM) — "Need help finding your file?" button could mention Google Location History in aria-label
-
-- Defer (BUI-5). Copy question.
-
-### R4-AGG-D12 (LOW, MEDIUM) — Playwright spec for `prefers-reduced-motion` not authored
-
-- Defer (TE-4).
-
-### R4-AGG-D13 (LOW, MEDIUM) — Lighthouse / LCP / INP e2e spec not authored
-
-- Defer (TE-3).
-
----
-
-## USER-INJECTED INPUT — U-2026-04-23-01
-
-Ingested verbatim from `.context/plans/user-injected/pending-next-cycle.md`.
-
-- Browser-driven review delivered at `./.context/reviews/cycle-r4-ui-ux-browser-2026-04-23.md`.
-- Shorter restatement in `./.context/reviews/cycle-r4-designer-2026-04-23.md`.
-- Six schedulable findings this cycle: R4-AGG-1 through R4-AGG-6 (all sourced from the browser probe).
-- Deferred items with exit criteria: R4-AGG-D1 through R4-AGG-D5.
-- Entry removed from the user-injected pending queue after ingestion (see plan PROMPT 2).
-
----
-
-## CARRY-OVER STATUS (cycle r3 → r4)
-
-- R3-AGG-1, R3-AGG-2, R3-AGG-3 all verified present and correct — no regressions (see verifier V-2).
-- Cycle-r3 deferred items unchanged (R3-AGG-4/5/6/7/...): each remains in `deferred-findings-cycle-r3-2026-04-23.md`; re-evaluated here with no status change.
+- **Source**: perf PR-3.
+- **File+line**: `src/components/MapView.tsx:224-324`.
+- **Original severity / confidence**: INFO / MEDIUM.
+- **Reason**: pass cost <1 ms for common tracks.
+- **Exit criterion**: if style cycling is measured to introduce jank.
 
 ---
 
