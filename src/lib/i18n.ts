@@ -54,6 +54,7 @@ export const translations = {
     'controls.trackOn': 'Track: ON',
     'controls.trackOff': 'Track: OFF',
     'controls.progressAria': 'Playback progress',
+    'controls.progressValueText': '{traveled} of {total}, {percent}%',
 
     // SceneEditor
     'scenes.title': 'Camera',
@@ -392,6 +393,7 @@ export const translations = {
     'controls.trackOn': '추적: 켜짐',
     'controls.trackOff': '추적: 꺼짐',
     'controls.progressAria': '재생 진행률',
+    'controls.progressValueText': '{traveled} / {total}, {percent}%',
 
     // SceneEditor
     'scenes.title': '카메라',
@@ -730,6 +732,7 @@ export const translations = {
     'controls.trackOn': '追従: ON',
     'controls.trackOff': '追従: OFF',
     'controls.progressAria': '再生の進行状況',
+    'controls.progressValueText': '{traveled} / {total}, {percent}%',
 
     // SceneEditor
     'scenes.title': 'カメラ',
@@ -1068,6 +1071,7 @@ export const translations = {
     'controls.trackOn': '跟随: 开',
     'controls.trackOff': '跟随: 关',
     'controls.progressAria': '播放进度',
+    'controls.progressValueText': '{traveled} / {total}, {percent}%',
 
     // SceneEditor
     'scenes.title': '镜头',
@@ -1406,6 +1410,7 @@ export const translations = {
     'controls.trackOn': 'Seguir: ON',
     'controls.trackOff': 'Seguir: OFF',
     'controls.progressAria': 'Progreso de reproducción',
+    'controls.progressValueText': '{traveled} de {total}, {percent}%',
 
     // SceneEditor
     'scenes.title': 'Cámara',

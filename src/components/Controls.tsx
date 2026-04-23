@@ -60,6 +60,7 @@ export default function Controls({
             value={progress}
             onChange={handleProgressChange}
             aria-label={t('controls.progressAria')}
+            aria-valuetext={t('controls.progressValueText').replace('{traveled}', formatDistance(traveled, units)).replace('{total}', formatDistance(total, units)).replace('{percent}', String(Math.round(progress * 100)))}
             className="w-full h-3 rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
