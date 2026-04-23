@@ -327,10 +327,17 @@ function HomeInner() {
         />
 
         {isExporting && (
-          <div data-disable-playback-hotkeys="true" className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(12px)' }}>
+          <div
+            data-disable-playback-hotkeys="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-overlay-title"
+            className="absolute inset-0 z-20 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(12px)' }}
+          >
             <div className="go p-8 text-center" style={{ color: 'var(--t1)' }}>
-              <div className="inline-block w-12 h-12 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'rgba(var(--gl),.6)', borderTopColor: 'transparent' }} />
-              <p className="text-lg font-medium">{t('app.renderingVideo')}</p>
+              <div className="inline-block w-12 h-12 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'rgba(var(--gl),.6)', borderTopColor: 'transparent' }} aria-hidden="true" />
+              <p id="export-overlay-title" className="text-lg font-medium">{t('app.renderingVideo')}</p>
               <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
               <button
                 onClick={cancelExport}
