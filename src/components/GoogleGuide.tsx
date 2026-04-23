@@ -386,7 +386,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
             <ul className="space-y-1">
               {tips.map((tip, i) => (
                 <li key={i} className="flex gap-2 text-sm" style={{ color: 'var(--t3)' }}>
-                  <Circle size={6} fill="currentColor" strokeWidth={0} className="mt-1.5 flex-shrink-0" />
+                  <Circle aria-hidden="true" size={6} fill="currentColor" strokeWidth={0} className="mt-1.5 flex-shrink-0" />
                   <span>{tip}</span>
                 </li>
               ))}
