@@ -278,7 +278,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ color: 'var(--t4)' }}
             aria-label={t('google.close')}
           >
