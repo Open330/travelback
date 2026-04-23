@@ -50,7 +50,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
         value={locale}
         onChange={e => setLocale(e.target.value as Locale)}
         aria-label={t('locale.label')}
-        className="gi min-h-11 shrink-0 px-2 py-1.5 text-xs font-medium cursor-pointer text-center"
+        className="gi min-h-11 shrink-0 px-2 py-1.5 text-xs font-medium cursor-pointer text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
         style={{ color: 'var(--t2)', minWidth: '3.75rem' }}
       >
         <option value="en">EN</option>
