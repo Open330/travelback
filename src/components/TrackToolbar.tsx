@@ -151,8 +151,11 @@ export default function TrackToolbar({
             data-disable-playback-hotkeys="true"
             className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
             style={{ borderRadius: 'var(--r-glass)' }}
-            // Focus is managed by useFocusFirstOnOpen — fires once when menu opens
-            ref={menuRef}
+            // Focus is managed by useFocusFirstOnOpen via the outer wrapper's menuRef,
+            // which also backs the outside-click listener. Do NOT reassign menuRef here:
+            // React's "last ref wins" rule would otherwise detach the listener from the
+            // wrapper once the menu opens, causing the trigger click to register as
+            // "outside" and close-then-reopen the menu on every tap.
           >
             <div className="space-y-2">
               <button
