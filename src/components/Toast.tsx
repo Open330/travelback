@@ -49,7 +49,7 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
     >
       <div className="flex items-start gap-2">
         <span className="flex-1">{message.text}</span>
-        <button onClick={onDismiss} className="cursor-pointer flex-shrink-0 flex min-h-11 min-w-11 items-center justify-center"
+        <button type="button" onClick={onDismiss} className="cursor-pointer flex-shrink-0 flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
           style={{ color: 'var(--t4)' }}
           aria-label={t('toast.dismiss')}>
           <X size={14} strokeWidth={2} />
