@@ -17,6 +17,36 @@ interface TimelineSelectorProps {
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
 
+/** Map a distance-fraction ratio to a point index via binary search on
+ *  cumulative distances.  The histogram uses distance-based bucketing, so
+ *  handle positions represent fractions of total distance — not fractions of
+ *  point count.  A linear interpolation (ratio * lastIndex) would only be
+ *  correct when points are evenly spaced by distance. */
+function ratioToIndex(
+  ratio: number,
+  edge: 'start' | 'end',
+  cumulDist: number[],
+  lastIndex: number,
+): number {
+  const totalDist = cumulDist[cumulDist.length - 1] ?? 0
+  const clamped = Math.max(0, Math.min(1, ratio))
+  if (clamped >= 1) return lastIndex
+  if (totalDist <= 0) {
+    return edge === 'end'
+      ? Math.ceil(clamped * lastIndex)
+      : Math.floor(clamped * lastIndex)
+  }
+  const targetDist = clamped * totalDist
+  let lo = 0
+  let hi = cumulDist.length - 1
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1
+    if (cumulDist[mid] <= targetDist) lo = mid
+    else hi = mid
+  }
+  return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
+}
+
 function formatDate(date: Date | undefined, locale?: string): string {
   if (!date) return ''
   return date.toLocaleString(locale, {
@@ -96,34 +126,8 @@ function TimelineSelector({
     const lastIndex = points.length - 1
     if (lastIndex <= 0) return { startIdx: 0, endIdx: 0 }
 
-    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
-
-    // Map a distance-fraction ratio to a point index via binary search on
-    // cumulative distances.  The histogram uses distance-based bucketing, so
-    // handle positions represent fractions of total distance — not fractions of
-    // point count.  A linear interpolation (ratio * lastIndex) would only be
-    // correct when points are evenly spaced by distance.
-    const ratioToIndex = (ratio: number, edge: 'start' | 'end'): number => {
-      const clamped = Math.max(0, Math.min(1, ratio))
-      if (clamped >= 1) return lastIndex
-      if (totalDist <= 0) {
-        return edge === 'end'
-          ? Math.ceil(clamped * lastIndex)
-          : Math.floor(clamped * lastIndex)
-      }
-      const targetDist = clamped * totalDist
-      let lo = 0
-      let hi = cumulDist.length - 1
-      while (lo < hi - 1) {
-        const mid = (lo + hi) >> 1
-        if (cumulDist[mid] <= targetDist) lo = mid
-        else hi = mid
-      }
-      return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
-    }
-
-    let startIdx = ratioToIndex(startRatio, 'start')
-    let endIdx = ratioToIndex(endRatio, 'end')
+    let startIdx = ratioToIndex(startRatio, 'start', cumulDist, lastIndex)
+    let endIdx = ratioToIndex(endRatio, 'end', cumulDist, lastIndex)
 
     if (startIdx >= lastIndex) {
       startIdx = lastIndex - 1
@@ -162,29 +166,8 @@ function TimelineSelector({
     const lastIndex = points.length - 1
     if (lastIndex <= 0) return { startIdx: 0, endIdx: 0 }
 
-    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
-
-    const ratioToIndex = (ratio: number, edge: 'start' | 'end'): number => {
-      const clamped = Math.max(0, Math.min(1, ratio))
-      if (clamped >= 1) return lastIndex
-      if (totalDist <= 0) {
-        return edge === 'end'
-          ? Math.ceil(clamped * lastIndex)
-          : Math.floor(clamped * lastIndex)
-      }
-      const targetDist = clamped * totalDist
-      let lo = 0
-      let hi = cumulDist.length - 1
-      while (lo < hi - 1) {
-        const mid = (lo + hi) >> 1
-        if (cumulDist[mid] <= targetDist) lo = mid
-        else hi = mid
-      }
-      return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
-    }
-
-    let startIdx = ratioToIndex(sRatio, 'start')
-    let endIdx = ratioToIndex(eRatio, 'end')
+    let startIdx = ratioToIndex(sRatio, 'start', cumulDist, lastIndex)
+    let endIdx = ratioToIndex(eRatio, 'end', cumulDist, lastIndex)
 
     if (startIdx >= lastIndex) {
       startIdx = lastIndex - 1
