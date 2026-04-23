@@ -142,7 +142,7 @@ function SceneRangeEditor({
         ref={containerRef}
         aria-label={ariaLabel}
         className="relative h-8 rounded-xl overflow-visible border"
-        style={{ background: 'rgba(var(--gl),.12)', borderColor: 'var(--div)' }}
+        style={{ background: 'rgba(var(--gl),.12)', borderColor: 'var(--div)', userSelect: 'none' }}
       >
         <div
           className="absolute inset-y-1 rounded-lg cursor-grab active:cursor-grabbing"
