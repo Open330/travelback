@@ -1,38 +1,29 @@
 {
   "version": 8,
   "name": "Bright",
-  "sources": {
-    "carto-voyager-bright": {
-      "type": "raster",
-      "tiles": [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}@2x.png"
-      ],
-      "tileSize": 512,
-      "attribution": "&copy; <a href=\"https://carto.com/\">CARTO</a> &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
-      "maxzoom": 19
-    }
-  },
+  "sources": {},
   "transition": {
     "duration": 0,
     "delay": 0
   },
-  "center": [0, 20],
+  "center": [
+    0,
+    20
+  ],
   "zoom": 2,
   "bearing": 0,
   "pitch": 0,
   "layers": [
     {
-      "id": "carto-voyager-bright-tiles",
-      "type": "raster",
-      "source": "carto-voyager-bright",
-      "minzoom": 0,
-      "maxzoom": 19
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#ecf0f8"
+      }
     }
   ],
   "metadata": {
     "travelback:bundled": true,
-    "travelback:description": "CARTO Voyager labels-under raster basemap with OpenStreetMap data."
+    "travelback:description": "Minimal bundled base style with no remote tiles, glyphs, or sprites."
   }
 }
