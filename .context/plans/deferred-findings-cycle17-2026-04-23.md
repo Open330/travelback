@@ -50,6 +50,7 @@ Findings from `_aggregate.md` not scheduled in `cycle17-implementation-2026-04-2
 - **File**: `src/components/SceneEditor.tsx`
 - **Reason for deferral**: Accessibility improvement that requires reading SceneEditor in detail. Not a correctness blocker.
 - **Exit criterion**: Re-open in the next accessibility pass.
+- **RESOLVED (cycle 1 review, 2026-04-23)**: All SceneEditor sliders now have `aria-valuetext` (range, zoom, pitch, bearing, rotation).
 
 ## DF-C17-008 — No unit tests
 - **Source finding**: F17
@@ -83,6 +84,7 @@ Findings from `_aggregate.md` not scheduled in `cycle17-implementation-2026-04-2
 - **File**: `src/components/GoogleGuide.tsx:289`
 - **Reason for deferral**: Arrow-key navigation for tabs is an accessibility enhancement.
 - **Exit criterion**: Re-open in the next accessibility pass.
+- **RESOLVED (cycle 1 review, 2026-04-23)**: GoogleGuide tabs now have full WAI-ARIA keyboard navigation (ArrowLeft, ArrowRight, Home, End) with roving tabindex.
 
 ## DF-C17-013 — interpolateAlongTrack edge case at progress=1.0
 - **Source finding**: F24
