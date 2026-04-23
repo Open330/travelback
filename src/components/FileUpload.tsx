@@ -186,7 +186,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                   height={540}
                   className="landing-preview-image block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
                 />
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
+                <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
                   <div>
                     <p className="text-sm font-semibold text-white">{t('fileUpload.previewTitle')}</p>
                     <p className="text-xs text-white/80">{t('fileUpload.trySample')}</p>
