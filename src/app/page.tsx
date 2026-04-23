@@ -138,6 +138,22 @@ function HomeInner() {
     },
   })
 
+  // Escape-to-cancel while the export-overlay progress dialog is visible.
+  // Matches the repo's modal convention (ModalDialog binds Escape to onClose).
+  useEffect(() => {
+    if (!isExporting) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      cancelExport()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [isExporting, cancelExport])
+
   const resetTrackWorkspace = useCallback(() => {
     setShowExport(false)
     setShowSceneEditor(false)
@@ -340,9 +356,10 @@ function HomeInner() {
               <p id="export-overlay-title" className="text-lg font-medium">{t('app.renderingVideo')}</p>
               <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
               <button
+                type="button"
                 onClick={cancelExport}
                 aria-label={t('app.cancelExportAria')}
-                className="gi mt-4 px-4 py-2 text-sm cursor-pointer"
+                className="gi mt-4 px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ background: 'rgba(var(--err-rgb),.7)', color: '#fff', border: 'none' }}
               >
                 {t('app.cancelExport')}
