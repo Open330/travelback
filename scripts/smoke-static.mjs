@@ -100,6 +100,13 @@ async function assertStaticCspWasHardened() {
   if (csp.includes('nominatim.openstreetmap.org')) {
     throw new Error('Static CSP still allows Nominatim requests')
   }
+
+  // `frame-ancestors` is header-only per the CSP spec; meta delivery is ignored
+  // by browsers and causes a console error. Anti-framing is enforced via the
+  // JS frame-buster and host-level headers; the meta CSP must not advertise it.
+  if (csp.includes('frame-ancestors')) {
+    throw new Error("Static CSP meta must not declare frame-ancestors (header-only directive)")
+  }
 }
 
 async function assertMapStylesPinnedLocally() {
