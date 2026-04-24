@@ -182,3 +182,10 @@ Deferred work remains bound by repo policy when picked up: TypeScript strict mod
 - **Original severity/confidence:** Low / High
 - **Reason for deferral:** This is a runner environment warning: Node reports that `NO_COLOR` is ignored because `FORCE_COLOR` is set. It does not affect app behavior or test assertions. Normalizing inherited terminal color variables is test-harness cleanup covered by the broader deferred test-maintenance lane.
 - **Exit criterion:** Re-open if CI treats warnings as failures or if Playwright/web-server output policy is tightened.
+
+### GATE-WARN-003 — Serial E2E spec file reported as slow
+- **Finding:** Quality-gate warning from `npm run test:e2e` and `npm run test:e2e:static`
+- **Citation:** `e2e/travelback.spec.ts`, `playwright.config.ts:7-38`, `playwright.static.config.ts:7-38`
+- **Original severity/confidence:** Low / High
+- **Reason for deferral:** The suites passed fully, but Playwright reports the single serial spec file as slow and suggests parallelization. Splitting/parallelizing this file is test-harness restructuring and overlaps with DEF-016 rather than the bounded product fixes in this cycle.
+- **Exit criterion:** Re-open when E2E runtime becomes a CI bottleneck or when reducing default retries/fixed waits; completion means slow scenarios are partitioned safely without shared-state cross-test failures.
