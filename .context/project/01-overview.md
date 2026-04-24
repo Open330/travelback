@@ -25,7 +25,7 @@ npm run lint     # ESLint
 ```
 
 Deployment note:
-- For plain static hosting, configure anti-framing headers at the host/CDN layer (`Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`). The app also ships a client-side frame-busting fallback, but host headers remain the authoritative protection.
+- The static bundle ships a client-side frame-busting fallback. Hosts/CDNs that support response headers should also send `Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`; GitHub Pages cannot attach those custom headers, so the Pages deployment relies on the JS fallback unless it is fronted by a header-capable CDN.
 
 ## Supported Input Formats
 
@@ -87,7 +87,7 @@ src/
 - **Configurable export duration**: 5s to 10min in the export panel
 - **5 map styles**: Voyager (colorful), Positron (light), Dark Matter (dark), Liberty, Bright
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
-- **Resolution presets**: YouTube 1080p, TikTok 9:16, Instagram Square/Post, 4K
+- **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape, 4K Landscape, 4K Portrait
 - **Configurable bitrate**: 1–50 Mbps
 - **Google Takeout guide**: Step-by-step import instructions with direct link
 - **SEO + Open Graph**: Full metadata for social sharing

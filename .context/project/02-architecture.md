@@ -85,7 +85,7 @@ Scenes divide the animation into segments, each with its own camera mode. Key co
 - `startPercent` / `endPercent` (0–1) define the track portion
 - Each scene has configurable `CameraParams` (zoom, pitch, bearingOffset, rotationSpeed)
 - Transitions use smoothstep blending (`3t² - 2t³`) at scene boundaries
-- Default scenes auto-generated if none defined: Opening Overview → Bird's Eye → Flyover → Orbit → Ground → Closing Overview
+- Default scenes auto-generated if none defined: Opening Overview → Bird's Eye → Flyover → Orbit Midpoint → Ground Follow → Closing Overview
 
 ### Camera State
 
@@ -112,10 +112,10 @@ Privacy/trust-boundary note:
 - Users with strict privacy requirements can keep route planning fully local by clicking on the map or pasting coordinates.
 
 Security hardening note:
-- The app ships with a CSP and blocks `object-src`, `base-uri`, framing, and inline script attributes by default
+- The app ships with a CSP and blocks `object-src`, `base-uri`, and inline script attributes by default
 - Static exports are post-processed to replace the development `unsafe-inline` placeholder with hash-based `script-src` directives for the emitted inline Next.js bootstrap scripts
-- The static bundle also rejects framed execution in the early bootstrap path, but production deployments should still send host-level anti-framing headers (`frame-ancestors 'none'` and/or `X-Frame-Options: DENY`) because meta CSP alone is not sufficient for that control
-- As of cycle r4 (2026-04-23), the meta CSP no longer advertises `frame-ancestors 'none'` because Chromium/Firefox emit a console error when that directive is delivered via `<meta>` (it is header-only per the CSP spec). Anti-framing is therefore delivered exclusively by (1) the JS frame-buster in the `layout.tsx` bootstrap script and (2) the host-level `Content-Security-Policy: frame-ancestors 'none'` response header, both of which remain authoritative. `scripts/smoke-static.mjs` has a regression guard that fails the build if `frame-ancestors` reappears in the emitted meta CSP.
+- The static bundle rejects framed execution in the early bootstrap path. Production deployments on hosts/CDNs that support response headers should still send host-level anti-framing headers (`frame-ancestors 'none'` and/or `X-Frame-Options: DENY`) because meta CSP alone cannot enforce that control.
+- As of cycle r4 (2026-04-23), the meta CSP no longer advertises `frame-ancestors 'none'` because Chromium/Firefox emit a console error when that directive is delivered via `<meta>` (it is header-only per the CSP spec). GitHub Pages cannot attach custom anti-framing headers for this static app, so the Pages deployment relies on the JS frame-buster unless it is fronted by a header-capable CDN. `scripts/smoke-static.mjs` has a regression guard that fails the build if `frame-ancestors` reappears in the emitted meta CSP.
 - As of cycle r5 (2026-04-23), the Scene Editor and Journey Creator panels carry `role="region"` with `aria-labelledby` wired to their existing headings, so screen-reader landmark navigation can reach them alongside the `<main>` root added in cycle r4. `scripts/smoke-static.mjs` also asserts `object-src 'none'` and `base-uri 'none'` in the emitted CSP to guard the pinned directives in `scripts/harden-static-export.mjs`.
 
 ### Distance-Based Interpolation

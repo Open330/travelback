@@ -80,12 +80,13 @@ All deferrals respect the repo's strict deferred-fix rules (`.context/developmen
 - **Reason for deferral**: purely cosmetic type-assertion redundancy; removing the cast compiles cleanly but the line currently sits inside a slightly larger callback whose re-flow would add diff noise.
 - **Exit criterion**: Re-open when JourneyCreator is next modified (matches the DF-C17-015 exit criterion pattern).
 
-## DF-R2-011 — Architecture doc doesn't mention JS-based frame-breaker
+## DF-R2-011 — Architecture doc doesn't mention JS-based frame-breaker — RESOLVED 2026-04-24
 - **Source finding**: R2-AGG-12 (R2-DOC-1).
 - **Severity / Confidence**: LOW / MEDIUM.
 - **File**: `.context/project/02-architecture.md:114-118`.
-- **Reason for deferral**: documentation completeness only; code already implements the control. Adding a single sentence.
-- **Exit criterion**: Re-open during the next doc sweep, or when security posture is documented for a third party.
+- **Resolution**: `.context/project/02-architecture.md` now documents the JS
+  frame-buster, the header-only nature of `frame-ancestors`, and the GitHub
+  Pages limitation around custom anti-framing headers.
 
 ## DF-R2-012 — `interpolate.ts` exports lack JSDoc
 - **Source finding**: R2-AGG-13 (R2-DOC-2).
