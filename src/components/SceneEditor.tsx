@@ -24,6 +24,7 @@ interface SceneEditorProps {
 }
 
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
+type PresetType = 'cinematic' | 'simple' | 'birdeye' | 'dynamic'
 
 /** Small inline SVG icons for each camera mode */
 function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }) {
@@ -240,7 +241,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; precedingSceneId: string | null } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
-  const [pendingPresetType, setPendingPresetType] = useState<string | null>(null)
+  const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -348,6 +349,40 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     onPreviewScene?.(null)
   }, [onPreviewScene])
 
+  const localizePresetScenes = useCallback((presetType: PresetType, nextScenes: Scene[]) => {
+    const names: Record<PresetType, string[]> = {
+      cinematic: [
+        `${t('camera.overview')} 1`,
+        t('camera.birdeye'),
+        t('camera.flyover'),
+        t('camera.orbit'),
+        t('camera.ground'),
+        `${t('camera.overview')} 2`,
+      ],
+      simple: [t('camera.flyover')],
+      birdeye: [t('camera.birdeye')],
+      dynamic: nextScenes.map((_, index) => `${t('scenes.dynamic')} ${index + 1}`),
+    }
+
+    return nextScenes.map((scene, index) => ({
+      ...scene,
+      name: names[presetType][index] ?? t('scenes.newSceneName').replace('{n}', String(index + 1)),
+    }))
+  }, [t])
+
+  const buildPresetScenes = useCallback((presetType: PresetType) => {
+    switch (presetType) {
+      case 'cinematic':
+        return localizePresetScenes(presetType, generateDefaultScenes())
+      case 'simple':
+        return localizePresetScenes(presetType, generateSimpleFlyover())
+      case 'birdeye':
+        return localizePresetScenes(presetType, generateBirdeyeFlyover())
+      case 'dynamic':
+        return localizePresetScenes(presetType, generateDynamicScenes())
+    }
+  }, [localizePresetScenes])
+
   return (
     <div data-testid="scene-editor-panel" role="region" aria-labelledby="scene-editor-title" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
       style={{ borderRadius: 'var(--r-glass)' }}
@@ -370,19 +405,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {/* Presets */}
       <div className="px-3 pt-2 flex flex-wrap gap-1">
         <span className="text-[10px] leading-6" style={{ color: 'var(--t4)' }}>{t('scenes.presets')}</span>
-        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('cinematic'); else commitScenes(generateDefaultScenes()) }}
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('cinematic'); else commitScenes(buildPresetScenes('cinematic')) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.cinematic')}
         </button>
-        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('simple'); else commitScenes(generateSimpleFlyover()) }}
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('simple'); else commitScenes(buildPresetScenes('simple')) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.simple')}
         </button>
-        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('birdeye'); else commitScenes(generateBirdeyeFlyover()) }}
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('birdeye'); else commitScenes(buildPresetScenes('birdeye')) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.birdsEye')}
         </button>
-        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('dynamic'); else commitScenes(generateDynamicScenes()) }}
+        <button type="button" onClick={() => { if (scenes.length > 0) setPendingPresetType('dynamic'); else commitScenes(buildPresetScenes('dynamic')) }}
           className="gi min-h-11 px-3 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
           {t('scenes.dynamic')}
         </button>
@@ -622,10 +657,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             </button>
             <button type="button" onClick={() => {
               switch (pendingPresetType) {
-                case 'cinematic': commitScenes(generateDefaultScenes()); break
-                case 'simple': commitScenes(generateSimpleFlyover()); break
-                case 'birdeye': commitScenes(generateBirdeyeFlyover()); break
-                case 'dynamic': commitScenes(generateDynamicScenes()); break
+                case 'cinematic': commitScenes(buildPresetScenes('cinematic')); break
+                case 'simple': commitScenes(buildPresetScenes('simple')); break
+                case 'birdeye': commitScenes(buildPresetScenes('birdeye')); break
+                case 'dynamic': commitScenes(buildPresetScenes('dynamic')); break
               }
               setPendingPresetType(null)
             }}

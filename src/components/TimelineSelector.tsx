@@ -375,6 +375,7 @@ function TimelineSelector({
           tabIndex={0}
           aria-label={t('timeline.startHandle')}
           aria-valuenow={Math.round(startRatio * 100)}
+          aria-valuetext={`${Math.round(startRatio * 100)}% ${t('timeline.startHandle')}`}
           aria-valuemin={0}
           aria-valuemax={Math.round(endRatio * 100)}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
@@ -431,6 +432,7 @@ function TimelineSelector({
           tabIndex={0}
           aria-label={t('timeline.endHandle')}
           aria-valuenow={Math.round(endRatio * 100)}
+          aria-valuetext={`${Math.round(endRatio * 100)}% ${t('timeline.endHandle')}`}
           aria-valuemin={Math.round(startRatio * 100)}
           aria-valuemax={100}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"

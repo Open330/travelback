@@ -14,6 +14,7 @@ const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
 const SINGLE_QUOTE_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/single-quote-attrs.gpx')
 const POINT_PLACEMARKS_KML_FIXTURE = path.resolve(__dirname, 'fixtures/point-placemarks.kml')
 const INVALID_ELEVATION_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/invalid-elevation.gpx')
+const ANTIMERIDIAN_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/antimeridian.gpx')
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -32,7 +33,7 @@ function haversineDistanceMeters(a: { lat: number; lng: number }, b: { lat: numb
   const R = 6371000
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
+  const dLng = toRad(((b.lng - a.lng + 540) % 360) - 180)
   const sinLat = Math.sin(dLat / 2)
   const sinLng = Math.sin(dLng / 2)
   const h = sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng
@@ -465,6 +466,28 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('37.56650, 126.97800')).toBeVisible({ timeout: 10_000 })
   })
 
+  test('journey coordinate search supports keyboard selection and antimeridian duplicate suppression', async ({ page }) => {
+    await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    const panel = page.getByTestId('journey-creator-panel')
+    await page.getByTestId('journey-enable-search').click({ force: true })
+    const searchInput = panel.getByRole('combobox')
+    await expect(searchInput).toBeVisible({ timeout: 10_000 })
+
+    await searchInput.fill('0, 179.99999')
+    await searchInput.press('Enter')
+    await searchInput.press('ArrowDown')
+    await expect(searchInput).toHaveAttribute('aria-activedescendant', 'journey-search-option-0')
+    await searchInput.press('Enter')
+    await expect(panel.getByText('1 location')).toBeVisible({ timeout: 10_000 })
+
+    await searchInput.fill('0, -179.99999')
+    await searchInput.press('Enter')
+    await searchInput.press('ArrowDown')
+    await searchInput.press('Enter')
+    await expect(panel.getByText('1 location')).toBeVisible({ timeout: 10_000 })
+    await expect(panel.getByText(/2 locations/)).toHaveCount(0)
+  })
+
   test('playback controls work after importing track', async ({ page }) => {
     await uploadGpx(page)
 
@@ -735,6 +758,8 @@ test.describe('Travelback App', () => {
     })
 
     const endHandle = page.getByTestId('timeline-end-handle')
+    await expect(page.getByTestId('timeline-start-handle')).toHaveAttribute('aria-valuetext', /Start of range/)
+    await expect(endHandle).toHaveAttribute('aria-valuetext', /End of range/)
     await endHandle.focus()
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press('ArrowLeft')
@@ -920,6 +945,33 @@ test.describe('Travelback App', () => {
     expectStableCameraMotion(samples)
   })
 
+  test('scene overview camera frames antimeridian tracks without zooming to the world', async ({ page }) => {
+    await uploadCustomFile(page, ANTIMERIDIAN_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Antimeridian Hop')).toBeVisible({ timeout: 15_000 })
+
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Cinematic' }).click({ force: true })
+
+    const playBtn = page.getByRole('button', { name: 'Play' })
+    await playBtn.click({ force: true })
+    await page.waitForTimeout(1200)
+
+    const camera = await page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getCamera: () => { center: [number, number]; zoom: number } | null
+        }
+      }
+
+      return (window as DebugWindow).__travelbackDebug?.getCamera() ?? null
+    })
+
+    expect(camera).not.toBeNull()
+    expect(camera?.zoom).toBeGreaterThan(3)
+    expect(Math.abs(Math.abs(camera?.center[0] ?? 0) - 180)).toBeLessThan(5)
+  })
+
   test('scene editor opens and allows adding scenes', async ({ page }) => {
     await uploadGpx(page)
 
@@ -948,6 +1000,19 @@ test.describe('Travelback App', () => {
     const modeCombobox = page.locator('.space-y-2 select').first()
     await expect(modeCombobox).toBeVisible()
     await expect(modeCombobox).toHaveValue('flyover')
+  })
+
+  test('scene presets use localized default names', async ({ page }) => {
+    await page.getByTestId('global-toolbar').getByRole('combobox').selectOption('ko')
+    await uploadGpx(page)
+
+    await page.getByText('카메라', { exact: true }).click({ force: true })
+    await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: '시네마틱' }).click({ force: true })
+
+    const firstSceneName = page.getByTestId('scene-editor-panel').getByRole('textbox').first()
+    await expect(firstSceneName).toHaveValue(/전체 보기/)
+    await expect(firstSceneName).not.toHaveValue('Opening Overview')
   })
 
   test('scene editor can change camera mode', async ({ page }) => {
@@ -1032,6 +1097,15 @@ test.describe('Travelback App', () => {
 
     await page.emulateMedia({ colorScheme: 'dark' })
     await expect(styleBtn).toHaveText(/Map:\s*Liberty/, { timeout: 10_000 })
+
+    await page.reload()
+    await waitForApp(page)
+    await uploadGpx(page)
+    const restoredStyleBtn = page.getByTestId('map-style-button')
+    await expect(restoredStyleBtn).toHaveText(/Map:\s*Liberty/, { timeout: 10_000 })
+
+    await page.getByRole('button', { name: /switch to dark mode/i }).click({ force: true })
+    await expect(restoredStyleBtn).toHaveText(/Map:\s*Liberty/, { timeout: 10_000 })
   })
 
   test('export panel uses dialog semantics and traps keyboard focus', async ({ page }) => {

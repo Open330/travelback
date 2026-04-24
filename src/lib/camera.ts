@@ -1,6 +1,6 @@
 import type { Track, TrackPoint, Scene } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
-import { interpolateAlongTrack, computeBearing } from './interpolate'
+import { interpolateAlongTrack, computeBearing, normalizeLng, shortestLngDelta } from './interpolate'
 
 export interface CameraState {
   center: [number, number]
@@ -64,7 +64,7 @@ function computeBoundingBox(points: TrackPoint[]): BoundingBox | null {
   if (maxLng - minLng > 180) {
     let minShifted = Infinity, maxShifted = -Infinity
     for (const p of points) {
-      const shifted = ((p.lng + 180) % 360 + 360) % 360
+      const shifted = p.lng < 0 ? p.lng + 360 : p.lng
       if (shifted < minShifted) minShifted = shifted
       if (shifted > maxShifted) maxShifted = shifted
     }
@@ -78,7 +78,7 @@ function trackCenterFromBox(box: BoundingBox): [number, number] {
   const latCenter = (box.minLat + box.maxLat) / 2
   if (box.minLngShifted != null && box.maxLngShifted != null) {
     const centerShifted = (box.minLngShifted + box.maxLngShifted) / 2
-    return [((centerShifted + 180) % 360) - 180, latCenter]
+    return [normalizeLng(centerShifted), latCenter]
   }
   return [(box.minLng + box.maxLng) / 2, latCenter]
 }
@@ -96,8 +96,7 @@ function overviewZoomFromBox(box: BoundingBox): number {
 
 /**
  * Smoothly interpolate between two camera states with easing.
- * Uses shifted-longitude interpolation for antimeridian-crossing routes
- * (same approach as computeBoundingBox/trackCenterFromBox).
+ * Uses shortest-path longitude interpolation for antimeridian-crossing routes.
  */
 export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraState {
   const s = t * t * (3 - 2 * t) // smoothstep
@@ -106,18 +105,7 @@ export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraSta
     return from + diff * f
   }
 
-  // Longitude: detect antimeridian wrap and shift into [0,360) domain
-  const lngDiff = b.center[0] - a.center[0]
-  let lngResult: number
-  if (Math.abs(lngDiff) > 180) {
-    // Shift both longitudes into [0,360), interpolate, then shift back
-    const aShifted = ((a.center[0] + 180) % 360 + 360) % 360
-    const bShifted = ((b.center[0] + 180) % 360 + 360) % 360
-    const interpShifted = aShifted + (bShifted - aShifted) * s
-    lngResult = ((interpShifted + 180) % 360) - 180
-  } else {
-    lngResult = a.center[0] + lngDiff * s
-  }
+  const lngResult = normalizeLng(a.center[0] + shortestLngDelta(a.center[0], b.center[0]) * s)
 
   return {
     center: [

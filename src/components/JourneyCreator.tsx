@@ -5,7 +5,7 @@ import { Check, Search } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
-import { totalDistance, formatDistance, type UnitSystem } from '@/lib/interpolate'
+import { totalDistance, formatDistance, shortestLngDelta, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
@@ -28,7 +28,7 @@ const PROXIMITY_THRESHOLD_METERS = 5
 function approxDistanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6_371_000
   const dLat = (b.lat - a.lat) * Math.PI / 180
-  const dLng = (b.lng - a.lng) * Math.PI / 180 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180)
+  const dLng = shortestLngDelta(a.lng, b.lng) * Math.PI / 180 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180)
   return Math.sqrt(dLat * dLat + dLng * dLng) * R
 }
 
@@ -122,6 +122,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ParsedLocationResult[]>([])
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
@@ -429,6 +430,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const trimmedQuery = query.trim()
     if (trimmedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([])
+      setActiveSearchIndex(-1)
       setSearchError(null)
       return
     }
@@ -436,11 +438,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const parsedResult = parseCoordinateQuery(trimmedQuery)
     if (!parsedResult) {
       setSearchResults([])
+      setActiveSearchIndex(-1)
       setSearchError(t('journey.searchInvalid'))
       return
     }
 
     setSearchResults([parsedResult])
+    setActiveSearchIndex(0)
     setSearchError(null)
   }, [t])
 
@@ -448,19 +452,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setSearchQuery(query)
     setSearchError(null)
     setSearchResults([])
+    setActiveSearchIndex(-1)
   }, [])
-
-  const handleSearchSubmit = useCallback(() => {
-    if (!searchEnabled) return
-    runSearch(searchQuery)
-  }, [runSearch, searchEnabled, searchQuery])
-
-  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      handleSearchSubmit()
-    }
-  }, [handleSearchSubmit])
 
   const handleSelectPlace = useCallback((lat: string, lon: string) => {
     const lng = parseFloat(lon)
@@ -471,6 +464,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const pts = waypointsRef.current
     if (pts.length > 0 && approxDistanceMeters({ lat: latNum, lng }, pts[pts.length - 1]) < PROXIMITY_THRESHOLD_METERS) {
       setSearchResults([])
+      setActiveSearchIndex(-1)
       setSearchQuery('')
       return
     }
@@ -480,8 +474,49 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     updateMapData()
     syncUI()
     setSearchResults([])
+    setActiveSearchIndex(-1)
     setSearchQuery('')
   }, [mapRef, updateMapData, syncUI])
+
+  const handleSearchSubmit = useCallback(() => {
+    if (!searchEnabled) return
+    runSearch(searchQuery)
+  }, [runSearch, searchEnabled, searchQuery])
+
+  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      if (activeSearchIndex >= 0 && activeSearchIndex < searchResults.length) {
+        const result = searchResults[activeSearchIndex]
+        handleSelectPlace(result.lat, result.lon)
+        return
+      }
+      handleSearchSubmit()
+      return
+    }
+
+    if (searchResults.length === 0) {
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveSearchIndex((index) => (index + 1 + searchResults.length) % searchResults.length)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveSearchIndex((index) => (index - 1 + searchResults.length) % searchResults.length)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      setActiveSearchIndex(0)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      setActiveSearchIndex(searchResults.length - 1)
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      setSearchResults([])
+      setActiveSearchIndex(-1)
+    }
+  }, [activeSearchIndex, handleSearchSubmit, handleSelectPlace, searchResults])
 
   const handleToggleSearch = useCallback(() => {
     setSearchEnabled((enabled) => !enabled)
@@ -492,6 +527,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       setSearchQuery('')
       setSearchResults([])
       setSearchError(null)
+      setActiveSearchIndex(-1)
     }
   }, [searchEnabled])
 
@@ -570,6 +606,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 role="combobox"
                 aria-expanded={searchResults.length > 0}
                 aria-controls="journey-search-listbox"
+                aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}
                 aria-autocomplete="list"
                 value={searchQuery}
                 onChange={e => handleSearchInputChange(e.target.value)}
@@ -613,9 +650,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
                 style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
                 {searchResults.map((r, i) => (
-                  <button type="button" key={i} role="option" aria-selected={false} onClick={() => handleSelectPlace(r.lat, r.lon)}
+                  <button type="button" key={i} id={`journey-search-option-${i}`} role="option" aria-selected={activeSearchIndex === i} onMouseEnter={() => setActiveSearchIndex(i)} onClick={() => handleSelectPlace(r.lat, r.lon)}
                     className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                    style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: 'var(--bg1)' }}>
+                    style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: activeSearchIndex === i ? 'var(--bg2)' : 'var(--bg1)' }}>
                     {r.display_name}
                   </button>
                 ))}

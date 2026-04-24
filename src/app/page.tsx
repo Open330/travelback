@@ -29,6 +29,33 @@ export default function Home() {
   )
 }
 
+const MAP_STYLE_STORAGE_KEY = 'travelback-mapstyle'
+const MAP_STYLE_EXPLICIT_STORAGE_KEY = 'travelback-mapstyle-explicit'
+
+function readStoredMapStyleKey(): MapStyleKey | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const saved = localStorage.getItem(MAP_STYLE_STORAGE_KEY)
+    if (saved && (MAP_STYLES as Record<string, unknown>)[saved]) return saved as MapStyleKey
+  } catch { /* ignore */ }
+  return null
+}
+
+function readInitialExplicitMapStyleChoice(): boolean {
+  if (typeof document === 'undefined' || typeof localStorage === 'undefined') return false
+  try {
+    const explicit = localStorage.getItem(MAP_STYLE_EXPLICIT_STORAGE_KEY)
+    if (explicit === '1') return true
+    if (explicit === '0') return false
+  } catch { /* ignore */ }
+
+  const saved = readStoredMapStyleKey()
+  if (!saved) return false
+  const mode = document.documentElement.getAttribute('data-mode')
+  const themeDefault = mode === 'dark' ? 'dark' : 'voyager'
+  return saved !== themeDefault
+}
+
 function HomeInner() {
   const { t, locale, setLocale } = useLocale()
   const [fullTrack, setFullTrack] = useState<Track | null>(null)
@@ -45,14 +72,12 @@ function HomeInner() {
     } catch { /* ignore */ }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
-  const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(false)
+  const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(readInitialExplicitMapStyleChoice)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
     if (typeof document === 'undefined') return 'voyager'
     // Prefer an explicitly-saved map style from localStorage (set by cycleStyle).
-    try {
-      const saved = localStorage.getItem('travelback-mapstyle')
-      if (saved && (MAP_STYLES as Record<string, unknown>)[saved]) return saved as MapStyleKey
-    } catch { /* ignore */ }
+    const saved = readStoredMapStyleKey()
+    if (saved) return saved
     // Fall back to the theme-derived style set by the bootstrap script.
     const mode = document.documentElement.getAttribute('data-mode')
     return mode === 'dark' ? 'dark' : 'voyager'
@@ -308,7 +333,10 @@ function HomeInner() {
       const key = mode === 'dark' ? 'dark' : 'voyager'
       setMapStyleKey(key)
       applyDocumentMapStyle(key)
-      try { localStorage.setItem('travelback-mapstyle', key) } catch { /* ignore */ }
+      try {
+        localStorage.setItem(MAP_STYLE_STORAGE_KEY, key)
+        localStorage.setItem(MAP_STYLE_EXPLICIT_STORAGE_KEY, '0')
+      } catch { /* ignore */ }
     }
   }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice])
 
@@ -322,7 +350,10 @@ function HomeInner() {
     setColorMode(nextMode)
     applyDocumentMapStyle(nextKey)
     applyDocumentMode(nextMode)
-    try { localStorage.setItem('travelback-mapstyle', nextKey) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(MAP_STYLE_STORAGE_KEY, nextKey)
+      localStorage.setItem(MAP_STYLE_EXPLICIT_STORAGE_KEY, '1')
+    } catch { /* ignore */ }
     try { localStorage.setItem('travelback-theme', nextMode) } catch { /* ignore */ }
   }, [applyDocumentMapStyle, applyDocumentMode, mapStyleKey])
 

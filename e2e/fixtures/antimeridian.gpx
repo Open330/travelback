@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Travelback E2E" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Antimeridian Hop</name>
+    <trkseg>
+      <trkpt lat="10.0000" lon="170.0000">
+        <ele>10</ele>
+        <time>2026-01-01T00:00:00Z</time>
+      </trkpt>
+      <trkpt lat="10.0500" lon="179.5000">
+        <ele>20</ele>
+        <time>2026-01-01T00:05:00Z</time>
+      </trkpt>
+      <trkpt lat="10.1000" lon="-170.0000">
+        <ele>30</ele>
+        <time>2026-01-01T00:10:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
