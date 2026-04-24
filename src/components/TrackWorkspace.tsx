@@ -14,6 +14,7 @@ interface TrackWorkspaceProps {
   fullTrack: Track
   track: Track
   cumulativeDistances: number[]
+  fullTrackCumulativeDistances: number[]
   trackSessionKey: number
   mapStyleKey: MapStyleKey
   showSceneEditor: boolean
@@ -51,6 +52,7 @@ export default function TrackWorkspace({
   fullTrack,
   track,
   cumulativeDistances,
+  fullTrackCumulativeDistances,
   trackSessionKey,
   mapStyleKey,
   showSceneEditor,
@@ -122,12 +124,20 @@ export default function TrackWorkspace({
         {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}</span>
       </div>
 
+      <div
+        data-testid="track-title-mobile"
+        className="absolute left-4 right-4 top-16 z-10 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center lg:hidden"
+        style={{ color: 'var(--t1)', pointerEvents: 'none' }}
+      >
+        {track.name} — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}
+      </div>
+
       {fullTrack.points.length > 2 && (
         <div className="absolute bottom-40 left-0 right-0 z-10 px-4 sm:bottom-36">
           <TimelineSelector
             key={trackSessionKey}
             track={fullTrack}
-            cumulativeDistances={cumulativeDistances}
+            cumulativeDistances={fullTrackCumulativeDistances}
             onRangeChange={onRangeChange}
           />
         </div>

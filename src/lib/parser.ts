@@ -17,6 +17,8 @@ export class ParseError extends Error {
 }
 
 function parseOptionalNumber(value: unknown): number | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : undefined
 }
@@ -46,17 +48,23 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
 
   const pushSegment = (coordinates: number[][], times?: Array<string | undefined>) => {
     if (coordinates.length === 0) return
-    if (points.length > 0) {
-      segmentStartIndices.push(points.length)
-    }
+    const nextPoints: TrackPoint[] = []
     for (let i = 0; i < coordinates.length; i++) {
-      const [lng, lat, ele] = coordinates[i]
-      points.push({
+      const [rawLng, rawLat, ele] = coordinates[i]
+      const lng = parseOptionalNumber(rawLng)
+      const lat = parseOptionalNumber(rawLat)
+      if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+      nextPoints.push({
         lng, lat,
         ele: parseOptionalNumber(ele),
         time: parseOptionalDate(times?.[i]),
       })
     }
+    if (nextPoints.length === 0) return
+    if (points.length > 0) {
+      segmentStartIndices.push(points.length)
+    }
+    points.push(...nextPoints)
   }
 
   const flushPendingPointSegment = () => {
@@ -81,7 +89,10 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
         pushSegment(geometry.coordinates[s], times?.[s])
       }
     } else if (geometry.type === 'Point') {
-      const [lng, lat, ele] = geometry.coordinates
+      const [rawLng, rawLat, ele] = geometry.coordinates
+      const lng = parseOptionalNumber(rawLng)
+      const lat = parseOptionalNumber(rawLat)
+      if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
       pendingPointCoordinates.push([lng, lat, ele])
       pendingPointTimes.push(props.time as string | undefined)
     }
@@ -96,7 +107,10 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
 }
 
 function stripXmlEntities(text: string): string {
-  return text.replace(/<!DOCTYPE[\s\S]*?>/gi, '').replace(/<!ENTITY[\s\S]*?>/gi, '')
+  return text
+    .replace(/<!DOCTYPE[\s\S]*?\]>/gi, '')
+    .replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<!ENTITY[^>]*>/gi, '')
 }
 
 function parseXml(text: string, formatName: string): Document {
@@ -112,9 +126,9 @@ function parseGPX(text: string): Track {
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
     .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
       .map<TrackPoint | null>((point) => {
-        const lat = Number(point.getAttribute('lat'))
-        const lng = Number(point.getAttribute('lon'))
-        if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+        const lat = parseOptionalNumber(point.getAttribute('lat'))
+        const lng = parseOptionalNumber(point.getAttribute('lon'))
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
         const children = Array.from(point.children)
         const elevationText = children.find(c => c.localName === 'ele')?.textContent
         const timeText = children.find(c => c.localName === 'time')?.textContent
@@ -180,19 +194,26 @@ function pushE7(
   out: TrackPoint[], latE7?: number, lngE7?: number,
   ts?: string, tsMs?: string, alt?: number,
 ) {
-  if (latE7 == null || lngE7 == null) return
-  const lat = e7(latE7)
-  const lng = e7(lngE7)
+  const parsedLatE7 = parseOptionalNumber(latE7)
+  const parsedLngE7 = parseOptionalNumber(lngE7)
+  if (parsedLatE7 == null || parsedLngE7 == null) return
+  const lat = e7(parsedLatE7)
+  const lng = e7(parsedLngE7)
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
 }
 
 /* ---------- Format 1: Records.json / Location History.json --------- */
 // { locations: [{ latitudeE7, longitudeE7, timestamp, ... }] }
-function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
+type TrackSegment = TrackPoint[]
+
+function parseRecords(locations: Record<string, unknown>[]): TrackSegment {
+  const out: TrackPoint[] = []
   for (const loc of locations) {
-    const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7 as number) : undefined)
-    const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7 as number) : undefined)
+    const latE7 = parseOptionalNumber(loc.latitudeE7)
+    const lngE7 = parseOptionalNumber(loc.longitudeE7)
+    const lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : undefined)
+    const lng = parseOptionalNumber(loc.longitude) ?? (lngE7 != null ? e7(lngE7) : undefined)
     if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
     out.push({
       lat, lng,
@@ -200,37 +221,39 @@ function parseRecords(locations: Record<string, unknown>[], out: TrackPoint[]) {
       time: gTime(loc.timestamp as string | undefined, loc.timestampMs as string | undefined),
     })
   }
+  return out
 }
 
 /* ---------- Format 2: Semantic Location History (monthly) ---------- */
 // { timelineObjects: [{ activitySegment | placeVisit }] }
-function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoint[], segStarts: number[]) {
+function parseTimelineObjects(objects: Record<string, unknown>[]): TrackSegment[] {
+  const segments: TrackSegment[] = []
   for (const obj of objects) {
     const seg = obj.activitySegment as Record<string, unknown> | undefined
     const visit = obj.placeVisit as Record<string, unknown> | undefined
-    const preLen = out.length
+    const currentSegment: TrackPoint[] = []
 
     if (seg) {
       // Best data: simplifiedRawPath.points[]
       const rawPath = seg.simplifiedRawPath as Record<string, unknown> | undefined
       if (rawPath && Array.isArray(rawPath.points)) {
         for (const pt of rawPath.points as Record<string, unknown>[]) {
-          pushE7(out, pt.latE7 as number, pt.lngE7 as number, pt.timestamp as string)
+          pushE7(currentSegment, pt.latE7 as number, pt.lngE7 as number, pt.timestamp as string)
         }
       } else {
         // Fallback: waypointPath.waypoints[]
         const wpPath = seg.waypointPath as Record<string, unknown> | undefined
         if (wpPath && Array.isArray(wpPath.waypoints)) {
           for (const wp of wpPath.waypoints as Record<string, unknown>[]) {
-            pushE7(out, wp.latE7 as number, wp.lngE7 as number)
+            pushE7(currentSegment, wp.latE7 as number, wp.lngE7 as number)
           }
         } else {
           // Last resort: startLocation + endLocation
           const dur = seg.duration as Record<string, unknown> | undefined
           const start = seg.startLocation as Record<string, unknown> | undefined
           const end = seg.endLocation as Record<string, unknown> | undefined
-          if (start) pushE7(out, start.latitudeE7 as number, start.longitudeE7 as number, dur?.startTimestamp as string)
-          if (end) pushE7(out, end.latitudeE7 as number, end.longitudeE7 as number, dur?.endTimestamp as string)
+          if (start) pushE7(currentSegment, start.latitudeE7 as number, start.longitudeE7 as number, dur?.startTimestamp as string)
+          if (end) pushE7(currentSegment, end.latitudeE7 as number, end.longitudeE7 as number, dur?.endTimestamp as string)
         }
       }
     }
@@ -239,18 +262,20 @@ function parseTimelineObjects(objects: Record<string, unknown>[], out: TrackPoin
       const dur = visit.duration as Record<string, unknown> | undefined
       const loc = visit.location as Record<string, unknown> | undefined
       if (loc) {
-        pushE7(out, loc.latitudeE7 as number, loc.longitudeE7 as number, dur?.startTimestamp as string)
+        pushE7(currentSegment, loc.latitudeE7 as number, loc.longitudeE7 as number, dur?.startTimestamp as string)
       } else if (visit.centerLatE7 != null && visit.centerLngE7 != null) {
-        pushE7(out, visit.centerLatE7 as number, visit.centerLngE7 as number, dur?.startTimestamp as string)
+        pushE7(currentSegment, visit.centerLatE7 as number, visit.centerLngE7 as number, dur?.startTimestamp as string)
       }
     }
-    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
+    if (currentSegment.length > 0) segments.push(currentSegment)
   }
+  return segments
 }
 
 /* ---------- Format 3: Timeline Edits.json -------------------------- */
 // { timelineEdits: [{ rawSignal: { signal: { position: { point, timestamp } } } }] }
-function parseTimelineEdits(edits: Record<string, unknown>[], out: TrackPoint[]) {
+function parseTimelineEdits(edits: Record<string, unknown>[]): TrackSegment {
+  const out: TrackPoint[] = []
   for (const edit of edits) {
     const raw = edit.rawSignal as Record<string, unknown> | undefined
     if (!raw) continue
@@ -262,13 +287,15 @@ function parseTimelineEdits(edits: Record<string, unknown>[], out: TrackPoint[])
     if (!pt) continue
     pushE7(out, pt.latE7 as number, pt.lngE7 as number, pos.timestamp as string, undefined, pos.altitudeMeters as number)
   }
+  return out
 }
 
 /* ---------- Format 4: semanticSegments (phone export) -------------- */
 // { semanticSegments: [{ timelinePath | visit }] }
-function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPoint[], segStarts: number[]) {
+function parseSemanticSegments(segments: Record<string, unknown>[]): TrackSegment[] {
+  const outSegments: TrackSegment[] = []
   for (const seg of segments) {
-    const preLen = out.length
+    const pathSegment: TrackPoint[] = []
 
     // timelinePath: [{ point: "geo:lat,lng", timestamp }]
     if (Array.isArray(seg.timelinePath)) {
@@ -279,7 +306,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-        out.push({
+        pathSegment.push({
           lat, lng,
           time: gTime(pt.timestamp as string),
         })
@@ -288,10 +315,10 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
     // Segment break between timelinePath and visit within the same segment
     // (a single semanticSegment can contain both a walk path and a stationary
     // visit — they should not be connected by a straight line).
-    const afterPathLen = out.length
-    if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
+    if (pathSegment.length > 0) outSegments.push(pathSegment)
 
     // visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
+    const visitSegment: TrackPoint[] = []
     const visit = seg.visit as Record<string, unknown> | undefined
     if (visit) {
       const top = visit.topCandidate as Record<string, unknown> | undefined
@@ -303,13 +330,13 @@ function parseSemanticSegments(segments: Record<string, unknown>[], out: TrackPo
           const lat = parseOptionalNumber(m[1])
           const lng = parseOptionalNumber(m[2])
           if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-          out.push({ lat, lng, time: gTime(dur) })
+          visitSegment.push({ lat, lng, time: gTime(dur) })
         }
       }
     }
-
-    if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)
+    if (visitSegment.length > 0) outSegments.push(visitSegment)
   }
+  return outSegments
 }
 
 /* ---------- Google JSON shape -------------------------------------- */
@@ -323,6 +350,62 @@ interface GoogleLocationData {
 
 /* ---------- Main dispatcher ---------------------------------------- */
 const MAX_JSON_DEPTH = 64
+
+function sortPointsWithinSegment(segment: TrackSegment): TrackSegment {
+  return segment
+    .map((point, order) => ({ point, order }))
+    .sort((a, b) => {
+      const aTime = a.point.time?.getTime()
+      const bTime = b.point.time?.getTime()
+      if (aTime != null && bTime != null) return aTime - bTime
+      if (aTime != null) return -1
+      if (bTime != null) return 1
+      return a.order - b.order
+    })
+    .map(({ point }) => point)
+}
+
+function pointKey(point: TrackPoint): string {
+  return `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time?.getTime() ?? ''}`
+}
+
+function segmentSortTime(segment: TrackSegment): number | undefined {
+  return segment.find((point) => point.time)?.time?.getTime()
+}
+
+function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoint[]; segmentStartIndices: number[] } {
+  const seen = new Set<string>()
+  const segments = rawSegments
+    .map((segment, order) => {
+      const points: TrackPoint[] = []
+      for (const point of sortPointsWithinSegment(segment)) {
+        const key = pointKey(point)
+        if (seen.has(key)) continue
+        seen.add(key)
+        points.push(point)
+      }
+      return { points, order }
+    })
+    .filter((segment): segment is { points: TrackPoint[]; order: number } => segment.points.length > 0)
+    .sort((a, b) => {
+      const aTime = segmentSortTime(a.points)
+      const bTime = segmentSortTime(b.points)
+      if (aTime != null && bTime != null) return aTime - bTime
+      if (aTime != null) return -1
+      if (bTime != null) return 1
+      return a.order - b.order
+    })
+
+  const points: TrackPoint[] = []
+  const segmentStartIndices: number[] = []
+  for (const segment of segments) {
+    if (points.length > 0) {
+      segmentStartIndices.push(points.length)
+    }
+    points.push(...segment.points)
+  }
+  return { points, segmentStartIndices }
+}
 
 function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
@@ -351,8 +434,7 @@ export function parseGoogleLocationHistory(text: string): Track {
   } catch {
     throw new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON')
   }
-  const points: TrackPoint[] = []
-  const segStarts: number[] = []
+  const segments: TrackSegment[] = []
   let recognizedFormat = false
 
   // Note: Multiple format branches can match the same file (e.g., a file with both
@@ -361,76 +443,48 @@ export function parseGoogleLocationHistory(text: string): Track {
   // Flat array: [{ latitudeE7, ... }]
   if (Array.isArray(data) && data.length > 0 && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
-    parseRecords(data, points)
+    const records = parseRecords(data)
+    if (records.length > 0) segments.push(records)
   }
   // Records.json / Location History.json: { locations: [...] }
   if (!Array.isArray(data) && Array.isArray(data.locations)) {
     recognizedFormat = true
-    parseRecords(data.locations, points)
+    const records = parseRecords(data.locations)
+    if (records.length > 0) segments.push(records)
   }
   // Semantic Location History (monthly): { timelineObjects: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
     recognizedFormat = true
-    parseTimelineObjects(data.timelineObjects, points, segStarts)
+    segments.push(...parseTimelineObjects(data.timelineObjects))
   }
   // Timeline Edits.json: { timelineEdits: [...] }
   if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
     recognizedFormat = true
-    parseTimelineEdits(data.timelineEdits, points)
+    const edits = parseTimelineEdits(data.timelineEdits)
+    if (edits.length > 0) segments.push(edits)
   }
   // Phone export / new format: { semanticSegments: [...] }
   if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
     recognizedFormat = true
-    parseSemanticSegments(data.semanticSegments, points, segStarts)
+    segments.push(...parseSemanticSegments(data.semanticSegments))
   }
 
   if (!recognizedFormat) {
     throw new ParseError('Unsupported Google Location History format', 'UNSUPPORTED_GOOGLE_FORMAT')
   }
 
-  // De-duplicate identical lat/lng/time combos that may come from multiple branches
-  const seen = new Set<string>()
-  const unique: Array<{ point: TrackPoint; order: number }> = []
-  for (const [order, p] of points.entries()) {
-    const key = `${p.lat.toFixed(7)},${p.lng.toFixed(7)},${p.time?.getTime() ?? ''}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      unique.push({ point: p, order })
-    }
-  }
-
-  // Sort: timed points chronologically first, untimed points after, preserving insertion order
-  unique.sort((a, b) => {
-    const aTime = a.point.time?.getTime()
-    const bTime = b.point.time?.getTime()
-    if (aTime != null && bTime != null) return aTime - bTime
-    if (aTime != null) return -1
-    if (bTime != null) return 1
-    return a.order - b.order
-  })
-
-  // Remap segment start indices to account for dedup removals and sort reordering
-  const orderToNewIndex = new Map<number, number>()
-  unique.forEach((entry, newIndex) => orderToNewIndex.set(entry.order, newIndex))
-  const adjustedSegStarts = segStarts
-    .map(originalIdx => {
-      for (let i = originalIdx; i < points.length; i++) {
-        const newIdx = orderToNewIndex.get(i)
-        if (newIdx !== undefined) return newIdx
-      }
-      return -1
-    })
-    .filter(idx => idx >= 0)
+  const { points, segmentStartIndices } = flattenGoogleSegments(segments)
 
   return {
     name: 'Google Location History',
-    points: unique.map(({ point }) => point),
-    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: [...new Set(adjustedSegStarts)] } : {}),
+    points,
+    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
   }
 }
 
 export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
 export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB keeps JSON imports inside a safer in-browser memory envelope
+const MAIN_THREAD_JSON_FALLBACK_SIZE = 16 * 1024 * 1024
 
 function decodeJsonBuffer(buffer: ArrayBuffer): string {
   return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
@@ -442,11 +496,10 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
   }
 
   return new Promise((resolve, reject) => {
-    // Keep a copy of the buffer text before transferring the ArrayBuffer to
-    // the worker.  After `postMessage(..., [buffer])` the main-thread
-    // `buffer` is detached (zero-length), so any fallback that needs the
-    // data must use this pre-transfer copy.
-    const textCopy = decodeJsonBuffer(buffer)
+    // Keep only a bounded binary fallback copy before transferring the
+    // ArrayBuffer. Large JSON files should stay worker-only; decoding a full
+    // text copy on the main thread defeats the worker memory/isolation goal.
+    const fallbackBuffer = buffer.byteLength <= MAIN_THREAD_JSON_FALLBACK_SIZE ? buffer.slice(0) : null
 
     let worker: Worker
     try {
@@ -455,7 +508,7 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
       try {
-        resolve(parseGoogleLocationHistory(textCopy))
+        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
       } catch (error) {
         reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
       }
@@ -478,10 +531,14 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
         return
       }
       if (!event.data.track) {
-        // Worker returned no track and no error — fall back to main-thread
-        // parser using the pre-transfer text copy.
+        // Worker returned no track and no error. Small files retain a bounded
+        // fallback buffer; large files avoid main-thread decoding.
+        if (!fallbackBuffer) {
+          reject(new ParseError('Worker parser did not return a track', 'INVALID_GOOGLE_JSON'))
+          return
+        }
         try {
-          resolve(parseGoogleLocationHistory(textCopy))
+          resolve(parseGoogleLocationHistory(decodeJsonBuffer(fallbackBuffer)))
         } catch {
           reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
         }
@@ -499,11 +556,14 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 
     worker.onerror = (event) => {
       cleanup()
-      // Worker crashed (e.g., memory pressure) — fall back to main-thread
-      // parser using the pre-transfer text copy. This gives the user a
-      // chance to import their file even when the Worker environment fails.
+      // Worker crashed (e.g., memory pressure). Fall back only for small files
+      // where the bounded pre-transfer copy is safe to decode on the main thread.
+      if (!fallbackBuffer) {
+        reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+        return
+      }
       try {
-        resolve(parseGoogleLocationHistory(textCopy))
+        resolve(parseGoogleLocationHistory(decodeJsonBuffer(fallbackBuffer)))
       } catch {
         reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
       }

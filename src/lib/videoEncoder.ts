@@ -170,7 +170,8 @@ export interface DownloadResult {
 /** Trigger a download from an existing object URL */
 export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<DownloadResult> {
   // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
-  if ('showSaveFilePicker' in window) {
+  const hasUserActivation = typeof navigator.userActivation === 'undefined' || navigator.userActivation.isActive
+  if ('showSaveFilePicker' in window && hasUserActivation) {
     try {
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<unknown> }).showSaveFilePicker({
         suggestedName: filename,
@@ -183,7 +184,7 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
       return { saved: true, method: 'picker' }
     } catch (err) {
       // User cancelled the picker, or API failed — fall through to <a> download
-      if (err instanceof DOMException && err.name === 'AbortError') return { saved: false, method: 'fallback' }
+      if (err instanceof DOMException && err.name === 'AbortError') return { saved: false, method: 'picker' }
     }
   }
 
@@ -192,12 +193,21 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
   a.href = url
   a.download = filename
   document.body.appendChild(a)
-  a.click()
-  // Delay removal so the browser has time to process the download intent.
-  // Synchronous removal can silently fail on some browsers (Safari < 15.4,
-  // certain mobile WebViews) because the download may not initiate within the
-  // same microtask.
-  setTimeout(() => { a.remove() }, 100)
+  let clicked = false
+  try {
+    a.click()
+    clicked = true
+  } finally {
+    // Delay removal so the browser has time to process the download intent.
+    // Synchronous removal can silently fail on some browsers (Safari < 15.4,
+    // certain mobile WebViews) because the download may not initiate within the
+    // same microtask. If click throws, remove immediately to avoid leaking DOM.
+    if (clicked) {
+      setTimeout(() => { a.remove() }, 100)
+    } else {
+      a.remove()
+    }
+  }
   return { saved: true, method: 'fallback' }
 }
 

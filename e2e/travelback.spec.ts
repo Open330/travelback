@@ -179,6 +179,19 @@ async function uploadCustomFile(page: Page, fixture: string) {
   await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
+async function loadedTrackPointCounts(page: Page) {
+  const title = page
+    .locator('[data-testid="track-title"]:visible, [data-testid="track-title-mobile"]:visible')
+    .first()
+  const text = await title.textContent()
+  const match = text?.match(/—\s*([\d,]+)\s*\/\s*([\d,]+)\s+locations/)
+  if (!match) throw new Error(`Unable to parse track point counts from "${text}"`)
+  return {
+    visible: Number(match[1].replace(/,/g, '')),
+    full: Number(match[2].replace(/,/g, '')),
+  }
+}
+
 async function activeElementState(page: Page) {
   return page.evaluate(() => {
     const active = document.activeElement as HTMLElement | null
@@ -664,6 +677,78 @@ test.describe('Travelback App', () => {
     await page.mouse.up()
 
     await expect(page.locator('text=/2 \\/ 3 locations/').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('timeline trimming keeps full-track distance scale after a trim', async ({ page }) => {
+    await uploadGpx(page)
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const timeline = page.getByTestId('timeline-selector')
+    const [initialHandleBox, timelineBox] = await Promise.all([endHandle.boundingBox(), timeline.boundingBox()])
+    if (!initialHandleBox || !timelineBox) throw new Error('Missing timeline geometry for full-scale trim test')
+
+    await page.mouse.move(initialHandleBox.x + initialHandleBox.width / 2, initialHandleBox.y + initialHandleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.5, initialHandleBox.y + initialHandleBox.height / 2, { steps: 12 })
+    await page.mouse.up()
+
+    await expect.poll(async () => {
+      const counts = await loadedTrackPointCounts(page)
+      return counts.visible
+    }, { timeout: 10_000, intervals: [120, 200, 300] }).toBeLessThan(20)
+    const trimmedCount = (await loadedTrackPointCounts(page)).visible
+
+    const nextHandleBox = await endHandle.boundingBox()
+    if (!nextHandleBox) throw new Error('Missing end handle after first trim')
+    await page.mouse.move(nextHandleBox.x + nextHandleBox.width / 2, nextHandleBox.y + nextHandleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.9, nextHandleBox.y + nextHandleBox.height / 2, { steps: 12 })
+    await page.mouse.up()
+
+    await expect.poll(async () => {
+      const counts = await loadedTrackPointCounts(page)
+      return counts.visible
+    }, { timeout: 10_000, intervals: [120, 200, 300] }).toBeGreaterThan(trimmedCount)
+  })
+
+  test('timeline keyboard trimming updates the track without scrubbing playback', async ({ page }) => {
+    await uploadGpx(page)
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
+
+    const playbackProgress = page.getByLabel('Playback progress')
+    await playbackProgress.evaluate((element) => {
+      const input = element as HTMLInputElement
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, '0.5')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await expect(playbackProgress).toHaveValue('0.5')
+
+    await page.evaluate(() => {
+      const testWindow = window as Window & { __timelineBubbledKeys?: string[] }
+      testWindow.__timelineBubbledKeys = []
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowLeft') testWindow.__timelineBubbledKeys?.push(event.key)
+      })
+    })
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    await endHandle.focus()
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('ArrowLeft')
+    }
+
+    await expect.poll(async () => {
+      const counts = await loadedTrackPointCounts(page)
+      return counts.visible
+    }, { timeout: 10_000, intervals: [120, 200, 300] }).toBeLessThan(20)
+    await expect(playbackProgress).toHaveValue('0')
+    expect(await page.evaluate(() => {
+      const testWindow = window as Window & { __timelineBubbledKeys?: string[] }
+      return testWindow.__timelineBubbledKeys?.length ?? 0
+    })).toBe(0)
   })
 
   test('mobile scene editor panel stays below the stacked header controls', async ({ page }) => {

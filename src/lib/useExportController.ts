@@ -10,6 +10,7 @@ import type { TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
+export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 
 interface UseExportControllerOptions {
   track: Track | null
@@ -20,6 +21,7 @@ interface UseExportControllerOptions {
   addToast: (text: string, type: ToastMessage['type']) => void
   pausePlayback: () => void
   setPlaybackProgress: (progress: number) => void
+  playbackProgress: number
   cumulativeDistances?: number[]
 }
 
@@ -32,6 +34,7 @@ export function useExportController({
   addToast,
   pausePlayback,
   setPlaybackProgress,
+  playbackProgress,
   cumulativeDistances: cumulativeDistancesProp,
 }: UseExportControllerOptions) {
   const [isExporting, setIsExporting] = useState(false)
@@ -39,7 +42,7 @@ export function useExportController({
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null)
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null)
-  const [downloadMethod, setDownloadMethod] = useState<'picker' | 'fallback' | null>(null)
+  const [downloadMethod, setDownloadMethod] = useState<DownloadMethod | null>(null)
 
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
@@ -88,6 +91,9 @@ export function useExportController({
 
     const abortController = new AbortController()
     exportAbortRef.current = abortController
+    const preExportProgress = playbackProgress
+    let pendingVideoUrl: string | null = null
+    let pendingVideoUrlStored = false
 
     revokeExportedVideoUrl()
 
@@ -141,6 +147,7 @@ export function useExportController({
         async (nextProgress, cameraState) => {
           mapHandle.applyCameraState(cameraState)
           setPlaybackProgress(nextProgress)
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
         },
         (nextProgress) => setExportProgress(nextProgress),
         waitForStableMap,
@@ -149,20 +156,22 @@ export function useExportController({
       )
 
       const blob = new Blob([result.buffer], { type: result.mimeType })
+      pendingVideoUrl = URL.createObjectURL(blob)
+      const downloadResult = await downloadVideo(pendingVideoUrl, result.filename, blob)
       if (exportedVideoUrlRef.current) {
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
-      const videoUrl = URL.createObjectURL(blob)
-      const downloadResult = await downloadVideo(videoUrl, result.filename, blob)
-      if (!downloadResult.saved) {
-        throw new DOMException('Export cancelled', 'AbortError')
-      }
-      setDownloadMethod(downloadResult.method)
+      setDownloadMethod(downloadResult.saved ? downloadResult.method : 'ready')
       setExportedVideoBlob(blob)
-      setExportedVideoUrl(videoUrl)
+      setExportedVideoUrl(pendingVideoUrl)
+      exportedVideoUrlRef.current = pendingVideoUrl
+      pendingVideoUrlStored = true
       setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
     } catch (error) {
+      if (pendingVideoUrl && !pendingVideoUrlStored) {
+        URL.revokeObjectURL(pendingVideoUrl)
+      }
       if (mountedRef.current) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           addToast(t('app.exportCancelled'), 'info')
@@ -201,6 +210,7 @@ export function useExportController({
         }
       }
       if (mountedRef.current) {
+        setPlaybackProgress(preExportProgress)
         setIsExporting(false)
         setExportProgress(0)
       }
@@ -209,6 +219,7 @@ export function useExportController({
     addToast,
     mapViewRef,
     pausePlayback,
+    playbackProgress,
     revokeExportedVideoUrl,
     scenes,
     setPlaybackProgress,

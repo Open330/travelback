@@ -7,8 +7,7 @@ import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
-import type { ExportState } from '@/lib/useExportController'
-import type { DownloadResult } from '@/lib/videoEncoder'
+import type { DownloadMethod, ExportState } from '@/lib/useExportController'
 
 const QUALITY_MAP: Record<string, number> = {
   low: 2,
@@ -40,7 +39,7 @@ interface ExportPanelProps {
   exportState: ExportState
   exportedVideoUrl?: string | null
   exportedVideoBlob?: Blob | null
-  downloadMethod?: DownloadResult['method'] | null
+  downloadMethod?: DownloadMethod | null
   onResetExport: () => void
   playbackDuration?: number
 }
@@ -205,10 +204,14 @@ export default function ExportPanel({
               <Check size={32} strokeWidth={2.5} style={{ color: 'rgb(var(--gl))' }} />
             </div>
             <h4 className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>
-              {t('export.success')}
+              {downloadMethod === 'ready' ? t('export.ready') : t('export.success')}
             </h4>
             <p className="mb-4 text-sm" style={{ color: 'var(--t3)' }}>
-              {downloadMethod === 'picker' ? t('export.videoSaved') : t('export.savedToDownloads')}
+              {downloadMethod === 'picker'
+                ? t('export.videoSaved')
+                : downloadMethod === 'fallback'
+                  ? t('export.savedToDownloads')
+                  : t('export.readyDescription')}
             </p>
 
             {exportedVideoUrl && (

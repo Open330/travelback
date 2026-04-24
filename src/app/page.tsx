@@ -99,6 +99,11 @@ function HomeInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid O(n) recomputation when only the track object reference changes
     [track?.points, track?.segmentStartIndices]
   )
+  const fullTrackCumulativeDistances = useMemo(
+    () => fullTrack ? computeCumulativeDistances(fullTrack.points, fullTrack.segmentStartIndices) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: keep the full-track timeline in full-track distance space
+    [fullTrack?.points, fullTrack?.segmentStartIndices]
+  )
 
   const {
     isExporting,
@@ -119,6 +124,7 @@ function HomeInner() {
     addToast,
     pausePlayback,
     setPlaybackProgress,
+    playbackProgress: progress,
     cumulativeDistances,
   })
 
@@ -412,6 +418,7 @@ function HomeInner() {
             fullTrack={fullTrack}
             track={track}
             cumulativeDistances={cumulativeDistances}
+            fullTrackCumulativeDistances={fullTrackCumulativeDistances}
             trackSessionKey={trackSessionKey}
             mapStyleKey={mapStyleKey}
             showSceneEditor={showSceneEditor}

@@ -1,4 +1,6 @@
 function parseOptionalNumber(value) {
+  if (value == null) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : undefined
 }
@@ -25,9 +27,11 @@ function looksLikeGoogleLocationRecord(value) {
 }
 
 function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
-  if (latE7 == null || lngE7 == null) return
-  const lat = e7(latE7)
-  const lng = e7(lngE7)
+  const parsedLatE7 = parseOptionalNumber(latE7)
+  const parsedLngE7 = parseOptionalNumber(lngE7)
+  if (parsedLatE7 == null || parsedLngE7 == null) return
+  const lat = e7(parsedLatE7)
+  const lng = e7(parsedLngE7)
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   out.push({
     lat,
@@ -37,10 +41,13 @@ function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
   })
 }
 
-function parseRecords(locations, out) {
+function parseRecords(locations) {
+  const out = []
   for (const loc of locations) {
-    const lat = parseOptionalNumber(loc.latitude) ?? (loc.latitudeE7 != null ? e7(loc.latitudeE7) : undefined)
-    const lng = parseOptionalNumber(loc.longitude) ?? (loc.longitudeE7 != null ? e7(loc.longitudeE7) : undefined)
+    const latE7 = parseOptionalNumber(loc.latitudeE7)
+    const lngE7 = parseOptionalNumber(loc.longitudeE7)
+    const lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : undefined)
+    const lng = parseOptionalNumber(loc.longitude) ?? (lngE7 != null ? e7(lngE7) : undefined)
     if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
     out.push({
       lat,
@@ -49,28 +56,30 @@ function parseRecords(locations, out) {
       time: gTime(loc.timestamp, loc.timestampMs),
     })
   }
+  return out
 }
 
-function parseTimelineObjects(objects, out, segStarts) {
+function parseTimelineObjects(objects) {
+  const segments = []
   for (const obj of objects) {
     const seg = obj.activitySegment
     const visit = obj.placeVisit
-    const preLen = out.length
+    const currentSegment = []
 
     if (seg) {
       const rawPath = seg.simplifiedRawPath
       if (rawPath && Array.isArray(rawPath.points)) {
-        for (const pt of rawPath.points) pushE7(out, pt.latE7, pt.lngE7, pt.timestamp)
+        for (const pt of rawPath.points) pushE7(currentSegment, pt.latE7, pt.lngE7, pt.timestamp)
       } else {
         const wpPath = seg.waypointPath
         if (wpPath && Array.isArray(wpPath.waypoints)) {
-          for (const wp of wpPath.waypoints) pushE7(out, wp.latE7, wp.lngE7)
+          for (const wp of wpPath.waypoints) pushE7(currentSegment, wp.latE7, wp.lngE7)
         } else {
           const dur = seg.duration
           const start = seg.startLocation
           const end = seg.endLocation
-          if (start) pushE7(out, start.latitudeE7, start.longitudeE7, dur && dur.startTimestamp)
-          if (end) pushE7(out, end.latitudeE7, end.longitudeE7, dur && dur.endTimestamp)
+          if (start) pushE7(currentSegment, start.latitudeE7, start.longitudeE7, dur && dur.startTimestamp)
+          if (end) pushE7(currentSegment, end.latitudeE7, end.longitudeE7, dur && dur.endTimestamp)
         }
       }
     }
@@ -78,27 +87,31 @@ function parseTimelineObjects(objects, out, segStarts) {
     if (visit) {
       const dur = visit.duration
       const loc = visit.location
-      if (loc) pushE7(out, loc.latitudeE7, loc.longitudeE7, dur && dur.startTimestamp)
+      if (loc) pushE7(currentSegment, loc.latitudeE7, loc.longitudeE7, dur && dur.startTimestamp)
       else if (visit.centerLatE7 != null && visit.centerLngE7 != null) {
-        pushE7(out, visit.centerLatE7, visit.centerLngE7, dur && dur.startTimestamp)
+        pushE7(currentSegment, visit.centerLatE7, visit.centerLngE7, dur && dur.startTimestamp)
       }
     }
-    if (out.length > preLen && preLen > 0) segStarts.push(preLen)
+    if (currentSegment.length > 0) segments.push(currentSegment)
   }
+  return segments
 }
 
-function parseTimelineEdits(edits, out) {
+function parseTimelineEdits(edits) {
+  const out = []
   for (const edit of edits) {
     const pos = edit.rawSignal && edit.rawSignal.signal && edit.rawSignal.signal.position
     const pt = pos && pos.point
     if (!pt) continue
     pushE7(out, pt.latE7, pt.lngE7, pos.timestamp, undefined, pos.altitudeMeters)
   }
+  return out
 }
 
-function parseSemanticSegments(segments, out, segStarts) {
+function parseSemanticSegments(segments) {
+  const outSegments = []
   for (const seg of segments) {
-    const preLen = out.length
+    const pathSegment = []
 
     if (Array.isArray(seg.timelinePath)) {
       for (const pt of seg.timelinePath) {
@@ -108,17 +121,17 @@ function parseSemanticSegments(segments, out, segStarts) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-        out.push({ lat, lng, time: gTime(pt.timestamp) })
+        pathSegment.push({ lat, lng, time: gTime(pt.timestamp) })
       }
     }
 
     // Segment break between timelinePath and visit within the same segment
-    const afterPathLen = out.length
-    if (afterPathLen > preLen && preLen > 0) segStarts.push(preLen)
+    if (pathSegment.length > 0) outSegments.push(pathSegment)
 
     // Visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
     // Coordinate guard uses the same pattern as pushE7/parseRecords:
     // reject if null, NaN, or out of bounds (Math.abs > 90/180).
+    const visitSegment = []
     const visit = seg.visit
     if (visit && visit.topCandidate && visit.topCandidate.placeLocation && visit.topCandidate.placeLocation.latLng) {
       const m = String(visit.topCandidate.placeLocation.latLng).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
@@ -126,82 +139,111 @@ function parseSemanticSegments(segments, out, segStarts) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-        out.push({ lat, lng, time: gTime(seg.startTime) })
+        visitSegment.push({ lat, lng, time: gTime(seg.startTime) })
       }
     }
 
-    if (out.length > afterPathLen && afterPathLen > 0) segStarts.push(afterPathLen)
+    if (visitSegment.length > 0) outSegments.push(visitSegment)
   }
+  return outSegments
+}
+
+function sortPointsWithinSegment(segment) {
+  return segment
+    .map((point, order) => ({ point, order }))
+    .sort((a, b) => {
+      const aTime = a.point.time && a.point.time.getTime()
+      const bTime = b.point.time && b.point.time.getTime()
+      if (aTime != null && bTime != null) return aTime - bTime
+      if (aTime != null) return -1
+      if (bTime != null) return 1
+      return a.order - b.order
+    })
+    .map(({ point }) => point)
+}
+
+function pointKey(point) {
+  return `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time ? point.time.getTime() : ''}`
+}
+
+function segmentSortTime(segment) {
+  const firstTimed = segment.find((point) => point.time)
+  return firstTimed && firstTimed.time && firstTimed.time.getTime()
+}
+
+function flattenGoogleSegments(rawSegments) {
+  const seen = new Set()
+  const segments = rawSegments
+    .map((segment, order) => {
+      const points = []
+      for (const point of sortPointsWithinSegment(segment)) {
+        const key = pointKey(point)
+        if (seen.has(key)) continue
+        seen.add(key)
+        points.push(point)
+      }
+      return { points, order }
+    })
+    .filter((segment) => segment.points.length > 0)
+    .sort((a, b) => {
+      const aTime = segmentSortTime(a.points)
+      const bTime = segmentSortTime(b.points)
+      if (aTime != null && bTime != null) return aTime - bTime
+      if (aTime != null) return -1
+      if (bTime != null) return 1
+      return a.order - b.order
+    })
+
+  const points = []
+  const segmentStartIndices = []
+  for (const segment of segments) {
+    if (points.length > 0) segmentStartIndices.push(points.length)
+    points.push(...segment.points)
+  }
+  return { points, segmentStartIndices }
 }
 
 function parseGoogleLocationHistory(text) {
   const data = JSON.parse(text)
-  const points = []
-  const segStarts = []
+  const segments = []
   let recognizedFormat = false
 
   // Flat array: [{ latitudeE7, ... }]
   if (Array.isArray(data) && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
-    parseRecords(data, points)
+    const records = parseRecords(data)
+    if (records.length > 0) segments.push(records)
   }
   // Note: Multiple format branches can match the same file (e.g., a file with both
   // timelineObjects and semanticSegments). This is intentional to extract maximum data.
   // The dedup step below removes any resulting duplicate points.
   if (!Array.isArray(data) && Array.isArray(data.locations)) {
     recognizedFormat = true
-    parseRecords(data.locations, points)
+    const records = parseRecords(data.locations)
+    if (records.length > 0) segments.push(records)
   }
   if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
     recognizedFormat = true
-    parseTimelineObjects(data.timelineObjects, points, segStarts)
+    segments.push(...parseTimelineObjects(data.timelineObjects))
   }
   if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
     recognizedFormat = true
-    parseTimelineEdits(data.timelineEdits, points)
+    const edits = parseTimelineEdits(data.timelineEdits)
+    if (edits.length > 0) segments.push(edits)
   }
   if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
     recognizedFormat = true
-    parseSemanticSegments(data.semanticSegments, points, segStarts)
+    segments.push(...parseSemanticSegments(data.semanticSegments))
   }
 
   if (!recognizedFormat) throw new WorkerParseError('Unsupported Google Location History format', ERROR_CODE.UNSUPPORTED_GOOGLE_FORMAT)
 
-  const seen = new Set()
-  const unique = []
-  for (const [order, point] of points.entries()) {
-    const key = `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time ? point.time.getTime() : ''}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    unique.push({ point, order })
-  }
-
-  unique.sort((a, b) => {
-    const aTime = a.point.time && a.point.time.getTime()
-    const bTime = b.point.time && b.point.time.getTime()
-    if (aTime != null && bTime != null) return aTime - bTime
-    if (aTime != null) return -1
-    if (bTime != null) return 1
-    return a.order - b.order
-  })
-
-  // Remap segment start indices to account for dedup removals and sort reordering
-  const orderToNewIndex = new Map()
-  unique.forEach((entry, newIndex) => orderToNewIndex.set(entry.order, newIndex))
-  const adjustedSegStarts = segStarts
-    .map(originalIdx => {
-      for (let i = originalIdx; i < points.length; i++) {
-        const newIdx = orderToNewIndex.get(i)
-        if (newIdx !== undefined) return newIdx
-      }
-      return -1
-    })
-    .filter(idx => idx >= 0)
+  const { points, segmentStartIndices } = flattenGoogleSegments(segments)
 
   return {
     name: 'Google Location History',
-    points: unique.map(({ point }) => point),
-    ...(adjustedSegStarts.length > 0 ? { segmentStartIndices: adjustedSegStarts } : {}),
+    points,
+    ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
   }
 }
 

@@ -21,7 +21,6 @@ const SOURCE_POINTS = 'journey-points'
 const SOURCE_LINE = 'journey-line'
 const LAYER_LINE = 'journey-line'
 const LAYER_POINTS = 'journey-points'
-const LAYER_LABELS = 'journey-points-labels'
 const MIN_SEARCH_QUERY_LENGTH = 3
 const PROXIMITY_THRESHOLD_METERS = 5
 
@@ -205,29 +204,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       })
     }
 
-    // Labels layer
-    if (!map.getLayer(LAYER_LABELS)) {
-      map.addLayer({
-        id: LAYER_LABELS,
-        type: 'symbol',
-        source: SOURCE_POINTS,
-        layout: {
-          'text-field': ['concat', ['get', 'icon'], ' ', ['get', 'label']],
-          'text-size': 11,
-          'text-allow-overlap': true,
-        },
-        paint: {
-          'text-color': '#ffffff',
-        },
-      })
-    }
-
     layersAddedRef.current = true
   }, [])
 
   const removeLayers = useCallback((map: maplibregl.Map) => {
     if (!layersAddedRef.current) return
-    for (const layerId of [LAYER_LABELS, LAYER_POINTS, LAYER_LINE]) {
+    for (const layerId of [LAYER_POINTS, LAYER_LINE]) {
       if (map.getLayer(layerId)) map.removeLayer(layerId)
     }
     for (const srcId of [SOURCE_POINTS, SOURCE_LINE]) {

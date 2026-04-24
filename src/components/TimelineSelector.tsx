@@ -150,7 +150,7 @@ function TimelineSelector({
   // Get container width in pixels
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
 
-  const clampRatios = (s: number, e: number): [number, number] => {
+  const clampRatios = useCallback((s: number, e: number): [number, number] => {
     const minGap = 1 / (points.length || 1)
     s = Math.max(0, Math.min(s, 1 - minGap))
     e = Math.max(minGap, Math.min(e, 1))
@@ -158,7 +158,7 @@ function TimelineSelector({
       e = Math.min(1, s + minGap)
     }
     return [s, e]
-  }
+  }, [points.length])
 
   // Helper to resolve a ratio pair to point indexes without reading React state.
   // Used during drag to fire onRangeChange with the latest ratios immediately.
@@ -228,9 +228,18 @@ function TimelineSelector({
         rafRef.current = null
       })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: registers global drag listeners using refs for all mutable state
-    []
+    [clampRatios, points.length, resolveIndexesForRatios]
   )
+
+  const commitRatios = useCallback((nextStartRatio: number, nextEndRatio: number) => {
+    const [s, e] = clampRatios(nextStartRatio, nextEndRatio)
+    setStartRatio(s)
+    setEndRatio(e)
+    if (points.length > 0) {
+      const { startIdx, endIdx } = resolveIndexesForRatios(s, e)
+      onRangeChangeRef.current(startIdx, endIdx)
+    }
+  }, [clampRatios, points.length, resolveIndexesForRatios])
 
   const startDrag = (
     type: 'start' | 'end' | 'region',
@@ -387,20 +396,20 @@ function TimelineSelector({
             const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
-              const [s] = clampRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio)
-              setStartRatio(s)
+              e.stopPropagation()
+              commitRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio)
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
-              const [s] = clampRatios(Math.max(startRatio - step, 0), endRatio)
-              setStartRatio(s)
+              e.stopPropagation()
+              commitRatios(Math.max(startRatio - step, 0), endRatio)
             } else if (e.key === 'Home') {
               e.preventDefault()
-              const [s] = clampRatios(0, endRatio)
-              setStartRatio(s)
+              e.stopPropagation()
+              commitRatios(0, endRatio)
             } else if (e.key === 'End') {
               e.preventDefault()
-              const [s] = clampRatios(endRatio - 0.01, endRatio)
-              setStartRatio(s)
+              e.stopPropagation()
+              commitRatios(endRatio - 0.01, endRatio)
             }
           }}
         >
@@ -443,20 +452,20 @@ function TimelineSelector({
             const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
-              const [, e2] = clampRatios(startRatio, Math.min(endRatio + step, 1))
-              setEndRatio(e2)
+              e.stopPropagation()
+              commitRatios(startRatio, Math.min(endRatio + step, 1))
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
-              const [, e2] = clampRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01))
-              setEndRatio(e2)
+              e.stopPropagation()
+              commitRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01))
             } else if (e.key === 'Home') {
               e.preventDefault()
-              const [, e2] = clampRatios(startRatio, startRatio + 0.01)
-              setEndRatio(e2)
+              e.stopPropagation()
+              commitRatios(startRatio, startRatio + 0.01)
             } else if (e.key === 'End') {
               e.preventDefault()
-              const [, e2] = clampRatios(startRatio, 1)
-              setEndRatio(e2)
+              e.stopPropagation()
+              commitRatios(startRatio, 1)
             }
           }}
         >
@@ -499,9 +508,7 @@ function TimelineSelector({
           <button
             type="button"
             onClick={() => {
-              setStartRatio(0)
-              setEndRatio(1)
-              if (points.length > 0) onRangeChange(0, points.length - 1)
+              commitRatios(0, 1)
             }}
             aria-label={t('timeline.reset')}
             title={t('timeline.reset')}
