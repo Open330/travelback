@@ -1,58 +1,54 @@
-# UI/UX Designer Review — Cycle 1 (2026-04-23)
+# Designer/UI-UX Review — Prompt 1, Cycle 1/100
 
 ## Summary
-Review of the web frontend's information architecture, accessibility, responsive design, dark/light mode, i18n, and perceived performance.
+I reviewed the app shell, landing/upload flow, playback workspace, export modal, i18n strings, and the responsive mobile behavior in the live app.
 
----
+Overall, the UI is strong: the glass treatment is consistent, the dialogs are well-factored, and the app is generally accessible. I found three UX/a11y issues worth fixing before this cycle moves on.
 
-## Finding 1: Missing keyboard focus management in SceneEditor
-- **File**: `src/components/SceneEditor.tsx`
-- **Severity**: Medium | **Confidence**: High
-- **Description**: The SceneEditor is a side panel with sliders, selects, and buttons. When expanding/collapsing the parameter section per scene, focus is not managed — the user has to tab through all controls. The slider handles in `SceneRangeEditor` have `tabIndex={0}` and keyboard support (arrow keys, Home/End), which is good, but there's no `aria-valuetext` to announce the current percentage value meaningfully.
-- **Fix**: Add `aria-valuetext` attributes to range sliders that announce the percentage value in context (e.g., "45%" instead of just the raw number).
+## Findings
 
----
+### 1) Arrow keys on the timeline range handles also scrub playback
 
-## Finding 2: Mobile density — too many controls on small screens
-- **File**: `src/components/Controls.tsx`, `src/components/TrackToolbar.tsx`
-- **Severity**: Low | **Confidence**: Medium
-- **Description**: On mobile, the playback controls bar packs speed selector, duration selector, follow camera toggle, distance stats, and time stats into a compact space. The TrackToolbar moves some controls to a "more" menu, but the Controls bar itself doesn't collapse. The `min-h-11` (44px) touch targets are good for accessibility, but the layout can feel cramped on 320px-wide screens.
-- **Fix**: Consider collapsing distance/time stats on very small screens, or using a bottom sheet pattern for additional controls.
+- **Severity:** Medium
+- **Confidence:** High
+- **Files:**
+  - `src/lib/usePlaybackController.ts:149-157`
+  - `src/components/TimelineSelector.tsx:363-461`
+- **Evidence**
+  - On a 375×812 viewport, I focused `[data-testid="timeline-start-handle"]` and pressed `ArrowRight`.
+  - The handle moved (`aria-valuenow` changed from `0` to `1`), **and** playback also sought forward (`input[aria-label='재생 진행률']` changed from `0` to `0.02`).
+- **Failure scenario**
+  - Keyboard users trying to trim the timeline get a moving preview at the same time. That makes precise range editing unpredictable and can move the playback cursor away from the intended frame.
+- **Concrete fix**
+  - Either add `[role="slider"]` to the interactive-target exclusion in `usePlaybackHotkeys`, or stop propagation from the custom slider key handlers in `TimelineSelector` so arrow keys only adjust the range.
 
----
+### 2) Mobile loaded state hides the only visible track-name confirmation
 
-## Finding 3: Toast notifications have no role-specific aria-live region
-- **File**: `src/components/Toast.tsx` line 64
-- **Severity**: Low | **Confidence**: High
-- **Description**: The toast container uses `role="log"` and `aria-live="polite"`. This is correct for non-urgent notifications. However, error toasts should arguably use `aria-live="assertive"` to ensure screen readers announce them immediately. Currently all toast types use the same live region.
-- **Fix**: Use `aria-live="assertive"` for error-type toasts and `aria-live="polite"` for info/success toasts.
+- **Severity:** Medium
+- **Confidence:** High
+- **File:** `src/components/TrackWorkspace.tsx:117-123`
+- **Evidence**
+  - On a 375×812 viewport after loading the sample trip, `document.querySelector('[data-testid="track-title"]')` exists but `getComputedStyle(...).display` is `none`.
+  - `document.body.innerText.includes('Namsan Tower Walk')` was `false`, and the accessibility snapshot did not expose the track name either.
+- **Failure scenario**
+  - On phones, users get no inline confirmation of which track is active after import. If they load the wrong file, there is no visible or spoken track-name anchor to reassure them.
+- **Concrete fix**
+  - Replace the `hidden lg:block` treatment with a compact mobile header/chip so the track name and point count remain visible and announced at small breakpoints.
 
----
+### 3) The mobile “additional controls” popup claims menu semantics but does not behave like a menu
 
-## Finding 4: FileUpload drop zone lacks visual focus indicator
-- **File**: `src/components/FileUpload.tsx`
-- **Severity**: Low | **Confidence**: Medium
-- **Description**: The file upload area uses `onDrop`, `onDragOver`, `onDragLeave` for drag-and-drop but has no visible focus indicator when tabbed to via keyboard. The `isDragging` state changes the border color and scale, but there's no keyboard-accessible way to trigger the drop zone (the "Browse Files" button is the keyboard alternative, which is good).
-- **Fix**: Add a visible focus ring to the drop zone container when focused via keyboard.
+- **Severity:** Low
+- **Confidence:** High
+- **File:** `src/components/TrackToolbar.tsx:134-237`
+- **Evidence**
+  - `button[aria-label="추가 컨트롤"]` opens a `role="menu"` containing `role="menuitem"` children.
+  - When I focused the first menu item and pressed `ArrowDown`, focus stayed on the same `BUTTON` instead of moving to the next item.
+- **Failure scenario**
+  - Screen readers are told this is a menu, but keyboard behavior is still generic popover/tab behavior. That mismatch is confusing and makes the mobile toolbar feel inconsistent for assistive-tech users.
+- **Concrete fix**
+  - Either remove the `menu/menuitem` roles and treat it as a normal popover of buttons, or implement full menu keyboard behavior with roving focus and arrow-key navigation.
 
----
-
-## Finding 5: GoogleGuide tabs not fully keyboard accessible
-- **File**: `src/components/GoogleGuide.tsx` line 289
-- **Severity**: Low | **Confidence**: High
-- **Description**: The tab buttons use `role="tab"` and `aria-selected`, but the tab panels use `role="tabpanel"` without implementing arrow-key navigation between tabs (Left/Right to switch tabs per WAI-ARIA Tabs pattern). Users must tab through all tab buttons to reach the content.
-- **Fix**: Add arrow-key navigation for the tab list per the WAI-ARIA Tabs design pattern.
-
----
-
-## Finding 6: Good accessibility practices observed
-- **Severity**: Positive | **Confidence**: High
-- **Description**: (1) ModalDialog implements focus trap with Tab/Shift+Tab cycling. (2) Close on Escape is handled. (3) `aria-modal`, `aria-labelledby` attributes present. (4) `inert` attribute used on app root when modal opens. (5) 44px minimum touch targets on buttons. (6) ARIA labels on interactive controls.
-
----
-
-## Final Sweep
-- All components reviewed for WCAG 2.2 accessibility.
-- Responsive breakpoints assessed.
-- Dark/light mode support verified (CSS custom properties).
-- i18n RTL considerations: the app supports CJK locales but not RTL scripts. The CSS uses `left`/`right` positioning that wouldn't work with RTL layouts.
+## Verification notes
+- Checked the live app in browser automation at desktop and 375×812 mobile sizes.
+- Inspected accessibility snapshots, focus state, and computed styles/DOM text.
+- Confirmed the export modal focus trap works and did not find console errors during the reviewed flows.

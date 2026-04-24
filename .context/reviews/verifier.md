@@ -1,56 +1,64 @@
-# Verifier Review — Cycle 1 (2026-04-23)
+# Verifier Review — Prompt 1, Cycle 1/100
 
 ## Summary
-Evidence-based correctness check against stated behavior. Verified by tracing code paths and validating assumptions.
 
----
+I reviewed the active cycle 2 plan artifact, the referenced implementation, the surrounding project docs, and the existing E2E coverage.
 
-## Finding 1: FileUpload duplicate size check breaks error code path — CONFIRMED
-- **File**: `src/components/FileUpload.tsx` lines 39-42, `src/lib/parser.ts` lines 520-527
-- **Severity**: Medium | **Confidence**: High
-- **Evidence**: Traced the code path: (1) FileUpload checks `file.size > maxForType` and throws `new Error(t(...))` — a plain Error, NOT a ParseError. (2) In the catch block, `err instanceof ParseError` is false, so `code` is `''`, `matchedKey` is `''`, `isFileTooLarge` is false. (3) Falls through to `setError(t('fileUpload.parseFailed'))` — WRONG message for a file-too-large error. (4) Meanwhile, `parseTrackFile` has the same check with proper ParseError/FILE_TOO_LARGE code, but it never gets reached because FileUpload's check fires first.
-- **Fix**: Remove the duplicate check from FileUpload, letting parseTrackFile handle it properly.
+I found two issues:
 
----
+1. The fallback video-download path in `src/lib/videoEncoder.ts` is still vulnerable to a synchronous `a.click()` failure, and the current tests do not exercise that branch.
+2. The cycle 2 plan contains a stale chronology claim about there being no prior cycle 1 plan.
 
-## Finding 2: Map style not persisted across page reloads — CONFIRMED
-- **File**: `src/app/page.tsx` lines 293-303
-- **Severity**: Medium | **Confidence**: High
-- **Evidence**: (1) `handleModeChange` (line 281) calls `localStorage.setItem('travelback-theme', mode)`. (2) `cycleStyle` (line 293) sets `setMapStyleKey(nextKey)` and calls `applyDocumentMapStyle(nextKey)` but does NOT call `localStorage.setItem`. (3) Bootstrap script (layout.tsx line 49) only reads `travelback-theme` for mode, then derives mapstyle from mode: `m==='dark'?'dark':'voyager'`. (4) So cycling to e.g. "Liberty" style (which is light mode) loses the choice on reload — page shows "Voyager" instead.
-- **Fix**: Persist the explicit map style choice to localStorage in `cycleStyle` and read it in the bootstrap script.
+## Findings
 
----
+### 1) Fallback download cleanup is not guaranteed if `a.click()` throws
 
-## Finding 3: `handleRangeChange` drops segment start at boundary — CONFIRMED
-- **File**: `src/app/page.tsx` lines 180-186
-- **Severity**: Medium | **Confidence**: Medium
-- **Evidence**: Traced with example: track has segmentStartIndices=[5, 10], startIdx=5, endIdx=15. After filter: indices [5,10] pass. After map: [0,5]. After filter(index>0): [5]. The segment start at mapped index 0 (original index 5) is dropped. This means the first segment break in a sliced track is lost.
-- **Fix**: The filter should be `index >= 0` but also the mapped index 0 should be preserved as a segment break in the sliced track.
+- **Severity:** Medium
+- **Confidence:** Medium
+- **Files:**
+  - `src/lib/videoEncoder.ts:190-200`
+  - `e2e/travelback.spec.ts:112-175`
 
----
+**Evidence**
 
-## Finding 4: Export video filename sanitization works correctly — VERIFIED
-- **File**: `src/lib/videoEncoder.ts` lines 147-153
-- **Severity**: Info | **Confidence**: High
-- **Evidence**: The sanitization: (1) NFKC normalization, (2) removes `<>:"/\|?*` and control chars, (3) collapses whitespace, (4) trims, (5) slices to 64 chars, (6) falls back to "Journey". This correctly handles Unicode track names and prevents filesystem-incompatible characters.
+- The fallback path appends a temporary `<a>` element, calls `a.click()`, and only then schedules removal with `setTimeout(...)`.
+- If `a.click()` throws synchronously, the timeout is never registered and the temporary node stays in the DOM.
+- The current E2E export tests cover the panel UI and controls, but they do not exercise the actual download branch, so this failure mode is not guarded by CI.
 
----
+**Failure scenario**
 
-## Finding 5: Playback accumulator pattern correctly avoids drift — VERIFIED
-- **File**: `src/lib/usePlaybackController.ts` lines 82-93
-- **Severity**: Info | **Confidence**: High
-- **Evidence**: The accumulator-based approach records `startTimestampRef` and `startProgressRef` when playback starts, then computes `nextProgress = startProgress + (elapsed * speed) / duration` from wall-clock time. This eliminates floating-point accumulation error and frame-rate dependency. Correct.
+A browser blocks or rejects the programmatic download click. The export flow then leaks the temporary anchor element, and the download branch has no automated regression test to catch the behavior drift.
 
----
+**Concrete fix**
 
-## Finding 6: Scene overlap i18n keys exist but are never triggered — CONFIRMED
-- **File**: `src/lib/i18n.ts`, `src/components/SceneEditor.tsx`
-- **Severity**: Low | **Confidence**: High
-- **Evidence**: Searched all `.tsx` files for `scenes.overlap` and `scenes.overlapSuffix` usage. These keys are defined in i18n but never referenced in any component code. The overlap detection code is missing.
+- Wrap the anchor click and cleanup in `try/finally`, or register cleanup before the click so it runs even if the click throws.
+- Add a regression test for the fallback download branch, not just the export panel UI.
 
----
+### 2) Cycle 2 plan contains a stale chronology claim
 
-## Final Sweep
-- All critical code paths traced and verified.
-- Focus on correctness claims validated against actual implementation.
-- No skipped files.
+- **Severity:** Low
+- **Confidence:** High
+- **Files:**
+  - `plan/cycle2-c2-plan.md:12-14`
+  - `plan/cycle1-plan.md:1-5`
+
+**Evidence**
+
+- The cycle 2 plan says: “No prior cycle 1 plan exists in this loop — this is the first plan.”
+- `plan/cycle1-plan.md` exists and is clearly the cycle 1 implementation plan, so the statement is inaccurate or at least misleading.
+
+**Failure scenario**
+
+Future reviewers or automation may misread the loop history and drop or mis-order carry-forward items because the plan text asserts that no prior cycle 1 artifact exists.
+
+**Concrete fix**
+
+Rephrase the sentence to something precise, for example: “This is the first cycle 2 plan in this loop,” or remove the assertion entirely.
+
+## Gaps
+
+- I did not reproduce a live browser failure for the download branch; the export-path risk is inferred from code inspection and the absence of direct test coverage.
+
+## Risks
+
+- No automated test currently exercises `downloadVideo`’s actual fallback branch, so browser-specific regressions in the download path could still ship even if the UI-only export tests remain green.

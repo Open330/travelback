@@ -8,62 +8,76 @@
 - `.context/project/02-architecture.md`
 - `.context/development/01-conventions.md`
 - `.context/plans/README.md`
+- `.context/plans/deferred-findings-cycle-r2-2026-04-23.md`
+- `.context/plans/deferred-findings-cycle-r4-2026-04-23.md`
 - supporting review artifacts under `.context/reviews/`
 
 ### Code/configuration inspected
 - `package.json`
-- `next.config.ts`, `eslint.config.mjs`, `playwright.config.ts`, `playwright.static.config.ts`, `postcss.config.mjs`
-- `src/app/**`, `src/components/**`, `src/lib/**`, `src/types.ts`
-- `scripts/**`
-- `e2e/**`
-- `public/**` including `public/map-styles/*.json` and `public/workers/trackParser.worker.js`
+- `next.config.ts`
+- `playwright.config.ts`
+- `playwright.static.config.ts`
+- `scripts/harden-static-export.mjs`
+- `scripts/serve-static.mjs`
+- `scripts/smoke-static.mjs`
+- `src/app/layout.tsx`
+- `src/app/page.tsx`
+- `src/components/ExportPanel.tsx`
+- `src/lib/camera.ts`
+- `src/lib/env.ts`
+- `src/types.ts`
+- `.github/workflows/deploy-pages.yml`
 
 ### Verification performed
 - Read docs and implementation side by side.
-- Ran `npm run smoke:static`; it failed on a remote map-style dependency, which corroborated the map-assets mismatch.
+- Ran `npm run smoke:static` successfully to confirm the current static export/base-path path still works.
 
 ## Findings
 
-### 1) Map assets are still remote, so the "fully local" claim is inaccurate
-- **Doc file(s):** `.context/project/01-overview.md:14`, `.context/project/02-architecture.md:100-103`
-- **Code/file region:** `public/map-styles/voyager.json:5-20` (same pattern in `positron.json`, `dark.json`, `liberty.json`, `bright.json`), `scripts/harden-static-export.mjs:14-27`
-- **Doc claim:** Map themes are fully local and runtime map display no longer depends on external tiles, glyphs, or sprites.
-- **Actual code behavior:** Each shipped style JSON still points at CARTO CDN vector tiles plus remote `sprite` and `glyphs` URLs. The static smoke test also fails with `bright.json still depends on remote sprite/glyph assets`.
-- **Why the mismatch matters:** Users and reviewers will believe the app is offline/self-contained for map rendering when it still makes third-party map requests and exposes route context to CARTO.
-- **Suggested fix:** Either update the docs to describe the CARTO dependency explicitly, or truly vendor/replace the map styles and update the smoke test accordingly.
+### 1) `.context/README.md` says there are no active plans, but `.context/plans/README.md` says there are
+- **Doc file(s):** `.context/README.md:15-23`, `.context/plans/README.md:3-5`
+- **Mismatch:** the directory tree in `.context/README.md` labels `plans/archive/` as “completed/superseded implementation-plan waves” and adds “no active plans currently,” but `.context/plans/README.md` explicitly lists active plans (`deferred-findings-cycle2-2026-04-19.md` and `deferred-findings-cycle1-2026-04-19.md`).
+- **Failure scenario:** a contributor following the top-level context README may assume the planning area is archive-only and miss the live backlog / next-cycle work items.
+- **Concrete fix:** update the tree/comment in `.context/README.md` to point at the actual active plan docs, or remove the stale “no active plans currently” note and clearly separate archive vs active plan locations.
+- **Severity:** Medium
 - **Confidence:** High
-- **Status:** Confirmed
 
-### 2) `npm run start` is a static-export server, not a Next production server
-- **Doc file:** `.context/project/01-overview.md:17-24`
-- **Code/file region:** `package.json:8-9`, `scripts/serve-static.mjs:24-80`
-- **Doc claim:** `npm run start` is the production server after `npm run build`.
-- **Actual code behavior:** `start` runs `node scripts/serve-static.mjs --base-path /travelback`, which serves the generated `out/` directory as static files, requires a prior static build, and hardcodes a `/travelback` base path.
-- **Why the mismatch matters:** Following the docs literally will mislead contributors into expecting Next.js server behavior, and deployments/tests can fail if `out/` is missing or the base path is omitted.
-- **Suggested fix:** Reword the run instructions to say “static preview server” and document the `/travelback` base path, or change the script if the intent is really to run `next start`.
+### 2) The anti-framing docs overstate what the GitHub Pages deployment actually ships
+- **Doc file(s):** `.context/project/01-overview.md:27-28`, `.context/project/02-architecture.md:114-119`
+- **Code/config file(s):** `scripts/serve-static.mjs:147-157`, `.github/workflows/deploy-pages.yml:17-36`
+- **Mismatch:** the docs read as if header-backed anti-framing is part of the production posture. In-repo, the only server that emits the relevant headers is the local preview server in `scripts/serve-static.mjs`; the GitHub Pages workflow only uploads `out/` and does not configure any response headers.
+- **Failure scenario:** readers can walk away believing the public deployment has header-backed anti-framing when, in this repo, it is only guaranteed by the JS bootstrap fallback and host-side setup outside the workflow.
+- **Concrete fix:** split the documentation into “local preview server headers” vs “deployed hosting requirements,” or move deployment to a host that can emit the documented headers and say so explicitly.
+- **Severity:** High
 - **Confidence:** High
-- **Status:** Confirmed
 
-### 3) Google Location History support is under-documented in the format section
-- **Doc file:** `.context/project/01-overview.md:31-35`
-- **Code/file region:** `src/lib/parser.ts:190-303, 370-402`
-- **Doc claim:** Google JSON support is described only as legacy/new `locations`, record arrays, and `semanticSegments.timelinePath`.
-- **Actual code behavior:** The parser also accepts `timelineObjects` (`activitySegment` / `placeVisit`), `timelineEdits`, `semanticSegments.visit.topCandidate.placeLocation`, flat arrays with `latitude`/`longitude`, and E7 or decimal coordinates.
-- **Why the mismatch matters:** The docs make several valid Google Takeout exports look unsupported, which can send users and support agents down the wrong path when a file actually works.
-- **Suggested fix:** Expand the supported-format section to enumerate every accepted Google JSON shape, or add a link to a canonical parser matrix that stays in sync with `src/lib/parser.ts` and the e2e fixtures.
+### 3) The documented default scene sequence uses the wrong user-facing names
+- **Doc file(s):** `.context/project/02-architecture.md:84-89`
+- **Code file(s):** `src/lib/camera.ts:210-259`
+- **Mismatch:** the architecture doc says the default scenes are `Opening Overview → Bird's Eye → Flyover → Orbit → Ground → Closing Overview`, but the implementation generates `Orbit Midpoint` and `Ground Follow` for the middle scenes.
+- **Failure scenario:** docs, QA notes, screenshots, and support guidance can refer to scene names that no longer match the UI, creating avoidable confusion for users who compare the doc to the editor.
+- **Concrete fix:** update the architecture doc to list the exact scene names, or rename the presets in code if the shorter names are the intended product copy.
+- **Severity:** Low
 - **Confidence:** High
-- **Status:** Confirmed
 
-### 4) The documented animation-duration range is narrower than the actual UI and export limits
-- **Doc file:** `.context/project/01-overview.md:77-78`
-- **Code/file region:** `src/types.ts:80-84`, `src/components/Controls.tsx:24-25`, `src/components/ExportPanel.tsx:112-117`
-- **Doc claim:** Animation duration is configurable from 10s to 5min.
-- **Actual code behavior:** Playback presets are 10/15/30/60/120/300 seconds, but the export pipeline accepts 5–600 seconds via `EXPORT_LIMITS`, and the export panel clamps to that broader range.
-- **Why the mismatch matters:** The docs understate both the minimum and maximum export duration, so users may think certain export lengths are impossible when the app already supports them.
-- **Suggested fix:** Clarify that playback presets are 10s–5min while export duration accepts 5s–10min, or align the UI/export limits to a single documented range.
+### 4) The export preset list in docs is incomplete
+- **Doc file(s):** `.context/project/01-overview.md:88-90`
+- **Code file(s):** `src/types.ts:99-106`, `src/components/ExportPanel.tsx:20-28`
+- **Mismatch:** the feature list documents only YouTube, TikTok, Instagram Square/Post, and 4K presets, but the UI actually exposes seven presets, including `HD Landscape (1280×720)` and `4K Portrait (2160×3840)`.
+- **Failure scenario:** users and support docs underreport the available export options, so someone may assume the app cannot export 720p or vertical 4K even though it can.
+- **Concrete fix:** either expand the docs to enumerate all seven presets or simplify the prose to say “seven resolution presets” with examples.
+- **Severity:** Low
 - **Confidence:** High
-- **Status:** Confirmed
+
+### 5) One deferred plan item is stale because the architecture doc was already updated
+- **Doc file(s):** `.context/plans/deferred-findings-cycle-r2-2026-04-23.md:83-88`
+- **Current source:** `.context/project/02-architecture.md:114-119`, `src/app/layout.tsx:49-63`
+- **Mismatch:** `DF-R2-011` says the architecture doc does not mention the JS-based frame-breaker, but that note now exists in the current architecture doc and the bootstrap script in `layout.tsx` is already implemented.
+- **Failure scenario:** future cycles can waste time re-opening a resolved documentation gap because the backlog entry still reads like an active deferral.
+- **Concrete fix:** mark `DF-R2-011` resolved and move it out of the deferred backlog, or update the deferred-findings file to say it was closed.
+- **Severity:** Low
+- **Confidence:** High
 
 ## Final sweep
 
-I did not find additional high-confidence documentation/code mismatches beyond the four items above.
+I did not find any current mismatch in the static-export command wiring itself; `npm run smoke:static` passed and the `/travelback` base-path flow still works as documented.

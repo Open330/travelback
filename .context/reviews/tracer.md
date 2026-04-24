@@ -1,173 +1,152 @@
-# Tracer Report — Prompt 1
+# Tracer Review — review-plan-fix cycle 1/100 prompt 1
 
-Scope reviewed: `.context/**`, `package.json`, root configs, `src/**`, `scripts/**`, `e2e/**`, and `public/**`.
+Scope: causal tracing across upload → parser/worker → track state → timeline trim → map layers → playback → export → download; theme/locale/style bootstrap; static export serving. Review only; no source files modified.
 
-Inventory sweep covered:
-- app shell / session orchestration: `src/app/page.tsx`, `src/app/layout.tsx`
-- parsing / playback / camera / export runtime: `src/lib/*`, `src/components/{MapView,Controls,TimelineSelector,SceneEditor,ExportPanel,JourneyCreator,FileUpload,TrackWorkspace}`
-- build / serve / hardening scripts: `scripts/{fetch-map-styles,harden-static-export,serve-static,smoke-static}.mjs`
-- verification surfaces: `e2e/travelback.spec.ts`, `playwright*.config.ts`
-- shipped assets: `public/map-styles/*.json`, `public/workers/trackParser.worker.js`, `public/theme-init.js`
+## Relevant file inventory
 
-Static smoke was run during the sweep and failed on the shipped map styles:
+- `src/app/page.tsx:32-123` — top-level client state, derived distances, playback/export wiring.
+- `src/app/page.tsx:157-239` — track session reset/load/sample import and timeline range mutation.
+- `src/app/page.tsx:288-321` — document theme/map-style persistence and cycling.
+- `src/app/page.tsx:328-463` — composition of `MapView`, `FileUpload`, `TrackWorkspace`, `ExportPanel`.
+- `src/components/FileUpload.tsx:52-109` — file acceptance, parse invocation, parser error mapping.
+- `src/lib/parser.ts:41-162` — GPX/KML extraction and segment construction.
+- `src/lib/parser.ts:346-430` — Google JSON parser, dedupe, chronological sort, segment-start remap.
+- `src/lib/parser.ts:432-568` — size limits, worker dispatch, final validation.
+- `public/workers/trackParser.worker.js:137-206` — worker-side Google parser mirror.
+- `public/workers/trackParser.worker.js:247-279` — worker message validation, decode, parse, error return.
+- `src/components/TrackWorkspace.tsx:88-154` — toolbar, scene editor, timeline, elevation, controls wiring.
+- `src/components/TimelineSelector.tsx:25-48` — distance-ratio → index conversion.
+- `src/components/TimelineSelector.tsx:125-148` — selected range resolution and initial parent notification.
+- `src/components/TimelineSelector.tsx:182-260` — drag updates and parent `onRangeChange` notifications.
+- `src/components/TimelineSelector.tsx:386-461` — keyboard slider updates.
+- `src/lib/interpolate.ts:18-29` — cumulative distances with segment breaks.
+- `src/lib/interpolate.ts:57-142` — playback/camera interpolation along a track.
+- `src/lib/usePlaybackController.ts:17-135` — playback progress state machine.
+- `src/lib/usePlaybackController.ts:138-210` — global hotkeys.
+- `src/components/Controls.tsx:41-48` and `src/components/Controls.tsx:55-154` — seek/speed/duration/follow UI.
+- `src/components/MapView.tsx:106-167` — route/trail GeoJSON construction.
+- `src/components/MapView.tsx:326-369` — reference grid source/layers.
+- `src/components/MapView.tsx:542-667` — map init, style load/reload.
+- `src/components/MapView.tsx:669-816` — route/trail layer attach, bounds fit, marker creation.
+- `src/components/MapView.tsx:824-932` — progress-driven marker/trail/camera updates.
+- `src/lib/camera.ts:19-44` and `src/lib/camera.ts:341-435` — scene normalization and camera selection/blending.
+- `src/components/ExportPanel.tsx:131-137` — export config submission.
+- `src/lib/useExportController.ts:84-219` — export lifecycle, map resize/idle, render, download, cleanup.
+- `src/lib/videoEncoder.ts:40-159` — frame loop, map-camera callback, canvas capture, MP4 output.
+- `src/lib/videoEncoder.ts:171-202` — download helper.
+- `src/app/layout.tsx:49-68` — first-paint theme/mapstyle/locale bootstrap, CSP placeholder, font stylesheet.
+- `src/lib/i18n.ts:1713-1779` — locale detection/provider/storage.
+- `src/components/GlobalToolbar.tsx:22-69`, `src/components/TrackToolbar.tsx:84-240`, `src/components/ThemeToggle.tsx:24-73` — runtime locale/theme/style controls.
+- `next.config.ts:1-15` — static export and `/travelback` production base path.
+- `scripts/harden-static-export.mjs:14-29` and `scripts/harden-static-export.mjs:57-103` — static CSP hash replacement.
+- `scripts/serve-static.mjs:14-18`, `scripts/serve-static.mjs:69-119`, `scripts/serve-static.mjs:121-178` — local base-path static server.
+- `scripts/smoke-static.mjs:76-146`, `scripts/smoke-static.mjs:167-180` — static CSP/map-style/server smoke checks.
 
-`node scripts/smoke-static.mjs` → `bright.json still depends on remote sprite/glyph assets`
+## Flow traces and competing hypotheses
 
-## Findings count: 4
+### Upload → parser/worker → track state
 
-| # | Status | Confidence | Area |
-|---|---|---:|---|
-| 1 | Confirmed | High | Static build / map-style hardening |
-| 2 | Confirmed | High | Upload / parse fallback |
-| 3 | Risk | Medium | Upload / parse DoS guard |
-| 4 | Confirmed | High | Scene editing / normalization |
+1. `FileUpload` accepts `.gpx/.kml/.json`, calls `parseTrackFile(file)`, and reports parser codes (`src/components/FileUpload.tsx:52-93`). Drag-and-drop rejects unsupported extensions before parsing (`src/components/FileUpload.tsx:95-109`); input selection relies on parser rejection (`src/components/FileUpload.tsx:124-128`, `src/lib/parser.ts:552-558`).
+2. `parseTrackFile` enforces 200 MB for XML/KML and 100 MB for JSON (`src/lib/parser.ts:432-433`, `src/lib/parser.ts:516-525`), dispatches JSON to the worker path (`src/lib/parser.ts:538-543`), and validates 2..250,000 points before resolving (`src/lib/parser.ts:528-536`).
+3. `HomeInner.handleTrackLoaded` calls `loadTrackIntoSession`, which resets workspace/export artifacts, clears map artifacts, sets both `fullTrack` and current `track`, resets playback, and increments `trackSessionKey` (`src/app/page.tsx:157-173`, `src/app/page.tsx:208-210`).
+4. Competing hypothesis checked: worker path failure should still parse on main thread. This is true only for worker creation/crash paths (`src/lib/parser.ts:451-463`, `src/lib/parser.ts:500-510`), but see Finding 3 for the memory cost of keeping a fallback text copy.
 
----
+### Track state → timeline trim → map/playback/export
 
-## 1) Shipped map styles still depend on remote sprite/glyph assets
+1. `HomeInner` derives a single `cumulativeDistances` array from the current `track` (`src/app/page.tsx:97-101`). That same array is passed to `MapView`, `TrackWorkspace`, `ElevationProfile`, `Controls`, and `useExportController` (`src/app/page.tsx:113-123`, `src/app/page.tsx:331-343`, `src/app/page.tsx:410-446`).
+2. `TrackWorkspace` renders `TimelineSelector` with `track={fullTrack}` but passes the same current-track `cumulativeDistances` (`src/components/TrackWorkspace.tsx:125-132`).
+3. `TimelineSelector` treats `track.points` and `cumulativeDistances` as matching arrays for bucket generation and binary-search index resolution (`src/components/TimelineSelector.tsx:97-121`, `src/components/TimelineSelector.tsx:125-140`).
+4. `onRangeChange` slices `fullTrack` into a new current `track` and resets playback (`src/app/page.tsx:185-206`). That makes the single derived `cumulativeDistances` switch to the trimmed track on the next render.
+5. `MapView` consumes the current `track` and current distances for layer data, marker/trail interpolation, and camera follow (`src/components/MapView.tsx:771-816`, `src/components/MapView.tsx:824-932`). Export consumes the same current `track`/distance pair (`src/lib/useExportController.ts:133-149`).
+6. Competing hypothesis checked: the timeline might own its own full-track distances. It does not; it receives only `cumulativeDistances` from `TrackWorkspace` (`src/components/TimelineSelector.tsx:10-14`, `src/components/TrackWorkspace.tsx:125-132`).
 
-- **File/region**
-  - `scripts/fetch-map-styles.mjs:31-41,99-136`
-  - `public/map-styles/voyager.json:5-20` (same pattern in `positron.json`, `dark.json`, `liberty.json`, `bright.json`)
-  - `scripts/smoke-static.mjs:104-127`
-  - `package.json:7-16`
-  - `src/components/MapView.tsx:500-507,575-583`
+### Map layers → playback → export
 
-- **Traced flow**
-  - `npm run build` / static export → copies `public/map-styles/*.json`
-  - `MapView` loads `MAP_STYLES[mapStyleKey].url`
-  - style JSON still points at CARTO `sprite`, `glyphs`, and vector tile CDN endpoints
-  - `scripts/smoke-static.mjs` asserts the shipped styles are locally pinned and fails immediately
+1. `MapView` initializes MapLibre with the selected style URL and preserved drawing buffer for export (`src/components/MapView.tsx:542-558`).
+2. Style load/reload paths add reference grid layers and current track layers (`src/components/MapView.tsx:605-610`, `src/components/MapView.tsx:645-667`).
+3. Track changes attach/update `route` and `trail`, fit bounds, and ensure a marker (`src/components/MapView.tsx:669-816`).
+4. Playback progress updates interpolate the current track, set marker lng/lat, replace trail GeoJSON through current progress, and optionally jump the camera (`src/components/MapView.tsx:824-932`).
+5. Export pauses playback, resizes the map, waits for idle, renders each frame through `exportVideo`, applies per-frame camera state, mirrors export progress into playback progress, captures the canvas, then downloads the resulting blob (`src/lib/useExportController.ts:84-164`, `src/lib/videoEncoder.ts:40-159`).
+6. Competing hypothesis checked: export recomputes distances independently and might avoid timeline bugs. It uses the current track/distance pair from `HomeInner` when present (`src/lib/useExportController.ts:133-149`), so export is internally consistent for the current trimmed track; the mismatch is specific to the timeline selector receiving full track + trimmed distances.
 
-- **Causal explanation**
-  - The adaptation script only rewrites vector source `url` → `tiles`.
-  - It does not remove or localize `sprite` and `glyphs`.
-  - The build pipeline does not run a separate style-fixup step; `postbuild` only hardens CSP.
+### Theme/locale/style bootstrap
 
-- **Failure scenario**
-  - Static smoke fails on the built artifact, which is already happening.
-  - A “local-only” or offline deployment still needs remote sprite/glyph fetches, so label/POI rendering can break behind restrictive firewalls or offline.
-  - The docs and runtime contract disagree with the shipped assets.
+1. First paint uses an inline bootstrap script to set `data-mode`, `data-mapstyle`, and `lang` from localStorage or system preferences (`src/app/layout.tsx:49-54`). CSS variables are keyed off these attributes (`src/styles/vitro-base.css:262-379`).
+2. `HomeInner` initializes `colorMode` and `mapStyleKey` from the same document attributes/localStorage and writes runtime updates back to document/localStorage (`src/app/page.tsx:36-59`, `src/app/page.tsx:288-321`).
+3. `LocaleProvider` initializes locale from localStorage or `navigator.language`, then keeps `<html lang>` in sync (`src/lib/i18n.ts:1713-1779`).
+4. Competing hypothesis checked: saved explicit map styles should be overwritten by theme changes. Runtime uses `hasExplicitMapStyleChoice` to prevent theme toggles from overwriting a user-cycled style (`src/app/page.tsx:48`, `src/app/page.tsx:296-321`); no finding there.
 
-- **Fix suggestion**
-  - Either make `fetch-map-styles.mjs` fully emit self-contained styles, or wire a separate asset rewrite step into the build so the shipped JSON actually matches the local-only contract.
-  - If remote CARTO assets are intentional, update the docs, CSP rationale, and smoke assertions to match that reality.
+### Static export serving
 
-- **Confidence**
-  - High. The mismatch is directly visible in the JSON and reproduced by the smoke script.
+1. Production build uses `output: 'export'` and `/travelback` base path via `NEXT_PUBLIC_BASE_PATH` (`next.config.ts:1-15`).
+2. `harden-static-export` replaces the placeholder CSP meta with script hashes for inline scripts (`scripts/harden-static-export.mjs:14-29`, `scripts/harden-static-export.mjs:57-103`).
+3. `serve-static` strips `/travelback`, blocks path traversal, serves `out/`, and applies security/cache headers (`scripts/serve-static.mjs:14-18`, `scripts/serve-static.mjs:69-119`, `scripts/serve-static.mjs:121-178`).
+4. `smoke-static` validates base-path routing, CSP hardening, local map styles, cache controls, and absence of hidden tool-state directories in static assets (`scripts/smoke-static.mjs:76-180`).
+5. Competing hypothesis checked: bundled map styles might require remote tiles/glyphs/sprites and fail under `connect-src 'self'`. `smoke-static` asserts style files have no external sources, glyphs, sprites, or symbol layers (`scripts/smoke-static.mjs:122-146`), and `public/map-styles/*.json` describe themselves as local/no remote styles.
 
-- **Status**
-  - Confirmed
+## Findings
 
----
+### 1. Timeline trim uses full-track points with trimmed-track distances after the first trim
 
-## 2) Large JSON worker failures reject instead of falling back to the canonical parser
+- Severity: High
+- Confidence: High
+- Exact regions:
+  - `src/app/page.tsx:97-101` computes `cumulativeDistances` from current `track`.
+  - `src/components/TrackWorkspace.tsx:125-132` passes `track={fullTrack}` and `cumulativeDistances={cumulativeDistances}` into `TimelineSelector`.
+  - `src/components/TimelineSelector.tsx:25-48` and `src/components/TimelineSelector.tsx:125-140` assume the distance array matches `track.points`.
+  - `src/app/page.tsx:185-206` replaces current `track` with a slice of `fullTrack` whenever the timeline emits a range.
+- Failure scenario: Load a long trip, drag the timeline to trim it, then drag the timeline again. After the first trim, `TimelineSelector` still renders `fullTrack.points`, but its `cumulativeDistances` prop now describes the shorter sliced `track`. Histogram buckets for points beyond the slice fall back to `0`, and `ratioToIndex` binary-searches a shorter distance array while using `lastIndex = fullTrack.points.length - 1`. Subsequent trims select wrong indices, cannot reliably address the full original range, and can make the timeline count/date UI disagree with the map, playback, and export route.
+- Concrete fix: Maintain two distance arrays in `HomeInner`: one for `track` consumers (`MapView`, `ElevationProfile`, `Controls`, export) and one for `fullTrack` timeline selection. Pass `fullTrackCumulativeDistances` to `TimelineSelector` while preserving current-track distances elsewhere. Add an e2e regression that trims once, then moves a handle again and asserts the resulting point count/map route changes match the second full-track range.
 
-- **File/region**
-  - `src/lib/parser.ts:450-516`
-  - `src/lib/parser.ts:521-545`
-  - `src/components/FileUpload.tsx:34-47`
+### 2. Keyboard timeline trimming changes local slider state but never updates the actual track
 
-- **Traced flow**
-  - File upload → `parseTrackFile()`
-  - `.json` files route into `parseGoogleLocationHistoryInWorker()`
-  - worker success resolves the track
-  - worker creation / `event.data.error` / missing `track` fall back to the canonical parser
-  - but `worker.onerror` rejects outright for payloads over 50MB
+- Severity: Medium
+- Confidence: High
+- Exact regions:
+  - `src/components/TimelineSelector.tsx:142-148` only notifies the parent on initial mount/point-count changes.
+  - `src/components/TimelineSelector.tsx:221-225` and `src/components/TimelineSelector.tsx:255-258` notify during mouse/touch drag.
+  - `src/components/TimelineSelector.tsx:386-405` and `src/components/TimelineSelector.tsx:442-461` keyboard handlers only call `setStartRatio`/`setEndRatio`.
+  - `src/components/TimelineSelector.tsx:501-505` reset explicitly calls `onRangeChange`, showing the missing keyboard path is not intentional globally.
+- Failure scenario: A keyboard or switch-control user focuses a timeline handle and presses Arrow/Home/End. The selected region, date labels, and point count inside `TimelineSelector` move because local ratios changed, but `HomeInner.handleRangeChange` is never called. The map route, elevation profile, playback, and export continue using the old `track`, so the visible trim UI lies about what will play/export.
+- Concrete fix: Introduce a helper such as `commitRatios(nextStart, nextEnd)` that updates ratio state and immediately calls `onRangeChangeRef.current(...resolveIndexesForRatios(nextStart, nextEnd))`; use it for keyboard handlers and reset. Alternatively add a ratio-change effect that notifies for keyboard changes, while avoiding duplicate drag notifications. Add an accessibility e2e that tabs to a handle, presses ArrowLeft/Right, and asserts the workspace point count/map route changes.
 
-- **Causal explanation**
-  - The app advertises 500MB JSON support (`JSON_MAX_FILE_SIZE`).
-  - The canonical parser in the same file can still parse those files.
-  - The worker error path adds an unrelated `text.length > 50MB` cutoff and bypasses the fallback parser.
+### 3. The JSON worker path eagerly duplicates large files on the main thread before using the worker
 
-- **Failure scenario**
-  - A large but valid Google JSON export triggers a worker exception in one browser/runtime.
-  - Instead of retrying with the main-thread parser, the app returns “too large to parse without Web Worker”.
-  - Users lose a supported import path even though the file is within the published size cap.
+- Severity: Medium
+- Confidence: High
+- Exact regions:
+  - `src/lib/parser.ts:432-433` allows JSON files up to 100 MB.
+  - `src/lib/parser.ts:439-454` decodes the entire `ArrayBuffer` into `textCopy` on the main thread before constructing/posting to the worker.
+  - `public/workers/trackParser.worker.js:247-268` decodes the transferred buffer again inside the worker.
+  - `src/components/FileUpload.tsx:52-60` performs this from the upload UI loading state.
+- Failure scenario: Import an 80-100 MB Google Records/Location History JSON on a memory-constrained laptop or phone. The browser holds the file/buffer, a main-thread UTF-16 text copy, the worker's decoded text, and then parsed object graphs. The UI can freeze during `TextDecoder.decode`, and the tab can OOM even though the file is under the advertised JSON limit. The worker no longer isolates the expensive decode/parse path.
+- Concrete fix: Do not create `textCopy` on the success path. Try `new Worker(...)` first and transfer the buffer directly. If worker construction fails before transfer, decode once on the main thread. If worker execution crashes after transfer, either reacquire the bytes from the original `File` (pass the `File`/a `Blob` into the helper instead of only an `ArrayBuffer`) or surface a retryable worker failure instead of keeping a full text clone for every successful import. Consider lowering the JSON limit or streaming/chunking Google records for mobile.
 
-- **Fix suggestion**
-  - Remove the hard 50MB rejection and retry the canonical parser on all worker failures, or
-  - make the worker fallback policy explicitly match the supported JSON limit and surface that tradeoff in the UI.
+### 4. Save-picker download is invoked after async rendering, outside the original user activation
 
-- **Confidence**
-  - High. The rejection branch is explicit in the code path.
+- Severity: Medium
+- Confidence: Medium-High
+- Exact regions:
+  - `src/components/ExportPanel.tsx:131-137` starts export from the user's click.
+  - `src/lib/useExportController.ts:137-156` awaits full video rendering before calling `downloadVideo`.
+  - `src/lib/videoEncoder.ts:171-183` calls `window.showSaveFilePicker` only after rendering completes.
+  - `src/lib/videoEncoder.ts:190-201` fallback auto-clicks an `<a>` and returns `saved: true` without confirmation.
+- Failure scenario: On Chromium browsers with File System Access API, `showSaveFilePicker` generally requires transient user activation. Because Travelback calls it after seconds/minutes of async encoding, the picker path can reject with a security/user-activation error and silently fall through to auto-download. In browsers/webviews that block delayed programmatic downloads, the UI can still report success even though no file was saved, because the fallback returns `saved: true` immediately after `a.click()`.
+- Concrete fix: Request the file handle/writable stream synchronously from the Start Export click before encoding, then write the blob after rendering. If no handle is available, complete rendering to an object URL and show an explicit user-clicked “Download video” button/link instead of relying only on delayed automatic download. Track and display whether the fallback was merely initiated versus confirmed.
 
-- **Status**
-  - Confirmed
+### 5. Cancelling the save picker leaks the just-rendered object URL/blob until page unload
 
----
+- Severity: Low
+- Confidence: High
+- Exact regions:
+  - `src/lib/useExportController.ts:151-156` creates `blob` and `videoUrl` before download completion is known.
+  - `src/lib/useExportController.ts:157-159` throws `AbortError` if `downloadVideo` reports `saved: false`.
+  - `src/lib/useExportController.ts:165-174` resets state on abort/error but never revokes the local `videoUrl` that was not committed to state.
+- Failure scenario: A user renders a large video, cancels the save picker, then repeats. Each cancelled render leaves a large `blob:` URL reachable until page unload because `exportedVideoUrlRef` was not set and `revokeExportedVideoUrl()` cannot see the local URL.
+- Concrete fix: Keep `let videoUrl: string | null = null` around the download block and revoke it in the catch path unless it was successfully stored in state. This also pairs well with Finding 4's explicit post-render download UI.
 
-## 3) JSON depth guard can miss deep nesting in later file regions
+## Verification performed
 
-- **File/region**
-  - `src/lib/parser.ts:317-360,364-447`
-  - `public/workers/trackParser.worker.js:200-245,125-194`
-
-- **Traced flow**
-  - Upload → Google JSON parse path
-  - both main-thread and worker copies run the same `checkJsonDepth()` logic
-  - the first 1MB is scanned fully, then only four 1KB sample windows are inspected
-
-- **Causal explanation**
-  - The sample scans restart at `baseDepth` instead of the true cumulative depth at each sample offset.
-  - That means deep nesting outside the sampled windows can evade the guard.
-  - The worker and main parser share the same algorithm, so the gap exists in both execution modes.
-
-- **Failure scenario**
-  - A deeply nested Google JSON file slips past the guard and still reaches `JSON.parse()`.
-  - Very large or malicious payloads can therefore consume far more CPU/memory than intended in the browser.
-
-- **Fix suggestion**
-  - Replace the spot-check heuristic with a streaming depth counter or a proper cumulative scan.
-  - If sampling must stay, compute the real depth at each sample boundary before continuing.
-
-- **Confidence**
-  - Medium to high. The algorithmic gap is clear, but the severity depends on input shape and file size.
-
-- **Status**
-  - Risk
-
----
-
-## 4) Invalid scene ranges are normalized away before the warning path can fire
-
-- **File/region**
-  - `src/components/SceneEditor.tsx:201-213,271-285,420-453`
-  - `src/lib/camera.ts:19-44`
-
-- **Traced flow**
-  - User edits scene start/end numbers or drag handles
-  - `updateScene()` patches the scene
-  - `commitScenes()` immediately calls `normalizeScenes()`
-  - `normalizeScenes()` clamps, sorts, enforces monotonic ranges, and filters out zero-length scenes
-  - only after that does `commitScenes()` compute `normalizationWarnings`
-
-- **Causal explanation**
-  - The warning check runs on the already-normalized output.
-  - By that point, any `start >= end` scene has either been corrected or filtered out, so the warning branch is effectively dead.
-
-- **Failure scenario**
-  - A user enters a reversed or overlapping range in the numeric inputs.
-  - The scene can disappear without a visible explanation instead of remaining in an invalid-but-repairable state.
-  - The intended validation message never appears.
-
-- **Fix suggestion**
-  - Validate the raw edited draft before normalization, or preserve invalid scenes with an explicit inline warning until the user corrects them.
-
-- **Confidence**
-  - High. The warning computation happens after the normalization step that removes the invalid state.
-
-- **Status**
-  - Confirmed
-
----
-
-## Final sweep
-
-- Re-checked the other critical paths:
-  - playback/progress
-  - export lifecycle
-  - serving headers
-  - session reset / track clearing
-- No additional confirmed runtime bug surfaced in those paths during this sweep beyond the issues above.
-- Low-severity UI/a11y items already tracked in `.context/plans/deferred-findings-cycle2-2026-04-19.md` remain deferred and were not counted here.
+- Read-only inventory/tracing across the listed files.
+- Ran targeted e2e check for manual-route cleanup: `npm run test:e2e:dev -- --grep "starting a new route clears prior trip map artifacts"` — passed (1 test, 14.4s).
+- Wrote this review only: `.context/reviews/tracer.md`.

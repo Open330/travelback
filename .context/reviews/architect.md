@@ -1,56 +1,52 @@
-# Architect Review — Cycle 1 (2026-04-23)
+# Architect Review — review-plan-fix cycle 1/100 Prompt 1
 
-## Summary
-Review of architectural/design risks, coupling, layering, and component responsibility.
+**Reviewer:** architect
+**Repository:** `/Users/hletrd/flash-shared/Travelback`
+**Date:** 2026-04-24
+**Scope:** app shell, composition root, map/rendering layer, parser + worker boundary, playback/export hooks, video encoder, static-export scripts/configs, and E2E harness.
 
----
+## Findings
 
-## Finding 1: HomeInner component is a 440-line "god component"
-- **File**: `src/app/page.tsx`
-- **Severity**: Medium | **Confidence**: High
-- **Description**: `HomeInner` manages 20+ state variables, 15+ callback handlers, and orchestrates all child components. This is a classic "god component" anti-pattern that makes the code hard to test, maintain, and reason about. State management is entirely via `useState` with prop drilling.
-- **Fix**: Consider extracting state management into custom hooks (e.g., `useTrackSession`, `useThemeState`, `useUIPanels`) and reducing prop drilling via context. The `useExportController` and `usePlaybackController` hooks are good examples of this pattern already applied.
+### 1. TimelineSelector mixes full-track points with filtered-track distances
 
----
+- **Severity:** High
+- **Confidence:** High
+- **Evidence:** `src/app/page.tsx:97-100` computes `cumulativeDistances` from `track`, which becomes the filtered slice; `src/app/page.tsx:410-415` passes both `fullTrack` and that filtered-distance array into `TrackWorkspace`; `src/components/TrackWorkspace.tsx:125-131` passes `track={fullTrack}` and `cumulativeDistances` into `TimelineSelector`; `src/components/TimelineSelector.tsx:97-140` assumes the point array and cumulative-distance array describe the same coordinate space.
+- **Failure scenario:** After the user trims a route, `handleRangeChange` sets `track` to a slice. The selector still renders against `fullTrack`, but its distance array now belongs to the slice, so subsequent trims and histogram buckets can jump to wrong indexes or collapse distance mapping.
+- **Suggested fix:** Maintain separate `fullTrackCumulativeDistances` for the timeline selector and active-track distances for map/playback/elevation/export.
 
-## Finding 2: Tight coupling between MapView and camera/scene system
-- **Files**: `src/components/MapView.tsx`, `src/lib/camera.ts`
-- **Severity**: Low | **Confidence**: High
-- **Description**: MapView directly imports and uses `computeCameraForProgress`, `normalizeScenes`, and `interpolateAlongTrack`. The camera computation logic is well-encapsulated in `camera.ts`, but MapView has intimate knowledge of scene-based camera vs. basic follow camera switching. This makes it hard to test camera behavior independently.
-- **Fix**: Consider extracting camera mode selection into a custom hook that returns the computed camera state, which MapView just applies.
+### 2. Google parser corrupts segment boundaries after global sort
 
----
+- **Severity:** High
+- **Confidence:** High
+- **Evidence:** Segment starts are recorded while parsing insertion-order objects in `src/lib/parser.ts:207-248` and `src/lib/parser.ts:269-312`; points are then deduplicated and globally sorted by timestamp in `src/lib/parser.ts:391-410`; segment starts are remapped from original point order to sorted indexes in `src/lib/parser.ts:412-428`. The worker duplicates the same shape in `public/workers/trackParser.worker.js:54-87`, `99-135`, and `170-205`.
+- **Failure scenario:** Google semantic exports with out-of-order segments, visits, or mixed formats can have segment boundaries that no longer align with contiguous point groups. `computeCumulativeDistances` can then skip or connect the wrong legs, affecting playback, camera, route geometry, and distance totals.
+- **Suggested fix:** Parse into logical segments, dedupe within/between segments, sort whole segments by segment start time, then flatten and derive `segmentStartIndices` after final ordering.
 
-## Finding 3: CSS custom properties used without fallbacks
-- **Files**: All components
-- **Severity**: Low | **Confidence**: Medium
-- **Description**: Components use CSS variables like `var(--t1)`, `var(--gl)`, `var(--bg)` etc. extensively in inline styles. These are defined in CSS files. If a CSS file fails to load, the UI falls back to browser defaults which may be unreadable. The layout.tsx body has `style={{ background: 'var(--bg,#EBEEF4)', color: 'var(--t1,#050810)' }}` which provides fallbacks, but most components don't.
-- **Fix**: Add fallback values to all `var()` usages in inline styles, or ensure CSS loading is guaranteed.
+### 3. Worker interface duplicates parser logic and defeats memory isolation
 
----
+- **Severity:** Medium-High
+- **Confidence:** High
+- **Evidence:** Main Google parsing lives in `src/lib/parser.ts:346-429`; the worker has a separate implementation in `public/workers/trackParser.worker.js:137-205`; constants must manually match in `src/lib/parser.ts:432-433` and `public/workers/trackParser.worker.js:208-219`; the main thread decodes a full `textCopy` before transfer in `src/lib/parser.ts:445-454` and the worker decodes again at `public/workers/trackParser.worker.js:265-268`.
+- **Failure scenario:** A 100 MB JSON import allocates/decodes on the main thread before worker parsing starts, causing UI freezes or memory pressure. Parser fixes can also drift between TS and public JS copies.
+- **Suggested fix:** Generate the worker from shared parser code or move Google parsing into a shared worker bundle. Avoid full pre-transfer text copies for large inputs.
 
-## Finding 4: No error boundary around individual components
-- **File**: `src/app/page.tsx`
-- **Severity**: Low | **Confidence**: Medium
-- **Description**: A single `ErrorBoundary` wraps all of `HomeInner`. If any child component crashes (e.g., MapView, ExportPanel), the entire app shows the error fallback. There are no granular error boundaries around individual components.
-- **Fix**: Add error boundaries around MapView and the export pipeline so that a map error doesn't kill the entire UI.
+### 4. Export pipeline discards encoded video on save-picker cancellation
 
----
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** Encoding completes before `downloadVideo` in `src/lib/useExportController.ts:137-156`; if `downloadVideo` returns `saved: false`, the controller throws `AbortError` before storing the blob/url in `src/lib/useExportController.ts:157-164`; `downloadVideo` returns `saved: false` for picker cancellation in `src/lib/videoEncoder.ts:173-187`.
+- **Failure scenario:** A user waits through a long render, cancels the native save dialog, and the app treats the whole export as cancelled with no preview, retained blob, or retry path.
+- **Suggested fix:** Retain the encoded blob/object URL immediately after encoding and treat picker cancellation as an unsaved-but-complete export, not as a lost export.
 
-## Finding 5: Good separation of parser logic into Web Worker
-- **Severity**: Positive | **Confidence**: High
-- **Description**: The JSON parsing is offloaded to a Web Worker with proper fallback to main thread. The worker creation, message passing, and error handling are well-structured. The pre-transfer buffer copy pattern ensures data is available for fallback.
+### 5. JourneyCreator adds symbol text over glyphless static map styles
 
----
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** Bundled map styles omit glyph/sprite URLs (for example `public/map-styles/voyager.json:1-28`); static smoke checks forbid style-level symbol layers requiring external glyph/sprite assets in `scripts/smoke-static.mjs:122-145`; `JourneyCreator` adds a runtime `symbol` layer with `text-field` in `src/components/JourneyCreator.tsx:208-222`.
+- **Failure scenario:** Journey waypoint labels can fail to render or emit MapLibre glyph warnings/errors under the same static-export constraints the repo otherwise enforces.
+- **Suggested fix:** Replace the symbol label layer with DOM/HTML markers or bundle local glyphs and update style/CSP/smoke tests consistently.
 
-## Finding 6: Good separation of export logic into useExportController hook
-- **Severity**: Positive | **Confidence**: High
-- **Description**: The export pipeline is well-isolated in a custom hook with proper cleanup, abort handling, and state management. The separation of concerns between the hook (orchestration) and `videoEncoder.ts` (frame loop) is clean.
+## Final sweep
 
----
-
-## Final Sweep
-- Component tree and data flow reviewed.
-- State management patterns assessed.
-- Separation of concerns evaluated.
-- Error handling patterns checked.
+The most important cross-file issue is state ownership: full-track controls must use full-track derived data, while playback/export/map surfaces must use the active filtered track. The parser and export findings are adjacent architectural risks because they cross worker/runtime and user-visible output boundaries.

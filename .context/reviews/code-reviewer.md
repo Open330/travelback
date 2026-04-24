@@ -1,78 +1,126 @@
-# Code Quality Review — Cycle 1 (2026-04-23)
+# Code Review Summary — review-plan-fix cycle 1/100, Prompt 1
 
-## Summary
-The codebase is well-structured with clean separation of concerns. However, several logic bugs, edge-case issues, and maintainability concerns were identified.
+**Reviewer:** code-reviewer
+**Repository:** `/Users/hletrd/flash-shared/Travelback`
+**Date:** 2026-04-24
+**Scope:** repository-wide code quality, logic, SOLID, maintainability, security-oriented review. No source files were modified.
 
----
+## Stage 0 — Inventory
 
-## Finding 1: Duplicate file-size check in FileUpload and parser
-- **File**: `src/components/FileUpload.tsx` lines 39-42, `src/lib/parser.ts` lines 520-527
-- **Severity**: Medium | **Confidence**: High
-- **Description**: `FileUpload.handleFile` checks `file.size > maxForType` and throws a generic Error with i18n text. Then `parseTrackFile` also checks `file.size > maxForType` and throws a `ParseError` with code `FILE_TOO_LARGE`. The duplicate check means: (1) the FileUpload check catches it first with a non-ParseError, which then falls through to the generic `setError(t('fileUpload.parseFailed'))` handler instead of the `FILE_TOO_LARGE` code path; (2) if the FileUpload check is removed, the parser's ParseError with the code path works correctly.
-- **Failure scenario**: User uploads a file > 200MB (non-JSON). FileUpload catches it with a plain Error, which doesn't have a `ParseError.code`, so `matchedKey` is empty and `isFileTooLarge` is false. The error display falls through to the generic `parseFailed` message instead of showing the correct "too large" message with the MB limit.
-- **Fix**: Remove the duplicate size check from `FileUpload.handleFile` (lines 39-42), letting `parseTrackFile` handle it with its proper `ParseError` code path.
+Review-relevant files inventoried and examined: **50**
 
----
+- App shell/config: `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `postcss.config.mjs`, `.github/workflows/deploy-pages.yml`
+- App routes/styles: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/vitro-base.css`
+- Components: `src/components/Controls.tsx`, `ElevationProfile.tsx`, `ErrorBoundary.tsx`, `ExportPanel.tsx`, `FileUpload.tsx`, `GlobalToolbar.tsx`, `GoogleGuide.tsx`, `JourneyCreator.tsx`, `KeyboardHelp.tsx`, `MapView.tsx`, `ModalDialog.tsx`, `SceneEditor.tsx`, `ThemeToggle.tsx`, `TimelineSelector.tsx`, `Toast.tsx`, `TrackToolbar.tsx`, `TrackWorkspace.tsx`
+- Libraries/types: `src/lib/camera.ts`, `env.ts`, `i18n.ts`, `interpolate.ts`, `parser.ts`, `useExportController.ts`, `usePlaybackController.ts`, `videoEncoder.ts`, `src/types.ts`
+- Worker/scripts/tests/assets: `public/workers/trackParser.worker.js`, `scripts/*.mjs`, `e2e/travelback.spec.ts`, `playwright*.config.ts`, local map-style JSON, font CSS
 
-## Finding 2: `totalDistance` in JourneyCreator uses default segmentStartIndices
-- **File**: `src/components/JourneyCreator.tsx` line 141
-- **Severity**: Low | **Confidence**: High
-- **Description**: `totalDistance(pts)` is called without passing `segmentStartIndices`. Since JourneyCreator never creates segment breaks, this is functionally correct now but fragile.
-- **Fix**: Pass an explicit empty array: `totalDistance(pts, [])` to make intent clear.
+Current working tree source diff: none. Existing untracked review/plan artifacts were present before this review; this review only writes `.context/reviews/code-reviewer.md`.
 
----
+## Stage 1 — Spec / Behavior Compliance
 
-## Finding 3: `interpolateAlongTrack` binary search edge case at progress=1.0
-- **File**: `src/lib/interpolate.ts` lines 97-103
-- **Severity**: Low | **Confidence**: Medium
-- **Description**: When `targetDist` equals `cumulativeDistances[cumulDist.length - 1]` exactly (progress=1.0), the binary search ends with `lo` at the second-to-last segment. The `segEnd = cumulativeDistances[segIdx + 1] ?? segStart` fallback handles this, but progress=1.0 interpolates into the last segment rather than returning the exact last point.
-- **Fix**: After the binary search, check if `targetDist >= cumulativeDistances[cumulativeDistances.length - 1]` and if so, return the last point directly.
+The implementation broadly matches the documented product shape in `.context/project/01-overview.md` and `.context/project/02-architecture.md`: client-only import/export, local map styles, GPX/KML/Google JSON parsing, scene camera controls, timeline trimming, playback, and static export hardening are all represented in code.
 
----
+The main compliance gap found is in timeline trimming: `TrackWorkspace` renders the selector over `fullTrack` but passes cumulative distances for the currently filtered `track`. That breaks the documented distance-based timeline model after the first trim.
 
-## Finding 4: `normalizeScenes` silently removes zero-duration scenes without warning during export
-- **File**: `src/lib/camera.ts` line 43
-- **Severity**: Medium | **Confidence**: High
-- **Description**: The `.filter((scene) => scene.endPercent > scene.startPercent)` in `normalizeScenes` silently drops scenes where startPercent >= endPercent. The SceneEditor has a separate `normalizationWarnings` check, but the two are decoupled — `normalizeScenes` is called independently during export (in `videoEncoder.ts` line 69) without any warning to the user.
-- **Failure scenario**: User creates a scene with start=50% end=50%. The editor shows a warning, but if the user exports anyway, the scene is silently removed.
-- **Fix**: Ensure the export pipeline reports when scenes are dropped by `normalizeScenes`, or prevent the export button from being clickable when normalization warnings exist.
+## Stage 2 — Diagnostics / Static Checks
 
----
+- `git diff --stat`: no tracked source changes.
+- `npm run typecheck`: **passed**.
+- `npm run lint`: **passed**.
+- `npm audit --audit-level=high`: **passed**, 0 vulnerabilities.
+- Secret scan via ripgrep for API keys/secrets/tokens/passwords outside lockfile: **no hits**.
+- MCP `lsp_diagnostics_directory` / `lsp_servers`: attempted, but the code-intel transport was closed. Fallback verification used `tsc --noEmit` and ESLint.
 
-## Finding 5: `showSaveFilePicker` type casting is unsafe
-- **File**: `src/lib/videoEncoder.ts` lines 175-180
-- **Severity**: Low | **Confidence**: High
-- **Description**: The `showSaveFilePicker` call uses double casting. This works but is fragile if the File System Access API spec changes.
-- **Fix**: Create a typed interface for the File System Access API methods used.
+## Findings
 
----
+### HIGH — Timeline trimming mixes full-track points with filtered-track distances
 
-## Finding 6: `cycleStyle` doesn't persist map style to localStorage
-- **File**: `src/app/page.tsx` lines 293-303
-- **Severity**: Medium | **Confidence**: High
-- **Description**: When the user cycles map styles via the toolbar button, `handleModeChange` persists the theme to localStorage, but `cycleStyle` does NOT persist the map style choice. On page reload, the bootstrap script reads `data-mapstyle` which was set by the initial theme detection, not the user's explicit style choice.
-- **Failure scenario**: User cycles to "Dark" map style, reloads page, gets "Voyager" instead.
-- **Fix**: Save the explicit map style choice to localStorage in `cycleStyle` and read it in the bootstrap script.
+**Files / lines:**
+- `src/components/TrackWorkspace.tsx:125-131`
+- `src/app/page.tsx:97-100`
+
+**Confidence:** High
+
+**Issue:** `TrackWorkspace` passes `track={fullTrack}` to `TimelineSelector`, but passes `cumulativeDistances={cumulativeDistances}` where `cumulativeDistances` is computed from the currently filtered `track` in `page.tsx`. On initial load these match; after any trim, the selector has full-track points and filtered-track distances.
+
+**Failure scenario:** Load a route, drag the timeline to trim to the middle, then drag a handle again. The selector renders/uses full-track indexes but its distance array is shorter and describes the already-trimmed slice. Subsequent trim operations can jump toward the beginning of the original track, mis-count points, or produce inconsistent histogram/index mapping.
+
+**Fix:** Compute a separate `fullTrackCumulativeDistances = computeCumulativeDistances(fullTrack.points, fullTrack.segmentStartIndices)` and pass that to `TimelineSelector`. Keep the current `cumulativeDistances` for `track` consumers such as controls, elevation, map animation, and export. Add an e2e regression that performs two consecutive timeline trims and verifies the second trim stays in the selected region.
 
 ---
 
-## Finding 7: `handleRangeChange` segment index calculation may produce invalid indices
-- **File**: `src/app/page.tsx` lines 170-191
-- **Severity**: Medium | **Confidence**: Medium
-- **Description**: When slicing a track by range, `segmentStartIndices` are filtered and mapped: `.filter((index) => index >= startIdx && index <= endIdx).map((index) => index - startIdx).filter((index) => index > 0)`. The final `.filter(index > 0)` removes the segment start at index 0, but if `startIdx > 0` and there's a segment start exactly at `startIdx`, it gets mapped to 0 and then filtered out.
-- **Fix**: Change the final filter to `index >= 0` and add 1 to the mapped index for non-zero starts, or reconsider the segment preservation logic.
+### MEDIUM — Keyboard timeline sliders update visuals but do not update the selected track
+
+**File / lines:** `src/components/TimelineSelector.tsx:386-459` and `src/components/TimelineSelector.tsx:142-148`
+
+**Confidence:** High
+
+**Issue:** The start/end handle `onKeyDown` handlers update `startRatio` / `endRatio`, but never call `onRangeChange`. The only effect that notifies the parent intentionally depends only on `points.length`, not ratio changes.
+
+**Failure scenario:** A keyboard-only user focuses a timeline handle and presses arrow/Home/End. The slider position and ARIA values change, but `page.tsx` never receives the new range, so the route, title count, playback, elevation, and export remain on the old track range.
+
+**Fix:** Centralize ratio updates in a helper that both sets state and emits `onRangeChangeRef.current(resolveIndexesForRatios(...))`, or add a carefully throttled effect for ratio changes. Cover with a Playwright keyboard test that focuses `timeline-start-handle`, presses ArrowRight, and asserts the loaded point count changes.
 
 ---
 
-## Finding 8: `readFailed` error not properly surfaced to user
-- **File**: `src/lib/parser.ts` line 566
-- **Severity**: Low | **Confidence**: High
-- **Description**: `reader.onerror` throws `new Error('Failed to read file')` which is not a `ParseError` and has no code. This falls through to the generic error handler in FileUpload.
-- **Fix**: Change to `new ParseError('Failed to read file', 'READ_FAILED')` and add mapping in FileUpload.
+### MEDIUM — Google JSON parser logic is duplicated between app code and the production worker
+
+**Files / lines:**
+- `src/lib/parser.ts:346-430` and `src/lib/parser.ts:538-542`
+- `public/workers/trackParser.worker.js:137-205`
+
+**Confidence:** High
+
+**Issue:** The Google Location History parser exists once in TypeScript and again as hand-maintained JavaScript in `public/workers/trackParser.worker.js`. JSON imports use the worker by default, and `parser.ts` rejects worker-reported parse errors rather than falling back to the main-thread parser.
+
+**Failure scenario:** A future parser fix or new Google Takeout variant is added to `src/lib/parser.ts` only. Production JSON uploads still fail because the stale worker parser runs first and returns an error, and the main parser is not tried for worker parse errors.
+
+**Fix:** Move Google parsing into a shared pure module and build/import it into both main and worker paths, or generate the worker from the same TypeScript source. Add parity tests that run every JSON fixture through both the main parser and worker parser and compare point counts, timestamps, and segment starts.
 
 ---
 
-## Final Sweep
-- All source files in `src/` were reviewed.
-- Key cross-file interactions verified.
-- No files were skipped.
+### MEDIUM — Core UI files are large multi-responsibility modules, increasing regression risk
+
+**File / lines:**
+- `src/components/MapView.tsx:385-932`
+- `src/components/JourneyCreator.tsx:113-532`
+- `src/components/SceneEditor.tsx:239-640`
+- `src/app/page.tsx:32-469`
+- `src/lib/parser.ts:41-568`
+- `src/lib/i18n.ts:11-1784`
+
+**Confidence:** High
+
+**Issue:** Several modules combine rendering, event binding, state orchestration, data transforms, side effects, and imperative APIs. This weakens single-responsibility boundaries and makes cross-file bugs harder to spot; the timeline distance bug above is an example of shared state semantics leaking across `page.tsx`, `TrackWorkspace`, and `TimelineSelector`.
+
+**Failure scenario:** A change to map style reloads, trim semantics, or parser support requires editing a 600-950 line component with unrelated responsibilities, making it easy to miss stale closures, wrong dependency arrays, or mismatched data contracts.
+
+**Fix:** Split by behavior, not by arbitrary line count: e.g. `useTimelineRange`, `useMapLayers`, `useMapCamera`, `useJourneyLayers`, and `googleLocationParser` modules. Move locale dictionaries into per-locale files while keeping `TranslationKey` type safety. Add focused unit tests for extracted pure functions before refactoring.
+
+---
+
+### LOW — Canceling the native save picker leaks the freshly created export object URL
+
+**File / lines:** `src/lib/useExportController.ts:151-159`
+
+**Confidence:** Medium
+
+**Issue:** `exportTrack` creates `videoUrl` and then awaits `downloadVideo`. If `downloadVideo` returns `{ saved: false }` for a canceled File System Access picker, the code throws `AbortError` before storing `videoUrl` in state or revoking it.
+
+**Failure scenario:** A user repeatedly completes expensive exports and cancels the save dialog. Each completed Blob URL can remain alive for the session, increasing memory usage for large videos.
+
+**Fix:** Revoke `videoUrl` immediately before throwing on `!downloadResult.saved`, or wrap the post-encode download block in a local `try/catch` that revokes any URL not transferred into state.
+
+## Severity Totals
+
+- CRITICAL: 0
+- HIGH: 1
+- MEDIUM: 3
+- LOW: 1
+
+## Recommendation
+
+**REQUEST CHANGES**
+
+The repository passes lint/typecheck/audit and no hardcoded secrets were found, but the timeline range contract bug is user-visible and affects a core feature. Fix the full-track distance contract first, then add regression coverage for repeated trimming and keyboard trimming.
