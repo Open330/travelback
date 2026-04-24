@@ -135,10 +135,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         onClick={() => inputRef.current?.click()}
         aria-label={t('fileUpload.loadNewFileAria')}
         title={t('fileUpload.loadNewFileAria')}
-        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 items-center justify-center gap-2 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-4"
+        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:flex-row sm:gap-2 sm:px-4 sm:py-2"
         style={{ color: 'var(--t1)' }}
       >
         <FolderOpen size={16} strokeWidth={2} />
+        <span className="text-[9px] leading-none sm:hidden">{t('fileUpload.loadNewFileShort')}</span>
         <span className="hidden sm:inline">{t('fileUpload.loadNewFile')}</span>
         <input
           ref={inputRef}

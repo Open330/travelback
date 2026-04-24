@@ -12,6 +12,7 @@ export const translations = {
   en: {
     // FileUpload
     'fileUpload.loadNewFile': 'Load New File',
+    'fileUpload.loadNewFileShort': 'New',
     'fileUpload.loadNewFileAria': 'Load a new track file',
     'fileUpload.title': 'Travelback',
     'fileUpload.subtitle': 'Animate your journeys into video',
@@ -293,6 +294,7 @@ export const translations = {
     'app.exportCancelled': 'Export cancelled.',
     'app.exportFailed': 'Export failed:',
     'app.exportFailedSuffix': 'Your browser may not support WebCodecs with the selected codec.',
+    'app.exportMapRenderFailed': 'The map did not finish rendering in time. Try a lower resolution or retry after the map settles.',
     'app.renderingVideo': 'Rendering video...',
     'app.cancelExport': 'Cancel',
     'app.cancel': 'Cancel',
@@ -310,6 +312,7 @@ export const translations = {
     'app.sampleLoadFailed': 'Could not load sample trip',
     'app.cancelExportAria': 'Cancel export',
     'app.mapLoadFailed': 'Your browser couldn\'t start the map. Try reloading or using a different browser.',
+    'app.retryMap': 'Retry map',
     'app.mapWaiting': 'Map area — load a travel file to begin',
     'app.showTechnicalDetails': 'Show technical details',
     'app.hideTechnicalDetails': 'Hide technical details',
@@ -356,6 +359,7 @@ export const translations = {
   ko: {
     // FileUpload
     'fileUpload.loadNewFile': '새 파일 불러오기',
+    'fileUpload.loadNewFileShort': '새 파일',
     'fileUpload.loadNewFileAria': '새 트랙 파일 불러오기',
     'fileUpload.title': 'Travelback',
     'fileUpload.subtitle': '여행을 영상으로 만들어보세요',
@@ -637,6 +641,7 @@ export const translations = {
     'app.exportCancelled': '내보내기가 취소되었습니다.',
     'app.exportFailed': '내보내기 실패:',
     'app.exportFailedSuffix': '브라우저가 선택한 코덱의 WebCodecs를 지원하지 않을 수 있습니다.',
+    'app.exportMapRenderFailed': '지도가 제시간에 렌더링되지 않았습니다. 해상도를 낮추거나 지도가 안정된 뒤 다시 시도하세요.',
     'app.renderingVideo': '영상 렌더링 중...',
     'app.cancelExport': '취소',
     'app.cancel': '취소',
@@ -654,6 +659,7 @@ export const translations = {
     'app.sampleLoadFailed': '샘플 여행을 불러올 수 없습니다',
     'app.cancelExportAria': '내보내기 취소',
     'app.mapLoadFailed': '브라우저에서 지도를 시작할 수 없습니다. 페이지를 새로고침하거나 다른 브라우저를 사용해 보세요.',
+    'app.retryMap': '지도 다시 시도',
     'app.mapWaiting': '지도 영역 — 여행 파일을 불러오세요',
     'app.showTechnicalDetails': '기술 세부 정보 표시',
     'app.hideTechnicalDetails': '기술 세부 정보 숨기기',
@@ -700,6 +706,7 @@ export const translations = {
   ja: {
     // FileUpload
     'fileUpload.loadNewFile': '新しいファイルを読み込む',
+    'fileUpload.loadNewFileShort': '新規',
     'fileUpload.loadNewFileAria': '新しいトラックファイルを読み込む',
     'fileUpload.title': 'Travelback',
     'fileUpload.subtitle': '旅をビデオにアニメーション化',
@@ -981,6 +988,7 @@ export const translations = {
     'app.exportCancelled': 'エクスポートがキャンセルされました。',
     'app.exportFailed': 'エクスポートに失敗:',
     'app.exportFailedSuffix': 'お使いのブラウザは選択したコーデックのWebCodecsに対応していない可能性があります。',
+    'app.exportMapRenderFailed': 'マップのレンダリングが時間内に完了しませんでした。解像度を下げるか、マップが安定してから再試行してください。',
     'app.renderingVideo': '動画をレンダリング中...',
     'app.cancelExport': 'キャンセル',
     'app.cancel': 'キャンセル',
@@ -998,6 +1006,7 @@ export const translations = {
     'app.sampleLoadFailed': 'サンプルの旅を読み込めませんでした',
     'app.cancelExportAria': 'エクスポートをキャンセル',
     'app.mapLoadFailed': 'ブラウザでマップを開始できませんでした。ページを再読み込みするか、別のブラウザをお試しください。',
+    'app.retryMap': 'マップを再試行',
     'app.mapWaiting': 'マップエリア — 旅行ファイルを読み込んでください',
     'app.showTechnicalDetails': '技術的な詳細を表示',
     'app.hideTechnicalDetails': '技術的な詳細を非表示',
@@ -1044,6 +1053,7 @@ export const translations = {
   zh: {
     // FileUpload
     'fileUpload.loadNewFile': '加载新文件',
+    'fileUpload.loadNewFileShort': '新建',
     'fileUpload.loadNewFileAria': '加载新的轨迹文件',
     'fileUpload.title': 'Travelback',
     'fileUpload.subtitle': '将旅程制作成动画视频',
@@ -1325,6 +1335,7 @@ export const translations = {
     'app.exportCancelled': '导出已取消。',
     'app.exportFailed': '导出失败:',
     'app.exportFailedSuffix': '您的浏览器可能不支持所选编解码器的WebCodecs。',
+    'app.exportMapRenderFailed': '地图未能及时完成渲染。请降低分辨率，或等待地图稳定后重试。',
     'app.renderingVideo': '正在渲染视频...',
     'app.cancelExport': '取消',
     'app.cancel': '取消',
@@ -1342,6 +1353,7 @@ export const translations = {
     'app.sampleLoadFailed': '无法加载示例旅程',
     'app.cancelExportAria': '取消导出',
     'app.mapLoadFailed': '浏览器无法启动地图。请尝试刷新页面或使用其他浏览器。',
+    'app.retryMap': '重试地图',
     'app.mapWaiting': '地图区域 — 请加载旅行文件',
     'app.showTechnicalDetails': '显示技术详情',
     'app.hideTechnicalDetails': '隐藏技术详情',
@@ -1388,6 +1400,7 @@ export const translations = {
   es: {
     // FileUpload
     'fileUpload.loadNewFile': 'Cargar nuevo archivo',
+    'fileUpload.loadNewFileShort': 'Nuevo',
     'fileUpload.loadNewFileAria': 'Cargar un nuevo archivo de ruta',
     'fileUpload.title': 'Travelback',
     'fileUpload.subtitle': 'Anima tus viajes en video',
@@ -1669,6 +1682,7 @@ export const translations = {
     'app.exportCancelled': 'Exportación cancelada.',
     'app.exportFailed': 'Error en la exportación:',
     'app.exportFailedSuffix': 'Tu navegador puede no ser compatible con WebCodecs para el códec seleccionado.',
+    'app.exportMapRenderFailed': 'El mapa no terminó de renderizarse a tiempo. Prueba una resolución menor o vuelve a intentarlo cuando el mapa esté estable.',
     'app.renderingVideo': 'Renderizando video...',
     'app.cancelExport': 'Cancelar',
     'app.cancel': 'Cancelar',
@@ -1686,6 +1700,7 @@ export const translations = {
     'app.sampleLoadFailed': 'No se pudo cargar el viaje de ejemplo',
     'app.cancelExportAria': 'Cancelar exportación',
     'app.mapLoadFailed': 'Tu navegador no pudo iniciar el mapa. Intenta recargar la página o usar otro navegador.',
+    'app.retryMap': 'Reintentar mapa',
     'app.mapWaiting': 'Área del mapa — carga un archivo de viaje para comenzar',
     'app.showTechnicalDetails': 'Mostrar detalles técnicos',
     'app.hideTechnicalDetails': 'Ocultar detalles técnicos',

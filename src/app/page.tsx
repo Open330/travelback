@@ -218,6 +218,11 @@ function HomeInner() {
 
     const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
     if (slicedPoints.length < 2) return
+    const isFullRange = startIdx === 0 && endIdx === fullTrack.points.length - 1
+    if (!isFullRange && scenes.length > 0) {
+      setScenes([])
+      setShowSceneEditor(false)
+    }
 
     const filteredTrack: Track = {
       name: fullTrack.name,
@@ -234,7 +239,7 @@ function HomeInner() {
 
     setTrack(filteredTrack)
     resetPlayback()
-  }, [fullTrack, resetPlayback])
+  }, [fullTrack, resetPlayback, scenes.length])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
     loadTrackIntoSession(nextTrack)

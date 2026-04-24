@@ -146,7 +146,7 @@ function stripXmlEntities(text: string): string {
   return text
     .replace(/<!DOCTYPE[\s\S]*?\]>/gi, '')
     .replace(/<!DOCTYPE[^>]*>/gi, '')
-    .replace(/<!ENTITY[^>]*>/gi, '')
+    .replace(/<!ENTITY[\s\S]*?>/gi, '')
 }
 
 function parseXml(text: string, formatName: string): Document {

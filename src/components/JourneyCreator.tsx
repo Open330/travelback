@@ -137,6 +137,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchError, setSearchError] = useState<string | null>(null)
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
+  const [mapReadyRetry, setMapReadyRetry] = useState(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -241,7 +242,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
   useEffect(() => {
     const map = mapRef.current?.getMap()
-    if (!map) return
+    if (!map) {
+      if (!isActive || mapReadyRetry >= 30) return
+      const retryId = window.setTimeout(() => {
+        setMapReadyRetry((retry) => retry + 1)
+      }, 100)
+      return () => window.clearTimeout(retryId)
+    }
 
     if (!isActive) {
       // Clean up when deactivated
@@ -255,6 +262,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       setDistanceMeters(0)
       return
     }
+    setMapReadyRetry(0)
 
     // Set up layers and event handlers
     const bindListeners = () => {
@@ -429,8 +437,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       setPointCount(0)
       setDistanceMeters(0)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; only re-run when active state changes
-  }, [isActive])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; only re-run when active state changes or the bounded map-ready retry advances
+  }, [isActive, mapReadyRetry])
 
   const handleUndo = useCallback(() => {
     if (waypointsRef.current.length === 0) return

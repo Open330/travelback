@@ -5,6 +5,9 @@ import { basePath } from '@/lib/env'
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
   ?? (process.env.NODE_ENV === 'production' ? 'https://open330.github.io' : 'http://localhost:3000')
 const appUrl = new URL(`${siteOrigin}${basePath || ''}/`)
+const placeholderScriptSrc = process.env.NODE_ENV === 'production'
+  ? "'self' 'unsafe-inline'"
+  : "'self' 'unsafe-inline' 'unsafe-eval'"
 
 export const metadata: Metadata = {
   title: {
@@ -53,14 +56,14 @@ export default function RootLayout({
     <html lang="en" data-svc="travelback" data-mesh="on" data-mode="light" data-mapstyle="voyager" suppressHydrationWarning>
       <head>
         <Script id="travelback-bootstrap" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
-        {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
+        {/* Dev keeps a conservative inline/eval-compatible CSP so Next can bootstrap normally.
             `npm run build` then runs `scripts/harden-static-export.mjs`, which replaces this
             placeholder with a hash-based static CSP and removes the production `unsafe-inline`
             script allowance from the emitted HTML. */}
         <meta
           httpEquiv="Content-Security-Policy"
           data-travelback-csp="placeholder"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;"
+          content={`default-src 'self'; script-src ${placeholderScriptSrc}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;`}
         />
         <link
           rel="stylesheet"

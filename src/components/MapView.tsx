@@ -260,16 +260,25 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
     }
   }
 
-  let minLng = Infinity
-  let maxLng = -Infinity
+  let rawMinLng = Infinity
+  let rawMaxLng = -Infinity
   let minLat = Infinity
   let maxLat = -Infinity
 
   for (const point of track.points) {
-    minLng = Math.min(minLng, point.lng)
-    maxLng = Math.max(maxLng, point.lng)
+    rawMinLng = Math.min(rawMinLng, point.lng)
+    rawMaxLng = Math.max(rawMaxLng, point.lng)
     minLat = Math.min(minLat, point.lat)
     maxLat = Math.max(maxLat, point.lat)
+  }
+
+  const crossesAntimeridian = rawMaxLng - rawMinLng > 180
+  let minLng = Infinity
+  let maxLng = -Infinity
+  for (const point of track.points) {
+    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
+    minLng = Math.min(minLng, lng)
+    maxLng = Math.max(maxLng, lng)
   }
 
   const span = Math.max(maxLng - minLng, maxLat - minLat, 0.01)
@@ -277,8 +286,8 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
   const majorEvery = 5
   const lngMargin = Math.max(span * 1.5, step * 4)
   const latMargin = Math.max(span * 1.5, step * 4)
-  const expandedMinLng = Math.max(-180, minLng - lngMargin)
-  const expandedMaxLng = Math.min(180, maxLng + lngMargin)
+  const expandedMinLng = Math.max(crossesAntimeridian ? 0 : -180, minLng - lngMargin)
+  const expandedMaxLng = Math.min(crossesAntimeridian ? 360 : 180, maxLng + lngMargin)
   const expandedMinLat = Math.max(-85, minLat - latMargin)
   const expandedMaxLat = Math.min(85, maxLat + latMargin)
 
@@ -415,6 +424,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const durationRef = useRef(duration)
   const transitionDurationRef = useRef(transitionDuration)
   const [mapError, setMapError] = useState<string | null>(null)
+  const [mapRetryNonce, setMapRetryNonce] = useState(0)
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -547,9 +557,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (!containerRef.current) return
 
     try {
+      const initialStyleKey = styleKeyRef.current
       const map = new maplibregl.Map({
         container: containerRef.current,
-        style: MAP_STYLES[mapStyleKey].url,
+        style: MAP_STYLES[initialStyleKey].url,
         center: [0, 20],
         zoom: 2,
         // preserveDrawingBuffer:true is required so that captureStream()/drawImage()
@@ -563,7 +574,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.addControl(new maplibregl.NavigationControl(), 'top-left')
 
       mapRef.current = map
-      styleKeyRef.current = mapStyleKey
+      styleKeyRef.current = initialStyleKey
 
       const debugParams = new URLSearchParams(window.location.search)
       let debugStorageEnabled = false
@@ -641,9 +652,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.error('Failed to initialize map:', err instanceof Error ? err.message : 'Unknown error')
       setMapError(err instanceof Error ? err.message : 'Failed to initialize WebGL map')
     }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- map creation is controlled by mount and explicit retry; mutable refs provide the latest style/track state without re-creating the MapLibre instance on every prop change
+  }, [mapRetryNonce])
 
   // Change map style
   useEffect(() => {
@@ -951,6 +961,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           </details>
           <button type="button" onClick={() => window.location.reload()} className="gi mt-4 min-h-11 px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t1)' }}>
             {t('error.reloadPage')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMapError(null)
+              setMapRetryNonce((nonce) => nonce + 1)
+            }}
+            className="vitro-btn-primary mt-2 min-h-11 px-4 py-2 text-sm cursor-pointer"
+          >
+            {t('app.retryMap')}
           </button>
         </div>
       )}

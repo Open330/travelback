@@ -15,6 +15,7 @@ const SINGLE_QUOTE_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/single-quote-
 const POINT_PLACEMARKS_KML_FIXTURE = path.resolve(__dirname, 'fixtures/point-placemarks.kml')
 const INVALID_ELEVATION_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/invalid-elevation.gpx')
 const ANTIMERIDIAN_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/antimeridian.gpx')
+const MULTILINE_ENTITY_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/multiline-entity.gpx')
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -367,8 +368,9 @@ test.describe('Travelback App', () => {
 
     // The map error UI should appear
     await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
-    // Verify the reload button is accessible inside the error UI
-    await expect(page.getByTestId('map-error').getByRole('button')).toBeVisible()
+    // Verify recovery actions are accessible inside the error UI
+    await expect(page.getByTestId('map-error').getByRole('button', { name: /reload page/i })).toBeVisible()
+    await expect(page.getByTestId('map-error').getByRole('button', { name: /retry map/i })).toBeVisible()
   })
 
   test('map error reload button restores the map after unblocking the style', async ({ page }) => {
@@ -420,6 +422,11 @@ test.describe('Travelback App', () => {
   test('imports GPX files that use single-quoted XML attributes', async ({ page }) => {
     await uploadCustomFile(page, SINGLE_QUOTE_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Single Quote GPX')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('imports GPX files after stripping multiline entity declarations', async ({ page }) => {
+    await uploadCustomFile(page, MULTILINE_ENTITY_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Multiline Entity GPX')).toBeVisible({ timeout: 15_000 })
   })
 
   test('imports KML files composed from point placemarks', async ({ page }) => {
@@ -588,6 +595,7 @@ test.describe('Travelback App', () => {
       const loadNewFileBox = await page.getByTestId('load-new-file-button').boundingBox()
       return loadNewFileBox?.width ?? 999
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeLessThanOrEqual(60)
+    await expect(page.getByTestId('load-new-file-button')).toContainText('New')
   })
 
   test('mobile playback controls keep stats on a separate row', async ({ page }) => {
@@ -955,21 +963,17 @@ test.describe('Travelback App', () => {
 
     const playBtn = page.getByRole('button', { name: 'Play' })
     await playBtn.click({ force: true })
-    await page.waitForTimeout(1200)
 
-    const camera = await page.evaluate(() => {
+    await expect.poll(async () => page.evaluate(() => {
       type DebugWindow = Window & {
         __travelbackDebug?: {
           getCamera: () => { center: [number, number]; zoom: number } | null
         }
       }
 
-      return (window as DebugWindow).__travelbackDebug?.getCamera() ?? null
-    })
-
-    expect(camera).not.toBeNull()
-    expect(camera?.zoom).toBeGreaterThan(3)
-    expect(Math.abs(Math.abs(camera?.center[0] ?? 0) - 180)).toBeLessThan(5)
+      const camera = (window as DebugWindow).__travelbackDebug?.getCamera() ?? null
+      return Boolean(camera && camera.zoom > 3 && Math.abs(Math.abs(camera.center[0]) - 180) < 5)
+    }), { timeout: 10_000, intervals: [200, 400, 600] }).toBe(true)
   })
 
   test('scene editor opens and allows adding scenes', async ({ page }) => {
@@ -1000,6 +1004,30 @@ test.describe('Travelback App', () => {
     const modeCombobox = page.locator('.space-y-2 select').first()
     await expect(modeCombobox).toBeVisible()
     await expect(modeCombobox).toHaveValue('flyover')
+  })
+
+  test('timeline trimming clears scenes authored against the previous full track', async ({ page }) => {
+    await uploadGpx(page)
+
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: '+ Add' }).click({ force: true })
+    await expect(page.getByRole('textbox').first()).toHaveValue('Scene 1', { timeout: 5_000 })
+
+    const timeline = page.getByTestId('timeline-selector')
+    const timelineBox = await timeline.boundingBox()
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const endHandleBox = await endHandle.boundingBox()
+    if (!timelineBox || !endHandleBox) throw new Error('Missing timeline geometry')
+
+    await page.mouse.move(endHandleBox.x + endHandleBox.width / 2, endHandleBox.y + endHandleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.8, endHandleBox.y + endHandleBox.height / 2, { steps: 8 })
+    await page.mouse.up()
+
+    await expect(page.getByTestId('scene-editor-panel')).toBeHidden({ timeout: 10_000 })
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await expect(page.getByText('No scenes yet')).toBeVisible({ timeout: 10_000 })
   })
 
   test('scene presets use localized default names', async ({ page }) => {

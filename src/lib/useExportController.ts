@@ -12,6 +12,11 @@ import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 
+function isMapRenderExportError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return error.message.includes('Map did not finish rendering')
+}
+
 interface UseExportControllerOptions {
   track: Track | null
   scenes: Scene[]
@@ -95,10 +100,9 @@ export function useExportController({
     const abortController = new AbortController()
     exportAbortRef.current = abortController
     const preExportProgress = playbackProgress
+    const hadExistingExport = exportedVideoUrlRef.current !== null
     let pendingVideoUrl: string | null = null
     let pendingVideoUrlStored = false
-
-    revokeExportedVideoUrl()
 
     setIsExporting(true)
     setExportState('exporting')
@@ -180,9 +184,12 @@ export function useExportController({
           addToast(t('app.exportCancelled'), 'info')
         } else {
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
-          addToast(`${t('app.exportFailed')} ${t('app.exportFailedSuffix')}`, 'error')
+          const detailKey: TranslationKey = isMapRenderExportError(error)
+            ? 'app.exportMapRenderFailed'
+            : 'app.exportFailedSuffix'
+          addToast(`${t('app.exportFailed')} ${t(detailKey)}`, 'error')
         }
-        setExportState('idle')
+        setExportState(hadExistingExport ? 'done' : 'idle')
       }
     } finally {
       exportAbortRef.current = null
@@ -223,7 +230,6 @@ export function useExportController({
     mapViewRef,
     pausePlayback,
     playbackProgress,
-    revokeExportedVideoUrl,
     scenes,
     setPlaybackProgress,
     t,
