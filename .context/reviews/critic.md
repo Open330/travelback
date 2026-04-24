@@ -1,19 +1,20 @@
-# Critic Review — Review-Plan-Fix Cycle 1/100 (2026-04-24)
+# Critic Review — Review-Plan-Fix Cycle 2 (2026-04-24)
 
 **Reviewer:** critic lane
-**Scope:** whole current repo plus relevant `.context` docs, with emphasis on product correctness, architecture, edge cases, UX risks, and deployment/static-export assumptions.
+**Scope:** current repo runtime, build, export, UX, and test surface. This review is grounded in the live code/config surface, not prior review artifacts.
 
-## Inventory of Review-Relevant Files
+## Inventory Reviewed First
 
-### Runtime product surface
-- `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/vitro-base.css`
+### Runtime and UX surface
+- `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
 - `src/components/*.tsx`
 - `src/lib/*.ts`
+- `src/styles/vitro-base.css`
 - `src/types.ts`
 - `public/workers/trackParser.worker.js`
 - `public/map-styles/*.json`
 
-### Build, test, and export surface
+### Build, deployment, and verification surface
 - `package.json`
 - `next.config.ts`
 - `tsconfig.json`
@@ -21,94 +22,81 @@
 - `postcss.config.mjs`
 - `playwright.config.ts`
 - `playwright.static.config.ts`
-- `scripts/harden-static-export.mjs`
-- `scripts/serve-static.mjs`
-- `scripts/smoke-static.mjs`
-- `scripts/fetch-map-styles.mjs`
+- `scripts/*.mjs`
 - `e2e/travelback.spec.ts`
-- `e2e/fixtures/*`
+- `e2e/fixtures/*` (fixture inventory checked)
 
-### Relevant `.context` docs examined
-- `.context/README.md`
-- `.context/project/01-overview.md`
-- `.context/project/02-architecture.md`
-- `.context/development/01-conventions.md`
-- `.context/plans/README.md`
-- `.context/reports/cycle5-report-2026-04-23.md`
-- `.context/reviews/cycle-c2-aggregate-2026-04-24.md`
+## Verification Run
 
-## Verification Performed
-
-- `npm run lint` — passed
 - `npm run typecheck` — passed
 - `npm run build` — passed
 - `npm run smoke:static` — passed
-- A full `npm run test:e2e:static:ci` run was started, but I did not wait for completion after confirming the suite launched; it is not used as evidence below.
+- Full Playwright suite was not rerun end-to-end for this pass; findings below rely on code evidence plus the existing test surface.
 
 ## Findings
 
-### CRITIC-001 — JourneyCreator’s travel-icon picker is a no-op
+### CRITIC-001 — The shipped “map” is effectively a blank background plus a synthetic grid, which does not match the product promise
 
 - **Status:** Confirmed issue
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `src/components/JourneyCreator.tsx:41-48`, `src/components/JourneyCreator.tsx:52-60`, `src/components/JourneyCreator.tsx:184-205`, `src/components/JourneyCreator.tsx:539-545`, `src/components/JourneyCreator.tsx:665-692`, `src/types.ts:15-19`
-- **Why this is a problem:** The UI offers walk/car/plane/bus/train/bike choices, but the selected icon is only written into GeoJSON feature properties. The map renders those waypoints with a `circle` layer, not a symbol/icon layer, and the created `Track` type has nowhere to persist the chosen mode. The control changes button highlight only; it does not change the preview or any saved/exported state.
-- **Concrete failure scenario:** A user recreates a flight and selects the plane icon to distinguish it from a walking route. The authoring preview still shows identical orange circles, and the completed journey/export is indistinguishable from the walking version. That makes the control misleading and undermines trust in the editor.
-- **Suggested fix:** Either implement the feature fully by rendering the chosen icon in the authoring map and persisting travel-mode metadata into the created route model, or remove the picker until it has actual behavioral impact.
-
-### CRITIC-002 — Manual-route preview does not handle antimeridian crossings even though the main track renderer does
-
-- **Status:** Confirmed issue
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `src/components/JourneyCreator.tsx:63-70`, `src/components/JourneyCreator.tsx:149-158`, `src/components/JourneyCreator.tsx:163-181`, `src/components/MapView.tsx:106-166`
-- **Why this is a problem:** `JourneyCreator` draws the in-progress line with raw longitudes, while `MapView` already contains wrap-aware geometry logic for imported tracks. That means the manual-creation surface regresses on a geography edge case the playback/export surface already knows how to handle.
-- **Concrete failure scenario:** A user creates a trip from `179.8` to `-179.7` near the dateline. Distance math remains sensible, but the live authoring line stretches the long way across the world instead of crossing the dateline cleanly. The preview says one thing while the loaded/final route later behaves differently.
-- **Suggested fix:** Reuse the wrapped line-building logic from `MapView` or move that logic into a shared helper in `src/lib/` so JourneyCreator and MapView generate route geometry the same way.
-
-### CRITIC-003 — Export silently does nothing when the map failed to initialize
-
-- **Status:** Confirmed issue
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `src/components/MapView.tsx:613-639`, `src/components/MapView.tsx:942-952`, `src/app/page.tsx:365-500`, `src/lib/useExportController.ts:87-90`
-- **Why this is a problem:** Map initialization/style failures surface a visible error panel, but the rest of the track workflow remains live. If the user loads a track anyway, `TrackWorkspace` and `ExportPanel` still render. Pressing export then returns early because there is no map/canvas handle, with no toast, error state, or disabled CTA.
-- **Concrete failure scenario:** WebGL is unavailable or the style JSON fails to load. The user uploads a GPX file, sees the rest of the app chrome, opens Export, presses “Start Export,” and nothing happens. There is no feedback tying the no-op back to the map failure.
-- **Suggested fix:** Gate export/playback UI on a healthy map handle, or make `exportTrack()` emit a user-visible error when `mapHandle`/`canvas` is unavailable instead of returning silently.
-
-### CRITIC-004 — Download success reporting is overly optimistic and can claim success without a confirmed saved file
-
-- **Status:** Confirmed issue, with likely browser-dependent user impact
 - **Severity:** High
-- **Confidence:** Medium-High
-- **Evidence:** `src/lib/videoEncoder.ts:171-211`, `src/lib/useExportController.ts:158-170`, `src/components/ExportPanel.tsx:207-214`
-- **Why this is a problem:** The fallback download path always returns `{ saved: true, method: 'fallback' }` immediately after synthetic anchor click. `useExportController` then marks the export `done` and shows a success toast, and `ExportPanel` tells the user the video was saved or the download started. That is not a confirmed save; it is just an attempted browser download initiation.
-- **Concrete failure scenario:** On a restrictive mobile browser or WebView, `a.click()` does not produce a persisted download after a long async export. The app still says “Your video download has started,” leaving the user with no file and no clear recovery path beyond the preview blob.
-- **Suggested fix:** Reserve “saved” only for the File System Access path or another confirmed completion signal. For fallback browsers, treat the result as “ready” unless a save is explicitly confirmed, keep the preview URL available, and present a clear manual download CTA. If a real save dialog is desired, collect the file handle before encoding begins instead of after the async export finishes.
+- **Confidence:** High
+- **Evidence:** `src/app/layout.tsx:14-15`, `src/app/layout.tsx:24`, `src/types.ts:25-45`, `public/map-styles/voyager.json:1-29` (same structure in all `public/map-styles/*.json`), `src/components/MapView.tsx:225-324`, `src/components/MapView.tsx:327-369`
+- **Why this is a problem:** The app copy promises an “interactive map” and animated travel videos with map context, but the bundled styles contain no basemap sources, no roads, no coastlines, and no labels. `MapView` compensates by drawing only a latitude/longitude reference grid over a flat color. That is a materially different product than what the landing copy and metadata advertise.
+- **Concrete failure scenario:** A user uploads a GPX file for a city trip expecting recognizable geography. The route renders on a blank colored surface with abstract grid lines only, making the preview and exported video much less useful for storytelling or orientation.
+- **Suggested fix:** Either ship a real local/offline basemap asset stack, or explicitly reposition the product and preview assets around “route-on-grid” output instead of “interactive map” output. Right now the code and the promise diverge.
 
-### CRITIC-005 — Production deployment is hard-wired to `/travelback` and one default site origin
+### CRITIC-002 — Dateline trips still get world-scale reference-grid bounds because the grid path ignores antimeridian wrapping
 
-- **Status:** Likely risk / hard deployment assumption
+- **Status:** Confirmed issue
 - **Severity:** Medium
 - **Confidence:** High
-- **Evidence:** `next.config.ts:3-10`, `package.json:5-17`, `src/app/layout.tsx:4-6`, `scripts/smoke-static.mjs:18-25`, `scripts/smoke-static.mjs:167-180`
-- **Why this is a problem:** The production build, preview server, smoke test, and metadata all assume GitHub Pages-style hosting at `/travelback` and default origin `https://open330.github.io`. That is fine for one deployment target, but it is encoded as a build invariant rather than a deployment configuration.
-- **Concrete failure scenario:** The team deploys the exported `out/` directory to a root custom domain or to a different subdirectory. The build still passes locally, but runtime asset URLs, public-file fetches, and metadata URLs resolve under `/travelback/...` and break.
-- **Suggested fix:** Make base path and public site URL explicit environment configuration, default them safely for root hosting, and run smoke/static E2E coverage against both root and configured-subpath deployments.
+- **Evidence:** `src/components/MapView.tsx:107-168`, `src/components/MapView.tsx:170-204`, `src/components/MapView.tsx:263-319`
+- **Why this is a problem:** The route renderer and fit-bounds logic already handle antimeridian crossings, but `buildReferenceGridData()` falls back to raw `minLng`/`maxLng`. For tracks around `179` to `-179`, that makes the span look almost global, so the reference grid expands to near-world coverage even when the route itself is local to the dateline crossing.
+- **Concrete failure scenario:** A Korea↔Japan or Pacific dateline trip renders with a wrapped route, but the contextual grid explodes out to a near-global frame. The result is visually inconsistent and adds noise exactly on the edge case the rest of the map logic is trying to treat carefully.
+- **Suggested fix:** Reuse the same wrapped-longitude bounding logic used by `buildTrackGeometry()` / `buildFitBounds()` when computing grid extent, so context geometry and route geometry share one antimeridian model.
 
-### CRITIC-006 — Google JSON parsing still lives in two independent implementations
+### CRITIC-003 — Export failure messaging is misleading because all non-cancel failures are blamed on codec support
 
-- **Status:** Likely risk
+- **Status:** Confirmed issue
 - **Severity:** Medium
 - **Confidence:** High
-- **Evidence:** `src/lib/parser.ts:429-573`, `public/workers/trackParser.worker.js:1-322`
-- **Why this is a problem:** The Google Location History parser, depth checks, point limits, and error mapping are duplicated between the main-thread path and the public worker file. That keeps current behavior working, but it creates a maintenance trap where fixes can land in one path and not the other.
-- **Concrete failure scenario:** A future parser bugfix is applied only to `src/lib/parser.ts`. Small files or worker-fallback cases start parsing correctly, while normal worker-backed imports still reject or normalize differently. The app then behaves inconsistently based on file size or Worker availability.
-- **Suggested fix:** Move the Google parser into a shared module used by both environments, or generate the worker from the same source during build so behavior cannot drift. Add fixture parity tests that exercise both paths.
+- **Evidence:** `src/lib/useExportController.ts:123-139`, `src/lib/useExportController.ts:174-186`, `src/lib/i18n.ts:294-295`
+- **Why this is a problem:** The controller throws for multiple failure classes, including map idle/render timing failures, then collapses all non-abort errors into `app.exportFailed + app.exportFailedSuffix`, whose copy specifically blames WebCodecs/codec support. That is a diagnosis, not a generic error.
+- **Concrete failure scenario:** A 4K export on a slower device times out waiting for map idle after resize. The toast tells the user their browser may not support the selected codec, sending them toward the wrong workaround and hiding the actual render-time bottleneck.
+- **Suggested fix:** Classify error sources before surfacing them. Preserve codec-specific guidance for codec-probe or encoder failures only, and provide distinct copy for map render timeout, resize failure, or generic export exceptions.
 
-## Final Sweep Note
+### CRITIC-004 — The “confirmed save” path likely never happens in normal exports because file-picker access is checked after a long async encode
 
-- **Examined:** the current app/config/test surface under `src/`, `scripts/`, `public/workers/`, `e2e/`, and top-level config files, plus the relevant `.context` project/development/plan/report/review docs listed above.
-- **Skipped:** I did **not** exhaustively reread every archived file under `.context/reviews/` and `.context/plans/archive/`; they were inventoried as historical context, but the review was grounded in the current code/config/test surface.
-- **Nothing current was skipped:** no active source files in `src/`, no top-level runtime/build configs, no static-export scripts, no current Playwright spec, and no worker/runtime asset files were skipped.
+- **Status:** Risk needing manual validation
+- **Severity:** Medium
+- **Confidence:** Medium
+- **Evidence:** `src/lib/useExportController.ts:146-163`, `src/lib/videoEncoder.ts:171-188`
+- **Why this is a problem:** `downloadVideo()` only attempts `showSaveFilePicker()` when `navigator.userActivation.isActive` is still true. But that call happens only after the entire async encode pipeline finishes. On typical browsers, user activation is short-lived; a multi-second or multi-minute export is unlikely to retain it.
+- **Concrete failure scenario:** On a browser that supports the File System Access API, the user clicks “Start Export” expecting a save dialog. The export finishes, but activation has expired, so the app silently falls back to anchor download semantics instead of the picker path the code appears to support.
+- **Suggested fix:** If confirmed-save UX matters, request the file handle before starting the long-running encode, or explicitly treat the picker branch as opportunistic and validate it on target browsers/devices before relying on it in product copy.
+
+### CRITIC-005 — Google Location History parsing still exists in two separate implementations with drift risk
+
+- **Status:** Risk needing manual validation
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** `src/lib/parser.ts:242-519`, `src/lib/parser.ts:536-620`, `public/workers/trackParser.worker.js:44-248`, `public/workers/trackParser.worker.js:270-322`
+- **Why this is a problem:** The main-thread parser and worker parser both implement format detection, segment flattening, deduplication, error codes, and JSON-depth behavior independently. They are close, but not structurally shared. That means correctness can diverge by file size, Worker availability, or future maintenance.
+- **Concrete failure scenario:** A future fix lands in `src/lib/parser.ts` but not in `public/workers/trackParser.worker.js`. Small-file fallback imports behave one way, worker-backed imports behave another, and the discrepancy only appears in specific browsers or file sizes.
+- **Suggested fix:** Move the Google parser into a shared source module consumed by both paths, or generate the worker from the same implementation so behavior cannot drift silently.
+
+### CRITIC-006 — The tests cover export-panel chrome, but not the actual export/save path or the pure parser/camera logic that most needs regression protection
+
+- **Status:** Risk needing manual validation
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** `package.json:10-17`, `e2e/travelback.spec.ts:1111-1174`, `e2e/travelback.spec.ts:1237-1291`
+- **Why this is a problem:** The repo’s automated verification is centered on Playwright UI flows. The export tests stop at “panel opens” and “Start Export is visible”; they do not click through a real encode/download flow. There is also no unit-test layer protecting the parser, interpolation, camera transitions, or download behavior directly.
+- **Concrete failure scenario:** A regression in `videoEncoder.ts`, worker fallback parsing, or scene interpolation ships while the suite still passes, because the current tests assert UI affordances rather than the underlying outcome of an export or pure-function correctness across edge cases.
+- **Suggested fix:** Add a unit/integration layer for `parser.ts`, `interpolate.ts`, and `camera.ts`, plus at least one export smoke test that actually exercises `Start Export` with a low-cost configuration and asserts the resulting completion state.
+
+## Final Sweep
+
+- **Reviewed current code/config/test surface:** all files under `src/app`, `src/components`, `src/lib`, `src/styles`, `src/types.ts`, top-level config files, `scripts/*.mjs`, `public/workers/trackParser.worker.js`, `public/map-styles/*.json`, and `e2e/travelback.spec.ts`.
+- **Fixtures/assets:** `e2e/fixtures/*` were inventoried as test inputs; static SVG/font/binary assets were inventoried but not treated as primary logic-bearing review targets.
+- **No relevant current code/config/test file was skipped.** Historical `.context` archives were not used as primary evidence for findings because this pass was intentionally grounded in the current repository state.

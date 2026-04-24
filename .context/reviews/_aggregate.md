@@ -1,355 +1,289 @@
-# Aggregate Review — review-plan-fix cycle 1/100 — 2026-04-24
+# Aggregate Review — review-plan-fix cycle 2/100 — 2026-04-24
 
-Sources: `code-reviewer.md`, `security-reviewer.md`, `critic.md`, `verifier.md`, `test-engineer.md`, `architect.md`, `debugger.md`, `designer.md`, `dependency-expert.md`, `perf-reviewer.md`, `tracer.md`, `document-specialist.md`, and `non-tech-traveler-reviewer.md`.
+Sources: `code-reviewer.md`, `security-reviewer.md`, `critic.md`,
+`verifier.md`, `test-engineer.md`, `architect.md`, `debugger.md`, and
+`designer.md`.
+
+Unavailable registered reviewer roles in this environment: `perf-reviewer`,
+`tracer`, and `document-specialist`.
 
 ## Executive Summary
 
-The review found 54 unique findings. The highest-signal bounded fixes are export state ownership, scene-editor correctness, KML/JSON parser robustness, keyboard/accessibility defects, and misleading download/export states. Broader performance, architecture, deployment, documentation, and test-harness items are recorded for explicit scheduling or deferral in `plan/cycle1-current-plan-2026-04-24.md` and `plan/deferred-cycle1-current-2026-04-24.md`.
+The fresh review found 21 unique findings. The actionable correctness/security
+fixes for this cycle are XML entity hardening, export-session preservation on
+failed retries, trim/scene state ownership, Journey Creator map-readiness retry,
+antimeridian reference-grid bounds, more accurate export failure messaging,
+mobile file-replacement discoverability, and an in-app map retry path. Broader
+architecture, performance, deployment, CSP, and test-harness issues are recorded
+for explicit scheduling or deferral in the cycle plan.
 
-## High / Correctness / Data-Loss Findings
+## Deduplicated Findings
 
-### AGG-001 — Export is split across two modal systems
-- **Sources:** architect, debugger
-- **Severity / confidence:** High / High
-- **Citations:** `src/app/page.tsx:382-405`, `src/app/page.tsx:487-500`, `src/components/ExportPanel.tsx:175-267`, `src/components/ModalDialog.tsx:43-49`
-- **Problem:** The cancel button is rendered behind a modal that marks the app root inert.
-- **Failure scenario:** Long export cannot be cancelled by mouse/keyboard even though a cancel button appears.
-- **Fix:** Make export progress/cancel a single owner inside `ExportPanel`, or remove the overlapping overlay.
+### C2-AGG-001 — XML entity hardening is incomplete
 
-### AGG-002 — Closing a completed export destroys the only rendered video state
-- **Sources:** debugger
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/app/page.tsx:300-305`, `src/components/ExportPanel.tsx:201-247`
-- **Problem:** Modal close calls `resetExportSession()` after success, revoking the blob URL and clearing the MP4.
-- **Failure scenario:** User closes the panel after a long export and loses the result before saving/sharing.
-- **Fix:** Make close non-destructive; reserve reset for `Export Again`.
+- **Severity/confidence:** Medium / High
+- **Agreement:** debugger
+- **Evidence:** `src/lib/parser.ts:145-157`
+- **Problem:** The `<!ENTITY[^>]*>` sanitizer only matches single-line entity
+  declarations; multi-line declarations can survive before `DOMParser`.
+- **Failure scenario:** A GPX/KML file with a multi-line entity declaration
+  bypasses the intended prefilter and reaches browser XML parsing.
+- **Suggested fix:** Strip newline-spanning entity declarations or reject any
+  DTD/entity block before parsing.
 
-### AGG-003 — Fallback download reports success without a confirmed saved file
-- **Sources:** critic, tracer, non-tech traveler
-- **Severity / confidence:** High / Medium-High
-- **Citations:** `src/lib/videoEncoder.ts:171-211`, `src/lib/useExportController.ts:158-170`, `src/components/ExportPanel.tsx:207-214`
-- **Problem:** A delayed synthetic `<a download>` click is reported as `saved: true`.
-- **Failure scenario:** Mobile browser blocks the delayed click, but the UI says the video was saved.
-- **Fix:** Treat fallback as ready/download-available, keep a real user-gesture download button, and reserve saved status for confirmed picker writes.
+### C2-AGG-002 — GPX/KML imports can lock the UI via main-thread XML parsing
 
-### AGG-004 — Export silently no-ops if map/canvas is unavailable
-- **Sources:** critic
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/MapView.tsx:613-639`, `src/app/page.tsx:365-500`, `src/lib/useExportController.ts:87-90`
-- **Problem:** `exportTrack()` returns with no user-facing feedback when there is no map handle/canvas.
-- **Failure scenario:** WebGL/style failure leaves controls visible; Start Export does nothing.
-- **Fix:** Surface an error toast or disable export until map readiness is known.
+- **Severity/confidence:** Medium / High
+- **Agreement:** security-reviewer
+- **Evidence:** `src/lib/parser.ts:521-523`, `src/lib/parser.ts:653-673`,
+  `src/components/FileUpload.tsx:19-20`, `src/components/FileUpload.tsx:52-60`
+- **Problem:** XML files are accepted up to `200MB` and parsed on the main
+  thread with `FileReader` and `DOMParser`.
+- **Failure scenario:** A large crafted GPX/KML freezes or crashes the tab.
+- **Suggested fix:** Workerize XML parsing or reduce XML limits.
 
-### AGG-005 — A single custom scene freezes camera after that scene ends
-- **Sources:** tracer
-- **Severity / confidence:** High / High
-- **Citations:** `src/components/SceneEditor.tsx:298-312`, `src/lib/camera.ts:350-404`, `src/components/MapView.tsx:849-857`, `src/lib/useExportController.ts:106-116`
-- **Problem:** Progress after the last scene reuses the last scene at local progress `1`.
-- **Failure scenario:** A 15% opening scene pins the camera for the remaining 85% of playback/export.
-- **Fix:** Fill uncovered scene tails or fall back to normal follow camera after the final scene.
+### C2-AGG-003 — Failed export attempts can destroy the previous export preview
 
-### AGG-006 — Invalid scene range edits can silently delete the scene
-- **Sources:** tracer
-- **Severity / confidence:** Medium-High / High
-- **Citations:** `src/components/SceneEditor.tsx:250-273`, `src/components/SceneEditor.tsx:524-543`, `src/lib/camera.ts:19-44`
-- **Problem:** Raw invalid intermediate input is normalized and filtered out immediately.
-- **Failure scenario:** User types a start percent above the current end and loses the scene without clicking delete.
-- **Fix:** Clamp paired range edits or keep invalid raw state without committing normalized deletion.
+- **Severity/confidence:** Medium / High
+- **Agreement:** debugger
+- **Evidence:** `src/lib/useExportController.ts:87-103`,
+  `src/lib/useExportController.ts:174-186`
+- **Problem:** `exportTrack()` revokes the current object URL before validating
+  that the new export can start.
+- **Failure scenario:** A user with a finished export retries while the map
+  canvas is unavailable; the retry fails and the previous preview is gone.
+- **Suggested fix:** Revoke the old export only after validation and after the
+  new pipeline has started.
 
-### AGG-007 — KML GeometryCollection / MultiGeometry routes are ignored
-- **Sources:** tracer
-- **Severity / confidence:** Medium / Medium-High
-- **Citations:** `src/lib/parser.ts:43-107`, `src/lib/parser.ts:164-168`
-- **Problem:** Extractor only handles `LineString`, `MultiLineString`, and `Point`.
-- **Failure scenario:** KML `MultiGeometry` with a valid nested LineString imports as empty or too few points.
-- **Fix:** Recursively extract supported geometries from `GeometryCollection`.
+### C2-AGG-004 — Scene ownership is not trim-aware
 
-### AGG-008 — Large JSON worker-construction failure falls back to main-thread parsing
-- **Sources:** code-reviewer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/lib/parser.ts:498-515`
-- **Problem:** The worker constructor failure path decodes the full buffer on the main thread without the bounded fallback guard.
-- **Failure scenario:** Worker-blocked browser imports an 80-100 MB Google file and freezes.
-- **Fix:** Only main-thread fallback for `MAIN_THREAD_JSON_FALLBACK_SIZE`; otherwise reject with a clear parser error.
+- **Severity/confidence:** Medium / High
+- **Agreement:** architect
+- **Evidence:** `.context/project/02-architecture.md:130-138`,
+  `src/app/page.tsx:188-237`, `src/lib/camera.ts:125-137`,
+  `src/lib/camera.ts:339-428`
+- **Problem:** Trimming replaces `track` but leaves scenes authored against the
+  previous full-track coordinate space.
+- **Failure scenario:** A user authors scenes, trims to a subsection, then
+  exports with the same percentages applied to a different route slice.
+- **Suggested fix:** Clear scenes on trim or re-project scenes in full-track
+  distance space.
 
-### AGG-009 — Journey Creator map can be disabled by the no-track inert state
-- **Sources:** aggregate final sweep
-- **Severity / confidence:** High / High
-- **Citations:** `src/components/MapView.tsx:430-441`, `src/app/page.tsx:435-442`, `src/components/JourneyCreator.tsx:248-364`
-- **Problem:** `MapView` marks the map container inert whenever there is no loaded track, but journey creation intentionally runs with no track and depends on map clicks.
-- **Failure scenario:** User chooses Draw Route, but map clicks are suppressed or removed from assistive interaction because the map container remains inert.
-- **Fix:** Add an explicit journey-creation interaction mode so the map is not inert while Journey Creator is active.
+### C2-AGG-005 — Journey Creator can miss map initialization and never retry
 
-## Accessibility / UX Findings
+- **Severity/confidence:** Low / Medium
+- **Agreement:** architect, debugger
+- **Evidence:** `src/components/JourneyCreator.tsx:242-257`,
+  `src/components/JourneyCreator.tsx:421-433`,
+  `src/app/page.tsx:407-414`
+- **Problem:** The effect reads `mapRef.current?.getMap()` once and only depends
+  on `isActive`.
+- **Failure scenario:** If creation activates before MapLibre is ready, the
+  panel appears without journey layers/listeners.
+- **Suggested fix:** Add a map-ready signal or retry until the handle exists.
 
-### AGG-010 — Scene range keyboard controls leak into global playback hotkeys
-- **Sources:** code-reviewer, tracer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/SceneEditor.tsx:173-225`, `src/lib/usePlaybackController.ts:156-185`, `src/components/ElevationProfile.tsx:74-83`
-- **Problem:** Custom slider key handlers call `preventDefault()` but do not stop propagation; the global hotkey handler does not ignore sliders.
-- **Failure scenario:** Adjusting a scene boundary also seeks playback.
-- **Fix:** Stop propagation in consumed key handlers and/or mark editor/elevation controls as hotkey-disabled.
+### C2-AGG-006 — Dateline trips get world-scale reference-grid bounds
 
-### AGG-011 — Mobile toolbar focus management focuses the trigger
-- **Sources:** code-reviewer
-- **Severity / confidence:** Low / High
-- **Citations:** `src/components/TrackToolbar.tsx:10-17`, `src/components/TrackToolbar.tsx:134-159`
-- **Problem:** The focus-first hook queries from a wrapper containing the trigger button.
-- **Failure scenario:** Opening the mobile overflow menu leaves focus on the toggle instead of moving into the popup.
-- **Fix:** Use a separate popup-panel ref for focus.
+- **Severity/confidence:** Medium / High
+- **Agreement:** critic
+- **Evidence:** `src/components/MapView.tsx:107-204`,
+  `src/components/MapView.tsx:263-319`
+- **Problem:** Route and fit-bounds logic handle antimeridian wrapping, but
+  `buildReferenceGridData()` uses raw min/max longitude span.
+- **Failure scenario:** A local route around `179` to `-179` renders with a
+  near-global reference grid.
+- **Suggested fix:** Reuse the same wrapped-longitude domain for grid extent.
 
-### AGG-012 — Journey search combobox has no accessible name
-- **Sources:** designer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/JourneyCreator.tsx:604-617`
-- **Failure scenario:** Screen-reader/voice users encounter a nameless combobox.
-- **Fix:** Add a localized label or `aria-label`.
+### C2-AGG-007 — Export failure messaging blames codecs for all failures
 
-### AGG-013 — Scene-name input has no accessible name
-- **Sources:** designer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/SceneEditor.tsx:478-483`
-- **Failure scenario:** Scene title editing is anonymous to assistive tech.
-- **Fix:** Add a stable localized `aria-label` or associated label.
+- **Severity/confidence:** Medium / High
+- **Agreement:** critic
+- **Evidence:** `src/lib/useExportController.ts:123-139`,
+  `src/lib/useExportController.ts:174-186`, `src/lib/i18n.ts:294-295`
+- **Problem:** Map idle/resize failures and generic exceptions are surfaced as
+  codec/WebCodecs guidance.
+- **Failure scenario:** A map render timeout tells the user to change browser or
+  codec support rather than explaining render-time failure.
+- **Suggested fix:** Classify map-render failures separately from codec/encoder
+  failures.
 
-### AGG-014 — Journey creation does not move keyboard focus into the active workflow
-- **Sources:** designer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/JourneyCreator.tsx:555-640`, `src/components/GlobalToolbar.tsx:19-67`
-- **Failure scenario:** After Draw Route, Tab reaches unrelated global controls before the active journey panel.
-- **Fix:** Focus the first meaningful Journey Creator control on open.
+### C2-AGG-008 — Mobile file replacement collapses to an icon-only control
 
-### AGG-015 — Default export preset is landscape instead of portrait social video
-- **Sources:** non-tech traveler
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/ExportPanel.tsx:61`, `src/types.ts:99`
-- **Failure scenario:** Casual users export a landscape video before noticing the dropdown.
-- **Fix:** Default to the TikTok/Reels/Shorts portrait preset or make social portrait the recommended first choice.
+- **Severity/confidence:** Medium / High
+- **Agreement:** designer
+- **Evidence:** `src/components/FileUpload.tsx:130-143`
+- **Problem:** On mobile, the persistent replace-file action has no visible
+  text.
+- **Failure scenario:** Sighted mobile users must infer that a small folder icon
+  replaces the current track.
+- **Suggested fix:** Keep a short visible mobile label or move the action into
+  the mobile toolbar.
 
-### AGG-016 — Import errors are too generic for recovery
-- **Sources:** non-tech traveler
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/FileUpload.tsx:63-86`, `src/lib/i18n.ts:26`, `src/lib/i18n.ts:35`
-- **Failure scenario:** User uploads a zip/photo/wrong JSON and gets no next action.
-- **Fix:** Pair parse/format errors with clearer supported-file guidance and guide access.
+### C2-AGG-009 — Map failure path only offers page reload
 
-### AGG-017 — Post-export UI lacks a reliable explicit download fallback
-- **Sources:** non-tech traveler, tracer
-- **Severity / confidence:** Low-Medium / Medium
-- **Citations:** `src/components/ExportPanel.tsx:201-247`, `src/lib/videoEncoder.ts:191-211`
-- **Failure scenario:** Unsupported share/download browser leaves user unsure where the MP4 went.
-- **Fix:** Always show an explicit Download MP4 link/button when a blob URL exists.
+- **Severity/confidence:** Medium / High
+- **Agreement:** designer
+- **Evidence:** `src/components/MapView.tsx:945-954`
+- **Problem:** A map error hard-stops the workspace with only a reload CTA.
+- **Failure scenario:** WebGL/context errors force reload and risk losing
+  in-memory edits.
+- **Suggested fix:** Add an in-app retry/reinitialize action.
 
-## Performance / Architecture / Tooling Findings
+### C2-AGG-010 — The shipped map style is a route grid, not a real basemap
 
-### AGG-018 — Export memory limits exceed the in-memory MP4 pipeline
-- **Sources:** dependency-expert, perf-reviewer
-- **Severity / confidence:** High / High
-- **Citations:** `src/types.ts:80-107`, `src/components/ExportPanel.tsx:96-136`, `src/lib/videoEncoder.ts:73-86`, `src/lib/videoEncoder.ts:142-158`
-- **Failure scenario:** Multi-GB 4K/long-duration export OOMs during finalization.
-- **Fix:** Add preflight budget guard or stream large outputs to a file-backed target.
+- **Severity/confidence:** High / High
+- **Agreement:** critic
+- **Evidence:** `src/types.ts:25-45`, `public/map-styles/*.json`,
+  `src/components/MapView.tsx:225-369`
+- **Problem:** The product copy promises an interactive map, but bundled map
+  styles intentionally contain no basemap sources, roads, coastlines, or labels.
+- **Failure scenario:** Users expect recognizable geography but get a route on a
+  synthetic grid.
+- **Suggested fix:** Ship real local basemap assets or reposition product copy
+  around grid-based route videos.
 
-### AGG-019 — GPX/KML up to 200 MB parse synchronously on UI thread
-- **Sources:** perf-reviewer, dependency-expert
-- **Severity / confidence:** High / High
-- **Citations:** `src/lib/parser.ts:116-176`, `src/lib/parser.ts:576-627`
-- **Fix:** Worker/stream XML parsing or lower main-thread XML limits.
+### C2-AGG-011 — The File System Access save path likely loses user activation
 
-### AGG-020 — Google JSON worker enforces point limits after full parse/materialization
-- **Sources:** perf-reviewer
-- **Severity / confidence:** Medium-High / High
-- **Citations:** `public/workers/trackParser.worker.js:307-314`
-- **Fix:** Count/abort while parsing branches before full sort/dedupe materialization.
+- **Severity/confidence:** Medium / Medium
+- **Agreement:** critic
+- **Evidence:** `src/lib/useExportController.ts:146-163`,
+  `src/lib/videoEncoder.ts:171-188`
+- **Problem:** `showSaveFilePicker()` is attempted only after long async
+  encoding, when user activation has likely expired.
+- **Failure scenario:** Browsers that support picker saves silently fall back to
+  anchor download semantics.
+- **Suggested fix:** Request the handle before encoding or treat the picker
+  branch as opportunistic and document/test it.
 
-### AGG-021 — Playback/export rebuild growing trail GeoJSON every frame
-- **Sources:** perf-reviewer
-- **Severity / confidence:** High / High
-- **Citations:** `src/components/MapView.tsx:106-167`, `src/components/MapView.tsx:824-847`
-- **Fix:** Precompute route geometry and drive progress with cheaper layer expressions or decimated preview geometry.
+### C2-AGG-012 — Google JSON parsing is duplicated between main and worker paths
 
-### AGG-022 — Playback progress is app-wide React state
-- **Sources:** perf-reviewer
-- **Severity / confidence:** Medium-High / High
-- **Citations:** `src/lib/usePlaybackController.ts:48-51`, `src/app/page.tsx:368-484`, `src/lib/useExportController.ts:147-153`
-- **Fix:** Use imperative map frame APIs for high-frequency progress and throttle React UI updates.
+- **Severity/confidence:** Medium / High
+- **Agreement:** code-reviewer, critic, test-engineer, architect
+- **Evidence:** `src/lib/parser.ts:242-620`,
+  `public/workers/trackParser.worker.js:44-320`
+- **Problem:** Two implementations can drift by file size, Worker support, or
+  future maintenance.
+- **Failure scenario:** A parser fix lands in one copy but not the other.
+- **Suggested fix:** Generate/bundle the worker from a shared parser module.
 
-### AGG-023 — Overview camera scans the full track repeatedly
-- **Sources:** perf-reviewer
-- **Severity / confidence:** High / High
-- **Citations:** `src/lib/camera.ts:53-75`, `src/lib/camera.ts:141-150`, `src/lib/camera.ts:329-423`
-- **Fix:** Cache track bounds/overview metrics per track.
+### C2-AGG-013 — Large JSON worker failures are too generic
 
-### AGG-024 — Interactive map always pays `preserveDrawingBuffer` overhead
-- **Sources:** perf-reviewer
-- **Severity / confidence:** Medium / Medium
-- **Citations:** `src/components/MapView.tsx:547-558`
-- **Fix:** Use a dedicated export map/canvas or document/limit the tradeoff.
+- **Severity/confidence:** Medium / High
+- **Agreement:** code-reviewer, debugger
+- **Evidence:** `src/lib/parser.ts:529-560`,
+  `src/components/FileUpload.tsx:62-85`
+- **Problem:** Worker-unavailable large JSON failures map to generic
+  `INVALID_GOOGLE_JSON`/parse-failed copy.
+- **Failure scenario:** A valid large Google JSON file fails because Worker
+  support is unavailable, but the UI says only that parsing failed.
+- **Suggested fix:** Add a dedicated worker-required error code and copy.
 
-### AGG-025 — ElevationProfile renders unbounded SVG path strings
-- **Sources:** perf-reviewer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/ElevationProfile.tsx:20-118`
-- **Fix:** Downsample to display resolution before rendering.
+### C2-AGG-014 — Core export flow is not tested end-to-end
 
-### AGG-026 — Timeline live drag rebuilds track/map state at pointer-frame cadence
-- **Sources:** architect, perf-reviewer
-- **Severity / confidence:** Medium-High / High
-- **Citations:** `src/components/TimelineSelector.tsx:182-226`, `src/app/page.tsx:216-237`, `src/components/MapView.tsx:756-816`
-- **Fix:** Separate drag preview from committed track replacement.
+- **Severity/confidence:** High / High
+- **Agreement:** code-reviewer, test-engineer, architect, critic
+- **Evidence:** `e2e/travelback.spec.ts:1111-1173`,
+  `e2e/travelback.spec.ts:1237-1291`,
+  `src/lib/useExportController.ts:87-220`, `src/lib/videoEncoder.ts:40-159`
+- **Problem:** Tests open the export panel but do not start export, cancel, or
+  assert result/download state.
+- **Failure scenario:** Export encode/save regressions ship while browser tests
+  remain green.
+- **Suggested fix:** Add deterministic controller tests or one browser-level
+  low-cost export smoke.
 
-### AGG-027 — Static preview server buffers every file and reads bodies for HEAD
-- **Sources:** perf-reviewer
-- **Severity / confidence:** Low-Medium / High
-- **Citations:** `scripts/serve-static.mjs:121-165`
-- **Fix:** `stat` for headers, stream GET bodies, and return HEAD without reading.
+### C2-AGG-015 — Pure parser/camera/interpolate/controller logic lacks a deterministic harness
 
-### AGG-028 — Google parser logic is duplicated between TS and public worker JS
-- **Sources:** code-reviewer, critic, architect, test-engineer
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/lib/parser.ts:182-574`, `public/workers/trackParser.worker.js:1-322`
-- **Fix:** Generate/bundle the worker from shared parser source and add parity tests.
+- **Severity/confidence:** High / High
+- **Agreement:** test-engineer, verifier
+- **Evidence:** `package.json:5-17`, `src/lib/parser.ts`,
+  `src/lib/interpolate.ts`, `src/lib/camera.ts`,
+  `src/lib/usePlaybackController.ts`
+- **Problem:** The repo relies on Playwright for logic that could be tested
+  deterministically.
+- **Failure scenario:** Math/fallback regressions survive broad browser tests.
+- **Suggested fix:** Add low-level tests for parser/interpolate/camera/controller
+  contracts.
 
-### AGG-029 — Production base path/site URL is hard-coded to `/travelback`
-- **Sources:** critic, architect
-- **Severity / confidence:** Medium / High
-- **Citations:** `next.config.ts:3-10`, `package.json:8`, `playwright.static.config.ts:14`, `scripts/smoke-static.mjs:20`
-- **Fix:** Centralize base path and public URL as deployment configuration.
+### C2-AGG-016 — Playback/export frame loop rebuilds expensive geometry
 
-### AGG-030 — GitHub Pages production lacks browser-enforced anti-framing headers
-- **Sources:** security-reviewer, architect
-- **Severity / confidence:** Low-Medium / High
-- **Citations:** `src/app/layout.tsx:49-63`, `.github/workflows/deploy-pages.yml:34-46`, `scripts/serve-static.mjs:147-157`
-- **Fix:** Use header-capable hosting/CDN for `frame-ancestors`/`X-Frame-Options`, or keep docs/tests explicit about the Pages limitation.
+- **Severity/confidence:** Medium / High
+- **Agreement:** code-reviewer
+- **Evidence:** `src/components/MapView.tsx:107-167`,
+  `src/components/MapView.tsx:844-850`, `src/lib/camera.ts:53-95`,
+  `src/lib/camera.ts:339-427`
+- **Problem:** The trail GeoJSON and overview bounds are rebuilt repeatedly on
+  playback/export frames.
+- **Failure scenario:** Long tracks or high-FPS exports jank and slow down.
+- **Suggested fix:** Cache invariant overview metrics and avoid full per-frame
+  GeoJSON regeneration.
 
-### AGG-031 — CSP still requires `style-src 'unsafe-inline'`
-- **Sources:** security-reviewer
-- **Severity / confidence:** Low / High
-- **Citations:** `src/app/layout.tsx:59-63`, `scripts/harden-static-export.mjs:14-29`
-- **Fix:** Reduce inline styles over time before tightening CSP.
+### C2-AGG-017 — Playwright suite is monolithic and timing/actionability fragile
 
-## Test / Documentation Findings
+- **Severity/confidence:** Medium / High
+- **Agreement:** code-reviewer, test-engineer, debugger, verifier
+- **Evidence:** `e2e/travelback.spec.ts`, `playwright.config.ts:7-11`,
+  `playwright.static.config.ts:7-11`
+- **Problem:** The suite uses fixed waits, many forced clicks, copy-heavy
+  selectors, one giant spec file, and global retries.
+- **Failure scenario:** False negatives/positives hide layout or timing
+  regressions.
+- **Suggested fix:** Split by feature, reduce `force: true`, and replace sleeps
+  with explicit readiness predicates.
 
-### AGG-032 — Parser and worker parity lack deterministic tests
-- **Sources:** test-engineer, critic
-- **Severity / confidence:** High / High
-- **Citations:** `src/lib/parser.ts`, `public/workers/trackParser.worker.js`, `src/components/FileUpload.tsx:61-86`
+### C2-AGG-018 — Static export/deployment is hard-coupled to `/travelback`
 
-### AGG-033 — Export state machine is not tested through Start Export
-- **Sources:** test-engineer, document-specialist, non-tech traveler
-- **Severity / confidence:** High / High
-- **Citations:** `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `e2e/travelback.spec.ts:1111-1173`, `e2e/travelback.spec.ts:1237-1292`
+- **Severity/confidence:** Medium / High
+- **Agreement:** architect
+- **Evidence:** `next.config.ts:3-10`, `package.json:8-16`,
+  `playwright.static.config.ts:13-43`,
+  `.github/workflows/deploy-pages.yml:17-46`
+- **Problem:** Production path is spread across build, preview, tests, and
+  runtime assumptions.
+- **Failure scenario:** Serving from another path breaks assets and metadata.
+- **Suggested fix:** Centralize `basePath` and site origin as build-time config.
 
-### AGG-034 — Static smoke protections are omitted from the CI-oriented static Playwright command
-- **Sources:** test-engineer, document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `package.json:12-17`, `scripts/smoke-static.mjs`
+### C2-AGG-019 — Locale bootstrapping is weaker than theme bootstrapping
 
-### AGG-035 — Playwright suite relies on fixed sleeps and global retry
-- **Sources:** test-engineer, non-tech traveler
-- **Severity / confidence:** Medium / High
-- **Citations:** `playwright.config.ts:7-11`, `playwright.static.config.ts:7-11`, `e2e/travelback.spec.ts`
+- **Severity/confidence:** Medium / Medium
+- **Agreement:** architect
+- **Evidence:** `src/app/layout.tsx:50-53`, `src/lib/i18n.ts:1738-1788`
+- **Problem:** Static HTML starts as English until client locale resolution.
+- **Failure scenario:** Localized users see/announce English before hydration.
+- **Suggested fix:** Align bootstrap and provider initial locale resolution.
 
-### AGG-036 — Mobile coverage is viewport-only for touch-specific paths
-- **Sources:** test-engineer
-- **Severity / confidence:** Medium / Medium-High
-- **Citations:** `playwright.config.ts:21-38`, `src/components/JourneyCreator.tsx:318-347`, `src/components/TimelineSelector.tsx`, `src/components/ExportPanel.tsx:84-94`
+### C2-AGG-020 — Anti-framing and style CSP remain deployment/hardening risks
 
-### AGG-037 — E2E selectors are coupled to English copy
-- **Sources:** code-reviewer
-- **Severity / confidence:** Low / High
-- **Citations:** `e2e/travelback.spec.ts:137-193`, `e2e/travelback.spec.ts:254-257`
+- **Severity/confidence:** Low / High
+- **Agreement:** security-reviewer, code-reviewer
+- **Evidence:** `src/app/layout.tsx:60-64`,
+  `.github/workflows/deploy-pages.yml:34-46`,
+  `scripts/serve-static.mjs:147-158`,
+  `scripts/harden-static-export.mjs:14-29`
+- **Problem:** GitHub Pages lacks header-enforced anti-framing, and style CSP
+  still allows inline styles.
+- **Failure scenario:** Browser-enforced containment differs between local
+  preview and production Pages.
+- **Suggested fix:** Use header-capable hosting/CDN and reduce inline styles over
+  time.
 
-### AGG-038 — Architecture docs list removed Journey Creator label layer
-- **Sources:** document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `.context/project/02-architecture.md:140-149`, `src/components/JourneyCreator.tsx:20-219`
+### C2-AGG-021 — RTL assumptions are not wired through document or controls
 
-### AGG-039 — `.context/plans/README.md` is stale
-- **Sources:** document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `.context/plans/README.md`, `.context/plans/deferred-findings-cycle-r8-2026-04-23.md`, `plan/deferred-cycle1-review-plan-2026-04-24.md`
-
-### AGG-040 — Cycle 10 plan downgrades active deferred severities by implication
-- **Sources:** document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `plan/cycle10-plan.md:37-41`, `plan/deferred-cycle1-review-plan-2026-04-24.md:14-47`
-
-### AGG-041 — Non-tech reviewer docs overstate export E2E coverage
-- **Sources:** document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `.context/agents/non-tech-traveler-reviewer.md:51-101`, `e2e/travelback.spec.ts:1111-1292`
-
-### AGG-042 — Project docs omit configured gates
-- **Sources:** document-specialist
-- **Severity / confidence:** Medium / High
-- **Citations:** `.context/project/01-overview.md:17-25`, `.context/development/01-conventions.md:52-57`, `package.json:10-17`
-
-### AGG-043 — Project overview under-documents current import-guide scope
-- **Sources:** document-specialist
-- **Severity / confidence:** Low / High
-- **Citations:** `.context/project/01-overview.md:62-63`, `src/components/GoogleGuide.tsx:146-245`
-
-### AGG-044 — Map-style docs do not match user-facing labels
-- **Sources:** document-specialist
-- **Severity / confidence:** Low / High
-- **Citations:** `.context/project/01-overview.md:88`, `src/lib/i18n.ts:142-147`
-
-### AGG-045 — Camera customization exposes too much numeric tuning
-- **Sources:** non-tech traveler
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/SceneEditor.tsx`, `src/lib/i18n.ts`
-
-### AGG-046 — Journey creation is coordinate-first for casual users
-- **Sources:** non-tech traveler
-- **Severity / confidence:** Medium / Medium
-- **Citations:** `src/components/JourneyCreator.tsx:576-617`, `src/lib/i18n.ts:246`
-
-### AGG-047 — Mobile help is buried behind an icon after upload
-- **Sources:** non-tech traveler
-- **Severity / confidence:** Medium / Medium
-- **Citations:** `src/components/TrackToolbar.tsx:134-184`, `src/components/GlobalToolbar.tsx:25`
-
-### AGG-048 — Journey travel-icon picker is a no-op
-- **Sources:** critic
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/JourneyCreator.tsx:41-60`, `src/components/JourneyCreator.tsx:184-205`, `src/components/JourneyCreator.tsx:665-692`
-
-### AGG-049 — GPX/KML support docs imply broader parser compatibility than DOMParser allows
-- **Sources:** dependency-expert
-- **Severity / confidence:** Medium / Medium-High
-- **Citations:** `src/lib/parser.ts:116-176`, `.context/project/01-overview.md:12-13`
-
-### AGG-050 — Map-style explicitness can be misclassified for older persisted state
-- **Sources:** debugger
-- **Severity / confidence:** Low / Medium
-- **Citations:** `src/app/page.tsx:44-56`, `src/app/page.tsx:327-339`
-
-### AGG-051 — Toast enter animation can set state after unmount
-- **Sources:** debugger
-- **Severity / confidence:** Low / High
-- **Citations:** `src/components/Toast.tsx:25-35`
-
-### AGG-052 — Manual-route preview does not wrap antimeridian crossings
-- **Sources:** critic
-- **Severity / confidence:** Medium / High
-- **Citations:** `src/components/JourneyCreator.tsx:63-70`, `src/components/MapView.tsx:106-166`
-
-### AGG-053 — Actual video export last mile is slow/not proven in manual review
-- **Sources:** non-tech traveler, verifier
-- **Severity / confidence:** Critical UX concern / Medium
-- **Citations:** `e2e/travelback.spec.ts:1237`, `e2e/travelback.spec.ts:1274`
-- **Note:** Treat as overlapping with AGG-003, AGG-018, and AGG-033 for planning.
-
-### AGG-054 — Full app exports/test suite had one flaky retry artifact
-- **Sources:** verifier, non-tech traveler
-- **Severity / confidence:** Low / Medium
-- **Citations:** `test-results/.last-run.json`, static theme retry evidence
-- **Note:** Isolated rerun passed; track under AGG-035.
+- **Severity/confidence:** Low / High
+- **Agreement:** designer
+- **Evidence:** `src/app/layout.tsx:50-53`, `src/components/GoogleGuide.tsx:289-310`,
+  `src/components/TimelineSelector.tsx:396-415`,
+  `src/components/SceneEditor.tsx:186-229`,
+  `src/components/TrackWorkspace.tsx:122-166`
+- **Problem:** Future RTL locales would inherit LTR document direction and
+  physical left/right behavior.
+- **Failure scenario:** Arabic/Hebrew support would feel reversed and may
+  overlap.
+- **Suggested fix:** Derive `dir` from locale and switch directional controls to
+  locale-aware behavior before adding RTL locales.
 
 ## Agent Failures
 
-The architect lane was read-only and could not write its own file. The returned architect report was preserved by the orchestrator in `architect.md`.
-
-## Final Sweep
-
-The aggregate deduplicates overlapping items and preserves the highest severity/confidence reported by any lane. Cross-agent agreement is strongest around export/download correctness, parser duplication/parity, large-export memory risk, scene keyboard/range issues, static deployment assumptions, and missing export-completion tests.
+None. The security-reviewer and architect agents returned read-only review
+content; the cycle owner transcribed that content into the required per-agent
+files for provenance.

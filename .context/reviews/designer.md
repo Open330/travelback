@@ -1,30 +1,35 @@
-# UI / UX Review
+# Designer Review, Cycle 2
 
-Scope covered: landing state, track-loaded workspace, journey creator, scene editor, export dialog, keyboard navigation, and localized toolbar behavior at a desktop viewport.
+## Inventory
+- Shell and app frame: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
+- Core input and navigation surfaces: `src/components/FileUpload.tsx`, `src/components/TrackToolbar.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/KeyboardHelp.tsx`
+- Playback and editing surfaces: `src/components/Controls.tsx`, `src/components/TimelineSelector.tsx`, `src/components/SceneEditor.tsx`, `src/components/JourneyCreator.tsx`
+- Modal and guidance surfaces: `src/components/ModalDialog.tsx`, `src/components/GoogleGuide.tsx`, `src/components/ExportPanel.tsx`, `src/components/Toast.tsx`
+- Map and runtime state: `src/components/MapView.tsx`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`
+- Verification: Next build succeeded; browser inspection was run at desktop and mobile widths against the static preview.
 
 ## Findings
 
-1. **Unlabeled journey search combobox**
-   - **Location:** [`src/components/JourneyCreator.tsx:604-617`](/Users/hletrd/flash-shared/Travelback/src/components/JourneyCreator.tsx#L604)
-   - **Severity:** Medium
-   - **Confidence:** High
-   - **Failure scenario:** When the "Open tool" search mode is enabled, the only text input is a `role="combobox"` with a placeholder but no accessible name. In the browser probe, this input exposed `role: "combobox"`, `ariaLabel: null`, `labels: []`, and only the placeholder text. Screen reader and voice-control users will get a generic nameless combobox, so they cannot reliably tell what the field is for or target it by label.
-   - **Suggested fix:** Add an actual label for the field, either a visible `<label>` or a visually hidden label tied with `htmlFor`, or set `aria-label` / `aria-labelledby` to a stable, localized name.
+1. **Medium | High confidence**
+   **Primary file replacement action collapses to an icon-only control on mobile**
+   - Evidence: `src/components/FileUpload.tsx:130-143`
+   - Browser evidence: `button[data-testid="load-new-file-button"]` at `390x844` had empty visible text and only `aria-label="Load a new track file"`.
+   - Failure scenario: after loading a track on a phone, the only persistent way to replace the file is a 44px folder icon in the top-left corner. Sighted users have to guess what it does, so re-import becomes hard to discover.
+   - Suggested fix: keep a short visible label on small screens, or move the action into the mobile toolbar so the primary replacement action stays legible without relying on hover text or icon inference.
 
-2. **Unlabeled scene-name input in the camera editor**
-   - **Location:** [`src/components/SceneEditor.tsx:478-483`](/Users/hletrd/flash-shared/Travelback/src/components/SceneEditor.tsx#L478)
-   - **Severity:** Medium
-   - **Confidence:** High
-   - **Failure scenario:** After adding a scene, the first editable control is a bare text `<input>` with no `aria-label`, no placeholder, and no associated `<label>`. In the browser probe, it exposed an empty label list and no accessible name. This leaves the scene title field anonymous for screen readers and voice input, which is a direct WCAG 1.3.1 / 4.1.2 problem in the primary editing flow.
-   - **Suggested fix:** Associate the input with a label that names the scene, such as "Scene name for Scene 1", or add a visually hidden label that remains stable as the user edits the title.
+2. **Medium | High confidence**
+   **Map failure path hard-stops the workspace with only a reload CTA**
+   - Evidence: `src/components/MapView.tsx:945-954`
+   - Browser evidence: the error state rendered a blocking `Reload Page` button in the map area during browser verification.
+   - Failure scenario: if WebGL/context creation fails or MapLibre errors after a track is loaded, the user is told to reload the page. That discards in-memory route edits and offers no retry or degraded fallback path.
+   - Suggested fix: add an in-app retry/reinitialize action, keep import/guide controls usable, and consider preserving the loaded track/session so the user can recover without losing work.
 
-3. **Journey creation does not move keyboard focus into the active workflow**
-   - **Location:** [`src/components/JourneyCreator.tsx:555-640`](/Users/hletrd/flash-shared/Travelback/src/components/JourneyCreator.tsx#L555) and [`src/components/GlobalToolbar.tsx:19-67`](/Users/hletrd/flash-shared/Travelback/src/components/GlobalToolbar.tsx#L19)
-   - **Severity:** Medium
-   - **Confidence:** High
-   - **Failure scenario:** After activating "Draw a route on the map", the browser tab sequence did not enter the journey panel first. The first four Tab presses landed on unrelated global controls in the top-right toolbar (`Metric units`, `Imperial units`, `Language`, and theme toggle) before reaching the journey cancel/search controls. That makes the active workflow feel disconnected from keyboard focus and increases the chance of accidental state changes outside the task being performed.
-   - **Suggested fix:** Move focus to the first meaningful control in the journey panel when it opens. If the creator is intended to behave like a modal task flow, also trap focus and inert the rest of the app while it is active.
+3. **Low | High confidence**
+   **RTL assumptions are not wired through the document or keyboard model**
+   - Evidence: `src/app/layout.tsx:50-53` sets `lang` but never sets `dir`; directional keyboard logic in `src/components/GoogleGuide.tsx:289-310`, `src/components/TimelineSelector.tsx:396-415`, `src/components/SceneEditor.tsx:186-229`, and absolute positioning in `src/components/TrackWorkspace.tsx:122-166` all assume LTR geometry.
+   - Failure scenario: if Arabic or Hebrew is added later, left/right arrows will still mean physical left/right and the layout will not mirror. Tabs, sliders, and corner controls will feel backwards and some affordances may overlap.
+   - Suggested fix: derive `dir` from locale in the root bootstrap, switch to logical CSS where practical, and invert horizontal key handling when `document.documentElement.dir === 'rtl'`.
 
-## Final Sweep Note
-
-I also checked the loaded-track workspace, modal dialogs, export flow, and reduced-motion-related controls at a desktop viewport. No additional reportable accessibility, contrast, or keyboard-navigation issues surfaced in those sampled states.
+## Final Sweep
+- Reviewed landing/import state, loaded-track workspace, mobile and desktop toolbar behavior, playback controls, timeline range selection, scene editing, journey creation, Google guide modal, export modal, map empty/error states, toast notifications, and shared modal focus handling.
+- No other relevant UI/UX surface was skipped in this pass.

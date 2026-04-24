@@ -1,77 +1,134 @@
-# Architect Review — review-plan-fix cycle 1/100
+# Architect Review — review-plan-fix cycle 2
 
 ## Summary
 
-The main confirmed defects are cross-layer ownership problems: export is modeled by two modal systems at once, and timeline trimming mutates the same `track` state that `MapView` treats as a fresh load. The repo also bakes GitHub Pages deployment assumptions into the build/runtime path contract, and Google JSON parsing is still duplicated across the main thread and worker.
+The repo still largely matches its documented client-only, static-export
+architecture, but there are three confirmed design defects: scene state is not
+trim-aware, deployment topology is hard-coded to GitHub Pages under
+`/travelback`, and locale bootstrapping is weaker than theme bootstrapping,
+leaving first-render/hydration inconsistencies. Three architecture risks also
+need manual validation: duplicated main-thread/worker parser logic, an export
+pipeline with no real execution coverage, and a Journey Creator map-readiness
+race.
+
+## Inventory
+
+Reviewed source/config/test/doc files relevant to the requested areas:
+`package.json:5-17`, `next.config.ts:3-13`, `playwright.config.ts:1-41`,
+`playwright.static.config.ts:1-45`, `.github/workflows/deploy-pages.yml:1-46`,
+`.context/README.md:1-29`, `.context/development/01-conventions.md:1-66`,
+`.context/project/01-overview.md:1-97`,
+`.context/project/02-architecture.md:1-148`, `src/app/layout.tsx:1-85`,
+`src/app/page.tsx:1-481`, `src/types.ts:1-117`,
+`src/lib/{env,camera,i18n,interpolate,parser,useExportController,usePlaybackController,videoEncoder}.ts`,
+`src/components/{MapView,TrackWorkspace,TrackToolbar,GlobalToolbar,ThemeToggle,FileUpload,JourneyCreator,SceneEditor,TimelineSelector,ExportPanel,Controls,ElevationProfile,ModalDialog,GoogleGuide,KeyboardHelp,ErrorBoundary,Toast}.tsx`,
+`public/workers/trackParser.worker.js:1-322`, `public/map-styles/*.json`,
+`scripts/{harden-static-export,serve-static,smoke-static,fetch-map-styles}.mjs`,
+`e2e/travelback.spec.ts:1-1293`, `plan/cycle2-plan.md:1-22`,
+`plan/cycle2-c2-plan.md:1-133`.
 
 ## Findings
 
-### A1. Export is split across two modal systems
+### ARCH-001 — Scene ownership is not trim-aware
 
 - **Status:** Confirmed issue
-- **Severity:** High
-- **Confidence:** High
-- **Evidence:** `src/app/page.tsx:382-405` renders an inline export overlay with the cancel button inside `<main>`; `src/app/page.tsx:487-500` keeps `ExportPanel` mounted during export; `src/components/ExportPanel.tsx:175-182` renders the panel through `ModalDialog`, and `src/components/ExportPanel.tsx:249-267` shows export progress without any cancel affordance; `src/components/ModalDialog.tsx:43-49` marks the app root `inert` and `aria-hidden` when the modal opens.
-- **Problem:** The cancel button lives in the subtree that the modal intentionally disables, while the modal itself sits above it (`z-30` vs `z-20`).
-- **Failure scenario:** A user starts a long export, sees a cancel button in the background overlay, but cannot click or focus it because the export modal has inerted the app root. Screen readers also see overlapping modal semantics.
-- **Suggested fix:** Make export a single-owner surface. Either keep `ExportPanel` as the only export UI and add cancel there, or close it before showing the full-screen export overlay. Do not render two modal layers for the same state.
+- **Severity/confidence:** Medium / High
+- **Evidence:** `.context/project/02-architecture.md:130-138`,
+  `src/app/page.tsx:188-214`, `src/app/page.tsx:216-237`,
+  `src/lib/camera.ts:125-137`, `src/lib/camera.ts:339-428`
+- **Problem:** Trim lifecycle and scene authoring are separate concerns in the
+  docs, but trimming `track` does not touch `scenes`; scene ranges are then
+  interpreted against the newly sliced track.
+- **Failure scenario:** A user authors scenes on the full trip, trims to a
+  subsection, then previews/exports and gets the same percentages applied to a
+  different geographic slice with no warning.
+- **Suggested fix:** Either clear scenes on any trim that changes track bounds,
+  or store scene ranges in full-track distance space and re-project them onto
+  the trimmed track.
 
-### A2. Timeline trimming is coupled to loaded-track identity
-
-- **Status:** Confirmed issue
-- **Severity:** Medium-High
-- **Confidence:** High
-- **Evidence:** `src/components/TimelineSelector.tsx:221-226` calls `onRangeChange` on every drag frame; `src/app/page.tsx:216-237` responds by slicing `fullTrack` and replacing `track`; `src/components/MapView.tsx:756-816` treats any `track` change as a reload, rebuilds layers, recreates the marker, and calls `fitBounds(..., { duration: 1000 })` at `src/components/MapView.tsx:783-790`.
-- **Problem:** A view-level range edit is interpreted as "load a new track".
-- **Failure scenario:** Dragging a trim handle causes repeated `fitBounds` animations and marker resets while the user is still dragging, producing camera thrash and unnecessary map work.
-- **Suggested fix:** Separate `selectionRange` from `track` ownership. Let `TimelineSelector` update a range model live and only derive or commit the filtered track on drag end, or teach `MapView` to handle trim updates without re-fitting the map.
-
-### A3. Production deployment path is spread across multiple layers
+### ARCH-002 — Static export/deployment is hard-coupled to GitHub Pages under `/travelback`
 
 - **Status:** Confirmed issue
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `next.config.ts:3-10` hardcodes production `basePath` to `/travelback`; `package.json:8` hardcodes preview to `--base-path /travelback`; `playwright.static.config.ts:14` and `playwright.static.config.ts:41` do the same; `scripts/smoke-static.mjs:20` and `scripts/smoke-static.mjs:168-175` also assume `/travelback`; runtime asset URLs are derived from that compiled value in `src/types.ts:23`, `src/app/layout.tsx:6`, `src/app/page.tsx:248`, `src/lib/parser.ts:506`, `src/components/FileUpload.tsx:186`, and `src/components/GoogleGuide.tsx:249`.
-- **Problem:** The static build is tightly coupled to one GitHub Pages subpath, but that assumption is spread across app code, scripts, and tests instead of being a single deployment input.
-- **Failure scenario:** Serving the exported app from `/` or another subpath makes worker, style, sample, and font URLs 404 even though the bundle itself is otherwise static-safe.
-- **Suggested fix:** Make base path an explicit build contract (`BASE_PATH` / `NEXT_PUBLIC_BASE_PATH`) and let Pages set it to `/travelback`; preview, smoke, and static Playwright should consume the same variable rather than embedding the path in multiple places.
+- **Severity/confidence:** Medium / High
+- **Evidence:** `next.config.ts:3-10`, `package.json:8-16`,
+  `src/app/layout.tsx:5-8`, `playwright.static.config.ts:13-15`,
+  `playwright.static.config.ts:40-43`,
+  `.github/workflows/deploy-pages.yml:17-46`,
+  `.context/project/01-overview.md:17-31`
+- **Problem:** Moving the app to a root path or another subpath/custom domain
+  produces broken asset URLs, wrong OG/canonical URLs, and no CI coverage for
+  that topology.
+- **Suggested fix:** Make `basePath` and site origin explicit build-time env
+  inputs, and run at least one static smoke path without `/travelback`.
 
-### A4. Google JSON parsing is duplicated across runtime boundaries
+### ARCH-003 — Locale persistence is weaker than theme persistence
 
 - **Status:** Confirmed issue
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** Google parsing rules live in `src/lib/parser.ts:352-483` plus worker orchestration at `src/lib/parser.ts:493-573`, while a second implementation exists in `public/workers/trackParser.worker.js:151-247` and `public/workers/trackParser.worker.js:250-322`.
-- **Problem:** A single domain boundary is implemented twice, once in TypeScript and once in checked-in public JavaScript, with duplicated format detection, segment flattening, limits, and error codes.
-- **Failure scenario:** A future parser fix lands in `src/lib/parser.ts` but not in the worker copy, so modern browsers parse JSON differently from the fallback path.
-- **Suggested fix:** Move Google parsing into a shared module that is bundled for both the main thread and the worker, or generate the worker from the shared source during build.
+- **Severity/confidence:** Medium / Medium
+- **Evidence:** `src/app/layout.tsx:50-53`, `src/lib/i18n.ts:1738-1788`,
+  `e2e/travelback.spec.ts:214-221`
+- **Problem:** Theme/map style are bootstrapped before hydration, but first-time
+  locale resolution falls back to `navigator.language` only on the client and
+  updates `document.documentElement.lang` in an effect.
+- **Failure scenario:** A first-time Korean/Japanese/Chinese/Spanish visitor
+  gets English static HTML and `lang="en"` until hydration, which can flash the
+  wrong copy and announce the wrong language to assistive tech.
+- **Suggested fix:** Share initial locale resolution with the bootstrap path and
+  the client provider, or serialize an initial locale into the HTML the same way
+  theme/map-style are bootstrapped.
 
-### A5. Local preview is more hardened than the actual Pages deployment
+### ARCH-004 — Main-thread and worker JSON parsers are still duplicated
 
-- **Status:** Likely risk
-- **Severity:** Medium
-- **Confidence:** Medium
-- **Evidence:** `scripts/serve-static.mjs:147-158` adds `X-Frame-Options`, HSTS, COOP/CORP, and Permissions-Policy in preview; `.github/workflows/deploy-pages.yml:34-46` uploads `out/` directly to GitHub Pages; `.context/project/01-overview.md:27` and `.context/project/02-architecture.md:114` already note that Pages cannot attach those headers.
-- **Problem:** Local preview and CI can look safer than the real production host.
-- **Failure scenario:** A future change appears safe in local preview because the custom server injects headers that GitHub Pages will never emit.
-- **Suggested fix:** Either front Pages with a header-capable CDN, or make CI distinguish Pages-realistic validation from header-capable preview validation so production assumptions stay explicit.
+- **Status:** Risk needing manual validation
+- **Severity/confidence:** Medium / High
+- **Evidence:** `src/lib/parser.ts:242-620`,
+  `public/workers/trackParser.worker.js:44-320`,
+  `src/lib/parser.ts:537-620`, `e2e/travelback.spec.ts:170-175`,
+  `e2e/travelback.spec.ts:1186-1214`
+- **Failure scenario:** A new Google Takeout variant or parser fix lands in one
+  copy but not the other, so large files, worker-disabled browsers, or
+  worker-creation failures parse differently from the happy path.
+- **Suggested fix:** Generate the worker from a shared parser module/bundled
+  worker entry, and add targeted tests for `Worker === undefined` and
+  worker-error fallback.
+
+### ARCH-005 — The render/export pipeline has shell coverage, but not real encode/save coverage
+
+- **Status:** Risk needing manual validation
+- **Severity/confidence:** Medium / Medium
+- **Evidence:** `src/lib/useExportController.ts:87-220`,
+  `src/lib/videoEncoder.ts:40-159`,
+  `e2e/travelback.spec.ts:1127-1149`,
+  `e2e/travelback.spec.ts:1237-1291`,
+  `scripts/smoke-static.mjs:165-180`
+- **Failure scenario:** `waitForIdle()`, `CanvasSource.add()`, codec support,
+  file-picker save, or fallback download can fail in a target browser while CI
+  stays green because no test executes the pipeline.
+- **Suggested fix:** Add one browser-level export smoke test with a short track
+  and low resolution, or introduce a test seam that exercises the frame loop and
+  save-path decisions deterministically.
+
+### ARCH-006 — Journey Creator can still miss map initialization and never retry
+
+- **Status:** Risk needing manual validation
+- **Severity/confidence:** Low / Medium
+- **Evidence:** `src/components/JourneyCreator.tsx:242-245`,
+  `src/components/JourneyCreator.tsx:432-433`, `src/app/page.tsx:407-414`
+- **Failure scenario:** If the panel becomes active before MapLibre finishes
+  initializing, the panel renders but map layers/listeners are never attached,
+  and the effect does not rerun when the map handle later becomes available.
+- **Suggested fix:** Expose a `mapReady` signal from `MapView` or poll/retry
+  until `getMap()` is non-null before binding Journey Creator layers.
 
 ## Root Cause
 
-- `track` is both session identity and live trim output.
-- Export state is owned by both page-level overlay logic and modal logic.
-- Deployment path is encoded in multiple layers instead of one contract.
-- Google parsing logic is split across runtime boundaries instead of shared.
-
-## Recommendations
-
-1. Consolidate export into one modal/state owner and keep cancel inside that owner.
-2. Decouple trim selection from loaded-track identity so `MapView` stops re-fitting on every drag.
-3. Centralize `BASE_PATH` as a real build/deploy contract and drive Next config, preview, smoke, and static tests from it.
-4. Share the Google parser implementation between main-thread fallback and worker codegen/bundle.
+The recurring pattern is split ownership without a single source of truth: trim
+state vs. scene state, theme bootstrap vs. locale bootstrap, deployment config
+vs. preview/test config, and main-thread parser logic vs. worker parser logic.
 
 ## Final Sweep
 
-Examined: `src/app/*`, all `src/components/*`, all `src/lib/*`, `src/types.ts`, `next.config.ts`, `package.json`, `.github/workflows/deploy-pages.yml`, `scripts/*`, `public/workers/trackParser.worker.js`, bundled map-style/font assets, `e2e/travelback.spec.ts`, and the relevant `.context` docs in `.context/README.md`, `.context/project/*`, and `.context/development/01-conventions.md`.
-
-Skipped as non-review-relevant/generated: `node_modules/`, `.next/`, `.git/`, `playwright-report/`, `test-results/`, most historical `.context/reviews/*`, and `.context/plans/archive/*` beyond spot-checking current context. The architect lane reported `npm run typecheck` and `npm run lint` both completed clean.
+No relevant file in the requested review areas was skipped. The review covered
+source boundaries (`src/app`, `src/lib`, map/export/parser components),
+deployment/config surfaces, repo docs/context files, and the full E2E suite for
+evidence and coverage gaps.

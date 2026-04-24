@@ -1,148 +1,154 @@
-# Test Engineer Review — review-plan-fix cycle 1/100
+# Test Engineer Review — review-plan-fix cycle 2
 
 Date: 2026-04-24
 Repo: `/Users/hletrd/flash-shared/Travelback`
 Reviewer lane: test-engineer
-Scope: test coverage gaps, flaky-test risks, missing regression tests, Playwright config/fixtures, TDD opportunities
-Modification policy: only this review file was changed
+Scope: coverage-gap review only; no source files edited
+
+## Summary
+
+The repo still has one executable test layer: Playwright. `package.json:5-17` defines lint/typecheck/build plus E2E commands, but there is no unit or component test harness for the pure logic in `src/lib/*` or the controller-heavy UI surfaces in `src/components/*`. The existing browser suite is broad on happy-path UX, especially map/style/theme and basic imports, but it leaves the highest-risk correctness branches under-protected: parser worker/fallback behavior, export lifecycle cleanup, keyboard/hotkey guards, and the stability of the Playwright gate itself.
 
 ## Inventory
 
-### Review-relevant repo files examined
-- Test/config surface: `package.json`, `playwright.config.ts`, `playwright.static.config.ts`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`
-- E2E suite and fixtures: `e2e/travelback.spec.ts`, all files under `e2e/fixtures/`
-- Parsing/runtime logic: `src/lib/parser.ts`, `public/workers/trackParser.worker.js`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `src/lib/i18n.ts`, `src/lib/env.ts`, `src/types.ts`
-- App/session orchestration: `src/app/layout.tsx`, `src/app/page.tsx`
-- Interactive UI/components relevant to testability: `src/components/FileUpload.tsx`, `MapView.tsx`, `JourneyCreator.tsx`, `TimelineSelector.tsx`, `TrackWorkspace.tsx`, `Controls.tsx`, `ExportPanel.tsx`, `SceneEditor.tsx`, `TrackToolbar.tsx`, `GlobalToolbar.tsx`, `ThemeToggle.tsx`, `ModalDialog.tsx`, `ElevationProfile.tsx`, `Toast.tsx`, `ErrorBoundary.tsx`, `GoogleGuide.tsx`, `KeyboardHelp.tsx`
-- Static/runtime scripts: `scripts/harden-static-export.mjs`, `scripts/serve-static.mjs`, `scripts/smoke-static.mjs`, `scripts/fetch-map-styles.mjs`
-- Static/public assets relevant to fixture/runtime behavior: `public/sample-trip.gpx`, `public/map-styles/*.json`, `public/guide/*.svg`, `public/workers/trackParser.worker.js`
+### Source files inventoried
 
-### Context docs examined
-- `.context/README.md`
-- `.context/project/01-overview.md`
-- `.context/project/02-architecture.md`
-- `.context/development/01-conventions.md`
-- `.context/reviews/_aggregate.md`
-- `.context/reviews/cycle-r9-test-engineer-2026-04-24.md`
-- `.context/reviews/cycle-r10-test-engineer-2026-04-24.md`
-- `plan/cycle1-review-plan-2026-04-24.md`
-- `plan/deferred-cycle1-review-plan-2026-04-24.md`
+- App shell: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
+- Parser/runtime libs: `src/lib/parser.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `src/lib/i18n.ts`, `src/lib/env.ts`
+- Type/config surface: `src/types.ts`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `package.json`
+- Map/theme/UI surfaces: `src/components/MapView.tsx`, `FileUpload.tsx`, `JourneyCreator.tsx`, `TimelineSelector.tsx`, `TrackWorkspace.tsx`, `Controls.tsx`, `ExportPanel.tsx`, `TrackToolbar.tsx`, `GlobalToolbar.tsx`, `ThemeToggle.tsx`, `ModalDialog.tsx`, `SceneEditor.tsx`, `ElevationProfile.tsx`, `ErrorBoundary.tsx`, `GoogleGuide.tsx`, `KeyboardHelp.tsx`, `Toast.tsx`
+- Static/runtime support: `public/workers/trackParser.worker.js`, `public/map-styles/*.json`, `public/sample-trip.gpx`, `scripts/serve-static.mjs`, `scripts/smoke-static.mjs`, `scripts/harden-static-export.mjs`
 
-## Overall assessment
+### Playwright/spec inventory
 
-The repository still has a single executable test layer: Playwright E2E. `package.json:10-17` exposes lint, typecheck, build, smoke, and Playwright commands, but there is no unit or component test runner. The current Playwright suite is broad at the UI level and now contains 59 tests (`e2e/travelback.spec.ts:209-1272`), but core parser, export, playback, camera, and touch-specific behaviors remain either untested or only indirectly tested through slow browser flows.
+- Spec surface: `e2e/travelback.spec.ts:1-1293`
+- Helper layer is inline in the spec, not split into separate Playwright fixtures: `e2e/travelback.spec.ts:19-208`
+- Configs:
+  - Dev-server lane: `playwright.config.ts:5-45`
+  - Static-export lane: `playwright.static.config.ts:5-45`
+
+### Fixture inventory
+
+- GPX: `e2e/fixtures/sample.gpx`, `segmented-city-hop.gpx`, `tiny-trim.gpx`, `single-quote-attrs.gpx`, `invalid-elevation.gpx`, `antimeridian.gpx`, `korea-japan.gpx`
+- KML: `e2e/fixtures/korea-japan.kml`, `point-placemarks.kml`
+- Google JSON: `e2e/fixtures/korea-japan.json`, `google-records.json`, `google-semantic-location.json`, `google-semantic-segments.json`, `google-timeline-edits.json`
+- Missing fixture classes for important negative paths: malformed XML, too-few-points GPX/KML, over-limit JSON/GPX, deeply nested JSON, worker-unavailable/fallback cases, export success/cancel mocks
 
 ## Findings
 
-### TE-001 — Confirmed: parser correctness and main-thread/worker parity still lack deterministic regression coverage
+### TE-201 — Pure logic remains outside any deterministic test harness
 - Severity: High
 - Confidence: High
-- Status: Confirmed issue
-- Evidence:
-  - Main parser behavior lives in `src/lib/parser.ts:19-360` and `src/lib/parser.ts:169-314`.
-  - Worker parser duplicates much of that logic in `public/workers/trackParser.worker.js:1-248` and `public/workers/trackParser.worker.js:289-322`.
-  - Error mapping in the UI depends on explicit parser codes at `src/components/FileUpload.tsx:61-86`.
-  - Current JSON/GPX/KML tests only assert UI-level success/failure at `e2e/travelback.spec.ts:408-439`, `e2e/travelback.spec.ts:1178-1214`, and `e2e/travelback.spec.ts:1219-1230`.
-- Why this is a problem:
-  - The parser and worker are separate implementations with separate guardrails, but there is no deterministic test suite asserting they produce the same `Track`, the same `segmentStartIndices`, and the same `ParseError.code` values for the same inputs.
-  - The UI depends on those codes for user-facing behavior, so parser drift can become a silent UX regression instead of a visible test failure.
+- Code region:
+  - `package.json:5-17`
+  - `src/lib/parser.ts:19-675`
+  - `src/lib/interpolate.ts:18-185`
+  - `src/lib/camera.ts:19-427`
+  - `src/lib/usePlaybackController.ts:17-227`
+- Why it matters:
+  - All of the highest-risk logic is pure or near-pure, but the repo only exposes browser E2E commands. That means scene normalization, interpolation math, JSON-depth guards, segment-distance handling, and playback timing only get indirect browser coverage.
 - Concrete failure scenario:
-  - A future change updates `parseGoogleLocationHistory()` in `src/lib/parser.ts` but not `public/workers/trackParser.worker.js`, or adds a new `ParseError.code` without extending `FileUpload` mapping. Browser imports still show a loaded track title or a generic parse error, so the current Playwright suite stays green while worker/main outputs diverge or the wrong localized error path is shown.
-- Suggested fix:
-  - Add a deterministic parser test layer that feeds the same fixtures and synthetic malformed cases through both parser paths and asserts exact output parity: points, timestamps, segment boundaries, deduplication, and error codes.
-  - Add a focused regression test for `FileUpload` error-code mapping so every supported `ParseError.code` is intentionally covered.
-  - Best TDD entry point: a RED test for parser/worker parity on a segmented Google fixture plus one RED test for unmapped parser error codes in `FileUpload`.
+  - A regression in `computeCameraForProgress()` gap/transition blending (`src/lib/camera.ts:339-427`) or `computeCumulativeDistances()` segmented-distance math (`src/lib/interpolate.ts:18-38`) can ship while the browser suite stays green because the current E2E checks only sample a few UI-visible trajectories, not the underlying math contracts.
+- Suggested fix/test:
+  - Add a deterministic low-level test lane for parser/interpolate/camera/controller logic.
+  - Start with table-driven tests for segmented distances, antimeridian interpolation, `normalizeScenes()`, and `computeCameraForProgress()` gap/transition behavior.
 
-### TE-002 — Confirmed: the export state machine is still effectively untested
+### TE-202 — Google JSON worker, fallback, and error-code branches are materially under-tested
 - Severity: High
 - Confidence: High
-- Status: Confirmed issue
-- Evidence:
-  - Export controller flow: `src/lib/useExportController.ts:28-243`
-  - Encoder loop/download behavior: `src/lib/videoEncoder.ts:40-225`
-  - Export UI gates and codec probing: `src/components/ExportPanel.tsx:47-165` and `src/components/ExportPanel.tsx:201-280`
-  - Current Playwright export coverage stops at opening/configuring the panel: `e2e/travelback.spec.ts:1111-1173`, `e2e/travelback.spec.ts:1237-1272`
-- Why this is a problem:
-  - The riskiest export behavior is inside async controller/encoder logic: abort handling, map resize/reset cleanup, object URL lifecycle, picker fallback, progress restoration, and unsupported-codec gating. None of that is asserted today.
+- Code region:
+  - `src/lib/parser.ts:446-533`
+  - `src/lib/parser.ts:536-620`
+  - `src/lib/parser.ts:623-673`
+  - `public/workers/trackParser.worker.js:289-321`
+  - `src/components/FileUpload.tsx:52-93`
+  - Covered today only by happy-path JSON imports in `e2e/travelback.spec.ts:1186-1214` and one unsupported-extension check in `e2e/travelback.spec.ts:1219-1232`
+- Why it matters:
+  - The app has distinct paths for depth checks, worker parsing, worker creation failure, worker runtime failure, large-file rejection, and UI error-code mapping. The current suite only proves that a few small valid JSON fixtures import and that `.txt` is rejected.
 - Concrete failure scenario:
-  - A regression causes `resetSize()` cleanup to be skipped after an export failure, or `downloadVideo()` to report success incorrectly, or `exportTrack()` to leave stale `exportedVideoUrl` blobs around. The current suite still passes because it never presses `Start Export`, never injects a mock encoder, and never verifies cancel/success cleanup behavior.
-- Suggested fix:
-  - Add hook/unit tests around `useExportController` with a fake `MapViewHandle`, mocked `exportVideo`, controllable aborts, and explicit assertions for map resize/reset, progress restoration, toast paths, and blob URL cleanup.
-  - Add unit tests around `videoEncoder.ts` for config clamping, abort-before-finalize, filename sanitization, picker cancellation, and fallback download behavior.
-  - If real-browser export remains too expensive for CI, add a mockable export seam and one integration test that exercises the overlay/cancel/done states through that seam.
+  - A browser without worker support or with a worker creation failure takes the fallback path in `src/lib/parser.ts:536-560`. If that path regresses, the UI can spin, surface the wrong message, or mishandle dates returned from the worker (`src/lib/parser.ts:595-600`) without any current test failing.
+- Suggested fix/test:
+  - Add parser-level tests for `JSON_DEPTH_EXCEEDED`, `INVALID_GOOGLE_JSON`, `UNSUPPORTED_GOOGLE_FORMAT`, `FILE_TOO_LARGE`, and `TOO_MANY_POINTS`.
+  - Add parity tests that run the same JSON fixture through both `parseGoogleLocationHistory()` and `public/workers/trackParser.worker.js` and assert identical `points`, `segmentStartIndices`, and error codes.
+  - Add UI-level tests for the `FileUpload` error mapping matrix, not just unsupported extension.
 
-### TE-003 — Confirmed: static smoke protections are not part of the main CI-oriented static Playwright command
+### TE-203 — Export success, cancel, and cleanup state machine is almost entirely unexercised
+- Severity: High
+- Confidence: High
+- Code region:
+  - `src/lib/useExportController.ts:87-220`
+  - `src/lib/videoEncoder.ts:40-212`
+  - `src/components/ExportPanel.tsx:140-295`
+  - `src/app/page.tsx:156-186`
+  - Current Playwright coverage stops at opening/configuring the dialog: `e2e/travelback.spec.ts:1111-1166`, `e2e/travelback.spec.ts:1237-1290`
+- Why it matters:
+  - The risky behavior is not the dialog chrome; it is the async controller loop: pausing playback, resizing the map, waiting for idle, cancelling via `AbortController`, restoring progress, revoking object URLs, picker-vs-fallback downloads, and cleaning up after failure.
+- Concrete failure scenario:
+  - A cancelled export can leave the map container stuck at export dimensions (`src/lib/useExportController.ts:189-203`), restore the wrong playback progress (`src/lib/useExportController.ts:215-218`), or finalize a corrupt MP4 on abort if the encoder contract regresses (`src/lib/videoEncoder.ts:88-140`). None of that is asserted today because no test actually starts or cancels an export.
+- Suggested fix/test:
+  - Add controller tests with a mocked `MapViewHandle`, mocked `exportVideo`, and mocked `downloadVideo` to cover:
+    - success path
+    - cancel via `AbortError`
+    - map resize/reset fallback
+    - playback progress restoration
+    - blob URL revocation and download method state
+  - Add one browser integration test that presses `Start Export`, then cancels with Escape and asserts the overlay closes without leaving export state behind.
+
+### TE-204 — Keyboard/hotkey guard rails are only partially covered
 - Severity: Medium
 - Confidence: High
-- Status: Confirmed issue
-- Evidence:
-  - Static scripts in `package.json:12-17`
-  - Static Playwright config in `playwright.static.config.ts:5-45`
-  - Static smoke coverage in `scripts/smoke-static.mjs:76-179`
-  - CSP hardening and preview-server logic in `scripts/harden-static-export.mjs:14-103` and `scripts/serve-static.mjs:69-158`
-- Why this is a problem:
-  - `npm run test:e2e:static` chains build plus smoke plus Playwright, but `npm run test:e2e:static:ci` only runs Playwright against the static config. That means the CI-oriented command can miss the exact script-level invariants that protect the static deployment path.
+- Code region:
+  - `src/lib/usePlaybackController.ts:64-135`
+  - `src/lib/usePlaybackController.ts:156-227`
+  - `src/components/ModalDialog.tsx:109-147`
+  - `src/app/page.tsx:156-186`
+  - `src/components/JourneyCreator.tsx:501-539`
+  - Existing coverage is limited to timeline keyboard trim and one dialog focus-loop check: `e2e/travelback.spec.ts:738-777`, `e2e/travelback.spec.ts:1111-1125`
+- Why it matters:
+  - Playback hotkeys are intentionally suppressed for dialogs, inputs, sliders, and active export. Those branches are easy to regress because they depend on focus target semantics and event propagation rather than obvious UI rendering.
 - Concrete failure scenario:
-  - A change breaks CSP hardening, cache headers, path traversal handling, tool-residue checks, or local-only style constraints. `npm run test:e2e:static:ci` can still pass because the browser suite does not assert those script-level invariants, and the smoke gate is not part of that command.
-- Suggested fix:
-  - Replace the split commands with one canonical static CI command that always runs build + `smoke:static` + static Playwright.
-  - Add a small script-level test harness for `serve-static.mjs` edge cases such as bad percent encoding, `HEAD`, `405`, traversal rejection, and base-path redirects.
+  - While the export dialog or Journey Creator search input is focused, pressing Space or Arrow keys can toggle playback or scrub the main track underneath the modal. Escape can also double-handle by both cancelling export and closing a modal if propagation rules regress.
+- Suggested fix/test:
+  - Add browser tests that assert:
+    - Space/Arrow keys do not affect playback while focus is inside `ExportPanel`
+    - search input arrow/enter behavior in `JourneyCreator` does not leak to playback hotkeys
+    - Escape during active export cancels export without leaving the app in an inconsistent modal state
 
-### TE-004 — Confirmed: the Playwright suite still relies on fixed sleeps and a global retry to hide timing uncertainty
+### TE-205 — The Playwright gate is still fragile because it relies on fixed sleeps, forced clicks, and the dev server
 - Severity: Medium
 - Confidence: High
-- Status: Confirmed issue
-- Evidence:
-  - Global retries in `playwright.config.ts:7-11` and `playwright.static.config.ts:7-11`
-  - Blanket settle in `e2e/travelback.spec.ts:134-147`
-  - Sampling helper sleeps in `e2e/travelback.spec.ts:63-84`
-  - Additional direct waits at `e2e/travelback.spec.ts:189`, `e2e/travelback.spec.ts:217`, `e2e/travelback.spec.ts:294-295`, `e2e/travelback.spec.ts:309`, `e2e/travelback.spec.ts:338`, `e2e/travelback.spec.ts:224`, `e2e/travelback.spec.ts:261`
-- Why this is a problem:
-  - Fixed sleeps make the suite slower while still leaving it sensitive to CI GPU/WebGL timing, background-tab throttling, and map-style load variance. `retries: 1` then masks the first failure instead of removing the root cause.
+- Code region:
+  - Fixed sleeps in `e2e/travelback.spec.ts:146`, `e2e/travelback.spec.ts:500`, `e2e/travelback.spec.ts:516`, `e2e/travelback.spec.ts:809`, `e2e/travelback.spec.ts:837`, `e2e/travelback.spec.ts:914`, `e2e/travelback.spec.ts:929`, `e2e/travelback.spec.ts:958`, `e2e/travelback.spec.ts:1244`, `e2e/travelback.spec.ts:1281`
+  - Frequent `force: true` interaction overrides throughout `e2e/travelback.spec.ts`, including `266`, `314`, `401`, `442`, `456`, `470`, `499`, `785`, `981`, `1030`, `1113`, `1133`, `1265`, `1289`
+  - Dev-server primary gate in `playwright.config.ts:40-45`
+  - Static-export lane exists but is separate in `playwright.static.config.ts:40-45`
+- Why it matters:
+  - `waitForTimeout()` creates false negatives on slow CI and false positives on fast machines. `force: true` suppresses actionability failures that would otherwise expose layout overlap or focus bugs. Running the main suite against `next dev` also means the primary gate is exercising hydration and overlay behavior that is not the production deployment path.
 - Concrete failure scenario:
-  - A slow CI runner takes longer than the baked-in `waitForTimeout()` windows for map initialization or camera stabilization. The first run fails and the retry passes, producing a flaky green build that is hard to trust and hard to diagnose.
-- Suggested fix:
-  - Replace raw sleeps with event-driven assertions against `__travelbackDebug`, route/trail source presence, map idle readiness, and observable playback-state changes.
-  - Reduce or remove retries after the suite is made event-driven.
-  - For camera tests, prefer deterministic stepping or debug-state polling over long wall-clock waits.
+  - A toolbar overlap regression blocks a real user click, but the test still passes because it uses `click({ force: true })`. Or a slower runner misses a `waitForTimeout(1000)` playback expectation and fails nondeterministically even though the feature is correct.
+- Suggested fix/test:
+  - Replace fixed sleeps with `expect.poll()` or explicit debug-state predicates.
+  - Remove `force: true` anywhere the assertion is supposed to protect actionability/layout.
+  - Treat the static-export Playwright lane plus `smoke:static` as a required gate, not an optional secondary check.
 
-### TE-005 — Likely risk: “mobile” coverage is viewport simulation only, so touch-specific paths are largely unverified
-- Severity: Medium
-- Confidence: Medium-High
-- Status: Likely risk
-- Evidence:
-  - Playwright projects only launch Desktop Chrome in `playwright.config.ts:21-38` and `playwright.static.config.ts:21-38`
-  - Mobile tests use viewport resizing only at `e2e/travelback.spec.ts:560-664` and `e2e/travelback.spec.ts:779-805`
-  - Touch-specific handlers exist in `src/components/JourneyCreator.tsx:318-347`, `src/components/TimelineSelector.tsx:365-395` and `src/components/TimelineSelector.tsx:449-452`, and `src/components/ExportPanel.tsx:84-94`
-- Why this is a problem:
-  - The suite validates mobile layout, but not real mobile interaction semantics. Desktop Chrome with a small viewport does not exercise the same touch event paths, browser behavior, or platform quirks as actual touch-enabled Chromium/WebKit.
-- Concrete failure scenario:
-  - Timeline handle dragging works with mouse events in CI, but touchstart/touchmove ordering fails on real phones. Or the export panel’s swipe-to-close path works in desktop simulation but misfires on mobile Safari. The current suite would stay green because it does not run a touch-capable project.
-- Suggested fix:
-  - Add at least one real mobile project (`devices['Pixel 7']` or similar) and one WebKit mobile project if iOS behavior matters.
-  - Promote a small subset of high-value touch flows into that lane: timeline trim, Journey Creator point placement/drag, and export panel touch-close behavior.
+## Coverage notes by surface
 
-## TDD opportunities
+- Parser/imports:
+  - Happy-path GPX/KML/Google JSON coverage exists.
+  - Negative-path coverage is thin beyond unsupported extension and malformed elevation.
+- Export:
+  - Dialog rendering is covered.
+  - Start/cancel/success/download/cleanup paths are not.
+- Playback:
+  - Basic play, trim, camera motion, and unit toggle are covered.
+  - Hook-level timing and hotkey suppression branches are not.
+- Map/theme:
+  - Style cycling, error UI, reload, dark-default mapping, and explicit-style persistence are covered well.
+  - Low-level camera/interpolation math is still only indirectly covered.
+- UI/modal/error states:
+  - Basic dialog semantics are covered for guide/export.
+  - Error boundary reset/reload and modal-stack behavior are not explicitly exercised.
 
-1. Parser/worker parity:
-   Start with a failing shared-fixture test asserting exact equality of parser and worker outputs, including `segmentStartIndices` and error codes.
-2. Export controller:
-   Start with a failing test asserting export cancellation restores pre-export progress, resets map size, and leaves `exportState` back at `idle`.
-3. Static CI contract:
-   Start with a failing script-level test showing that `test:e2e:static:ci` currently skips `smoke:static` protections.
-4. Flake reduction:
-   Start with one failing camera/playback test rewritten without `waitForTimeout()`, using only observable readiness signals.
-5. Mobile touch lane:
-   Start with one failing touch-project test for timeline-handle drag on a mobile device profile.
+## Final sweep
 
-## Coverage gaps summary
-
-- No unit/component harness for parser, interpolation, camera, playback, export, or modal logic.
-- No deterministic parity tests between `src/lib/parser.ts` and `public/workers/trackParser.worker.js`.
-- No tests that execute `Start Export` through a mockable or real export path.
-- No CI-canonical command that guarantees static smoke checks run together with static Playwright.
-- No true touch-device Playwright project despite touch-specific code paths in production.
-
-## Final sweep note
-
-Examined the repository-wide test surface, relevant production files, static scripts, public worker/runtime assets, Playwright configs, all current E2E fixtures, and the main `.context` project/conventions/review docs listed above. I did not do a line-by-line review of generated build artifacts under `.next/`, `out/`, `playwright-report/`, `test-results/`, `.omc/`, or `.omx/` because they are derived/runtime state rather than source-of-truth for test design; the source files that generate or verify those artifacts were reviewed instead. No code or test implementation changes were made.
+No relevant source-of-truth file in the requested scope was skipped. I reviewed every file under `src/lib`, all interactive files under `src/components`, the app shell under `src/app`, both Playwright configs, the sole Playwright spec, every committed fixture under `e2e/fixtures`, the parser worker under `public/workers`, and the static-export support scripts. I did not review generated artifacts under `.next/`, `out/`, `playwright-report/`, `test-results/`, `.omc/`, or `.omx/` line-by-line because they are derived outputs rather than test-design sources.

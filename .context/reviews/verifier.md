@@ -1,44 +1,40 @@
-# Verifier Review — Prompt 1, Cycle 1/100
+# Verifier Review — review-plan-fix cycle 2
 
-## Summary
+## Verdict
 
-I reviewed the behavior-defining docs, package scripts, configs, source, public assets, and the static Playwright suite.
+PASS
 
-No confirmed correctness issues were found against the stated behavior in `.context` and `package.json`.
+I reviewed the behavior-defining source, the static-export path, and the cycle-2 E2E coverage. No confirmed correctness issues were found against the stated behavior, existing tests, or the static export contract.
 
 ## Evidence
 
-- `package.json:5-18` defines the expected gates and runtime commands: `lint`, `typecheck`, `build`, `smoke:static`, and static E2E scripts.
-- `.context/README.md:27-29`, `.context/project/01-overview.md:17-29, 30-94`, `.context/project/02-architecture.md:103-149`, and `.context/development/01-conventions.md:5-66` describe the offline/static-export contract, the CSP hardening, and the project conventions that the code is supposed to satisfy.
-- `src/app/layout.tsx:49-63` and `scripts/harden-static-export.mjs:8-103` implement the CSP bootstrap/static-hardening path documented in `.context/project/02-architecture.md`.
-- `scripts/serve-static.mjs:14-177` and `playwright.static.config.ts:1-46` match the documented `/travelback` static preview flow from `package.json` and `.context/project/01-overview.md`.
-- `src/lib/videoEncoder.ts:171-211`, `src/lib/useExportController.ts:87-217`, and `src/components/ExportPanel.tsx:138-247` implement the export/download flow described in the docs.
-- `src/components/JourneyCreator.tsx:429-478` keeps the coordinate-jump path local-only; no network geocoding call is present in the inspected code path.
-- `public/map-styles/*.json` are local-only styles with empty `sources`, matching the offline map contract.
-- `e2e/travelback.spec.ts` covers the documented browser flows: dark theme startup, upload/import, Journey Creator, export panel, and map-style cycling.
-
-Validation results:
-
-- `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npm run build` — passed; Next.js generated the static pages and `postbuild` hardened CSP across 3 HTML files.
 - `npm run smoke:static` — passed with `[smoke-static] OK`.
-- `npm run test:e2e:static:ci` — final status passed. `test-results/.last-run.json` reports `{"status":"passed","failedTests":[]}`.
-- `npx playwright test -c playwright.static.config.ts -g "dark system theme is applied on first render without needing a manual toggle" --reporter=line` — passed in isolation, which rules out the retry artifact as a deterministic regression.
+- `npx playwright test -c playwright.static.config.ts --grep "journey coordinate search supports keyboard selection and antimeridian duplicate suppression|timeline keyboard trimming updates the track without scrubbing playback|scene overview camera frames antimeridian tracks without zooming to the world|scene presets use localized default names|explicit map style choices survive later system theme changes"` — 5/5 passed.
+
+Code and review surfaces inspected:
+
+- App shell and export bootstrap: `src/app/layout.tsx:1-85`, `src/app/page.tsx:1-481`, `next.config.ts:1-16`
+- Core math and parsing: `src/lib/interpolate.ts:1-185`, `src/lib/camera.ts:1-260`, `src/lib/parser.ts:1-675`, `src/lib/videoEncoder.ts:1-225`
+- UI/control surfaces: `src/components/MapView.tsx:1-961`, `src/components/FileUpload.tsx:1-260`, `src/components/JourneyCreator.tsx:1-826`, `src/components/TimelineSelector.tsx:1-260`, `src/components/TrackWorkspace.tsx:1-170`, `src/components/Controls.tsx:1-159`, `src/components/ExportPanel.tsx:1-295`, `src/components/TrackToolbar.tsx:1-248`, `src/components/GlobalToolbar.tsx:1-70`, `src/components/ThemeToggle.tsx:1-81`, `src/components/ModalDialog.tsx:1-189`, `src/components/SceneEditor.tsx:1-520`, `src/components/ElevationProfile.tsx:1-131`, `src/components/ErrorBoundary.tsx:1-84`, `src/components/GoogleGuide.tsx:1-320`, `src/components/KeyboardHelp.tsx:1-83`, `src/components/Toast.tsx:1-91`
+- Static/export tooling: `scripts/serve-static.mjs:1-183`, `scripts/smoke-static.mjs:1-192`, `scripts/harden-static-export.mjs:1-118`, `public/workers/trackParser.worker.js:1-322`, `src/lib/env.ts:1-1`
+- Browser coverage: `e2e/travelback.spec.ts:1-1160`, plus the committed fixtures under `e2e/fixtures/`
 
 ## Findings
 
 None confirmed.
 
+The cycle-2 implementation and the shipped browser regressions cover the intended dateline, map-style persistence, keyboard, timeline, and export/static-export flows. I did not find a behavior break or a mismatch with the current test gates.
+
+## Gaps
+
+- There is still no deterministic unit-test harness for the pure parser/camera/interpolate/controller logic, so low-level math and fallback branches remain mostly protected through browser tests.
+- Playwright still depends on some forced interactions and timed waits in the broader suite, which is a flake risk, but the focused cycle-2 regressions and static smoke passed in this run.
+- The pre-existing coverage gaps called out by the test-engineer lane remain testability gaps, not confirmed correctness bugs.
+
 ## Final Sweep
 
-Examined:
+No relevant file in the requested review scope was skipped.
 
-- Docs: `.context/README.md`, `.context/project/01-overview.md`, `.context/project/02-architecture.md`, `.context/development/01-conventions.md`, `.context/plans/README.md`, and the current cycle plan artifacts referenced by the existing review context.
-- Configs/scripts: `package.json`, `next.config.ts`, `playwright.config.ts`, `playwright.static.config.ts`, `scripts/serve-static.mjs`, `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/fetch-map-styles.mjs`.
-- Source: `src/app/layout.tsx`, `src/app/page.tsx`, `src/lib/env.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/parser.ts`, `src/lib/videoEncoder.ts`, `src/lib/useExportController.ts`, `src/components/MapView.tsx`, `src/components/FileUpload.tsx`, `src/components/JourneyCreator.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/ThemeToggle.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/ExportPanel.tsx`, `src/components/GoogleGuide.tsx`.
-- Assets/tests: `public/map-styles/*.json`, `e2e/travelback.spec.ts`, `test-results/.last-run.json`.
-
-Skipped:
-
-- I did not do a line-by-line audit of every leaf UI component not implicated by the documented build/export/offline/browser flows, but I did inspect every behavior-defining path tied to the docs and package scripts.
+I reviewed the source files that define app behavior, the full static-export toolchain, the generated worker bundle, the Playwright configs, the cycle-2 E2E spec, and the committed fixtures that those tests exercise. I did not line-by-line audit derived outputs such as `.next/` or `out/`, because those are build artifacts rather than source-of-truth files.

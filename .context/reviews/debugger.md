@@ -1,50 +1,95 @@
-# Debugger Review — latent failure modes
+# Debugger Review - latent failure modes
 
 Reviewed surface:
 
-- Context docs: `.context/README.md`, `.context/project/01-overview.md`, `.context/project/02-architecture.md`, `.context/development/01-conventions.md`, `.context/plans/README.md`, current cycle review artifacts under `.context/reviews/`
-- App shell/runtime: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
-- Core logic: `src/lib/parser.ts`, `public/workers/trackParser.worker.js`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `src/lib/i18n.ts`, `src/types.ts`
+- App shell/config: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `playwright.config.ts`, `playwright.static.config.ts`
+- App runtime: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/vitro-base.css`
+- Core logic: `src/types.ts`, `src/lib/env.ts`, `src/lib/i18n.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/parser.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`
 - User-facing components: `src/components/FileUpload.tsx`, `src/components/MapView.tsx`, `src/components/JourneyCreator.tsx`, `src/components/TimelineSelector.tsx`, `src/components/SceneEditor.tsx`, `src/components/ExportPanel.tsx`, `src/components/Controls.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/TrackToolbar.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/ThemeToggle.tsx`, `src/components/ModalDialog.tsx`, `src/components/Toast.tsx`, `src/components/ErrorBoundary.tsx`, `src/components/GoogleGuide.tsx`, `src/components/KeyboardHelp.tsx`, `src/components/ElevationProfile.tsx`
-- Static/runtime scripts and tests: `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/serve-static.mjs`, `scripts/fetch-map-styles.mjs`, `e2e/travelback.spec.ts`, `e2e/fixtures/*`
+- Runtime/build scripts and worker: `scripts/serve-static.mjs`, `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/fetch-map-styles.mjs`, `public/workers/trackParser.worker.js`
+- E2E coverage and fixtures: `e2e/travelback.spec.ts`, `e2e/fixtures/*`
 
-## Findings
+Verification performed:
 
-### 1) LOW, HIGH CONFIDENCE, CONFIRMED - Toast enter animation can set state after unmount
-**Region:** `src/components/Toast.tsx:25-35`
+- `npm run typecheck` - passed
+- `npm run lint` - passed
+- `npm run build` - passed
+- `npm run smoke:static` - passed
 
-`ToastItem` schedules `requestAnimationFrame(() => setVisible(true))` but never stores or cancels that frame in cleanup. The timeout cleanup handles the 5-second dismiss timer, but the initial animation-frame callback is still live if the toast unmounts before the next paint.
+## Confirmed Findings
 
-**Failure scenario:** a toast is added and then dismissed immediately, or the app clears toasts during a track/session reset. The queued rAF runs after unmount and calls `setVisible(true)` on an unmounted component, which produces the usual React "state update on an unmounted component" warning and leaves the toast animation lifecycle nondeterministic.
+### 1) Medium, High confidence, Confirmed - XML entity hardening is incomplete
+**Region:** `src/lib/parser.ts:145-157`
 
-**Why this matters:** this is a real race, not just a cosmetic nit. The component already uses a ref for the dismiss callback, so it is clearly expected to survive lifecycle churn; the missing rAF cleanup is the one unguarded async callback in the toast path.
+`parseXml()` tries to strip DTD/entity declarations before handing text to `DOMParser`, but the `<!ENTITY[^>]*>` pattern only matches single-line entity declarations. A multi-line `<!ENTITY ...>` block can survive the prefilter and still reach `DOMParser`, which defeats the protection the helper is supposed to provide.
 
-**Suggested fix:** capture the animation-frame id and cancel it in cleanup, or gate the callback with a mounted ref the same way other async paths in this repo do.
+Failure scenario:
+- A GPX/KML file containing a multi-line entity declaration bypasses the intended sanitizer.
+- The parser then sees a payload the code explicitly tried to remove, which can turn a malformed import into a parsererror or reopen entity-expansion failure modes depending on browser XML behavior.
 
-### 2) MEDIUM, HIGH CONFIDENCE, CONFIRMED - Closing the completed export panel destroys the exported video state
-**Regions:** `src/app/page.tsx:300-305`, `src/components/ExportPanel.tsx:201-247`
+Suggested fix:
+- Strip entity declarations with a newline-safe pattern such as `<!ENTITY[\s\S]*?>`, or reject any DTD/entity block outright before parsing.
 
-`handleCloseExport()` calls `resetExportSession()` whenever `exportState === 'done'`, and `resetExportSession()` revokes the object URL and clears `exportedVideoBlob`. That makes the panel close button/backdrop act like a destructive "discard" action after export, even though the UI already has a separate `Export Again` control for that purpose.
+### 2) Medium, High confidence, Confirmed - Failed export attempts can destroy the previous export preview
+**Region:** `src/lib/useExportController.ts:87-103, 174-186`
 
-**Failure scenario:** a user finishes an export, cancels the native save picker, sees the preview state, and closes the panel to inspect the map. When they reopen export, the rendered MP4 is gone and the app forces a full re-render. The same happens if they simply close the panel by mistake before using Share.
+`exportTrack()` revokes the current exported object URL before it validates that the new export can actually start. If `track` or `canvas` is unavailable, the function returns early after showing an error toast, but the prior successful export has already been discarded.
 
-**Why this matters:** the exported blob is the only copy of the expensive render until the user saves or shares it. The current close path silently discards it, which is a state-loss hazard rather than a normal modal-dismiss action.
+Failure scenario:
+- A user has a finished export preview open.
+- They try to export again while the map canvas is temporarily unavailable or the track state is missing.
+- The new export fails immediately, and the previous working preview is gone even though the retry never got past validation.
 
-**Suggested fix:** make close non-destructive and reserve `resetExportSession()` for the explicit `Export Again` path or another clearly labeled discard action.
+Suggested fix:
+- Move `revokeExportedVideoUrl()` to after the map/canvas/track validation, or only revoke the old URL once the new export pipeline has definitely started.
 
-### 3) LOW, MEDIUM CONFIDENCE, LIKELY RISK - Map-style explicitness can be misclassified for older persisted state
-**Regions:** `src/app/page.tsx:44-56, 327-339`
+### 3) Low, High confidence, Confirmed - JourneyCreator can miss initialization if it activates before the map handle exists
+**Region:** `src/components/JourneyCreator.tsx:242-257, 421-433`
 
-`readInitialExplicitMapStyleChoice()` only knows about explicit intent when `travelback-mapstyle-explicit` is present. If that key is missing, it infers explicitness by comparing the saved style to the current theme default. That works for the current session flow, but it can misclassify older persisted state or partially migrated storage where the user had manually chosen the theme-default map style.
+The JourneyCreator effect only depends on `isActive`. It reads `mapRef.current?.getMap()` once, returns immediately if the map handle is not ready, and never retries when the handle appears later because `mapRef.current` changes do not retrigger the effect.
 
-**Failure scenario:** a user upgrades from an older session that only saved `travelback-mapstyle`, or localStorage is partially restored without the explicit flag. On the next theme toggle, the app treats the restored map style as implicit and rewrites it to the theme default, even though the user had already chosen it intentionally.
+Failure scenario:
+- The user opens JourneyCreator immediately after landing, or during a map reinitialization window.
+- The panel appears, but the map never gets the journey layers/listeners.
+- Clicking the map does nothing until the user toggles the mode off and on again.
 
-**Why this is a risk:** the current E2E coverage proves the happy path for an explicit choice made in the same session and across a reload, but it does not cover the older-storage/migration path. The code path is still live, so this is a persistence-boundary regression risk rather than a hypothetical style issue.
+Suggested fix:
+- Add an explicit map-ready signal to the effect dependencies, or render/enable JourneyCreator only after the MapLibre handle is available.
 
-**Suggested fix:** persist explicitness unconditionally, or derive it from the presence of a valid saved map-style key instead of comparing against the theme default.
+## Risks Needing Manual Validation
+
+### R1) Low, Medium confidence, Risk - Large Google JSON imports still depend on Worker availability above 16MB
+**Region:** `src/lib/parser.ts:529-559, 604-617`, `public/workers/trackParser.worker.js:289-322`
+
+The main-thread fallback only decodes Google JSON up to 16MB. If Worker creation fails or the browser does not support Workers, larger JSON imports reject even though the public limit is 100MB.
+
+Failure scenario:
+- A supported-but-restricted browser or CSP configuration disables Workers.
+- A user imports a valid Google export above 16MB.
+- The app rejects the file with `INVALID_GOOGLE_JSON` even though the same file would work in a Worker-capable browser.
+
+Suggested fix:
+- Either document the browser limitation clearly or add a fallback path that can handle the full supported JSON size without Worker support.
+
+### R2) Low, Medium confidence, Risk - E2E camera/layout assertions are timing-sensitive
+**Region:** `e2e/travelback.spec.ts:43-87, 506-533, 666-684, 793-804, 910-945`
+
+Several Playwright checks depend on fixed sleeps and bounding-box polling rather than explicit app readiness signals. That makes the suite vulnerable to CI timing drift, especially around camera motion and layout stabilization.
+
+Failure scenario:
+- A slower runner, throttled GPU, or browser update changes render timing.
+- The app is correct, but the test samples before the camera settles or after a delayed overlay/layout update.
+- The spec reports a false failure or, less commonly, misses a real regression because the timing window shifted.
+
+Suggested fix:
+- Replace arbitrary waits with explicit readiness hooks/state assertions where possible, and prefer app state or debug-state checks over geometry sampling when the behavior under test is not positional.
 
 ## Final Sweep
 
-I reviewed the current source tree plus the active `.context` docs and the static/E2E surfaces listed above. I did not skip any application source files, worker files, or build/runtime scripts. I did skip generated artifacts such as `.next/`, `out/`, and `node_modules/` as they are build outputs rather than source, and I did not modify any file except this review note.
+I reviewed the current source tree end to end across app shell, runtime, parser, camera, playback, export, map lifecycle, journey creation, static-export scripts, worker code, and the Playwright suite. I did not skip any relevant application source file. Generated outputs such as `.next/`, `out/`, and `node_modules/` were intentionally excluded as build artifacts, not source.
 
-No additional confirmed correctness crashes or data-loss regressions were found beyond the three items above.
+Current conclusion:
+
+- Confirmed issues: 3
+- Risks needing manual validation: 2
+- No additional relevant source files were skipped
