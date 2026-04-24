@@ -56,6 +56,7 @@
   --t2: #1C2340;
   --t3: #424E6E;
   --t4: #5A6578;
+  --gl-fg: #031015;
   --div: rgba(17, 24, 39, .07);
 
   --gc-bg: color-mix(in srgb, white 72%, transparent);
@@ -256,6 +257,7 @@ body {
   --p600: #0891B2;
   --p700: #0E7490;
   --gl: 6, 182, 212;
+  --gl-fg: #031015;
 }
 
 /* ── Light Mode ── */
@@ -355,6 +357,7 @@ body {
 /* Positron: cool silver-blue, minimal */
 [data-mode=light][data-mapstyle=positron] {
   --gl: 100, 116, 160;
+  --gl-fg: #FFFFFF;
   --bg: #F0F1F5;
   --bg2: #E8EAF0;
   --mesh-op: .14;
@@ -375,6 +378,7 @@ body {
 /* Bright: vibrant cobalt-blue */
 [data-mode=light][data-mapstyle=bright] {
   --gl: 56, 108, 220;
+  --gl-fg: #FFFFFF;
   --bg: #ECF0F8;
   --bg2: #E4EAF6;
   --mesh-op: .20;

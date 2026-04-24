@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 4173
+const PORT = Number(process.env.PLAYWRIGHT_STATIC_PORT ?? '4173')
+
+if (!Number.isInteger(PORT) || PORT <= 0) {
+  throw new Error(`Invalid PLAYWRIGHT_STATIC_PORT: ${process.env.PLAYWRIGHT_STATIC_PORT ?? '4173'}`)
+}
 
 export default defineConfig({
   testDir: './e2e',

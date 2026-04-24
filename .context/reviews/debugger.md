@@ -1,95 +1,57 @@
-# Debugger Review - latent failure modes
+# Debugger Review - Cycle 3 (2026-04-24)
 
-Reviewed surface:
+## Scope
 
-- App shell/config: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `playwright.config.ts`, `playwright.static.config.ts`
-- App runtime: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/vitro-base.css`
-- Core logic: `src/types.ts`, `src/lib/env.ts`, `src/lib/i18n.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/parser.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`
-- User-facing components: `src/components/FileUpload.tsx`, `src/components/MapView.tsx`, `src/components/JourneyCreator.tsx`, `src/components/TimelineSelector.tsx`, `src/components/SceneEditor.tsx`, `src/components/ExportPanel.tsx`, `src/components/Controls.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/TrackToolbar.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/ThemeToggle.tsx`, `src/components/ModalDialog.tsx`, `src/components/Toast.tsx`, `src/components/ErrorBoundary.tsx`, `src/components/GoogleGuide.tsx`, `src/components/KeyboardHelp.tsx`, `src/components/ElevationProfile.tsx`
-- Runtime/build scripts and worker: `scripts/serve-static.mjs`, `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/fetch-map-styles.mjs`, `public/workers/trackParser.worker.js`
-- E2E coverage and fixtures: `e2e/travelback.spec.ts`, `e2e/fixtures/*`
+Read-only inspection of the live source/config/test tree plus the fresh review artifacts:
 
-Verification performed:
+- `.context/reviews/code-reviewer.md`
+- `.context/reviews/security-reviewer.md`
+- `.context/reviews/test-engineer.md`
+- `.context/reviews/designer.md`
+- `.context/reviews/critic.md`
 
-- `npm run typecheck` - passed
-- `npm run lint` - passed
-- `npm run build` - passed
-- `npm run smoke:static` - passed
+I also checked the current source regions those reports point at so I could tell whether there were any new latent runtime bugs in the live tree.
 
-## Confirmed Findings
+## Result
 
-### 1) Medium, High confidence, Confirmed - XML entity hardening is incomplete
-**Region:** `src/lib/parser.ts:145-157`
+No new confirmed debugger findings beyond the existing fresh reports.
 
-`parseXml()` tries to strip DTD/entity declarations before handing text to `DOMParser`, but the `<!ENTITY[^>]*>` pattern only matches single-line entity declarations. A multi-line `<!ENTITY ...>` block can survive the prefilter and still reach `DOMParser`, which defeats the protection the helper is supposed to provide.
+The live code still contains the same runtime failure modes already documented in prior reviews, but this pass did not surface an additional confirmed bug that was not already captured elsewhere.
 
-Failure scenario:
-- A GPX/KML file containing a multi-line entity declaration bypasses the intended sanitizer.
-- The parser then sees a payload the code explicitly tried to remove, which can turn a malformed import into a parsererror or reopen entity-expansion failure modes depending on browser XML behavior.
+## Still-Live Runtime Bugs Already Confirmed
 
-Suggested fix:
-- Strip entity declarations with a newline-safe pattern such as `<!ENTITY[\s\S]*?>`, or reject any DTD/entity block outright before parsing.
+### 1. XML entity stripping is still incomplete
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** `src/lib/parser.ts:145-157`
+- **Failure scenario:** `stripXmlEntities()` still uses `<!ENTITY[\s\S]*?>`, which can miss multi-line entity declarations. A GPX/KML payload with a multi-line `<!ENTITY>` block can still reach `DOMParser`, defeating the intended sanitizer and leaving parser failure modes in play.
+- **Suggested fix:** Reject any DTD/entity block outright, or use a newline-safe removal pattern before parsing.
+- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
 
-### 2) Medium, High confidence, Confirmed - Failed export attempts can destroy the previous export preview
-**Region:** `src/lib/useExportController.ts:87-103, 174-186`
+### 2. Failed export retries can destroy the previous export preview
+- **Severity:** Medium
+- **Confidence:** High
+- **Evidence:** `src/lib/useExportController.ts:92-180`
+- **Failure scenario:** `revokeExportedVideoUrl()` is still reachable before the new export path is fully validated. If a retry fails early because the track, canvas, or map handle is unavailable, the previous working preview can be revoked even though the new export never started.
+- **Suggested fix:** Delay revoking the prior object URL until after validation or until the new export pipeline is definitely live.
+- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
 
-`exportTrack()` revokes the current exported object URL before it validates that the new export can actually start. If `track` or `canvas` is unavailable, the function returns early after showing an error toast, but the prior successful export has already been discarded.
+### 3. Journey Creator can miss initialization if the map handle appears late
+- **Severity:** Low
+- **Confidence:** High
+- **Evidence:** `src/components/JourneyCreator.tsx:243-250,417-425`
+- **Failure scenario:** The effect only retries off `isActive`. If Journey Creator activates before `mapRef.current?.getMap()` exists, the initialization path can stop retrying and the panel stays inert until the user toggles the mode off and on again.
+- **Suggested fix:** Add a map-ready signal to the effect dependencies, or gate activation until the map handle is available.
+- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
 
-Failure scenario:
-- A user has a finished export preview open.
-- They try to export again while the map canvas is temporarily unavailable or the track state is missing.
-- The new export fails immediately, and the previous working preview is gone even though the retry never got past validation.
+## Cross-Check Against Fresh Reports
 
-Suggested fix:
-- Move `revokeExportedVideoUrl()` to after the map/canvas/track validation, or only revoke the old URL once the new export pipeline has definitely started.
+- `.context/reviews/critic.md` already confirms additional runtime defects in `src/components/FileUpload.tsx`, `src/lib/useExportController.ts`, `src/components/ExportPanel.tsx`, and `src/components/JourneyCreator.tsx`.
+- `.context/reviews/designer.md` already confirms the map error hard-stop in `src/components/MapView.tsx`.
+- `.context/reviews/test-engineer.md` already confirms parser/export/journey coverage gaps and the dev-overlay masking issue in `e2e/travelback.spec.ts`.
+- `.context/reviews/security-reviewer.md` reports no confirmed security issue.
+- None of those fresh reports introduced a new debugger-specific runtime bug beyond the three already listed above.
 
-### 3) Low, High confidence, Confirmed - JourneyCreator can miss initialization if it activates before the map handle exists
-**Region:** `src/components/JourneyCreator.tsx:242-257, 421-433`
+## Conclusion
 
-The JourneyCreator effect only depends on `isActive`. It reads `mapRef.current?.getMap()` once, returns immediately if the map handle is not ready, and never retries when the handle appears later because `mapRef.current` changes do not retrigger the effect.
-
-Failure scenario:
-- The user opens JourneyCreator immediately after landing, or during a map reinitialization window.
-- The panel appears, but the map never gets the journey layers/listeners.
-- Clicking the map does nothing until the user toggles the mode off and on again.
-
-Suggested fix:
-- Add an explicit map-ready signal to the effect dependencies, or render/enable JourneyCreator only after the MapLibre handle is available.
-
-## Risks Needing Manual Validation
-
-### R1) Low, Medium confidence, Risk - Large Google JSON imports still depend on Worker availability above 16MB
-**Region:** `src/lib/parser.ts:529-559, 604-617`, `public/workers/trackParser.worker.js:289-322`
-
-The main-thread fallback only decodes Google JSON up to 16MB. If Worker creation fails or the browser does not support Workers, larger JSON imports reject even though the public limit is 100MB.
-
-Failure scenario:
-- A supported-but-restricted browser or CSP configuration disables Workers.
-- A user imports a valid Google export above 16MB.
-- The app rejects the file with `INVALID_GOOGLE_JSON` even though the same file would work in a Worker-capable browser.
-
-Suggested fix:
-- Either document the browser limitation clearly or add a fallback path that can handle the full supported JSON size without Worker support.
-
-### R2) Low, Medium confidence, Risk - E2E camera/layout assertions are timing-sensitive
-**Region:** `e2e/travelback.spec.ts:43-87, 506-533, 666-684, 793-804, 910-945`
-
-Several Playwright checks depend on fixed sleeps and bounding-box polling rather than explicit app readiness signals. That makes the suite vulnerable to CI timing drift, especially around camera motion and layout stabilization.
-
-Failure scenario:
-- A slower runner, throttled GPU, or browser update changes render timing.
-- The app is correct, but the test samples before the camera settles or after a delayed overlay/layout update.
-- The spec reports a false failure or, less commonly, misses a real regression because the timing window shifted.
-
-Suggested fix:
-- Replace arbitrary waits with explicit readiness hooks/state assertions where possible, and prefer app state or debug-state checks over geometry sampling when the behavior under test is not positional.
-
-## Final Sweep
-
-I reviewed the current source tree end to end across app shell, runtime, parser, camera, playback, export, map lifecycle, journey creation, static-export scripts, worker code, and the Playwright suite. I did not skip any relevant application source file. Generated outputs such as `.next/`, `out/`, and `node_modules/` were intentionally excluded as build artifacts, not source.
-
-Current conclusion:
-
-- Confirmed issues: 3
-- Risks needing manual validation: 2
-- No additional relevant source files were skipped
+This debugger pass did not uncover any new confirmed latent runtime bug beyond what the fresh reviews already documented. The live tree still exhibits the same known failure modes, but there is no additional debugger finding to add for cycle 3.

@@ -128,7 +128,7 @@ input[type="range"]:focus-visible {
   background: rgba(var(--gl), .85);
   border: 1px solid rgba(var(--gl), .5);
   border-radius: var(--r-interactive);
-  color: #fff;
+  color: var(--gl-fg, #031015);
   transition: background .15s ease, transform .15s ease;
 }
 

@@ -115,3 +115,5 @@ export interface ExportConfig {
   scenes: Scene[]
   transitionDuration?: number
 }
+
+export type ExportRequest = Omit<ExportConfig, 'scenes' | 'transitionDuration'>

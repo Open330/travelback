@@ -136,6 +136,7 @@ function HomeInner() {
     exportState,
     exportedVideoUrl,
     exportedVideoBlob,
+    exportedVideoFilename,
     downloadMethod,
     cancelExport,
     exportTrack,
@@ -472,6 +473,7 @@ function HomeInner() {
             exportState={exportState}
             exportedVideoUrl={exportedVideoUrl}
             exportedVideoBlob={exportedVideoBlob}
+            exportedVideoFilename={exportedVideoFilename}
             downloadMethod={downloadMethod}
             onResetExport={handleResetExport}
             onCancelExport={cancelExport}

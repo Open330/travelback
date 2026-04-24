@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
-import type { ExportConfig, Scene, Track } from '@/types'
+import type { ExportConfig, ExportRequest, Scene, Track } from '@/types'
 import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { computeCumulativeDistances } from '@/lib/interpolate'
@@ -47,6 +47,7 @@ export function useExportController({
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null)
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null)
+  const [exportedVideoFilename, setExportedVideoFilename] = useState<string | null>(null)
   const [downloadMethod, setDownloadMethod] = useState<DownloadMethod | null>(null)
 
   const exportAbortRef = useRef<AbortController | null>(null)
@@ -75,6 +76,7 @@ export function useExportController({
       return null
     })
     setExportedVideoBlob(null)
+    setExportedVideoFilename(null)
   }, [])
 
 
@@ -89,7 +91,7 @@ export function useExportController({
     exportAbortRef.current?.abort()
   }, [])
 
-  const exportTrack = useCallback(async (config: ExportConfig) => {
+  const exportTrack = useCallback(async (config: ExportRequest) => {
     const mapHandle = mapViewRef.current
     const canvas = mapHandle?.getCanvas()
     if (!canvas || !track || !mapHandle) {
@@ -110,9 +112,7 @@ export function useExportController({
     pausePlayback()
 
     try {
-      const exportScenes = config.scenes.length > 0
-        ? config.scenes
-        : scenes.length > 0
+      const exportScenes = scenes.length > 0
         ? scenes
         : generateDefaultScenes()
 
@@ -168,8 +168,9 @@ export function useExportController({
       if (exportedVideoUrlRef.current) {
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
-      setDownloadMethod(downloadResult.saved ? downloadResult.method : 'ready')
+      setDownloadMethod(downloadResult.method === 'fallback' || downloadResult.saved ? downloadResult.method : 'ready')
       setExportedVideoBlob(blob)
+      setExportedVideoFilename(result.filename)
       setExportedVideoUrl(pendingVideoUrl)
       exportedVideoUrlRef.current = pendingVideoUrl
       pendingVideoUrlStored = true
@@ -196,17 +197,10 @@ export function useExportController({
       try {
         mapViewRef.current?.resetSize()
       } catch (resetError) {
-        // resetSize() can fail if the map was destroyed during export.
-        // Force-reset the container dimensions as a fallback so the layout
-        // isn't stuck at the export resolution (e.g. 3840x2160 for 4K).
+        // resetSize() is expected to clear forced dimensions itself; this log
+        // keeps unexpected map teardown failures visible without reaching into
+        // MapView's DOM from the controller.
         console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
-        try {
-          const container = document.querySelector('[data-testid="map-container"]') as HTMLElement | null
-          if (container) {
-            container.style.width = ''
-            container.style.height = ''
-          }
-        } catch { /* best effort */ }
       }
       // Wait for map to settle after resize on the normal-completion path.
       // Skip the idle wait when the export was aborted — the signal is already
@@ -244,6 +238,7 @@ export function useExportController({
     exportState,
     exportedVideoUrl,
     exportedVideoBlob,
+    exportedVideoFilename,
     downloadMethod,
     cancelExport,
     exportTrack,

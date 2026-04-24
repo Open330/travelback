@@ -667,7 +667,13 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       )}
 
       {pendingPresetType && (
-        <ModalDialog open onClose={() => setPendingPresetType(null)} labelledBy="scene-confirm-title">
+        <ModalDialog
+          open
+          onClose={() => setPendingPresetType(null)}
+          labelledBy="scene-confirm-title"
+          overlayClassName="z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-md"
+          panelClassName="go w-full max-w-sm p-5 shadow-xl"
+        >
           <p id="scene-confirm-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('scenes.replaceConfirm')}</p>
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setPendingPresetType(null)}

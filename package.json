@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "env -u NO_COLOR playwright test",
     "test:e2e:dev": "env -u NO_COLOR playwright test -c playwright.config.ts",
-    "test:e2e:static:ci": "npm run smoke:static && env -u NO_COLOR playwright test -c playwright.static.config.ts",
-    "test:e2e:static": "npm run build && npm run smoke:static && env -u NO_COLOR playwright test -c playwright.static.config.ts",
+    "test:e2e:static:ci": "npm run smoke:static && node scripts/run-static-e2e.mjs",
+    "test:e2e:static": "npm run build && npm run test:e2e:static:ci",
     "smoke:static": "node scripts/smoke-static.mjs",
     "postbuild": "node scripts/harden-static-export.mjs"
   },

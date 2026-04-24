@@ -490,11 +490,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     resetSize: () => {
       const map = mapRef.current
       const container = containerRef.current
-      if (!map || !container) return
-      container.style.width = ''
-      container.style.height = ''
+      if (container) {
+        container.style.width = ''
+        container.style.height = ''
+      }
       originalSizeRef.current = null
-      map.resize()
+      map?.resize()
     },
     waitForIdle: (signal?: AbortSignal) => {
       return new Promise<boolean>((resolve, reject) => {
@@ -860,7 +861,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     })
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
-    if (followCamera && !suspendAutoCamera && progress > 0) {
+    if (followCamera && !suspendAutoCamera) {
       let targetCamera: CameraState
 
       if (scenesRef.current && scenesRef.current.length > 0) {
@@ -953,7 +954,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       aria-label={!track && !mapError && !allowInteractionWithoutTrack ? t('app.mapWaiting') : undefined}
     >
       {mapError && (
-        <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
+        <div data-testid="map-error" role="alert" className="relative z-30 flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
           <p>{t('app.mapLoadFailed')}</p>
           <details className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
             <summary className="cursor-pointer" style={{ color: 'var(--t5, var(--t4))' }}>{t('app.showTechnicalDetails')}</summary>

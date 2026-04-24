@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react'
-import type { VideoCodec, ExportConfig } from '@/types'
+import type { VideoCodec, ExportRequest } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
@@ -35,12 +35,13 @@ const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h2
 interface ExportPanelProps {
   isOpen: boolean
   onClose: () => void
-  onExport: (config: ExportConfig) => void
+  onExport: (config: ExportRequest) => void
   isExporting: boolean
   exportProgress: number
   exportState: ExportState
   exportedVideoUrl?: string | null
   exportedVideoBlob?: Blob | null
+  exportedVideoFilename?: string | null
   downloadMethod?: DownloadMethod | null
   onResetExport: () => void
   onCancelExport: () => void
@@ -56,6 +57,7 @@ export default function ExportPanel({
   exportState,
   exportedVideoUrl,
   exportedVideoBlob,
+  exportedVideoFilename,
   downloadMethod,
   onResetExport,
   onCancelExport,
@@ -140,13 +142,13 @@ export default function ExportPanel({
   const handleExport = useCallback(() => {
     if (!canStartExport) return
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
-    onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
+    onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate })
   }, [onExport, resolutionIdx, codec, fps, safeDuration, safeBitrate, canStartExport])
 
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
     try {
-      const file = new File([exportedVideoBlob], 'travelback.mp4', { type: 'video/mp4' })
+      const file = new File([exportedVideoBlob], exportedVideoFilename ?? 'travelback.mp4', { type: 'video/mp4' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Travelback' })
       }
@@ -154,7 +156,7 @@ export default function ExportPanel({
       if (err instanceof DOMException && err.name === 'AbortError') return
       console.error('Share failed:', err instanceof Error ? err.message : 'Unknown error')
     }
-  }, [exportedVideoBlob])
+  }, [exportedVideoBlob, exportedVideoFilename])
 
   // Check both navigator.share and navigator.canShare with a test file.
   // Some browsers support navigator.share for URLs but not for files,
@@ -236,7 +238,7 @@ export default function ExportPanel({
               {exportedVideoUrl && (
                 <a
                   href={exportedVideoUrl}
-                  download="travelback.mp4"
+                  download={exportedVideoFilename ?? 'travelback.mp4'}
                   className="vitro-btn-primary inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer"
                 >
                   <Download size={14} strokeWidth={2} />

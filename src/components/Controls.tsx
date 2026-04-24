@@ -83,7 +83,7 @@ export default function Controls({
               aria-label={isPlaying ? t('controls.pause') : t('controls.play')}
               title={isPlaying ? t('controls.pauseKey') : t('controls.playKey')}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-              style={{ background: 'rgba(var(--gl),.85)', color: '#fff' }}
+              style={{ background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' }}
             >
               {isPlaying ? (
                 <Pause size={16} fill="currentColor" />
@@ -135,7 +135,7 @@ export default function Controls({
               title={followCamera ? t('controls.cameraFollowOnTitle') : t('controls.cameraFollowOffTitle')}
               className="gi shrink-0 min-h-11 px-3 py-2 text-xs sm:text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={followCamera
-                ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
+                ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)', border: '1px solid rgba(var(--gl),.5)' }
                 : { color: 'var(--t3)' }
               }
             >

@@ -323,7 +323,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
               className="min-h-11 flex-shrink-0 whitespace-nowrap rounded-2xl px-3 py-2 text-[11px] font-medium cursor-pointer transition-colors"
               style={{
                 background: tab === i ? 'rgb(var(--gl))' : 'var(--gi-bg)',
-                color: tab === i ? '#fff' : 'var(--t3)',
+                color: tab === i ? 'var(--gl-fg)' : 'var(--t3)',
               }}
             >
               {m.label}
@@ -350,7 +350,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
             {active.steps.map((step) => (
               <div key={step.number} className="gi flex gap-3 px-3 py-3" style={{ borderRadius: '10px' }}>
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'rgb(var(--gl))' }}>
-                  <span className="text-sm font-bold text-white">{step.number}</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--gl-fg)' }}>{step.number}</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="mb-1 font-semibold" style={{ color: 'var(--t1)' }}>

@@ -129,26 +129,34 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
 
   if (hasTrack) {
     return (
-      <button
-        type="button"
-        data-testid="load-new-file-button"
-        onClick={() => inputRef.current?.click()}
-        aria-label={t('fileUpload.loadNewFileAria')}
-        title={t('fileUpload.loadNewFileAria')}
-        className="absolute top-4 left-4 z-10 gi flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:flex-row sm:gap-2 sm:px-4 sm:py-2"
-        style={{ color: 'var(--t1)' }}
-      >
-        <FolderOpen size={16} strokeWidth={2} />
-        <span className="text-[9px] leading-none sm:hidden">{t('fileUpload.loadNewFileShort')}</span>
-        <span className="hidden sm:inline">{t('fileUpload.loadNewFile')}</span>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".gpx,.kml,.json"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-      </button>
+      <div className="absolute top-4 left-4 z-10 flex max-w-[min(20rem,calc(100vw-2rem))] flex-col items-start gap-2">
+        <button
+          type="button"
+          data-testid="load-new-file-button"
+          onClick={() => inputRef.current?.click()}
+          disabled={loading}
+          aria-label={t('fileUpload.loadNewFileAria')}
+          title={t('fileUpload.loadNewFileAria')}
+          className="gi flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-sm font-medium cursor-pointer disabled:cursor-wait disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:flex-row sm:gap-2 sm:px-4 sm:py-2"
+          style={{ color: 'var(--t1)' }}
+        >
+          <FolderOpen size={16} strokeWidth={2} />
+          <span className="text-[9px] leading-none sm:hidden">{loading ? t('fileUpload.parsing') : t('fileUpload.loadNewFileShort')}</span>
+          <span className="hidden sm:inline">{loading ? t('fileUpload.parsing') : t('fileUpload.loadNewFile')}</span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".gpx,.kml,.json"
+            onChange={handleInputChange}
+            className="hidden"
+          />
+        </button>
+        {error && (
+          <div role="alert" className="gc max-w-full px-3 py-2 text-xs shadow-lg" style={{ color: 'var(--err)', borderRadius: '10px' }}>
+            {error}
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -225,7 +233,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         <p id="fileupload-drop-hint" className="text-sm mb-1" style={{ color: 'var(--t4)' }}>
           {t('fileUpload.dropHint')}
         </p>
-        <p className="text-xs mb-4" style={{ color: 'var(--t4)', opacity: 0.7 }}>
+        <p className="text-xs mb-4" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.formatHint')}
         </p>
         <button
@@ -268,7 +276,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
               type="button"
               onClick={onShowGoogleGuide}
               className="gi inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-              style={{ color: 'rgb(var(--gl))' }}
+              style={{ color: 'var(--t2)' }}
             >
               {t('fileUpload.importGuideLink')}
               <ArrowRight size={14} strokeWidth={2} />
@@ -283,7 +291,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                 type="button"
                 onClick={onShowGoogleGuide}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                style={{ color: 'rgb(var(--gl))', border: '1px solid rgba(var(--gl), .35)' }}
+                style={{ color: 'var(--t2)', border: '1px solid rgba(var(--gl), .35)' }}
               >
                 {t('fileUpload.errorHelp')}
                 <ArrowRight size={14} strokeWidth={2} />

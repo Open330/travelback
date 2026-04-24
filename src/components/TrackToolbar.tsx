@@ -107,7 +107,7 @@ export default function TrackToolbar({
         title={t('app.openSceneEditor')}
         className="gi shrink-0 min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
         style={showSceneEditor
-          ? { background: 'rgba(var(--gl),.85)', color: '#fff', border: '1px solid rgba(var(--gl),.5)' }
+          ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)', border: '1px solid rgba(var(--gl),.5)' }
           : { color: 'var(--t1)' }
         }
       >
@@ -203,7 +203,7 @@ export default function TrackToolbar({
                   type="button"
                   onClick={() => onUnitsChange('metric')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                  style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
+                  style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
                 >
                   {t('units.km')}
                 </button>
@@ -211,7 +211,7 @@ export default function TrackToolbar({
                   type="button"
                   onClick={() => onUnitsChange('imperial')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                  style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: '#fff' } : undefined}
+                  style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
                 >
                   {t('units.mi')}
                 </button>

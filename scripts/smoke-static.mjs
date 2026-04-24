@@ -2,16 +2,40 @@ import { constants } from 'node:fs'
 import { access, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { createServer as createTcpServer } from 'node:net'
 
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
-const port = Number(process.env.STATIC_SMOKE_PORT ?? '4183')
 const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.omx', '.claude', '.codex', '.git'])
 
-if (!Number.isInteger(port) || port <= 0) {
-  console.error(`[smoke-static] Invalid port: ${port}`)
+const requestedPort = Number(process.env.STATIC_SMOKE_PORT ?? '4183')
+if (!Number.isInteger(requestedPort) || requestedPort <= 0) {
+  console.error(`[smoke-static] Invalid port: ${requestedPort}`)
   process.exit(1)
 }
+
+async function reserveAvailablePort(preferredPort, allowFallback) {
+  const tryListen = (portToTry) => new Promise((resolve, reject) => {
+    const server = createTcpServer()
+    server.once('error', reject)
+    server.listen(portToTry, '127.0.0.1', () => {
+      const address = server.address()
+      const resolvedPort = typeof address === 'object' && address ? address.port : portToTry
+      server.close(() => resolve(resolvedPort))
+    })
+  })
+
+  try {
+    return await tryListen(preferredPort)
+  } catch (error) {
+    if (allowFallback && error && typeof error === 'object' && 'code' in error && error.code === 'EADDRINUSE') {
+      return await tryListen(0)
+    }
+    throw error
+  }
+}
+
+const port = await reserveAvailablePort(requestedPort, !process.env.STATIC_SMOKE_PORT)
 
 await access(outSample, constants.R_OK)
 
