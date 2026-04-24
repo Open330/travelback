@@ -1,54 +1,30 @@
-# Designer/UI-UX Review — Prompt 1, Cycle 1/100
+# UI / UX Review
 
-## Summary
-I reviewed the app shell, landing/upload flow, playback workspace, export modal, i18n strings, and the responsive mobile behavior in the live app.
-
-Overall, the UI is strong: the glass treatment is consistent, the dialogs are well-factored, and the app is generally accessible. I found three UX/a11y issues worth fixing before this cycle moves on.
+Scope covered: landing state, track-loaded workspace, journey creator, scene editor, export dialog, keyboard navigation, and localized toolbar behavior at a desktop viewport.
 
 ## Findings
 
-### 1) Arrow keys on the timeline range handles also scrub playback
+1. **Unlabeled journey search combobox**
+   - **Location:** [`src/components/JourneyCreator.tsx:604-617`](/Users/hletrd/flash-shared/Travelback/src/components/JourneyCreator.tsx#L604)
+   - **Severity:** Medium
+   - **Confidence:** High
+   - **Failure scenario:** When the "Open tool" search mode is enabled, the only text input is a `role="combobox"` with a placeholder but no accessible name. In the browser probe, this input exposed `role: "combobox"`, `ariaLabel: null`, `labels: []`, and only the placeholder text. Screen reader and voice-control users will get a generic nameless combobox, so they cannot reliably tell what the field is for or target it by label.
+   - **Suggested fix:** Add an actual label for the field, either a visible `<label>` or a visually hidden label tied with `htmlFor`, or set `aria-label` / `aria-labelledby` to a stable, localized name.
 
-- **Severity:** Medium
-- **Confidence:** High
-- **Files:**
-  - `src/lib/usePlaybackController.ts:149-157`
-  - `src/components/TimelineSelector.tsx:363-461`
-- **Evidence**
-  - On a 375×812 viewport, I focused `[data-testid="timeline-start-handle"]` and pressed `ArrowRight`.
-  - The handle moved (`aria-valuenow` changed from `0` to `1`), **and** playback also sought forward (`input[aria-label='재생 진행률']` changed from `0` to `0.02`).
-- **Failure scenario**
-  - Keyboard users trying to trim the timeline get a moving preview at the same time. That makes precise range editing unpredictable and can move the playback cursor away from the intended frame.
-- **Concrete fix**
-  - Either add `[role="slider"]` to the interactive-target exclusion in `usePlaybackHotkeys`, or stop propagation from the custom slider key handlers in `TimelineSelector` so arrow keys only adjust the range.
+2. **Unlabeled scene-name input in the camera editor**
+   - **Location:** [`src/components/SceneEditor.tsx:478-483`](/Users/hletrd/flash-shared/Travelback/src/components/SceneEditor.tsx#L478)
+   - **Severity:** Medium
+   - **Confidence:** High
+   - **Failure scenario:** After adding a scene, the first editable control is a bare text `<input>` with no `aria-label`, no placeholder, and no associated `<label>`. In the browser probe, it exposed an empty label list and no accessible name. This leaves the scene title field anonymous for screen readers and voice input, which is a direct WCAG 1.3.1 / 4.1.2 problem in the primary editing flow.
+   - **Suggested fix:** Associate the input with a label that names the scene, such as "Scene name for Scene 1", or add a visually hidden label that remains stable as the user edits the title.
 
-### 2) Mobile loaded state hides the only visible track-name confirmation
+3. **Journey creation does not move keyboard focus into the active workflow**
+   - **Location:** [`src/components/JourneyCreator.tsx:555-640`](/Users/hletrd/flash-shared/Travelback/src/components/JourneyCreator.tsx#L555) and [`src/components/GlobalToolbar.tsx:19-67`](/Users/hletrd/flash-shared/Travelback/src/components/GlobalToolbar.tsx#L19)
+   - **Severity:** Medium
+   - **Confidence:** High
+   - **Failure scenario:** After activating "Draw a route on the map", the browser tab sequence did not enter the journey panel first. The first four Tab presses landed on unrelated global controls in the top-right toolbar (`Metric units`, `Imperial units`, `Language`, and theme toggle) before reaching the journey cancel/search controls. That makes the active workflow feel disconnected from keyboard focus and increases the chance of accidental state changes outside the task being performed.
+   - **Suggested fix:** Move focus to the first meaningful control in the journey panel when it opens. If the creator is intended to behave like a modal task flow, also trap focus and inert the rest of the app while it is active.
 
-- **Severity:** Medium
-- **Confidence:** High
-- **File:** `src/components/TrackWorkspace.tsx:117-123`
-- **Evidence**
-  - On a 375×812 viewport after loading the sample trip, `document.querySelector('[data-testid="track-title"]')` exists but `getComputedStyle(...).display` is `none`.
-  - `document.body.innerText.includes('Namsan Tower Walk')` was `false`, and the accessibility snapshot did not expose the track name either.
-- **Failure scenario**
-  - On phones, users get no inline confirmation of which track is active after import. If they load the wrong file, there is no visible or spoken track-name anchor to reassure them.
-- **Concrete fix**
-  - Replace the `hidden lg:block` treatment with a compact mobile header/chip so the track name and point count remain visible and announced at small breakpoints.
+## Final Sweep Note
 
-### 3) The mobile “additional controls” popup claims menu semantics but does not behave like a menu
-
-- **Severity:** Low
-- **Confidence:** High
-- **File:** `src/components/TrackToolbar.tsx:134-237`
-- **Evidence**
-  - `button[aria-label="추가 컨트롤"]` opens a `role="menu"` containing `role="menuitem"` children.
-  - When I focused the first menu item and pressed `ArrowDown`, focus stayed on the same `BUTTON` instead of moving to the next item.
-- **Failure scenario**
-  - Screen readers are told this is a menu, but keyboard behavior is still generic popover/tab behavior. That mismatch is confusing and makes the mobile toolbar feel inconsistent for assistive-tech users.
-- **Concrete fix**
-  - Either remove the `menu/menuitem` roles and treat it as a normal popover of buttons, or implement full menu keyboard behavior with roving focus and arrow-key navigation.
-
-## Verification notes
-- Checked the live app in browser automation at desktop and 375×812 mobile sizes.
-- Inspected accessibility snapshots, focus state, and computed styles/DOM text.
-- Confirmed the export modal focus trap works and did not find console errors during the reviewed flows.
+I also checked the loaded-track workspace, modal dialogs, export flow, and reduced-motion-related controls at a desktop viewport. No additional reportable accessibility, contrast, or keyboard-navigation issues surfaced in those sampled states.

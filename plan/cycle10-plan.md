@@ -36,6 +36,6 @@ R6-AGG-D20, R7-AGG-D21, R7-AGG-D22, C9-AGG-D23.
 
 ## Convergence Assessment
 
-Two consecutive cycles with zero new findings. The codebase is in a stable,
-well-converged state. All deferred items have LOW severity with unfavorable
-cost/benefit ratios.
+Two consecutive cycles with zero new findings for that review wave. Deferred
+items retain the original severity recorded in their deferred files; they were
+not downgraded by this convergence note.

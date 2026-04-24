@@ -159,7 +159,7 @@ export async function exportVideo(
 }
 
 export interface DownloadResult {
-  /** Whether the download was initiated or completed */
+  /** Whether the save was confirmed by the browser */
   saved: boolean
   /** Which download method was used — 'picker' means the file was written
    *  via showSaveFilePicker (confirmed save); 'fallback' means an <a> tag
@@ -208,7 +208,7 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
       a.remove()
     }
   }
-  return { saved: true, method: 'fallback' }
+  return { saved: false, method: 'fallback' }
 }
 
 /** Check if a codec is supported in the current browser */

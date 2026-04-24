@@ -68,6 +68,19 @@ function computeScriptHashes(html) {
   return [...hashes].sort()
 }
 
+function inlineTravelbackBootstrap(html) {
+  const nextScriptPattern = /<script>\(self\.__next_s=self\.__next_s\|\|\[\]\)\.push\(\[0,(\{"children":"(?:\\.|[^"\\])*","id":"travelback-bootstrap"\})\]\)<\/script>/i
+
+  return html.replace(nextScriptPattern, (_, payload) => {
+    const { children } = JSON.parse(payload)
+    if (typeof children !== 'string' || children.trim() === '') {
+      throw new Error('Travelback bootstrap script payload is empty')
+    }
+
+    return `<script id="travelback-bootstrap">${children}</script>`
+  })
+}
+
 function replaceCspMeta(html, csp) {
   const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
   // Single regex handles attributes in any order with either quote style
@@ -88,7 +101,7 @@ if (htmlFiles.length === 0) {
 }
 
 for (const htmlFile of htmlFiles) {
-  const html = await readFile(htmlFile, 'utf8')
+  const html = inlineTravelbackBootstrap(await readFile(htmlFile, 'utf8'))
   const hashes = computeScriptHashes(html)
   const scriptSrc = hashes.length > 0
     ? [`'self'`, ...hashes].join(' ')

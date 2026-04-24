@@ -26,6 +26,7 @@ interface TrackToolbarProps {
   onUnitsChange: (units: UnitSystem) => void
   onModeChange: (mode: 'dark' | 'light') => void
   onOpenHelp: () => void
+  onOpenImportGuide: () => void
   onStartNewTrack: () => void
   onToggleSceneEditor: () => void
   onCycleStyle: () => void
@@ -42,6 +43,7 @@ export default function TrackToolbar({
   onUnitsChange,
   onModeChange,
   onOpenHelp,
+  onOpenImportGuide,
   onStartNewTrack,
   onToggleSceneEditor,
   onCycleStyle,
@@ -50,7 +52,8 @@ export default function TrackToolbar({
   const { t } = useLocale()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  useFocusFirstOnOpen(menuOpen, menuRef)
+  const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  useFocusFirstOnOpen(menuOpen, menuPanelRef)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -145,17 +148,15 @@ export default function TrackToolbar({
 
         {menuOpen && (
           <div
+            ref={menuPanelRef}
             role="group"
             aria-label={t('app.moreControls')}
             data-testid="track-toolbar-mobile-menu"
             data-disable-playback-hotkeys="true"
             className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
             style={{ borderRadius: 'var(--r-glass)' }}
-            // Focus is managed by useFocusFirstOnOpen via the outer wrapper's menuRef,
-            // which also backs the outside-click listener. Do NOT reassign menuRef here:
-            // React's "last ref wins" rule would otherwise detach the listener from the
-            // wrapper once the menu opens, causing the trigger click to register as
-            // "outside" and close-then-reopen the menu on every tap.
+            // Keep menuRef on the wrapper for outside-click detection; focus uses
+            // this panel ref so the first popup action receives focus on open.
           >
             <div className="space-y-2">
               <button
@@ -174,6 +175,14 @@ export default function TrackToolbar({
                 style={{ color: 'var(--t1)' }}
               >
                 <span>{t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => runAndCloseMenu(onOpenImportGuide)}
+                className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+                style={{ color: 'var(--t1)' }}
+              >
+                <span>{t('fileUpload.importGuideLink')}</span>
               </button>
               <button
                 type="button"

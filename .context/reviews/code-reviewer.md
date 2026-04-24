@@ -1,126 +1,114 @@
-# Code Review Summary — review-plan-fix cycle 1/100, Prompt 1
+# Code Reviewer Lane Report
 
-**Reviewer:** code-reviewer
-**Repository:** `/Users/hletrd/flash-shared/Travelback`
-**Date:** 2026-04-24
-**Scope:** repository-wide code quality, logic, SOLID, maintainability, security-oriented review. No source files were modified.
+## Scope
 
-## Stage 0 — Inventory
+- Repository: `/Users/hletrd/flash-shared/Travelback`
+- Review type: comprehensive code quality, logic, SOLID, maintainability
+- Context docs examined:
+  - `.context/README.md`
+  - `.context/project/01-overview.md`
+  - `.context/project/02-architecture.md`
+  - `.context/development/01-conventions.md`
+  - `plan/cycle1-review-plan-2026-04-24.md`
+  - `.context/reviews/_aggregate.md`
 
-Review-relevant files inventoried and examined: **50**
+## Review-Relevant Inventory
 
-- App shell/config: `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `postcss.config.mjs`, `.github/workflows/deploy-pages.yml`
-- App routes/styles: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/vitro-base.css`
-- Components: `src/components/Controls.tsx`, `ElevationProfile.tsx`, `ErrorBoundary.tsx`, `ExportPanel.tsx`, `FileUpload.tsx`, `GlobalToolbar.tsx`, `GoogleGuide.tsx`, `JourneyCreator.tsx`, `KeyboardHelp.tsx`, `MapView.tsx`, `ModalDialog.tsx`, `SceneEditor.tsx`, `ThemeToggle.tsx`, `TimelineSelector.tsx`, `Toast.tsx`, `TrackToolbar.tsx`, `TrackWorkspace.tsx`
-- Libraries/types: `src/lib/camera.ts`, `env.ts`, `i18n.ts`, `interpolate.ts`, `parser.ts`, `useExportController.ts`, `usePlaybackController.ts`, `videoEncoder.ts`, `src/types.ts`
-- Worker/scripts/tests/assets: `public/workers/trackParser.worker.js`, `scripts/*.mjs`, `e2e/travelback.spec.ts`, `playwright*.config.ts`, local map-style JSON, font CSS
+- App shell and state orchestration:
+  - `src/app/layout.tsx`
+  - `src/app/page.tsx`
+- Core logic:
+  - `src/types.ts`
+  - `src/lib/interpolate.ts`
+  - `src/lib/camera.ts`
+  - `src/lib/parser.ts`
+  - `src/lib/usePlaybackController.ts`
+  - `src/lib/useExportController.ts`
+  - `src/lib/videoEncoder.ts`
+  - `src/lib/i18n.ts`
+  - `src/lib/env.ts`
+- UI components:
+  - `src/components/*.tsx`
+- Worker / support scripts:
+  - `public/workers/trackParser.worker.js`
+  - `scripts/*.mjs`
+  - `package.json`
+  - `tsconfig.json`
+  - `next.config.ts`
+  - `eslint.config.mjs`
+- Test surface:
+  - `e2e/travelback.spec.ts`
 
-Current working tree source diff: none. Existing untracked review/plan artifacts were present before this review; this review only writes `.context/reviews/code-reviewer.md`.
+## Diagnostics
 
-## Stage 1 — Spec / Behavior Compliance
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- Targeted pattern scan: completed for console usage, empty catches, storage/event-heavy code paths, and duplicated parser surfaces
+- Note: OMX code-intel MCP transport died during the review, so I used CLI/source inspection instead of `lsp_diagnostics`
 
-The implementation broadly matches the documented product shape in `.context/project/01-overview.md` and `.context/project/02-architecture.md`: client-only import/export, local map styles, GPX/KML/Google JSON parsing, scene camera controls, timeline trimming, playback, and static export hardening are all represented in code.
+## Summary
 
-The main compliance gap found is in timeline trimming: `TrackWorkspace` renders the selector over `fullTrack` but passes cumulative distances for the currently filtered `track`. That breaks the documented distance-based timeline model after the first trim.
+- Files reviewed: all review-relevant source/config/test files listed above
+- Confirmed issues: 4
+- Likely risks: 1
+- Highest severity: Medium
+- Recommendation: REQUEST CHANGES
 
-## Stage 2 — Diagnostics / Static Checks
+## Confirmed Issues
 
-- `git diff --stat`: no tracked source changes.
-- `npm run typecheck`: **passed**.
-- `npm run lint`: **passed**.
-- `npm audit --audit-level=high`: **passed**, 0 vulnerabilities.
-- Secret scan via ripgrep for API keys/secrets/tokens/passwords outside lockfile: **no hits**.
-- MCP `lsp_diagnostics_directory` / `lsp_servers`: attempted, but the code-intel transport was closed. Fallback verification used `tsc --noEmit` and ESLint.
+### [MEDIUM][High confidence] Large Google JSON imports still fall back to full main-thread parsing when Worker creation fails
 
-## Findings
+- **File:** `src/lib/parser.ts:498-515`
+- **Why this is a problem:** The worker path is explicitly trying to keep large JSON imports off the main thread, but the `new Worker(...)` failure branch immediately decodes the original `buffer` on the main thread without the `MAIN_THREAD_JSON_FALLBACK_SIZE` guard used elsewhere in the same function.
+- **Concrete failure scenario:** On a browser/runtime where workers are blocked or unavailable, importing an 80-100MB Google Takeout file freezes the UI or spikes memory, even though the code comments and surrounding logic say large files should remain worker-only.
+- **Suggested fix:** In the constructor-failure branch, apply the same bounded-fallback policy as the later `onmessage`/`onerror` branches: only decode on the main thread when the file is within the small fallback size, otherwise reject with a clear parse/import-capability error.
 
-### HIGH — Timeline trimming mixes full-track points with filtered-track distances
+### [MEDIUM][High confidence] Scene range keyboard editing leaks into global playback hotkeys
 
-**Files / lines:**
-- `src/components/TrackWorkspace.tsx:125-131`
-- `src/app/page.tsx:97-100`
+- **Files:**
+  - `src/components/SceneEditor.tsx:173-225`
+  - `src/lib/usePlaybackController.ts:156-185`
+- **Why this is a problem:** The custom `role="slider"` handles in `SceneRangeEditor` call `preventDefault()` for arrow-key edits, but they do not stop propagation. The global playback hotkey handler does not treat `role="slider"` as an interactive target, so the same arrow key also triggers `onStepSeek`.
+- **Concrete failure scenario:** A user adjusts a scene boundary with keyboard arrows and the playback position jumps at the same time, moving the map/camera and producing confusing editor behavior that looks like the scene controls are corrupting playback state.
+- **Suggested fix:** Either stop propagation in the scene-range handle key handlers, or expand the global hotkey guard to ignore focused sliders / scene-editor controls, ideally via a dedicated `data-disable-playback-hotkeys` boundary on the editor.
 
-**Confidence:** High
+### [LOW][High confidence] Mobile toolbar “focus first item” logic actually focuses the trigger button
 
-**Issue:** `TrackWorkspace` passes `track={fullTrack}` to `TimelineSelector`, but passes `cumulativeDistances={cumulativeDistances}` where `cumulativeDistances` is computed from the currently filtered `track` in `page.tsx`. On initial load these match; after any trim, the selector has full-track points and filtered-track distances.
+- **Files:**
+  - `src/components/TrackToolbar.tsx:10-17`
+  - `src/components/TrackToolbar.tsx:52-53`
+  - `src/components/TrackToolbar.tsx:134-159`
+- **Why this is a problem:** `useFocusFirstOnOpen()` queries the first `button` inside `menuRef`, but `menuRef` is attached to the wrapper that contains the trigger button before the popup content. When the menu opens, the first button is still the trigger, not the first action inside the popup.
+- **Concrete failure scenario:** On mobile/narrow layouts, opening the overflow menu via keyboard leaves focus on the toggle instead of moving into the newly opened control group, so the intended focus-management behavior does not occur and keyboard traversal becomes less predictable.
+- **Suggested fix:** Put a separate ref on the popup panel itself and focus within that element, or scope the query to the popup subtree instead of the outer wrapper.
 
-**Failure scenario:** Load a route, drag the timeline to trim to the middle, then drag a handle again. The selector renders/uses full-track indexes but its distance array is shorter and describes the already-trimmed slice. Subsequent trim operations can jump toward the beginning of the original track, mis-count points, or produce inconsistent histogram/index mapping.
+### [LOW][High confidence] E2E coverage is coupled to English copy and localized title formatting
 
-**Fix:** Compute a separate `fullTrackCumulativeDistances = computeCumulativeDistances(fullTrack.points, fullTrack.segmentStartIndices)` and pass that to `TimelineSelector`. Keep the current `cumulativeDistances` for `track` consumers such as controls, elevation, map animation, and export. Add an e2e regression that performs two consecutive timeline trims and verifies the second trim stays in the selected region.
+- **Files:**
+  - `e2e/travelback.spec.ts:137-143`
+  - `e2e/travelback.spec.ts:150-155`
+  - `e2e/travelback.spec.ts:174`
+  - `e2e/travelback.spec.ts:183-193`
+  - `e2e/travelback.spec.ts:254-257`
+- **Why this is a problem:** Core helpers and assertions depend on literal English text (`Travelback`, `Drop your travel file here`, `locations`) instead of stable test IDs or locale-agnostic attributes.
+- **Concrete failure scenario:** A copy update, locale-default change, or broader i18n expansion breaks unrelated E2E tests even when the product behavior is correct, forcing noisy test maintenance for non-functional text edits.
+- **Suggested fix:** Prefer `data-testid`/semantic structural selectors for stable surfaces, and expose count/date metadata in machine-readable attributes instead of parsing localized title text.
 
----
+## Likely Risks
 
-### MEDIUM — Keyboard timeline sliders update visuals but do not update the selected track
+### [MEDIUM][High confidence] Main-thread and Worker Google parsers are still duplicated by hand
 
-**File / lines:** `src/components/TimelineSelector.tsx:386-459` and `src/components/TimelineSelector.tsx:142-148`
+- **Files:**
+  - `src/lib/parser.ts:182-574`
+  - `public/workers/trackParser.worker.js:1-322`
+- **Why this is a problem:** The Google-format parsing logic, dedupe behavior, sorting rules, and validation checks are maintained in two separate implementations. This is already a maintenance smell, and the repo history/docs show this area has been corrected repeatedly.
+- **Concrete failure scenario:** A future fix lands in only one parser path, so behavior diverges by environment or file size: small files parsed on the main thread behave one way while worker-parsed files behave another.
+- **Suggested fix:** Move the parsing core into a shared pure module and generate/bundle the worker entry from that shared source, or introduce an explicit generation step so the worker copy cannot drift manually.
+- **Classification:** Likely risk rather than a newly reproduced user-facing bug in this review.
 
-**Confidence:** High
+## Final Sweep Note
 
-**Issue:** The start/end handle `onKeyDown` handlers update `startRatio` / `endRatio`, but never call `onRangeChange`. The only effect that notifies the parent intentionally depends only on `points.length`, not ratio changes.
-
-**Failure scenario:** A keyboard-only user focuses a timeline handle and presses arrow/Home/End. The slider position and ARIA values change, but `page.tsx` never receives the new range, so the route, title count, playback, elevation, and export remain on the old track range.
-
-**Fix:** Centralize ratio updates in a helper that both sets state and emits `onRangeChangeRef.current(resolveIndexesForRatios(...))`, or add a carefully throttled effect for ratio changes. Cover with a Playwright keyboard test that focuses `timeline-start-handle`, presses ArrowRight, and asserts the loaded point count changes.
-
----
-
-### MEDIUM — Google JSON parser logic is duplicated between app code and the production worker
-
-**Files / lines:**
-- `src/lib/parser.ts:346-430` and `src/lib/parser.ts:538-542`
-- `public/workers/trackParser.worker.js:137-205`
-
-**Confidence:** High
-
-**Issue:** The Google Location History parser exists once in TypeScript and again as hand-maintained JavaScript in `public/workers/trackParser.worker.js`. JSON imports use the worker by default, and `parser.ts` rejects worker-reported parse errors rather than falling back to the main-thread parser.
-
-**Failure scenario:** A future parser fix or new Google Takeout variant is added to `src/lib/parser.ts` only. Production JSON uploads still fail because the stale worker parser runs first and returns an error, and the main parser is not tried for worker parse errors.
-
-**Fix:** Move Google parsing into a shared pure module and build/import it into both main and worker paths, or generate the worker from the same TypeScript source. Add parity tests that run every JSON fixture through both the main parser and worker parser and compare point counts, timestamps, and segment starts.
-
----
-
-### MEDIUM — Core UI files are large multi-responsibility modules, increasing regression risk
-
-**File / lines:**
-- `src/components/MapView.tsx:385-932`
-- `src/components/JourneyCreator.tsx:113-532`
-- `src/components/SceneEditor.tsx:239-640`
-- `src/app/page.tsx:32-469`
-- `src/lib/parser.ts:41-568`
-- `src/lib/i18n.ts:11-1784`
-
-**Confidence:** High
-
-**Issue:** Several modules combine rendering, event binding, state orchestration, data transforms, side effects, and imperative APIs. This weakens single-responsibility boundaries and makes cross-file bugs harder to spot; the timeline distance bug above is an example of shared state semantics leaking across `page.tsx`, `TrackWorkspace`, and `TimelineSelector`.
-
-**Failure scenario:** A change to map style reloads, trim semantics, or parser support requires editing a 600-950 line component with unrelated responsibilities, making it easy to miss stale closures, wrong dependency arrays, or mismatched data contracts.
-
-**Fix:** Split by behavior, not by arbitrary line count: e.g. `useTimelineRange`, `useMapLayers`, `useMapCamera`, `useJourneyLayers`, and `googleLocationParser` modules. Move locale dictionaries into per-locale files while keeping `TranslationKey` type safety. Add focused unit tests for extracted pure functions before refactoring.
-
----
-
-### LOW — Canceling the native save picker leaks the freshly created export object URL
-
-**File / lines:** `src/lib/useExportController.ts:151-159`
-
-**Confidence:** Medium
-
-**Issue:** `exportTrack` creates `videoUrl` and then awaits `downloadVideo`. If `downloadVideo` returns `{ saved: false }` for a canceled File System Access picker, the code throws `AbortError` before storing `videoUrl` in state or revoking it.
-
-**Failure scenario:** A user repeatedly completes expensive exports and cancels the save dialog. Each completed Blob URL can remain alive for the session, increasing memory usage for large videos.
-
-**Fix:** Revoke `videoUrl` immediately before throwing on `!downloadResult.saved`, or wrap the post-encode download block in a local `try/catch` that revokes any URL not transferred into state.
-
-## Severity Totals
-
-- CRITICAL: 0
-- HIGH: 1
-- MEDIUM: 3
-- LOW: 1
-
-## Recommendation
-
-**REQUEST CHANGES**
-
-The repository passes lint/typecheck/audit and no hardcoded secrets were found, but the timeline range contract bug is user-visible and affects a core feature. Fix the full-track distance contract first, then add regression coverage for repeated trimming and keyboard trimming.
+- **Examined:** all code-bearing files under `src/`, `scripts/`, `public/workers/`, repo config files, the main Playwright spec, and the `.context` project/development/current-cycle docs listed above.
+- **Cross-file interactions checked:** parser main-thread/worker parity, playback hotkeys vs. editor controls, export panel vs. export controller/video encoder, page-level state ownership vs. workspace components, and test selectors vs. i18n behavior.
+- **Skipped:** binary/static assets (`.woff2`, `.ico`, screenshots), raw map-style JSON payload contents beyond structural review, and fixture file internals except where their corresponding tests/parsers were relevant.
+- **Evidence state:** lint/typecheck are clean, so the findings above are logic/maintainability issues rather than current compile-time failures.

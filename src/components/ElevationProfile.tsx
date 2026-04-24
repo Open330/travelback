@@ -75,9 +75,11 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
     const step = 0.02
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault()
+      e.stopPropagation()
       onSeek(Math.min(1, progress + step))
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault()
+      e.stopPropagation()
       onSeek(Math.max(0, progress - step))
     }
   }

@@ -20,6 +20,7 @@ interface MapViewProps {
   duration?: number
   transitionDuration?: number
   cumulativeDistances?: number[]
+  allowInteractionWithoutTrack?: boolean
 }
 
 export interface MapViewHandle {
@@ -394,6 +395,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     duration = 30,
     transitionDuration = 0.03,
     cumulativeDistances: cumulativeDistancesProp,
+    allowInteractionWithoutTrack = false,
   },
   ref,
 ) {
@@ -417,6 +419,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     scenesRef.current = scenes
     normalizedScenesRef.current = normalizeScenes(scenes ?? [])
+    lastCameraStateRef.current = null
   }, [scenes])
   useEffect(() => {
     durationRef.current = duration
@@ -430,7 +433,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const container = containerRef.current
     if (!container) return
 
-    if (!track && !mapError) {
+    if (!track && !mapError && !allowInteractionWithoutTrack) {
       container.setAttribute('inert', '')
       container.setAttribute('aria-hidden', 'true')
       return
@@ -438,7 +441,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     container.removeAttribute('inert')
     container.removeAttribute('aria-hidden')
-  }, [mapError, track])
+  }, [allowInteractionWithoutTrack, mapError, track])
 
 
   useImperativeHandle(ref, () => ({
@@ -936,8 +939,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       ref={containerRef}
       data-testid="map-container"
       className={`absolute inset-0${!track ? ' hide-map-controls' : ' map-has-track-controls'}`}
-      aria-hidden={!track && !mapError}
-      aria-label={!track && !mapError ? t('app.mapWaiting') : undefined}
+      aria-hidden={!track && !mapError && !allowInteractionWithoutTrack}
+      aria-label={!track && !mapError && !allowInteractionWithoutTrack ? t('app.mapWaiting') : undefined}
     >
       {mapError && (
         <div data-testid="map-error" role="alert" className="flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>

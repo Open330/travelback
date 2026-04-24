@@ -87,7 +87,10 @@ export function useExportController({
   const exportTrack = useCallback(async (config: ExportConfig) => {
     const mapHandle = mapViewRef.current
     const canvas = mapHandle?.getCanvas()
-    if (!canvas || !track || !mapHandle) return
+    if (!canvas || !track || !mapHandle) {
+      addToast(`${t('app.exportFailed')} ${t('app.mapLoadFailed')}`, 'error')
+      return
+    }
 
     const abortController = new AbortController()
     exportAbortRef.current = abortController

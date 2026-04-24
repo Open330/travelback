@@ -188,6 +188,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                   alt={t('fileUpload.previewAlt')}
                   width={960}
                   height={540}
+                  priority
                   className="landing-preview-image block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
                 />
                 <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
@@ -207,6 +208,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
                   alt={t('fileUpload.previewAlt')}
                   width={960}
                   height={540}
+                  priority
                   className="block h-auto w-full"
                 />
               </div>
@@ -273,7 +275,20 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           </div>
         )}
         {error && (
-          <p role="alert" className="mt-4 text-sm" style={{ color: 'var(--err)' }}>{error}</p>
+          <div className="mt-4 space-y-2 text-sm" style={{ color: 'var(--err)' }}>
+            <p role="alert">{error}</p>
+            {onShowGoogleGuide && (
+              <button
+                type="button"
+                onClick={onShowGoogleGuide}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+                style={{ color: 'rgb(var(--gl))', border: '1px solid rgba(var(--gl), .35)' }}
+              >
+                {t('fileUpload.errorHelp')}
+                <ArrowRight size={14} strokeWidth={2} />
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

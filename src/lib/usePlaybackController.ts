@@ -29,6 +29,7 @@ export function usePlaybackController(track: Track | null) {
   const isPlayingRef = useRef(false)
   const startTimestampRef = useRef<number>(0)
   const startProgressRef = useRef<number>(0)
+  const awaitingFirstFrameRef = useRef(false)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export function usePlaybackController(track: Track | null) {
     if (isPlayingRef.current) {
       startTimestampRef.current = performance.now()
       startProgressRef.current = progressRef.current
+      awaitingFirstFrameRef.current = false
     }
   }, [speed, duration])
 
@@ -98,11 +100,19 @@ export function usePlaybackController(track: Track | null) {
     // elapsed wall-clock time rather than accumulating dt values.  This
     // eliminates both floating-point accumulation error and frame-rate
     // dependency (e.g. when rAF is throttled in background tabs).
-    startTimestampRef.current = performance.now()
     startProgressRef.current = progressRef.current
+    awaitingFirstFrameRef.current = true
 
     const animate = (now: number) => {
       if (!isPlayingRef.current || !mountedRef.current) return
+      if (awaitingFirstFrameRef.current) {
+        awaitingFirstFrameRef.current = false
+        startTimestampRef.current = now
+        setPlaybackProgress(startProgressRef.current)
+        animFrameRef.current = requestAnimationFrame(animate)
+        return
+      }
+
       const elapsedSec = (now - startTimestampRef.current) / 1000
       const nextProgress = startProgressRef.current + (elapsedSec * speedRef.current) / durationRef.current
 
@@ -119,6 +129,7 @@ export function usePlaybackController(track: Track | null) {
     animFrameRef.current = requestAnimationFrame(animate)
 
     return () => {
+      awaitingFirstFrameRef.current = false
       cancelAnimationFrame(animFrameRef.current)
     }
   }, [isPlaying, track, setPlaybackProgress])
@@ -157,7 +168,7 @@ export function usePlaybackHotkeys({
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName
       const isInteractiveTarget = Boolean(
-        target?.closest('button, a, summary, [role="dialog"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
+        target?.closest('button, a, summary, [role="dialog"], [role="slider"], [role="spinbutton"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
       )
 
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || isInteractiveTarget) {

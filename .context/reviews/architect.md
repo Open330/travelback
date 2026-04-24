@@ -1,52 +1,77 @@
-# Architect Review — review-plan-fix cycle 1/100 Prompt 1
+# Architect Review — review-plan-fix cycle 1/100
 
-**Reviewer:** architect
-**Repository:** `/Users/hletrd/flash-shared/Travelback`
-**Date:** 2026-04-24
-**Scope:** app shell, composition root, map/rendering layer, parser + worker boundary, playback/export hooks, video encoder, static-export scripts/configs, and E2E harness.
+## Summary
+
+The main confirmed defects are cross-layer ownership problems: export is modeled by two modal systems at once, and timeline trimming mutates the same `track` state that `MapView` treats as a fresh load. The repo also bakes GitHub Pages deployment assumptions into the build/runtime path contract, and Google JSON parsing is still duplicated across the main thread and worker.
 
 ## Findings
 
-### 1. TimelineSelector mixes full-track points with filtered-track distances
+### A1. Export is split across two modal systems
 
+- **Status:** Confirmed issue
 - **Severity:** High
 - **Confidence:** High
-- **Evidence:** `src/app/page.tsx:97-100` computes `cumulativeDistances` from `track`, which becomes the filtered slice; `src/app/page.tsx:410-415` passes both `fullTrack` and that filtered-distance array into `TrackWorkspace`; `src/components/TrackWorkspace.tsx:125-131` passes `track={fullTrack}` and `cumulativeDistances` into `TimelineSelector`; `src/components/TimelineSelector.tsx:97-140` assumes the point array and cumulative-distance array describe the same coordinate space.
-- **Failure scenario:** After the user trims a route, `handleRangeChange` sets `track` to a slice. The selector still renders against `fullTrack`, but its distance array now belongs to the slice, so subsequent trims and histogram buckets can jump to wrong indexes or collapse distance mapping.
-- **Suggested fix:** Maintain separate `fullTrackCumulativeDistances` for the timeline selector and active-track distances for map/playback/elevation/export.
+- **Evidence:** `src/app/page.tsx:382-405` renders an inline export overlay with the cancel button inside `<main>`; `src/app/page.tsx:487-500` keeps `ExportPanel` mounted during export; `src/components/ExportPanel.tsx:175-182` renders the panel through `ModalDialog`, and `src/components/ExportPanel.tsx:249-267` shows export progress without any cancel affordance; `src/components/ModalDialog.tsx:43-49` marks the app root `inert` and `aria-hidden` when the modal opens.
+- **Problem:** The cancel button lives in the subtree that the modal intentionally disables, while the modal itself sits above it (`z-30` vs `z-20`).
+- **Failure scenario:** A user starts a long export, sees a cancel button in the background overlay, but cannot click or focus it because the export modal has inerted the app root. Screen readers also see overlapping modal semantics.
+- **Suggested fix:** Make export a single-owner surface. Either keep `ExportPanel` as the only export UI and add cancel there, or close it before showing the full-screen export overlay. Do not render two modal layers for the same state.
 
-### 2. Google parser corrupts segment boundaries after global sort
+### A2. Timeline trimming is coupled to loaded-track identity
 
-- **Severity:** High
-- **Confidence:** High
-- **Evidence:** Segment starts are recorded while parsing insertion-order objects in `src/lib/parser.ts:207-248` and `src/lib/parser.ts:269-312`; points are then deduplicated and globally sorted by timestamp in `src/lib/parser.ts:391-410`; segment starts are remapped from original point order to sorted indexes in `src/lib/parser.ts:412-428`. The worker duplicates the same shape in `public/workers/trackParser.worker.js:54-87`, `99-135`, and `170-205`.
-- **Failure scenario:** Google semantic exports with out-of-order segments, visits, or mixed formats can have segment boundaries that no longer align with contiguous point groups. `computeCumulativeDistances` can then skip or connect the wrong legs, affecting playback, camera, route geometry, and distance totals.
-- **Suggested fix:** Parse into logical segments, dedupe within/between segments, sort whole segments by segment start time, then flatten and derive `segmentStartIndices` after final ordering.
-
-### 3. Worker interface duplicates parser logic and defeats memory isolation
-
+- **Status:** Confirmed issue
 - **Severity:** Medium-High
 - **Confidence:** High
-- **Evidence:** Main Google parsing lives in `src/lib/parser.ts:346-429`; the worker has a separate implementation in `public/workers/trackParser.worker.js:137-205`; constants must manually match in `src/lib/parser.ts:432-433` and `public/workers/trackParser.worker.js:208-219`; the main thread decodes a full `textCopy` before transfer in `src/lib/parser.ts:445-454` and the worker decodes again at `public/workers/trackParser.worker.js:265-268`.
-- **Failure scenario:** A 100 MB JSON import allocates/decodes on the main thread before worker parsing starts, causing UI freezes or memory pressure. Parser fixes can also drift between TS and public JS copies.
-- **Suggested fix:** Generate the worker from shared parser code or move Google parsing into a shared worker bundle. Avoid full pre-transfer text copies for large inputs.
+- **Evidence:** `src/components/TimelineSelector.tsx:221-226` calls `onRangeChange` on every drag frame; `src/app/page.tsx:216-237` responds by slicing `fullTrack` and replacing `track`; `src/components/MapView.tsx:756-816` treats any `track` change as a reload, rebuilds layers, recreates the marker, and calls `fitBounds(..., { duration: 1000 })` at `src/components/MapView.tsx:783-790`.
+- **Problem:** A view-level range edit is interpreted as "load a new track".
+- **Failure scenario:** Dragging a trim handle causes repeated `fitBounds` animations and marker resets while the user is still dragging, producing camera thrash and unnecessary map work.
+- **Suggested fix:** Separate `selectionRange` from `track` ownership. Let `TimelineSelector` update a range model live and only derive or commit the filtered track on drag end, or teach `MapView` to handle trim updates without re-fitting the map.
 
-### 4. Export pipeline discards encoded video on save-picker cancellation
+### A3. Production deployment path is spread across multiple layers
 
+- **Status:** Confirmed issue
 - **Severity:** Medium
 - **Confidence:** High
-- **Evidence:** Encoding completes before `downloadVideo` in `src/lib/useExportController.ts:137-156`; if `downloadVideo` returns `saved: false`, the controller throws `AbortError` before storing the blob/url in `src/lib/useExportController.ts:157-164`; `downloadVideo` returns `saved: false` for picker cancellation in `src/lib/videoEncoder.ts:173-187`.
-- **Failure scenario:** A user waits through a long render, cancels the native save dialog, and the app treats the whole export as cancelled with no preview, retained blob, or retry path.
-- **Suggested fix:** Retain the encoded blob/object URL immediately after encoding and treat picker cancellation as an unsaved-but-complete export, not as a lost export.
+- **Evidence:** `next.config.ts:3-10` hardcodes production `basePath` to `/travelback`; `package.json:8` hardcodes preview to `--base-path /travelback`; `playwright.static.config.ts:14` and `playwright.static.config.ts:41` do the same; `scripts/smoke-static.mjs:20` and `scripts/smoke-static.mjs:168-175` also assume `/travelback`; runtime asset URLs are derived from that compiled value in `src/types.ts:23`, `src/app/layout.tsx:6`, `src/app/page.tsx:248`, `src/lib/parser.ts:506`, `src/components/FileUpload.tsx:186`, and `src/components/GoogleGuide.tsx:249`.
+- **Problem:** The static build is tightly coupled to one GitHub Pages subpath, but that assumption is spread across app code, scripts, and tests instead of being a single deployment input.
+- **Failure scenario:** Serving the exported app from `/` or another subpath makes worker, style, sample, and font URLs 404 even though the bundle itself is otherwise static-safe.
+- **Suggested fix:** Make base path an explicit build contract (`BASE_PATH` / `NEXT_PUBLIC_BASE_PATH`) and let Pages set it to `/travelback`; preview, smoke, and static Playwright should consume the same variable rather than embedding the path in multiple places.
 
-### 5. JourneyCreator adds symbol text over glyphless static map styles
+### A4. Google JSON parsing is duplicated across runtime boundaries
 
+- **Status:** Confirmed issue
 - **Severity:** Medium
 - **Confidence:** High
-- **Evidence:** Bundled map styles omit glyph/sprite URLs (for example `public/map-styles/voyager.json:1-28`); static smoke checks forbid style-level symbol layers requiring external glyph/sprite assets in `scripts/smoke-static.mjs:122-145`; `JourneyCreator` adds a runtime `symbol` layer with `text-field` in `src/components/JourneyCreator.tsx:208-222`.
-- **Failure scenario:** Journey waypoint labels can fail to render or emit MapLibre glyph warnings/errors under the same static-export constraints the repo otherwise enforces.
-- **Suggested fix:** Replace the symbol label layer with DOM/HTML markers or bundle local glyphs and update style/CSP/smoke tests consistently.
+- **Evidence:** Google parsing rules live in `src/lib/parser.ts:352-483` plus worker orchestration at `src/lib/parser.ts:493-573`, while a second implementation exists in `public/workers/trackParser.worker.js:151-247` and `public/workers/trackParser.worker.js:250-322`.
+- **Problem:** A single domain boundary is implemented twice, once in TypeScript and once in checked-in public JavaScript, with duplicated format detection, segment flattening, limits, and error codes.
+- **Failure scenario:** A future parser fix lands in `src/lib/parser.ts` but not in the worker copy, so modern browsers parse JSON differently from the fallback path.
+- **Suggested fix:** Move Google parsing into a shared module that is bundled for both the main thread and the worker, or generate the worker from the shared source during build.
 
-## Final sweep
+### A5. Local preview is more hardened than the actual Pages deployment
 
-The most important cross-file issue is state ownership: full-track controls must use full-track derived data, while playback/export/map surfaces must use the active filtered track. The parser and export findings are adjacent architectural risks because they cross worker/runtime and user-visible output boundaries.
+- **Status:** Likely risk
+- **Severity:** Medium
+- **Confidence:** Medium
+- **Evidence:** `scripts/serve-static.mjs:147-158` adds `X-Frame-Options`, HSTS, COOP/CORP, and Permissions-Policy in preview; `.github/workflows/deploy-pages.yml:34-46` uploads `out/` directly to GitHub Pages; `.context/project/01-overview.md:27` and `.context/project/02-architecture.md:114` already note that Pages cannot attach those headers.
+- **Problem:** Local preview and CI can look safer than the real production host.
+- **Failure scenario:** A future change appears safe in local preview because the custom server injects headers that GitHub Pages will never emit.
+- **Suggested fix:** Either front Pages with a header-capable CDN, or make CI distinguish Pages-realistic validation from header-capable preview validation so production assumptions stay explicit.
+
+## Root Cause
+
+- `track` is both session identity and live trim output.
+- Export state is owned by both page-level overlay logic and modal logic.
+- Deployment path is encoded in multiple layers instead of one contract.
+- Google parsing logic is split across runtime boundaries instead of shared.
+
+## Recommendations
+
+1. Consolidate export into one modal/state owner and keep cancel inside that owner.
+2. Decouple trim selection from loaded-track identity so `MapView` stops re-fitting on every drag.
+3. Centralize `BASE_PATH` as a real build/deploy contract and drive Next config, preview, smoke, and static tests from it.
+4. Share the Google parser implementation between main-thread fallback and worker codegen/bundle.
+
+## Final Sweep
+
+Examined: `src/app/*`, all `src/components/*`, all `src/lib/*`, `src/types.ts`, `next.config.ts`, `package.json`, `.github/workflows/deploy-pages.yml`, `scripts/*`, `public/workers/trackParser.worker.js`, bundled map-style/font assets, `e2e/travelback.spec.ts`, and the relevant `.context` docs in `.context/README.md`, `.context/project/*`, and `.context/development/01-conventions.md`.
+
+Skipped as non-review-relevant/generated: `node_modules/`, `.next/`, `.git/`, `playwright-report/`, `test-results/`, most historical `.context/reviews/*`, and `.context/plans/archive/*` beyond spot-checking current context. The architect lane reported `npm run typecheck` and `npm run lint` both completed clean.

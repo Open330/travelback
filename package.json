@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:dev": "playwright test -c playwright.config.ts",
-    "test:e2e:static:ci": "playwright test -c playwright.static.config.ts",
+    "test:e2e:static:ci": "npm run smoke:static && playwright test -c playwright.static.config.ts",
     "test:e2e:static": "npm run build && npm run smoke:static && playwright test -c playwright.static.config.ts",
     "smoke:static": "node scripts/smoke-static.mjs",
     "postbuild": "node scripts/harden-static-export.mjs"

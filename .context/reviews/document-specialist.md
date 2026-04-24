@@ -1,83 +1,65 @@
-# Document Specialist Review — Travelback
+# Document Specialist Review — review-plan-fix cycle 1/100
 
-## Inventory
-
-### Documentation inspected
-- `.context/README.md`
-- `.context/project/01-overview.md`
-- `.context/project/02-architecture.md`
-- `.context/development/01-conventions.md`
-- `.context/plans/README.md`
-- `.context/plans/deferred-findings-cycle-r2-2026-04-23.md`
-- `.context/plans/deferred-findings-cycle-r4-2026-04-23.md`
-- supporting review artifacts under `.context/reviews/`
-
-### Code/configuration inspected
-- `package.json`
-- `next.config.ts`
-- `playwright.config.ts`
-- `playwright.static.config.ts`
-- `scripts/harden-static-export.mjs`
-- `scripts/serve-static.mjs`
-- `scripts/smoke-static.mjs`
-- `src/app/layout.tsx`
-- `src/app/page.tsx`
-- `src/components/ExportPanel.tsx`
-- `src/lib/camera.ts`
-- `src/lib/env.ts`
-- `src/types.ts`
-- `.github/workflows/deploy-pages.yml`
-
-### Verification performed
-- Read docs and implementation side by side.
-- Ran `npm run smoke:static` successfully to confirm the current static export/base-path path still works.
+Scope: documentation-code mismatches against local authoritative sources. I inspected `.context/project`, `.context/development`, `.context/plans`, current `plan/` files, review aggregates, package scripts/configs, and UI text-bearing implementation files. No implementation fixes were made.
 
 ## Findings
 
-### 1) `.context/README.md` says there are no active plans, but `.context/plans/README.md` says there are
-- **Doc file(s):** `.context/README.md:15-23`, `.context/plans/README.md:3-5`
-- **Mismatch:** the directory tree in `.context/README.md` labels `plans/archive/` as “completed/superseded implementation-plan waves” and adds “no active plans currently,” but `.context/plans/README.md` explicitly lists active plans (`deferred-findings-cycle2-2026-04-19.md` and `deferred-findings-cycle1-2026-04-19.md`).
-- **Failure scenario:** a contributor following the top-level context README may assume the planning area is archive-only and miss the live backlog / next-cycle work items.
-- **Concrete fix:** update the tree/comment in `.context/README.md` to point at the actual active plan docs, or remove the stale “no active plans currently” note and clearly separate archive vs active plan locations.
-- **Severity:** Medium
-- **Confidence:** High
+### DOC-001 — Architecture still documents a removed Journey Creator label layer
+- **Doc:** `.context/project/02-architecture.md:140-149`
+- **Source:** `src/components/JourneyCreator.tsx:20-23`, `src/components/JourneyCreator.tsx:160-209`, `src/components/JourneyCreator.tsx:211-219`
+- **Mismatch:** The architecture layer table lists `journey-points-labels` as a `symbol` layer for numbered waypoint labels, but Journey Creator only defines `journey-line` and `journey-points`; `addLayers()` adds a line layer and a circle layer, and cleanup only removes those two. This also conflicts with the local glyphless/static-map direction behind removing symbol layers.
+- **Failure scenario:** A developer or reviewer trying to verify "numbered labels on waypoints" will look for a layer that cannot exist, or reintroduce a MapLibre symbol layer that violates the bundled glyphless map-style constraint guarded by `scripts/smoke-static.mjs`.
+- **Suggested fix:** Remove the `journey-points-labels` row, or replace it with the current circle-marker behavior and mention that numeric labels are intentionally not rendered as a MapLibre symbol layer.
+- **Severity / confidence:** Medium / High
 
-### 2) The anti-framing docs overstate what the GitHub Pages deployment actually ships
-- **Doc file(s):** `.context/project/01-overview.md:27-28`, `.context/project/02-architecture.md:114-119`
-- **Code/config file(s):** `scripts/serve-static.mjs:147-157`, `.github/workflows/deploy-pages.yml:17-36`
-- **Mismatch:** the docs read as if header-backed anti-framing is part of the production posture. In-repo, the only server that emits the relevant headers is the local preview server in `scripts/serve-static.mjs`; the GitHub Pages workflow only uploads `out/` and does not configure any response headers.
-- **Failure scenario:** readers can walk away believing the public deployment has header-backed anti-framing when, in this repo, it is only guaranteed by the JS bootstrap fallback and host-side setup outside the workflow.
-- **Concrete fix:** split the documentation into “local preview server headers” vs “deployed hosting requirements,” or move deployment to a host that can emit the documented headers and say so explicitly.
-- **Severity:** High
-- **Confidence:** High
+### DOC-002 — `.context/plans/README.md` is no longer a reliable active/deferred plan index
+- **Doc:** `.context/plans/README.md:1-5`
+- **Source:** `.context/plans/cycle-r8-implementation-2026-04-23.md:23-29`, `.context/plans/deferred-findings-cycle-r8-2026-04-23.md:1-13`, `plan/deferred-cycle1-review-plan-2026-04-24.md:1-5`
+- **Mismatch:** The README claims the active plan set is only the two 2026-04-19 deferred files. Current local plan sources include later `.context/plans/deferred-findings-cycle-r4` through `r8` carryovers and the active review-plan-fix deferred record under `plan/deferred-cycle1-review-plan-2026-04-24.md`.
+- **Failure scenario:** A future cycle using `.context/plans/README.md` as the index can miss active 2026-04-23 and 2026-04-24 deferred work, reopening already-triaged items or silently dropping carryovers.
+- **Suggested fix:** Update the index to distinguish historical `.context/plans` waves from the active `plan/` review-plan-fix lane, and list the latest carryover snapshot files.
+- **Severity / confidence:** Medium / High
 
-### 3) The documented default scene sequence uses the wrong user-facing names
-- **Doc file(s):** `.context/project/02-architecture.md:84-89`
-- **Code file(s):** `src/lib/camera.ts:210-259`
-- **Mismatch:** the architecture doc says the default scenes are `Opening Overview → Bird's Eye → Flyover → Orbit → Ground → Closing Overview`, but the implementation generates `Orbit Midpoint` and `Ground Follow` for the middle scenes.
-- **Failure scenario:** docs, QA notes, screenshots, and support guidance can refer to scene names that no longer match the UI, creating avoidable confusion for users who compare the doc to the editor.
-- **Concrete fix:** update the architecture doc to list the exact scene names, or rename the presets in code if the shorter names are the intended product copy.
-- **Severity:** Low
-- **Confidence:** High
+### DOC-003 — Cycle 10 plan says all deferred items are low severity, but active deferred records include high-severity items
+- **Doc:** `plan/cycle10-plan.md:37-41`
+- **Source:** `plan/deferred-cycle1-review-plan-2026-04-24.md:14-47`, `plan/cycle2-c2-plan.md:90-104`
+- **Mismatch:** The cycle 10 convergence assessment says "All deferred items have LOW severity," while the active deferred record contains `High / High` items for large XML parsing, trail rendering, overview bounds, and export memory limits, plus `Medium / High` parser-worker items in the cycle 2 plan.
+- **Failure scenario:** A planner could downgrade follow-up risk based on the cycle 10 summary and defer high-risk performance/memory work without preserving the original severity required by the repo's deferred-fix rules.
+- **Suggested fix:** Correct the convergence note to say later convergence applied only to that cycle's new findings, and explicitly exclude earlier high/medium deferred records or restate their severities.
+- **Severity / confidence:** Medium / High
 
-### 4) The export preset list in docs is incomplete
-- **Doc file(s):** `.context/project/01-overview.md:88-90`
-- **Code file(s):** `src/types.ts:99-106`, `src/components/ExportPanel.tsx:20-28`
-- **Mismatch:** the feature list documents only YouTube, TikTok, Instagram Square/Post, and 4K presets, but the UI actually exposes seven presets, including `HD Landscape (1280×720)` and `4K Portrait (2160×3840)`.
-- **Failure scenario:** users and support docs underreport the available export options, so someone may assume the app cannot export 720p or vertical 4K even though it can.
-- **Concrete fix:** either expand the docs to enumerate all seven presets or simplify the prose to say “seven resolution presets” with examples.
-- **Severity:** Low
-- **Confidence:** High
+### DOC-004 — E2E reviewer instructions overstate export execution coverage
+- **Doc:** `.context/agents/non-tech-traveler-reviewer.md:51-59`, `.context/agents/non-tech-traveler-reviewer.md:82-101`
+- **Source:** `e2e/travelback.spec.ts:1111-1150`, `e2e/travelback.spec.ts:1237-1270`, `e2e/travelback.spec.ts:1274-1292`
+- **Mismatch:** The reviewer doc says the full journey tests should click Start Export and verify the `'done'` state, video preview, and "Export Again" button. The current E2E suite verifies export panel semantics/options and the two "completes full journey" tests stop after asserting `Start Export` is visible; they do not execute an export or assert the success state.
+- **Failure scenario:** Reviewers can report that export works end to end for KML/Google formats when CI only proves the panel opens. Regressions in encoding, download state, or the success screen can pass under the documented but absent coverage.
+- **Suggested fix:** Either update the doc to describe the current coverage boundary, or add a mock/short export path and make the tests match the documented success-state assertions.
+- **Severity / confidence:** Medium / High
 
-### 5) One deferred plan item is stale because the architecture doc was already updated
-- **Doc file(s):** `.context/plans/deferred-findings-cycle-r2-2026-04-23.md:83-88`
-- **Current source:** `.context/project/02-architecture.md:114-119`, `src/app/layout.tsx:49-63`
-- **Mismatch:** `DF-R2-011` says the architecture doc does not mention the JS-based frame-breaker, but that note now exists in the current architecture doc and the bootstrap script in `layout.tsx` is already implemented.
-- **Failure scenario:** future cycles can waste time re-opening a resolved documentation gap because the backlog entry still reads like an active deferral.
-- **Concrete fix:** mark `DF-R2-011` resolved and move it out of the deferred backlog, or update the deferred-findings file to say it was closed.
-- **Severity:** Low
-- **Confidence:** High
+### DOC-005 — Build/test documentation omits configured gates used by the repo
+- **Doc:** `.context/project/01-overview.md:17-25`, `.context/development/01-conventions.md:52-57`
+- **Source:** `package.json:10-17`, `plan/cycle1-review-plan-2026-04-24.md:74-77`
+- **Mismatch:** The docs list build, dev, start, lint, Playwright, and manual testing, but omit `npm run typecheck`, `npm run smoke:static`, `npm run test:e2e:static:ci`, and the audit gate used by the current review-plan-fix completion criteria.
+- **Failure scenario:** A contributor following the documented checklist can ship after `build`/`lint` while skipping typechecking, static export smoke checks, and static E2E, leaving base-path/CSP regressions undetected.
+- **Suggested fix:** Add a "quality gates" block that mirrors package scripts and current plan criteria: lint, typecheck, audit, build, smoke-static, and static E2E.
+- **Severity / confidence:** Medium / High
+
+### DOC-006 — Project overview under-documents the current import guide scope
+- **Doc:** `.context/project/01-overview.md:62-63`, `.context/project/01-overview.md:92`
+- **Source:** `src/components/GoogleGuide.tsx:146-245`, `src/lib/i18n.ts:149-199`
+- **Mismatch:** The overview describes `GoogleGuide.tsx` and the feature as a Google Takeout guide. The component now renders a broader "How to Get Your Travel Data" guide with tabs for Google phone, Google Takeout, Strava, Garmin, AllTrails, Komoot, and other apps.
+- **Failure scenario:** Documentation-driven reviewers may test only Google Takeout instructions and miss stale or broken copy for non-Google import paths that are visible in the app.
+- **Suggested fix:** Rename the overview entry to an import/travel-data guide and list the non-Google sources at least at a high level.
+- **Severity / confidence:** Low / High
+
+### DOC-007 — Map-style docs do not match user-facing map-style labels
+- **Doc:** `.context/project/01-overview.md:88`
+- **Source:** `src/lib/i18n.ts:142-147`, `src/components/TrackToolbar.tsx:114-123`
+- **Mismatch:** The feature list names the five styles as Voyager, Positron, Dark Matter, Liberty, and Bright. The toolbar renders localized labels from i18n: Voyager, Light, Dark, Liberty, and Bright.
+- **Failure scenario:** A test script or support note written from the docs may look for "Positron" or "Dark Matter" in the UI and fail even though the app is behaving as implemented.
+- **Suggested fix:** Use the current user-facing labels in the overview, optionally noting the internal `positron` and `dark` style keys separately if useful.
+- **Severity / confidence:** Low / High
 
 ## Final sweep
 
-I did not find any current mismatch in the static-export command wiring itself; `npm run smoke:static` passed and the `/travelback` base-path flow still works as documented.
+I did not find current mismatches in the package base-path wiring, static preview command, CSP hardening script, supported parser branches, resolution preset list, or scene-name architecture note after comparing the docs against `package.json`, `next.config.ts`, `scripts/*`, `src/lib/parser.ts`, `src/types.ts`, `src/lib/camera.ts`, and `src/components/SceneEditor.tsx`.

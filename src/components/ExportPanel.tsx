@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { X, ChevronDown, Check, Share2, RotateCcw } from 'lucide-react'
+import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react'
 import type { VideoCodec, ExportConfig } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { isCodecSupported } from '@/lib/videoEncoder'
@@ -26,6 +26,8 @@ const RESOLUTION_KEYS = [
   'resolution.4kPortrait',
 ] as const
 
+const MAX_ESTIMATED_EXPORT_BYTES = 512 * 1024 * 1024
+
 /** Cache for codec support results — scoped to component state so it
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
@@ -41,6 +43,7 @@ interface ExportPanelProps {
   exportedVideoBlob?: Blob | null
   downloadMethod?: DownloadMethod | null
   onResetExport: () => void
+  onCancelExport: () => void
   playbackDuration?: number
 }
 
@@ -55,10 +58,11 @@ export default function ExportPanel({
   exportedVideoBlob,
   downloadMethod,
   onResetExport,
+  onCancelExport,
   playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
-  const [resolutionIdx, setResolutionIdx] = useState(0)
+  const [resolutionIdx, setResolutionIdx] = useState(1)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
@@ -79,7 +83,13 @@ export default function ExportPanel({
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(initialCodecSupport)
 
   const bitrate = QUALITY_MAP[quality] ?? 8
+  const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+  const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
+  const estimatedOutputBytes = (safeBitrate * 1_000_000 * safeDuration) / 8
+  const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
+  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
   const codecReady = codecSupport[codec] === true
+  const canStartExport = codecReady && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -128,12 +138,10 @@ export default function ExportPanel({
   }, [isOpen])
 
   const handleExport = useCallback(() => {
-    if (!codecReady) return
+    if (!canStartExport) return
     const resolution = RESOLUTION_PRESETS[resolutionIdx]
-    const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
-    const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate, scenes: [] })
-  }, [onExport, resolutionIdx, codec, fps, duration, bitrate, codecReady])
+  }, [onExport, resolutionIdx, codec, fps, safeDuration, safeBitrate, canStartExport])
 
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
@@ -225,6 +233,16 @@ export default function ExportPanel({
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
+              {exportedVideoUrl && (
+                <a
+                  href={exportedVideoUrl}
+                  download="travelback.mp4"
+                  className="vitro-btn-primary inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer"
+                >
+                  <Download size={14} strokeWidth={2} />
+                  {t('export.download')}
+                </a>
+              )}
               <button
                 type="button"
                 onClick={onResetExport}
@@ -264,6 +282,15 @@ export default function ExportPanel({
                 </p>
               )
             })()}
+            <button
+              type="button"
+              onClick={onCancelExport}
+              aria-label={t('app.cancelExportAria')}
+              className="gi mt-4 inline-flex min-h-11 items-center justify-center px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+              style={{ background: 'rgba(var(--err-rgb),.7)', color: '#fff', border: 'none' }}
+            >
+              {t('app.cancelExport')}
+            </button>
           </div>
         ) : (
           <>
@@ -351,8 +378,13 @@ export default function ExportPanel({
             <p className="mb-2 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
               {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
-              {' '}· ~{((bitrate * duration) / 8).toFixed(0)} MB
+              {' '}· ~{estimatedOutputMb.toFixed(0)} MB
             </p>
+            {exportTooLarge && (
+              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>
+                {t('export.tooLarge')}
+              </p>
+            )}
             <p className="mb-4 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.estimatedTime')}{' '}
               {estimatedSeconds >= 60
@@ -360,7 +392,7 @@ export default function ExportPanel({
                 : t('export.seconds').replace('{n}', String(estimatedSeconds))}
             </p>
 
-            <button type="button" onClick={handleExport} disabled={!codecReady} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={handleExport} disabled={!canStartExport} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
               {t('export.startExport')}
             </button>
           </>

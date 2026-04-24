@@ -192,6 +192,16 @@ export function computeCameraForScene(
   }
 }
 
+function computeDefaultFollowCamera(track: Track, cumulDist: number[], progress: number): CameraState {
+  const result = interpolateAlongTrack(track.points, cumulDist, progress)
+  return {
+    center: [result.point.lng, result.point.lat],
+    zoom: 14,
+    pitch: 45,
+    bearing: result.bearing,
+  }
+}
+
 /**
  * Generate default scenes for a cinematic sequence.
  */
@@ -338,13 +348,7 @@ export function computeCameraForProgress(
   const normalizedScenes = preNormalized ? scenes : normalizeScenes(scenes)
 
   if (normalizedScenes.length === 0) {
-    const result = interpolateAlongTrack(track.points, cumulDist, globalProgress)
-    return {
-      center: [result.point.lng, result.point.lat],
-      zoom: 14,
-      pitch: 45,
-      bearing: result.bearing,
-    }
+    return computeDefaultFollowCamera(track, cumulDist, globalProgress)
   }
 
   // Find which scene contains globalProgress
@@ -387,7 +391,7 @@ export function computeCameraForProgress(
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {
-      sceneIdx = prevIdx
+      return computeDefaultFollowCamera(track, cumulDist, globalProgress)
     } else if (nextIdx >= 0) {
       sceneIdx = nextIdx
     } else {

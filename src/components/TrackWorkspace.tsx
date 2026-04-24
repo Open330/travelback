@@ -26,6 +26,7 @@ interface TrackWorkspaceProps {
   units: UnitSystem
   onUnitsChange: (units: UnitSystem) => void
   onOpenHelp: () => void
+  onOpenImportGuide: () => void
   onScenesChange: Dispatch<SetStateAction<Scene[]>>
   transitionDuration: number
   onTransitionDurationChange: (duration: number) => void
@@ -64,6 +65,7 @@ export default function TrackWorkspace({
   units,
   onUnitsChange,
   onOpenHelp,
+  onOpenImportGuide,
   onScenesChange,
   transitionDuration,
   onTransitionDurationChange,
@@ -99,6 +101,7 @@ export default function TrackWorkspace({
         onUnitsChange={onUnitsChange}
         onModeChange={onModeChange}
         onOpenHelp={onOpenHelp}
+        onOpenImportGuide={onOpenImportGuide}
         onStartNewTrack={onStartNewTrack}
         onToggleSceneEditor={onToggleSceneEditor}
         onCycleStyle={onCycleStyle}

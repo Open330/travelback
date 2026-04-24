@@ -22,6 +22,7 @@ export const translations = {
     'fileUpload.browse': 'Browse Files',
     'fileUpload.trySample': 'Try with a sample trip',
     'fileUpload.importGuideLink': 'Need help finding your file?',
+    'fileUpload.errorHelp': 'Open the import guide',
     'fileUpload.iosTip': 'On iPhone, downloaded files are in Files app → Browse → Downloads',
     'fileUpload.parseFailed': 'Failed to parse file',
     'fileUpload.fileTooLarge': 'File is too large (max {max} MB)',
@@ -128,7 +129,9 @@ export const translations = {
     'export.tipInstagram': 'Upload to Instagram: Open Instagram → tap + → Reel/Post → select from gallery',
     'export.tipYouTube': 'Upload to YouTube: Open YouTube → tap + → Upload video → select file',
     'export.exportAgain': 'Export Again',
+    'export.download': 'Download MP4',
     'export.share': 'Share',
+    'export.tooLarge': 'This export is too large for in-browser video encoding. Lower the duration or quality.',
 
     // Resolution preset labels
     'resolution.youtube': 'YouTube / Landscape (1920×1080)',
@@ -363,6 +366,7 @@ export const translations = {
     'fileUpload.browse': '파일 선택',
     'fileUpload.trySample': '샘플 여행으로 체험하기',
     'fileUpload.importGuideLink': '파일을 찾는 데 도움이 필요하세요?',
+    'fileUpload.errorHelp': '가져오기 가이드 열기',
     'fileUpload.iosTip': 'iPhone에서는 파일 앱 → 탐색 → 다운로드에서 찾을 수 있습니다',
     'fileUpload.parseFailed': '파일을 분석할 수 없습니다',
     'fileUpload.fileTooLarge': '파일이 너무 큽니다 (최대 {max} MB)',
@@ -469,7 +473,9 @@ export const translations = {
     'export.tipInstagram': 'Instagram 업로드: Instagram 열기 → + 탭 → 릴스/게시물 → 갤러리에서 선택',
     'export.tipYouTube': 'YouTube 업로드: YouTube 열기 → + 탭 → 동영상 업로드 → 파일 선택',
     'export.exportAgain': '다시 내보내기',
+    'export.download': 'MP4 다운로드',
     'export.share': '공유',
+    'export.tooLarge': '브라우저 안에서 인코딩하기에는 내보내기 용량이 너무 큽니다. 길이나 품질을 낮춰 주세요.',
 
     // Resolution preset labels
     'resolution.youtube': 'YouTube / 가로 (1920×1080)',
@@ -704,6 +710,7 @@ export const translations = {
     'fileUpload.browse': 'ファイルを選択',
     'fileUpload.trySample': 'サンプルで試す',
     'fileUpload.importGuideLink': 'ファイルの場所がわかりませんか？',
+    'fileUpload.errorHelp': 'インポートガイドを開く',
     'fileUpload.iosTip': 'iPhoneでは、ダウンロードしたファイルはファイルアプリ → ブラウズ → ダウンロードにあります',
     'fileUpload.parseFailed': 'ファイルの解析に失敗しました',
     'fileUpload.fileTooLarge': 'ファイルが大きすぎます（最大{max}MB）',
@@ -810,7 +817,9 @@ export const translations = {
     'export.tipInstagram': 'Instagramにアップロード: Instagramを開く → + → リール/投稿 → ギャラリーから選択',
     'export.tipYouTube': 'YouTubeにアップロード: YouTubeを開く → + → 動画をアップロード → ファイルを選択',
     'export.exportAgain': 'もう一度エクスポート',
+    'export.download': 'MP4をダウンロード',
     'export.share': '共有',
+    'export.tooLarge': 'このエクスポートはブラウザ内エンコードには大きすぎます。長さまたは品質を下げてください。',
 
     // Resolution preset labels
     'resolution.youtube': 'YouTube / 横向き (1920×1080)',
@@ -1045,6 +1054,7 @@ export const translations = {
     'fileUpload.browse': '选择文件',
     'fileUpload.trySample': '用示例试试',
     'fileUpload.importGuideLink': '找不到文件？',
+    'fileUpload.errorHelp': '打开导入指南',
     'fileUpload.iosTip': '在 iPhone 上，下载的文件在"文件"应用 → 浏览 → 下载中',
     'fileUpload.parseFailed': '文件解析失败',
     'fileUpload.fileTooLarge': '文件过大（最大 {max} MB）',
@@ -1151,7 +1161,9 @@ export const translations = {
     'export.tipInstagram': '上传到Instagram: 打开Instagram → 点击 + → Reel/帖子 → 从相册选择',
     'export.tipYouTube': '上传到YouTube: 打开YouTube → 点击 + → 上传视频 → 选择文件',
     'export.exportAgain': '再次导出',
+    'export.download': '下载 MP4',
     'export.share': '分享',
+    'export.tooLarge': '此导出对于浏览器内视频编码过大。请降低时长或质量。',
 
     // Resolution preset labels
     'resolution.youtube': 'YouTube / 横屏 (1920×1080)',
@@ -1386,6 +1398,7 @@ export const translations = {
     'fileUpload.browse': 'Seleccionar archivo',
     'fileUpload.trySample': 'Probar con un viaje de ejemplo',
     'fileUpload.importGuideLink': '¿No encuentras tu archivo?',
+    'fileUpload.errorHelp': 'Abrir la guía de importación',
     'fileUpload.iosTip': 'En iPhone, los archivos descargados están en Archivos → Explorar → Descargas',
     'fileUpload.parseFailed': 'Error al analizar el archivo',
     'fileUpload.fileTooLarge': 'El archivo es demasiado grande (máx. {max} MB)',
@@ -1492,7 +1505,9 @@ export const translations = {
     'export.tipInstagram': 'Subir a Instagram: Abre Instagram → toca + → Reel/Post → selecciona de la galería',
     'export.tipYouTube': 'Subir a YouTube: Abre YouTube → toca + → Subir video → selecciona archivo',
     'export.exportAgain': 'Exportar de nuevo',
+    'export.download': 'Descargar MP4',
     'export.share': 'Compartir',
+    'export.tooLarge': 'Esta exportación es demasiado grande para codificar video en el navegador. Reduce la duración o la calidad.',
 
     // Resolution preset labels
     'resolution.youtube': 'YouTube / Horizontal (1920×1080)',

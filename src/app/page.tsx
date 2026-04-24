@@ -298,11 +298,8 @@ function HomeInner() {
   }, [])
 
   const handleCloseExport = useCallback(() => {
-    if (exportState === 'done') {
-      resetExportSession()
-    }
     setShowExport(false)
-  }, [exportState, resetExportSession])
+  }, [])
 
   const handleResetExport = useCallback(() => {
     resetExportSession()
@@ -377,33 +374,8 @@ function HomeInner() {
           duration={duration}
           transitionDuration={transitionDuration}
           cumulativeDistances={cumulativeDistances}
+          allowInteractionWithoutTrack={isCreatingJourney}
         />
-
-        {isExporting && (
-          <div
-            data-disable-playback-hotkeys="true"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="export-overlay-title"
-            className="absolute inset-0 z-20 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(12px)' }}
-          >
-            <div className="go p-8 text-center" style={{ color: 'var(--t1)' }}>
-              <div className="inline-block w-12 h-12 border-4 rounded-full animate-spin mb-4" style={{ borderColor: 'rgba(var(--gl),.6)', borderTopColor: 'transparent' }} aria-hidden="true" />
-              <p id="export-overlay-title" className="text-lg font-medium">{t('app.renderingVideo')}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--t3)' }}>{Math.round(exportProgress * 100)}%</p>
-              <button
-                type="button"
-                onClick={cancelExport}
-                aria-label={t('app.cancelExportAria')}
-                className="gi mt-4 px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                style={{ background: 'rgba(var(--err-rgb),.7)', color: '#fff', border: 'none' }}
-              >
-                {t('app.cancelExport')}
-              </button>
-            </div>
-          </div>
-        )}
 
         {!isCreatingJourney && (
           <FileUpload
@@ -461,6 +433,7 @@ function HomeInner() {
             units={units}
             onUnitsChange={handleUnitsChange}
             onOpenHelp={() => setShowKeyboardHelp(true)}
+            onOpenImportGuide={handleOpenGoogleGuide}
             onScenesChange={setScenes}
             transitionDuration={transitionDuration}
             onTransitionDurationChange={setTransitionDuration}
@@ -496,6 +469,7 @@ function HomeInner() {
             exportedVideoBlob={exportedVideoBlob}
             downloadMethod={downloadMethod}
             onResetExport={handleResetExport}
+            onCancelExport={cancelExport}
             playbackDuration={duration}
           />
         ) : null}

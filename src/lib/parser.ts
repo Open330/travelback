@@ -41,6 +41,8 @@ function looksLikeGoogleLocationRecord(value: unknown): boolean {
 }
 
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
+  type CoordinateProperties = { times?: string[] | string[][] }
+  type GeoJsonProps = Record<string, unknown> & { coordinateProperties?: CoordinateProperties; time?: string }
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []
   let pendingPointCoordinates: number[][] = []
@@ -74,28 +76,62 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
     pendingPointTimes = []
   }
 
-  for (const feature of geojson.features) {
-    const geometry = feature.geometry
-    if (!geometry) continue
-    const props = feature.properties ?? {}
+  const pushPointCoordinate = (coordinate: number[], time?: string) => {
+    const [rawLng, rawLat, ele] = coordinate
+    const lng = parseOptionalNumber(rawLng)
+    const lat = parseOptionalNumber(rawLat)
+    if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+    pendingPointCoordinates.push([lng, lat, ele])
+    pendingPointTimes.push(time)
+  }
 
+  const processGeometry = (geometry: GeoJSON.Geometry, props: GeoJsonProps) => {
     if (geometry.type === 'LineString') {
       flushPendingPointSegment()
-      pushSegment(geometry.coordinates, props.coordinateProperties?.times as string[] | undefined)
-    } else if (geometry.type === 'MultiLineString') {
+      const coordinateTimes = props.coordinateProperties?.times
+      const times = Array.isArray(coordinateTimes) && typeof coordinateTimes[0] === 'string'
+        ? coordinateTimes as string[]
+        : undefined
+      pushSegment(geometry.coordinates, times)
+      return
+    }
+
+    if (geometry.type === 'MultiLineString') {
       flushPendingPointSegment()
-      const times: string[][] | undefined = props.coordinateProperties?.times
+      const coordinateTimes = props.coordinateProperties?.times
+      const times = Array.isArray(coordinateTimes) && Array.isArray(coordinateTimes[0])
+        ? coordinateTimes as string[][]
+        : undefined
       for (let s = 0; s < geometry.coordinates.length; s++) {
         pushSegment(geometry.coordinates[s], times?.[s])
       }
-    } else if (geometry.type === 'Point') {
-      const [rawLng, rawLat, ele] = geometry.coordinates
-      const lng = parseOptionalNumber(rawLng)
-      const lat = parseOptionalNumber(rawLat)
-      if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
-      pendingPointCoordinates.push([lng, lat, ele])
-      pendingPointTimes.push(props.time as string | undefined)
+      return
     }
+
+    if (geometry.type === 'Point') {
+      pushPointCoordinate(geometry.coordinates, props.time as string | undefined)
+      return
+    }
+
+    if (geometry.type === 'MultiPoint') {
+      for (const coordinate of geometry.coordinates) {
+        pushPointCoordinate(coordinate, props.time as string | undefined)
+      }
+      return
+    }
+
+    if (geometry.type === 'GeometryCollection') {
+      for (const childGeometry of geometry.geometries) {
+        processGeometry(childGeometry, props)
+      }
+    }
+  }
+
+  for (const feature of geojson.features) {
+    const geometry = feature.geometry
+    if (!geometry) continue
+    const props = (feature.properties ?? {}) as GeoJsonProps
+    processGeometry(geometry, props)
   }
 
   flushPendingPointSegment()
@@ -490,9 +526,16 @@ function decodeJsonBuffer(buffer: ArrayBuffer): string {
   return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
 }
 
+function parseSmallGoogleJsonFallback(buffer: ArrayBuffer): Track {
+  if (buffer.byteLength > MAIN_THREAD_JSON_FALLBACK_SIZE) {
+    throw new ParseError('Large Google JSON imports require Web Worker support in this browser.', 'INVALID_GOOGLE_JSON')
+  }
+  return parseGoogleLocationHistory(decodeJsonBuffer(buffer))
+}
+
 async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Promise<Track> {
   if (typeof Worker === 'undefined') {
-    return parseGoogleLocationHistory(decodeJsonBuffer(buffer))
+    return parseSmallGoogleJsonFallback(buffer)
   }
 
   return new Promise((resolve, reject) => {
@@ -507,8 +550,12 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
       worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
+      if (!fallbackBuffer) {
+        reject(new ParseError('Large Google JSON imports require Web Worker support in this browser.', 'INVALID_GOOGLE_JSON'))
+        return
+      }
       try {
-        resolve(parseGoogleLocationHistory(decodeJsonBuffer(buffer)))
+        resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
       } catch (error) {
         reject(error instanceof Error ? error : new Error('Failed to parse Google Location History'))
       }
@@ -538,7 +585,7 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
           return
         }
         try {
-          resolve(parseGoogleLocationHistory(decodeJsonBuffer(fallbackBuffer)))
+          resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
         } catch {
           reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
         }
@@ -563,7 +610,7 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
         return
       }
       try {
-        resolve(parseGoogleLocationHistory(decodeJsonBuffer(fallbackBuffer)))
+        resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
       } catch {
         reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
       }

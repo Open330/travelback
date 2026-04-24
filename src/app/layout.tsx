@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import { basePath } from '@/lib/env'
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
@@ -51,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-svc="travelback" data-mesh="on" data-mode="light" data-mapstyle="voyager" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
+        <Script id="travelback-bootstrap" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         {/* Dev keeps a conservative inline-compatible CSP so Next can bootstrap normally.
             `npm run build` then runs `scripts/harden-static-export.mjs`, which replaces this
             placeholder with a hash-based static CSP and removes the production `unsafe-inline`

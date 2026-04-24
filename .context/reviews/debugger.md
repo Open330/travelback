@@ -1,91 +1,50 @@
 # Debugger Review — latent failure modes
 
-Files reviewed: parser/worker, map lifecycle, playback/export controllers, timeline/filtering UI, static-export runtime, and the main page wiring.
+Reviewed surface:
+
+- Context docs: `.context/README.md`, `.context/project/01-overview.md`, `.context/project/02-architecture.md`, `.context/development/01-conventions.md`, `.context/plans/README.md`, current cycle review artifacts under `.context/reviews/`
+- App shell/runtime: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
+- Core logic: `src/lib/parser.ts`, `public/workers/trackParser.worker.js`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`, `src/lib/i18n.ts`, `src/types.ts`
+- User-facing components: `src/components/FileUpload.tsx`, `src/components/MapView.tsx`, `src/components/JourneyCreator.tsx`, `src/components/TimelineSelector.tsx`, `src/components/SceneEditor.tsx`, `src/components/ExportPanel.tsx`, `src/components/Controls.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/TrackToolbar.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/ThemeToggle.tsx`, `src/components/ModalDialog.tsx`, `src/components/Toast.tsx`, `src/components/ErrorBoundary.tsx`, `src/components/GoogleGuide.tsx`, `src/components/KeyboardHelp.tsx`, `src/components/ElevationProfile.tsx`
+- Static/runtime scripts and tests: `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/serve-static.mjs`, `scripts/fetch-map-styles.mjs`, `e2e/travelback.spec.ts`, `e2e/fixtures/*`
 
 ## Findings
 
-### 1) HIGH — Numeric parser helpers silently coerce null/empty values to `0`
-**Regions:** `src/lib/parser.ts:19-21, 115-125, 192-200`; `public/workers/trackParser.worker.js:1-4, 40-50, 61-74, 99-111`
+### 1) LOW, HIGH CONFIDENCE, CONFIRMED - Toast enter animation can set state after unmount
+**Region:** `src/components/Toast.tsx:25-35`
 
-**Failure scenario:**
-- A GPX trackpoint with a missing `lat`/`lon` attribute, or a Google JSON record with `latitude: null`, `longitude: null`, or `altitude: null`, is parsed as `0` instead of being treated as missing.
-- That creates bogus points near `(0,0)` or bogus `0m` elevation and can silently corrupt the route, playback stats, and export.
+`ToastItem` schedules `requestAnimationFrame(() => setVisible(true))` but never stores or cancels that frame in cleanup. The timeout cleanup handles the 5-second dismiss timer, but the initial animation-frame callback is still live if the toast unmounts before the next paint.
 
-**Why this happens:**
-- `Number(null)` and `Number('')` both return `0`.
-- `parseOptionalNumber()` currently accepts any finite numeric coercion, so null/empty fields survive as valid coordinates/elevation.
-- `parseGPX()` also calls `Number(point.getAttribute(...))` directly, so missing GPX attributes become `0` too.
+**Failure scenario:** a toast is added and then dismissed immediately, or the app clears toasts during a track/session reset. The queued rAF runs after unmount and calls `setVisible(true)` on an unmounted component, which produces the usual React "state update on an unmounted component" warning and leaves the toast animation lifecycle nondeterministic.
 
-**Concrete fix:**
-- Treat `null`, `undefined`, and empty strings as missing before numeric coercion.
-- Reuse that stricter helper everywhere numeric optional fields are parsed.
-- In GPX parsing, switch `lat`/`lon` attribute reads to the same helper instead of raw `Number(...)`.
-- Mirror the same guard in `public/workers/trackParser.worker.js` so the production worker and the main-thread fallback stay in sync.
+**Why this matters:** this is a real race, not just a cosmetic nit. The component already uses a ref for the dismiss callback, so it is clearly expected to survive lifecycle churn; the missing rAF cleanup is the one unguarded async callback in the toast path.
 
-**Confidence:** high
+**Suggested fix:** capture the animation-frame id and cancel it in cleanup, or gate the callback with a mounted ref the same way other async paths in this repo do.
 
----
+### 2) MEDIUM, HIGH CONFIDENCE, CONFIRMED - Closing the completed export panel destroys the exported video state
+**Regions:** `src/app/page.tsx:300-305`, `src/components/ExportPanel.tsx:201-247`
 
-### 2) MEDIUM — XML DTD stripping breaks valid GPX/KML files that use internal subsets
-**Regions:** `src/lib/parser.ts:98-106`
+`handleCloseExport()` calls `resetExportSession()` whenever `exportState === 'done'`, and `resetExportSession()` revokes the object URL and clears `exportedVideoBlob`. That makes the panel close button/backdrop act like a destructive "discard" action after export, even though the UI already has a separate `Export Again` control for that purpose.
 
-**Failure scenario:**
-- A GPX/KML file that includes a `<!DOCTYPE ... [ ... ]>` internal subset or entity declarations is rewritten into malformed XML before `DOMParser` sees it.
-- The parser then throws `XML_PARSE_ERROR` even though the source file is otherwise valid XML.
+**Failure scenario:** a user finishes an export, cancels the native save picker, sees the preview state, and closes the panel to inspect the map. When they reopen export, the rendered MP4 is gone and the app forces a full re-render. The same happens if they simply close the panel by mistake before using Share.
 
-**Why this happens:**
-- `stripXmlEntities()` removes `<!DOCTYPE...>` only up to the first `>`.
-- For declarations with an internal subset, that leaves the trailing `]>` behind, corrupting the document.
+**Why this matters:** the exported blob is the only copy of the expensive render until the user saves or shares it. The current close path silently discards it, which is a state-loss hazard rather than a normal modal-dismiss action.
 
-**Concrete fix:**
-- Either reject any XML document containing `<!DOCTYPE` up front, or strip the *entire* DOCTYPE declaration with a parser/state-machine approach that consumes through the closing `]>` when an internal subset is present.
-- Keep the XXE hardening, but avoid the current regex that truncates the declaration.
+**Suggested fix:** make close non-destructive and reserve `resetExportSession()` for the explicit `Export Again` path or another clearly labeled discard action.
 
-**Confidence:** high
+### 3) LOW, MEDIUM CONFIDENCE, LIKELY RISK - Map-style explicitness can be misclassified for older persisted state
+**Regions:** `src/app/page.tsx:44-56, 327-339`
 
----
+`readInitialExplicitMapStyleChoice()` only knows about explicit intent when `travelback-mapstyle-explicit` is present. If that key is missing, it infers explicitness by comparing the saved style to the current theme default. That works for the current session flow, but it can misclassify older persisted state or partially migrated storage where the user had manually chosen the theme-default map style.
 
-### 3) MEDIUM — Map style changes are rehydrated twice, which can double-fit the bounds and cause visible jumps
-**Regions:** `src/components/MapView.tsx:605-611, 645-663`
+**Failure scenario:** a user upgrades from an older session that only saved `travelback-mapstyle`, or localStorage is partially restored without the explicit flag. On the next theme toggle, the app treats the restored map style as implicit and rewrites it to the theme default, even though the user had already chosen it intentionally.
 
-**Failure scenario:**
-- After a track is loaded, switching map styles fires both the persistent `map.on('style.load', onGlobalStyleLoad)` handler and the extra `map.once('style.load', styleHandler)` path.
-- Both handlers call `addReferenceGridLayers()` and `addTrackLayers()`, so `fitBounds()` and marker re-attachment can run twice.
-- The user can see the map snap/jitter on every style cycle, especially when the app is already centered on a loaded route.
+**Why this is a risk:** the current E2E coverage proves the happy path for an explicit choice made in the same session and across a reload, but it does not cover the older-storage/migration path. The code path is still live, so this is a persistence-boundary regression risk rather than a hypothetical style issue.
 
-**Why this happens:**
-- The mount effect keeps a permanent `style.load` listener.
-- The style-change effect adds another one-time `style.load` listener for the same event.
-- The second handler is redundant because the persistent listener already handles the rehydration.
+**Suggested fix:** persist explicitness unconditionally, or derive it from the presence of a valid saved map-style key instead of comparing against the theme default.
 
-**Concrete fix:**
-- Remove the extra `map.once('style.load', styleHandler)` path from the style-change effect, or replace the mount listener with a single shared handler strategy.
-- The goal is one rehydration pass per style load, not two.
+## Final Sweep
 
-**Confidence:** high
+I reviewed the current source tree plus the active `.context` docs and the static/E2E surfaces listed above. I did not skip any application source files, worker files, or build/runtime scripts. I did skip generated artifacts such as `.next/`, `out/`, and `node_modules/` as they are build outputs rather than source, and I did not modify any file except this review note.
 
----
-
-### 4) HIGH — Export cancellation does not restore the pre-export playback position
-**Regions:** `src/lib/useExportController.ts:84-97, 137-206`
-
-**Failure scenario:**
-- Start an export while the user is midway through a track, then cancel it.
-- The export loop has already driven `setPlaybackProgress()` and `mapHandle.applyCameraState()` through the export timeline.
-- When the export aborts, the hook resets export UI state, but it never restores the track to the position the user had before export started.
-- The app stays paused at the export’s last rendered frame, which feels like data loss during a cancel/retry flow.
-
-**Why this happens:**
-- `pausePlayback()` is called up front, but the hook does not snapshot the current playback progress before export begins.
-- The render callback mutates live playback state on every frame.
-- The `catch`/`finally` path only resets export bookkeeping; it never rehydrates the old playback position.
-
-**Concrete fix:**
-- Snapshot the current playback progress before starting export, and restore it in the abort/error path (or in `finally` if export should be fully non-destructive).
-- If you want playback to resume exactly where the user left off, capture the paused/playing state too; otherwise, at minimum restore the old progress so cancel/retry does not leave the UI on an export frame.
-
-**Confidence:** high
-
-## Notes
-- I did not change source code; this review note is the only artifact written.
-- The most important untested edge cases are malformed numeric fields in parser inputs and export cancellation recovery after the map has already been scrubbed to the export timeline.
+No additional confirmed correctness crashes or data-loss regressions were found beyond the three items above.

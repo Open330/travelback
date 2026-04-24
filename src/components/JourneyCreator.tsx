@@ -61,12 +61,25 @@ function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string): GeoJSO
 }
 
 function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
+  const wrapLngNear = (referenceLng: number, nextLng: number) => {
+    let adjusted = nextLng
+    while (adjusted - referenceLng > 180) adjusted -= 360
+    while (adjusted - referenceLng < -180) adjusted += 360
+    return adjusted
+  }
+  const coordinates: [number, number][] = []
+  for (const waypoint of waypoints) {
+    const previous = coordinates[coordinates.length - 1]
+    const lng = previous ? wrapLngNear(previous[0], waypoint.lng) : waypoint.lng
+    coordinates.push([lng, waypoint.lat])
+  }
+
   return {
     type: 'Feature',
     properties: {},
     geometry: {
       type: 'LineString',
-      coordinates: waypoints.map((wp) => [wp.lng, wp.lat]),
+      coordinates,
     },
   }
 }
@@ -126,6 +139,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
@@ -145,6 +159,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   useEffect(() => {
     selectedIconSymbolRef.current = selectedIconSymbol
   }, [selectedIconSymbol])
+
+  useEffect(() => {
+    if (!isActive) return
+    const frameId = requestAnimationFrame(() => cancelButtonRef.current?.focus())
+    return () => cancelAnimationFrame(frameId)
+  }, [isActive])
 
   const updateMapData = useCallback(() => {
     const map = mapRef.current?.getMap()
@@ -538,12 +558,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
   const handleConfirmCreate = useCallback(() => {
     const track: Track = {
-      name: t('journey.defaultName'),
+      name: `${selectedIconSymbol} ${t('journey.defaultName')}`,
       points: waypointsRef.current as TrackPoint[],
     }
     setShowConfirm(false)
     onComplete(track)
-  }, [onComplete, t])
+  }, [onComplete, selectedIconSymbol, t])
 
   useEffect(() => {
     updateMapData()
@@ -561,6 +581,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             {t('journey.title')}
           </span>
           <button
+            ref={cancelButtonRef}
             type="button"
             onClick={() => { if (pointCount >= 1) setShowDiscardConfirm(true); else onCancel() }}
             className="text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t3)' }}
@@ -604,6 +625,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <input
                 type="text"
                 role="combobox"
+                aria-label={t('journey.searchPlaceholder')}
                 aria-expanded={searchResults.length > 0}
                 aria-controls="journey-search-listbox"
                 aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}

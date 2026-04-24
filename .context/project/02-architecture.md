@@ -145,5 +145,4 @@ During export, the map container is resized to the target resolution (e.g., 1920
 | `trail-line` | line | Traveled portion, high opacity, grows with progress |
 | `journey-line` | line | Manual journey creator connecting line |
 | `journey-points` | circle | Manual journey creator waypoint markers |
-| `journey-points-labels` | symbol | Numbered labels on waypoints |
 | Marker | HTML overlay | Pulsing red dot at current interpolated position |

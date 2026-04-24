@@ -187,6 +187,7 @@ function SceneRangeEditor({
               const step = 0.01
               if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
                 e.preventDefault()
+                e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(Math.min(startPercent + step, endPercent - MIN_SCENE_SPAN), endPercent)
                   onChangeRef.current(s, endPercent)
@@ -196,6 +197,7 @@ function SceneRangeEditor({
                 }
               } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
                 e.preventDefault()
+                e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(Math.max(startPercent - step, 0), endPercent)
                   onChangeRef.current(s, endPercent)
@@ -205,6 +207,7 @@ function SceneRangeEditor({
                 }
               } else if (e.key === 'Home') {
                 e.preventDefault()
+                e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(0, endPercent)
                   onChangeRef.current(s, endPercent)
@@ -214,6 +217,7 @@ function SceneRangeEditor({
                 }
               } else if (e.key === 'End') {
                 e.preventDefault()
+                e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(endPercent - MIN_SCENE_SPAN, endPercent)
                   onChangeRef.current(s, endPercent)
@@ -334,6 +338,20 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     commitScenes(scenes.map(s => {
       if (s.id !== id) return s
       const updated = { ...s, ...patch }
+      if (patch.startPercent != null || patch.endPercent != null) {
+        let nextStart = Math.max(0, Math.min(updated.startPercent, 1 - MIN_SCENE_SPAN))
+        let nextEnd = Math.max(MIN_SCENE_SPAN, Math.min(updated.endPercent, 1))
+        if (nextEnd - nextStart < MIN_SCENE_SPAN) {
+          if (patch.startPercent != null && patch.endPercent == null) {
+            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
+          } else {
+            nextEnd = Math.min(1, nextStart + MIN_SCENE_SPAN)
+            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
+          }
+        }
+        updated.startPercent = nextStart
+        updated.endPercent = nextEnd
+      }
       // If camera mode changed, reset params to defaults
       if (patch.cameraMode && patch.cameraMode !== s.cameraMode) {
         updated.params = { ...DEFAULT_CAMERA_PARAMS[patch.cameraMode] }
@@ -476,6 +494,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             className="gi p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
               <input value={scene.name}
+                aria-label={`${t('scenes.title')} ${scene.name}`}
                 onChange={e => updateScene(scene.id, { name: e.target.value })}
                 className="text-xs font-semibold bg-transparent w-32 outline-none border-b"
                 style={{ color: 'var(--t1)', borderBottomColor: focusedInput === scene.id ? 'rgb(var(--gl))' : 'var(--div)', transition: 'border-color .15s ease' }}

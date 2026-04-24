@@ -2,63 +2,43 @@
 
 ## Summary
 
-I reviewed the active cycle 2 plan artifact, the referenced implementation, the surrounding project docs, and the existing E2E coverage.
+I reviewed the behavior-defining docs, package scripts, configs, source, public assets, and the static Playwright suite.
 
-I found two issues:
+No confirmed correctness issues were found against the stated behavior in `.context` and `package.json`.
 
-1. The fallback video-download path in `src/lib/videoEncoder.ts` is still vulnerable to a synchronous `a.click()` failure, and the current tests do not exercise that branch.
-2. The cycle 2 plan contains a stale chronology claim about there being no prior cycle 1 plan.
+## Evidence
+
+- `package.json:5-18` defines the expected gates and runtime commands: `lint`, `typecheck`, `build`, `smoke:static`, and static E2E scripts.
+- `.context/README.md:27-29`, `.context/project/01-overview.md:17-29, 30-94`, `.context/project/02-architecture.md:103-149`, and `.context/development/01-conventions.md:5-66` describe the offline/static-export contract, the CSP hardening, and the project conventions that the code is supposed to satisfy.
+- `src/app/layout.tsx:49-63` and `scripts/harden-static-export.mjs:8-103` implement the CSP bootstrap/static-hardening path documented in `.context/project/02-architecture.md`.
+- `scripts/serve-static.mjs:14-177` and `playwright.static.config.ts:1-46` match the documented `/travelback` static preview flow from `package.json` and `.context/project/01-overview.md`.
+- `src/lib/videoEncoder.ts:171-211`, `src/lib/useExportController.ts:87-217`, and `src/components/ExportPanel.tsx:138-247` implement the export/download flow described in the docs.
+- `src/components/JourneyCreator.tsx:429-478` keeps the coordinate-jump path local-only; no network geocoding call is present in the inspected code path.
+- `public/map-styles/*.json` are local-only styles with empty `sources`, matching the offline map contract.
+- `e2e/travelback.spec.ts` covers the documented browser flows: dark theme startup, upload/import, Journey Creator, export panel, and map-style cycling.
+
+Validation results:
+
+- `npm run lint` — passed.
+- `npm run typecheck` — passed.
+- `npm run build` — passed; Next.js generated the static pages and `postbuild` hardened CSP across 3 HTML files.
+- `npm run smoke:static` — passed with `[smoke-static] OK`.
+- `npm run test:e2e:static:ci` — final status passed. `test-results/.last-run.json` reports `{"status":"passed","failedTests":[]}`.
+- `npx playwright test -c playwright.static.config.ts -g "dark system theme is applied on first render without needing a manual toggle" --reporter=line` — passed in isolation, which rules out the retry artifact as a deterministic regression.
 
 ## Findings
 
-### 1) Fallback download cleanup is not guaranteed if `a.click()` throws
+None confirmed.
 
-- **Severity:** Medium
-- **Confidence:** Medium
-- **Files:**
-  - `src/lib/videoEncoder.ts:190-200`
-  - `e2e/travelback.spec.ts:112-175`
+## Final Sweep
 
-**Evidence**
+Examined:
 
-- The fallback path appends a temporary `<a>` element, calls `a.click()`, and only then schedules removal with `setTimeout(...)`.
-- If `a.click()` throws synchronously, the timeout is never registered and the temporary node stays in the DOM.
-- The current E2E export tests cover the panel UI and controls, but they do not exercise the actual download branch, so this failure mode is not guarded by CI.
+- Docs: `.context/README.md`, `.context/project/01-overview.md`, `.context/project/02-architecture.md`, `.context/development/01-conventions.md`, `.context/plans/README.md`, and the current cycle plan artifacts referenced by the existing review context.
+- Configs/scripts: `package.json`, `next.config.ts`, `playwright.config.ts`, `playwright.static.config.ts`, `scripts/serve-static.mjs`, `scripts/harden-static-export.mjs`, `scripts/smoke-static.mjs`, `scripts/fetch-map-styles.mjs`.
+- Source: `src/app/layout.tsx`, `src/app/page.tsx`, `src/lib/env.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/parser.ts`, `src/lib/videoEncoder.ts`, `src/lib/useExportController.ts`, `src/components/MapView.tsx`, `src/components/FileUpload.tsx`, `src/components/JourneyCreator.tsx`, `src/components/GlobalToolbar.tsx`, `src/components/ThemeToggle.tsx`, `src/components/TrackWorkspace.tsx`, `src/components/ExportPanel.tsx`, `src/components/GoogleGuide.tsx`.
+- Assets/tests: `public/map-styles/*.json`, `e2e/travelback.spec.ts`, `test-results/.last-run.json`.
 
-**Failure scenario**
+Skipped:
 
-A browser blocks or rejects the programmatic download click. The export flow then leaks the temporary anchor element, and the download branch has no automated regression test to catch the behavior drift.
-
-**Concrete fix**
-
-- Wrap the anchor click and cleanup in `try/finally`, or register cleanup before the click so it runs even if the click throws.
-- Add a regression test for the fallback download branch, not just the export panel UI.
-
-### 2) Cycle 2 plan contains a stale chronology claim
-
-- **Severity:** Low
-- **Confidence:** High
-- **Files:**
-  - `plan/cycle2-c2-plan.md:12-14`
-  - `plan/cycle1-plan.md:1-5`
-
-**Evidence**
-
-- The cycle 2 plan says: “No prior cycle 1 plan exists in this loop — this is the first plan.”
-- `plan/cycle1-plan.md` exists and is clearly the cycle 1 implementation plan, so the statement is inaccurate or at least misleading.
-
-**Failure scenario**
-
-Future reviewers or automation may misread the loop history and drop or mis-order carry-forward items because the plan text asserts that no prior cycle 1 artifact exists.
-
-**Concrete fix**
-
-Rephrase the sentence to something precise, for example: “This is the first cycle 2 plan in this loop,” or remove the assertion entirely.
-
-## Gaps
-
-- I did not reproduce a live browser failure for the download branch; the export-path risk is inferred from code inspection and the absence of direct test coverage.
-
-## Risks
-
-- No automated test currently exercises `downloadVideo`’s actual fallback branch, so browser-specific regressions in the download path could still ship even if the UI-only export tests remain green.
+- I did not do a line-by-line audit of every leaf UI component not implicated by the documented build/export/offline/browser flows, but I did inspect every behavior-defining path tied to the docs and package scripts.

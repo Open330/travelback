@@ -24,7 +24,14 @@ function detectInitialMode(): 'dark' | 'light' {
 export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mode?: 'dark' | 'light'; onModeChange?: (mode: 'dark' | 'light') => void }) {
   const { t } = useLocale()
   const [mode, setMode] = useState<'dark' | 'light'>(() => detectInitialMode())
+  const [hydrated, setHydrated] = useState(false)
   const effectiveMode = controlledMode ?? mode
+  const visualMode = hydrated ? effectiveMode : 'light'
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => setHydrated(true))
+    return () => cancelAnimationFrame(frameId)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
@@ -59,12 +66,12 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
     <button
       type="button"
       onClick={toggle}
-      title={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
-      aria-label={effectiveMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      title={visualMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+      aria-label={visualMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
       className="gi flex h-11 w-11 items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
       style={{ color: 'var(--t2)' }}
     >
-      {effectiveMode === 'dark' ? (
+      {visualMode === 'dark' ? (
         <Sun size={18} strokeWidth={2} />
       ) : (
         <Moon size={18} strokeWidth={2} />

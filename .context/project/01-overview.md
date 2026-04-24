@@ -14,7 +14,7 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 - **Map Assets**: Fully local bundled map themes with no runtime dependency on external tiles, glyphs, or sprites once the static bundle is built
 - **Testing**: Playwright (E2E)
 
-## Build & Run
+## Build, Run & Verify
 
 ```bash
 npm install
@@ -22,6 +22,9 @@ npm run dev      # Development server
 npm run build    # Static production build into ./out
 npm run start    # Static preview server for ./out at /travelback
 npm run lint     # ESLint
+npm run typecheck
+npm run test:e2e
+npm run test:e2e:static
 ```
 
 Deployment note:
@@ -30,7 +33,7 @@ Deployment note:
 ## Supported Input Formats
 
 1. **GPX** (.gpx) — Standard GPS Exchange Format with tracks, timestamps, elevation
-2. **KML** (.kml) — Keyhole Markup Language from Google Earth and similar tools
+2. **KML** (.kml) — Keyhole Markup Language from Google Earth and similar tools; browser parsing depends on `DOMParser` plus `@tmcw/togeojson`, so malformed XML or unsupported KML extensions may be rejected
 3. **Google Location History JSON** (.json) — Google Takeout export formats:
    - Legacy format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestampMs" }] }`
    - New format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestamp" }] }`
@@ -60,7 +63,7 @@ src/
 │   ├── SceneEditor.tsx         # Scene editor panel (camera mode, start/end %, params)
 │   ├── Toast.tsx               # Non-intrusive notification toast
 │   ├── KeyboardHelp.tsx        # Keyboard shortcuts reference overlay
-│   └── GoogleGuide.tsx         # Google Takeout import guide modal
+│   └── GoogleGuide.tsx         # Import guide for Google Maps, Strava, Garmin, AllTrails, Komoot, and generic GPX/KML apps
 ├── lib/
 │   ├── parser.ts               # GPX/KML/Google JSON parsing to Track
 │   ├── interpolate.ts          # Haversine distance, position interpolation, formatting
@@ -85,10 +88,10 @@ src/
 - **Playback controls**: Play/pause, 6 speed levels (0.5x–16x), seekable progress bar
 - **Configurable playback duration**: 10s to 5min presets in the playback controls
 - **Configurable export duration**: 5s to 10min in the export panel
-- **5 map styles**: Voyager (colorful), Positron (light), Dark Matter (dark), Liberty, Bright
+- **5 map styles**: Voyager, Light, Dark, Liberty, Bright
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
 - **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape, 4K Landscape, 4K Portrait
 - **Configurable bitrate**: 1–50 Mbps
-- **Google Takeout guide**: Step-by-step import instructions with direct link
+- **Import guide**: Step-by-step instructions for Google Maps/Takeout plus common GPS and fitness app exports
 - **SEO + Open Graph**: Full metadata for social sharing
 - **Responsive UI**: Floating controls with backdrop blur, mobile-friendly

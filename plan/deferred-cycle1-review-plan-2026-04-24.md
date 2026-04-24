@@ -83,4 +83,4 @@ Deferred items follow `.context/development/01-conventions.md` and the review-pl
 
 ## Cycle 1 progress note
 
-All non-deferrable security, correctness, and data-loss findings from `.context/reviews/_aggregate.md` were scheduled and completed in `plan/cycle1-review-plan-2026-04-24.md`. The deferred items above remain intentionally open as performance, maintainability, infrastructure, or broad test-harness follow-ups; their original severity/confidence labels and exit criteria are unchanged.
+All non-deferrable security, correctness, and data-loss findings from that review wave were scheduled and completed in `plan/archive/cycle1-review-plan-2026-04-24.md`. The deferred items above remain intentionally open as performance, maintainability, infrastructure, or broad test-harness follow-ups; their original severity/confidence labels and exit criteria are unchanged.

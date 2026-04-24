@@ -23,13 +23,14 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
   useEffect(() => { onDismissRef.current = onDismiss }, [onDismiss])
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true))
+    const enterFrame = requestAnimationFrame(() => setVisible(true))
     let dismissTimer: ReturnType<typeof setTimeout> | null = null
     const timer = setTimeout(() => {
       setVisible(false)
       dismissTimer = setTimeout(() => onDismissRef.current(), 300)
     }, 5000)
     return () => {
+      cancelAnimationFrame(enterFrame)
       clearTimeout(timer)
       if (dismissTimer != null) clearTimeout(dismissTimer)
     }
@@ -88,4 +89,3 @@ export function useToast() {
 
   return { messages, addToast, dismissToast }
 }
-

@@ -50,7 +50,7 @@ When reviewing Travelback, evaluate every screen, label, button, and flow by ask
 
 ## E2E Testing with Playwright
 
-Beyond the subjective UX review, Mina also runs automated E2E tests that simulate her real travel logs across every supported format. These tests verify the full user journey — from file upload through playback to video export — works end to end.
+Beyond the subjective UX review, Mina also checks automated E2E coverage that simulates real travel logs across supported formats. These tests verify upload, playback, export-panel readiness, and selected export states; they do not currently prove every browser's final MP4 save path.
 
 ### Test infrastructure
 
@@ -88,7 +88,7 @@ For each fixture file, the E2E test should walk through Mina's full flow:
 3. **Playback** — Click Play, wait, verify Track button visible and progress advances
 4. **Camera/scenes** — Open Camera panel, add a scene, verify scene appears with default camera mode
 5. **Export panel** — Open Export, verify Resolution/Quality visible, verify Start Export button present
-6. **Export execution** — Click Start Export, wait for progress bar, verify export completes with success screen (the `'done'` state with check icon and "Export Again" button)
+6. **Export execution** — Where the environment can encode video reliably, click Start Export and verify the success screen. Otherwise, record this as a manual/export-harness gap instead of claiming final MP4 save coverage.
 7. **Error resilience** — Upload an unsupported file (e.g., `.txt`, `.png`), verify error toast appears without crash
 
 ### Export test details
@@ -98,7 +98,7 @@ The export pipeline uses WebCodecs via mediabunny. In headless Chromium with Swi
 - The `CanvasSource` captures frames from the MapLibre GL canvas
 - The encoder writes H.264 MP4 to a `BufferTarget`
 - On success, `exportState` transitions to `'done'` and the success screen appears with video preview and "Export Again" button
-- The test should verify this full state transition, not just that the button was clicked
+- The test should verify the fullest state transition supported by the environment and explicitly record any gap in final MP4 save-path coverage.
 
 Key selectors for export testing:
 ```
