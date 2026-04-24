@@ -954,25 +954,27 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       aria-label={!track && !mapError && !allowInteractionWithoutTrack ? t('app.mapWaiting') : undefined}
     >
       {mapError && (
-        <div data-testid="map-error" role="alert" className="relative z-30 flex flex-col items-center justify-center h-full text-sm p-4 text-center" style={{ background: 'var(--bg)', color: 'var(--t3)' }}>
-          <p>{t('app.mapLoadFailed')}</p>
-          <details className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
-            <summary className="cursor-pointer" style={{ color: 'var(--t5, var(--t4))' }}>{t('app.showTechnicalDetails')}</summary>
-            <pre className="mt-1 text-left whitespace-pre-wrap break-all opacity-70">{mapError}</pre>
-          </details>
-          <button type="button" onClick={() => window.location.reload()} className="gi mt-4 min-h-11 px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t1)' }}>
-            {t('error.reloadPage')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMapError(null)
-              setMapRetryNonce((nonce) => nonce + 1)
-            }}
-            className="vitro-btn-primary mt-2 min-h-11 px-4 py-2 text-sm cursor-pointer"
-          >
-            {t('app.retryMap')}
-          </button>
+        <div className="pointer-events-none absolute left-4 right-4 top-4 z-30 flex justify-center">
+          <div data-testid="map-error" role="alert" className="gc pointer-events-auto w-full max-w-lg text-sm p-4 text-center shadow-lg" style={{ color: 'var(--t3)' }}>
+            <p>{t('app.mapLoadFailed')}</p>
+            <details className="mt-2 text-xs" style={{ color: 'var(--t4)' }}>
+              <summary className="cursor-pointer" style={{ color: 'var(--t5, var(--t4))' }}>{t('app.showTechnicalDetails')}</summary>
+              <pre className="mt-1 text-left whitespace-pre-wrap break-all opacity-70">{mapError}</pre>
+            </details>
+            <button type="button" onClick={() => window.location.reload()} className="gi mt-4 min-h-11 px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t1)' }}>
+              {t('error.reloadPage')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMapError(null)
+                setMapRetryNonce((nonce) => nonce + 1)
+              }}
+              className="vitro-btn-primary mt-2 min-h-11 px-4 py-2 text-sm cursor-pointer"
+            >
+              {t('app.retryMap')}
+            </button>
+          </div>
         </div>
       )}
     </div>

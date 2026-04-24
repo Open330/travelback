@@ -49,18 +49,27 @@ const TRAVEL_ICON_OPTIONS = [
 
 type TravelIconId = typeof TRAVEL_ICON_OPTIONS[number]['id']
 
-function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string): GeoJSON.FeatureCollection {
+const TRAVEL_ICON_COLORS: Record<TravelIconId, string> = {
+  walk: '#f97316',
+  car: '#06b6d4',
+  plane: '#6366f1',
+  bus: '#22c55e',
+  train: '#eab308',
+  bike: '#ec4899',
+}
+
+function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string, color: string): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: waypoints.map((wp, i) => ({
       type: 'Feature',
-      properties: { index: i, label: String(i + 1), icon: iconSymbol },
+      properties: { index: i, label: String(i + 1), icon: iconSymbol, color },
       geometry: { type: 'Point', coordinates: [wp.lng, wp.lat] },
     })),
   }
 }
 
-function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
+function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Feature {
   const wrapLngNear = (referenceLng: number, nextLng: number) => {
     let adjusted = nextLng
     while (adjusted - referenceLng > 180) adjusted -= 360
@@ -76,7 +85,7 @@ function buildLineGeoJSON(waypoints: TrackPoint[]): GeoJSON.Feature {
 
   return {
     type: 'Feature',
-    properties: {},
+    properties: { color },
     geometry: {
       type: 'LineString',
       coordinates,
@@ -139,7 +148,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const [mapReadyRetry, setMapReadyRetry] = useState(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
+  const selectedIconColor = TRAVEL_ICON_COLORS[selectedIconId]
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
+  const selectedIconColorRef = useRef(selectedIconColor)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
 
   // Track whether layers have been added to the map
@@ -159,7 +170,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   // Keep icon symbol ref in sync (avoid render-phase ref mutation — same pattern as Toast/ModalDialog)
   useEffect(() => {
     selectedIconSymbolRef.current = selectedIconSymbol
-  }, [selectedIconSymbol])
+    selectedIconColorRef.current = selectedIconColor
+  }, [selectedIconColor, selectedIconSymbol])
 
   useEffect(() => {
     if (!isActive) return
@@ -174,8 +186,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const pointsSrc = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
     const lineSrc = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
 
-    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current))
-    if (lineSrc) lineSrc.setData(buildLineGeoJSON(waypointsRef.current))
+    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current, selectedIconColorRef.current))
+    if (lineSrc) lineSrc.setData(buildLineGeoJSON(waypointsRef.current, selectedIconColorRef.current))
   }, [mapRef])
 
   const addLayers = useCallback((map: maplibregl.Map) => {
@@ -185,7 +197,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     if (!map.getSource(SOURCE_LINE)) {
       map.addSource(SOURCE_LINE, {
         type: 'geojson',
-        data: buildLineGeoJSON([]),
+        data: buildLineGeoJSON([], selectedIconColorRef.current),
       })
     }
     if (!map.getLayer(LAYER_LINE)) {
@@ -195,7 +207,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         source: SOURCE_LINE,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-          'line-color': '#f97316',
+          'line-color': ['coalesce', ['get', 'color'], '#f97316'],
           'line-width': 3,
           'line-opacity': 0.9,
         },
@@ -206,11 +218,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     if (!map.getSource(SOURCE_POINTS)) {
       map.addSource(SOURCE_POINTS, {
         type: 'geojson',
-        data: buildPointsGeoJSON([], selectedIconSymbolRef.current),
+        data: buildPointsGeoJSON([], selectedIconSymbolRef.current, selectedIconColorRef.current),
       })
     } else {
       const source = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
-      source?.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current))
+      source?.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current, selectedIconColorRef.current))
     }
     if (!map.getLayer(LAYER_POINTS)) {
       map.addLayer({
@@ -219,7 +231,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         source: SOURCE_POINTS,
         paint: {
           'circle-radius': 12,
-          'circle-color': '#f97316',
+          'circle-color': ['coalesce', ['get', 'color'], '#f97316'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
         },
@@ -243,7 +255,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   useEffect(() => {
     const map = mapRef.current?.getMap()
     if (!map) {
-      if (!isActive || mapReadyRetry >= 30) return
+      if (!isActive || mapReadyRetry >= 120) return
       const retryId = window.setTimeout(() => {
         setMapReadyRetry((retry) => retry + 1)
       }, 100)
@@ -678,11 +690,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             )}
             {searchResults.length > 0 && (
               <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
-                style={{ background: 'var(--bg1)', border: '1px solid var(--div)' }}>
+                style={{ background: 'var(--bg)', border: '1px solid var(--div)' }}>
                 {searchResults.map((r, i) => (
                   <button type="button" key={i} id={`journey-search-option-${i}`} role="option" aria-selected={activeSearchIndex === i} onMouseEnter={() => setActiveSearchIndex(i)} onClick={() => handleSelectPlace(r.lat, r.lon)}
                     className="block w-full text-left text-xs px-3 py-2 transition-colors hover:brightness-110 cursor-pointer truncate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                    style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: activeSearchIndex === i ? 'var(--bg2)' : 'var(--bg1)' }}>
+                    style={{ color: 'var(--t2)', borderBottom: i < searchResults.length - 1 ? '1px solid var(--div)' : 'none', background: activeSearchIndex === i ? 'var(--bg2)' : 'var(--bg)' }}>
                     {r.display_name}
                   </button>
                 ))}

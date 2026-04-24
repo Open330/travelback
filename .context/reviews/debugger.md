@@ -1,57 +1,85 @@
-# Debugger Review - Cycle 3 (2026-04-24)
+# Debugger Review - Cycle 4 (2026-04-25)
 
 ## Scope
 
-Read-only inspection of the live source/config/test tree plus the fresh review artifacts:
+Read-only inspection of the current repo inventory:
 
-- `.context/reviews/code-reviewer.md`
-- `.context/reviews/security-reviewer.md`
-- `.context/reviews/test-engineer.md`
-- `.context/reviews/designer.md`
-- `.context/reviews/critic.md`
+- `src/app/*`
+- `src/components/*`
+- `src/lib/*`
+- `public/workers/trackParser.worker.js`
+- `scripts/*`
+- `e2e/travelback.spec.ts`
+- `playwright.config.ts`
+- `playwright.static.config.ts`
+- `package.json`
+- `tsconfig.json`
+- `eslint.config.mjs`
+- `next.config.ts`
+- `postcss.config.mjs`
+- relevant `.context/` review and architecture notes that overlap these runtime surfaces
 
-I also checked the current source regions those reports point at so I could tell whether there were any new latent runtime bugs in the live tree.
+I checked the high-risk paths you named: upload/parsing weird inputs, map lifecycle, animation loops, export abort/resize cleanup, modals/focus/hotkeys, static hardening scripts, E2E setup, and browser compatibility.
 
-## Result
+## Findings
 
-No new confirmed debugger findings beyond the existing fresh reports.
+### 1. Confirmed: journey search results use an undefined background token
+- Severity: Low
+- Confidence: High
+- Status: confirmed
+- Evidence: `src/components/JourneyCreator.tsx:680-685`
+- Evidence: repo-wide search for `--bg1` only returns those two usages in `JourneyCreator.tsx`; there is no definition in `src/app/globals.css` or `src/styles/vitro-base.css`
+- Failure scenario: once coordinate search returns results, the listbox and option rows request `var(--bg1)`. Because that custom property is undefined, the browser drops the declaration and the dropdown can sit directly on top of the map with no stable fill, which hurts readability exactly when the user is trying to confirm a location.
+- Suggested fix: replace `var(--bg1)` with an existing token such as `var(--bg)`, `var(--go-bg)`, or `var(--gc-bg)`, or define `--bg1` centrally with light/dark values.
 
-The live code still contains the same runtime failure modes already documented in prior reviews, but this pass did not surface an additional confirmed bug that was not already captured elsewhere.
+### 2. Confirmed: the Journey Creator icon picker does not affect the rendered route preview
+- Severity: Low
+- Confidence: High
+- Status: confirmed
+- Evidence: `src/components/JourneyCreator.tsx:52-59`, `src/components/JourneyCreator.tsx:181-229`, `src/components/JourneyCreator.tsx:695-710`
+- Failure scenario: a user selects Plane, Bus, or Train expecting the waypoint markers to change. The map still renders the same orange circle markers because the selected symbol is stored in GeoJSON properties, but the rendered layer is a plain `circle` layer. The only visible effect is the eventual track name prefix.
+- Suggested fix: either render the selected symbol in the preview, or relabel the control so it is clearly a route label/name selector rather than a visual icon picker.
 
-## Still-Live Runtime Bugs Already Confirmed
+### 3. Likely: flat Google JSON arrays are only recognized if one of the first 100 entries looks like a location record
+- Severity: Medium
+- Confidence: High
+- Status: likely
+- Evidence: `src/lib/parser.ts:479-483`
+- Failure scenario: a weird-but-valid Google Takeout flat array with real location records after index 99 is rejected as `Unsupported Google Location History format`, even though `parseRecords()` would have accepted the later entries.
+- Suggested fix: replace the fixed 100-item sample with a bounded shape check that can still discover a valid record later in the array, or validate the array shape without relying on the first 100 elements alone.
 
-### 1. XML entity stripping is still incomplete
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `src/lib/parser.ts:145-157`
-- **Failure scenario:** `stripXmlEntities()` still uses `<!ENTITY[\s\S]*?>`, which can miss multi-line entity declarations. A GPX/KML payload with a multi-line `<!ENTITY>` block can still reach `DOMParser`, defeating the intended sanitizer and leaving parser failure modes in play.
-- **Suggested fix:** Reject any DTD/entity block outright, or use a newline-safe removal pattern before parsing.
-- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
+### 4. Likely: Journey Creator gives up on map hookup after about 3 seconds
+- Severity: Low
+- Confidence: High
+- Status: likely
+- Evidence: `src/components/JourneyCreator.tsx:243-250`
+- Failure scenario: on a slow device or a cold browser start, the Journey Creator can become active before `mapRef.current?.getMap()` exists. The effect retries only 30 times at 100 ms, then stops. After that, the panel stays inert until the user toggles the mode off and on again.
+- Suggested fix: keep retrying while the panel is active, or bind the panel to a real map-ready signal instead of a fixed retry budget.
 
-### 2. Failed export retries can destroy the previous export preview
-- **Severity:** Medium
-- **Confidence:** High
-- **Evidence:** `src/lib/useExportController.ts:92-180`
-- **Failure scenario:** `revokeExportedVideoUrl()` is still reachable before the new export path is fully validated. If a retry fails early because the track, canvas, or map handle is unavailable, the previous working preview can be revoked even though the new export never started.
-- **Suggested fix:** Delay revoking the prior object URL until after validation or until the new export pipeline is definitely live.
-- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
+### 5. Manual-validation risk: the E2E gate is still coupled to a fixed dev port and sleep-heavy waits
+- Severity: Low
+- Confidence: High
+- Status: manual-validation risk
+- Evidence: `playwright.config.ts:3-44`
+- Evidence: `e2e/travelback.spec.ts:136-147`, `e2e/travelback.spec.ts:500-507`, `e2e/travelback.spec.ts:817-845`, `e2e/travelback.spec.ts:1268-1310`
+- Failure scenario: `npm run test:e2e` can fail outright if port `3099` is already in use, and the suite still relies on repeated fixed sleeps that make timing-sensitive regressions flaky or hard to reproduce. The current full-journey tests also stop at export-panel readiness instead of proving the final MP4 save/share path.
+- Suggested fix: use a dynamic port or server reuse strategy for dev E2E, replace fixed sleeps with event-driven waits, and add one deterministic export-end-to-end check in the static harness.
 
-### 3. Journey Creator can miss initialization if the map handle appears late
-- **Severity:** Low
-- **Confidence:** High
-- **Evidence:** `src/components/JourneyCreator.tsx:243-250,417-425`
-- **Failure scenario:** The effect only retries off `isActive`. If Journey Creator activates before `mapRef.current?.getMap()` exists, the initialization path can stop retrying and the panel stays inert until the user toggles the mode off and on again.
-- **Suggested fix:** Add a map-ready signal to the effect dependencies, or gate activation until the map handle is available.
-- **Status:** Already confirmed in the prior debugger review; not a new finding in this pass.
+## Final missed-bug sweep
 
-## Cross-Check Against Fresh Reports
+I re-checked the main runtime risk areas one more time:
 
-- `.context/reviews/critic.md` already confirms additional runtime defects in `src/components/FileUpload.tsx`, `src/lib/useExportController.ts`, `src/components/ExportPanel.tsx`, and `src/components/JourneyCreator.tsx`.
-- `.context/reviews/designer.md` already confirms the map error hard-stop in `src/components/MapView.tsx`.
-- `.context/reviews/test-engineer.md` already confirms parser/export/journey coverage gaps and the dev-overlay masking issue in `e2e/travelback.spec.ts`.
-- `.context/reviews/security-reviewer.md` reports no confirmed security issue.
-- None of those fresh reports introduced a new debugger-specific runtime bug beyond the three already listed above.
+- upload/parsing weird inputs
+- map lifecycle and style reloads
+- playback animation loops
+- export abort/resize cleanup
+- modal focus, hotkeys, and nested dialogs
+- static export hardening and server behavior
+- browser compatibility paths for download/share/export
+- E2E setup and validation gaps
 
-## Conclusion
+No additional confirmed runtime defect surfaced beyond the four findings above.
 
-This debugger pass did not uncover any new confirmed latent runtime bug beyond what the fresh reviews already documented. The live tree still exhibits the same known failure modes, but there is no additional debugger finding to add for cycle 3.
+## Skipped-file Confirmation
+
+I did not intentionally skip any file in the inspected runtime surface. The review covered the source, test, script, worker, and config inventory listed above, plus the current review/context notes that overlapped those paths.

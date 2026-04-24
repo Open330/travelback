@@ -15,7 +15,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: `http://localhost:${PORT}/travelback`,
+    baseURL: `http://localhost:${PORT}/travelback/`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -43,7 +43,7 @@ export default defineConfig({
   ],
   webServer: {
     command: `node scripts/serve-static.mjs --port ${PORT} --base-path /travelback`,
-    url: `http://localhost:${PORT}/travelback`,
+    url: `http://localhost:${PORT}/travelback/`,
     reuseExistingServer: false,
     timeout: 60_000,
   },

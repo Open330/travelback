@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 3099
+const PORT = Number(process.env.PLAYWRIGHT_DEV_PORT ?? '3099')
+
+if (!Number.isInteger(PORT) || PORT <= 0) {
+  throw new Error(`Invalid PLAYWRIGHT_DEV_PORT: ${process.env.PLAYWRIGHT_DEV_PORT ?? '3099'}`)
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,7 +15,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: `http://localhost:${PORT}/`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

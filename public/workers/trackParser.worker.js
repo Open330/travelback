@@ -209,7 +209,7 @@ function parseGoogleLocationHistory(text) {
   let recognizedFormat = false
 
   // Flat array: [{ latitudeE7, ... }]
-  if (Array.isArray(data) && data.slice(0, 100).some(looksLikeGoogleLocationRecord)) {
+  if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
     recognizedFormat = true
     const records = parseRecords(data)
     if (records.length > 0) segments.push(records)

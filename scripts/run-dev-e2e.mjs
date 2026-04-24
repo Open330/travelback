@@ -31,18 +31,18 @@ async function reserveAvailablePort(preferredPort, allowFallback) {
   }
 }
 
-const preferredPort = parsePort(process.env.PLAYWRIGHT_STATIC_PORT ?? '4173', 'PLAYWRIGHT_STATIC_PORT')
-const port = await reserveAvailablePort(preferredPort, !process.env.PLAYWRIGHT_STATIC_PORT)
+const preferredPort = parsePort(process.env.PLAYWRIGHT_DEV_PORT ?? '3099', 'PLAYWRIGHT_DEV_PORT')
+const port = await reserveAvailablePort(preferredPort, !process.env.PLAYWRIGHT_DEV_PORT)
 const playwrightBin = path.resolve(process.cwd(), 'node_modules/.bin/playwright')
 const env = {
   ...process.env,
-  PLAYWRIGHT_STATIC_PORT: String(port),
+  PLAYWRIGHT_DEV_PORT: String(port),
 }
 delete env.NO_COLOR
 
 const child = spawn(
   playwrightBin,
-  ['test', '-c', 'playwright.static.config.ts'],
+  ['test', '-c', 'playwright.config.ts'],
   {
     cwd: process.cwd(),
     env,

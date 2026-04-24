@@ -64,7 +64,7 @@ export default function ExportPanel({
   playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
-  const [resolutionIdx, setResolutionIdx] = useState(1)
+  const [resolutionIdx, setResolutionIdx] = useState(0)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)

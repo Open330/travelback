@@ -91,6 +91,9 @@ function HomeInner() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [trackSessionKey, setTrackSessionKey] = useState(0)
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
+  const [workspaceAnnouncement, setWorkspaceAnnouncement] = useState('')
+  const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
+  const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   useEffect(() => {
@@ -170,6 +173,15 @@ function HomeInner() {
     },
   })
 
+  useEffect(() => {
+    if (!pendingWorkspaceFocus || !track) return
+    const frameId = requestAnimationFrame(() => {
+      workspaceStatusRef.current?.focus({ preventScroll: true })
+      setPendingWorkspaceFocus(false)
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [pendingWorkspaceFocus, track])
+
   // Escape-to-cancel while the export-overlay progress dialog is visible.
   // Matches the repo's modal convention (ModalDialog binds Escape to onClose).
   useEffect(() => {
@@ -202,7 +214,9 @@ function HomeInner() {
     resetPlayback()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
-  }, [resetPlayback, resetTrackWorkspace])
+    setWorkspaceAnnouncement(`${t('app.trackLoaded')} ${nextTrack.name}`)
+    setPendingWorkspaceFocus(true)
+  }, [resetPlayback, resetTrackWorkspace, t])
 
   const startFreshJourneySession = useCallback(() => {
     resetTrackWorkspace()
@@ -423,44 +437,49 @@ function HomeInner() {
         <GoogleGuide isOpen={showGoogleGuide} onClose={handleCloseGoogleGuide} />
 
         {track && fullTrack && (
-          <TrackWorkspace
-            fullTrack={fullTrack}
-            track={track}
-            cumulativeDistances={cumulativeDistances}
-            fullTrackCumulativeDistances={fullTrackCumulativeDistances}
-            trackSessionKey={trackSessionKey}
-            mapStyleKey={mapStyleKey}
-            showSceneEditor={showSceneEditor}
-            scenes={scenes}
-            locale={locale}
-            setLocale={setLocale}
-            mode={colorMode}
-            onModeChange={handleModeChange}
-            units={units}
-            onUnitsChange={handleUnitsChange}
-            onOpenHelp={() => setShowKeyboardHelp(true)}
-            onOpenImportGuide={handleOpenGoogleGuide}
-            onScenesChange={setScenes}
-            transitionDuration={transitionDuration}
-            onTransitionDurationChange={setTransitionDuration}
-            onPreviewScene={handlePreviewScene}
-            onStartNewTrack={startFreshJourneySession}
-            onToggleSceneEditor={handleToggleSceneEditor}
-            onCloseSceneEditor={handleCloseSceneEditor}
-            onCycleStyle={cycleStyle}
-            onOpenExport={handleOpenExport}
-            onRangeChange={handleRangeChange}
-            progress={progress}
-            isPlaying={isPlaying}
-            speed={speed}
-            duration={duration}
-            followCamera={followCamera}
-            onTogglePlay={togglePlay}
-            onSeek={seekTo}
-            onSpeedChange={setSpeed}
-            onDurationChange={setDuration}
-            onFollowCameraToggle={toggleFollowCamera}
-          />
+          <>
+            <div ref={workspaceStatusRef} tabIndex={-1} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+              {workspaceAnnouncement}
+            </div>
+            <TrackWorkspace
+              fullTrack={fullTrack}
+              track={track}
+              cumulativeDistances={cumulativeDistances}
+              fullTrackCumulativeDistances={fullTrackCumulativeDistances}
+              trackSessionKey={trackSessionKey}
+              mapStyleKey={mapStyleKey}
+              showSceneEditor={showSceneEditor}
+              scenes={scenes}
+              locale={locale}
+              setLocale={setLocale}
+              mode={colorMode}
+              onModeChange={handleModeChange}
+              units={units}
+              onUnitsChange={handleUnitsChange}
+              onOpenHelp={() => setShowKeyboardHelp(true)}
+              onOpenImportGuide={handleOpenGoogleGuide}
+              onScenesChange={setScenes}
+              transitionDuration={transitionDuration}
+              onTransitionDurationChange={setTransitionDuration}
+              onPreviewScene={handlePreviewScene}
+              onStartNewTrack={startFreshJourneySession}
+              onToggleSceneEditor={handleToggleSceneEditor}
+              onCloseSceneEditor={handleCloseSceneEditor}
+              onCycleStyle={cycleStyle}
+              onOpenExport={handleOpenExport}
+              onRangeChange={handleRangeChange}
+              progress={progress}
+              isPlaying={isPlaying}
+              speed={speed}
+              duration={duration}
+              followCamera={followCamera}
+              onTogglePlay={togglePlay}
+              onSeek={seekTo}
+              onSpeedChange={setSpeed}
+              onDurationChange={setDuration}
+              onFollowCameraToggle={toggleFollowCamera}
+            />
+          </>
         )}
 
         {showExport ? (

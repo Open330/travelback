@@ -1177,6 +1177,15 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Start Export')).toBeVisible()
   })
 
+  test('export panel defaults to landscape output', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(exportPanel.getByRole('combobox').first()).toHaveValue('0')
+    await expect(exportPanel.locator('p').filter({ hasText: '1920×1080' })).toBeVisible()
+  })
+
   test('export panel can select TikTok resolution', async ({ page }) => {
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
@@ -1216,6 +1225,24 @@ test.describe('Travelback App', () => {
     await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible()
     await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
     await expect(page.locator('button svg').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('imports Google JSON flat arrays when records start after metadata entries', async ({ page }) => {
+    const tmpFile = path.resolve(__dirname, `fixtures/google-offset-records-${process.pid}.json`)
+    const leadingNoise = Array.from({ length: 100 }, (_, index) => ({ note: `metadata-${index}` }))
+    const records = [
+      { latitudeE7: 375665000, longitudeE7: 1269780000, timestamp: '2024-01-01T00:00:00Z' },
+      { latitudeE7: 375666000, longitudeE7: 1269790000, timestamp: '2024-01-01T00:02:00Z' },
+    ]
+
+    fs.writeFileSync(tmpFile, JSON.stringify([...leadingNoise, ...records]), 'utf8')
+    try {
+      await uploadJson(page, tmpFile)
+      await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible({ timeout: 20_000 })
+      await expect(page.locator('text=/2 \\/ 2 locations/').first()).toBeVisible()
+    } finally {
+      fs.unlinkSync(tmpFile)
+    }
   })
 
   test('imports Google Records.json and displays track', async ({ page }) => {
