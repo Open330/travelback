@@ -1,4 +1,4 @@
-# Cycle 4 Review Implementation Plan - 2026-04-25
+# Cycle 4 Review Implementation Plan — 2026-04-25
 
 ## Policy Intake
 
