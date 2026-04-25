@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react'
 import type { VideoCodec, ExportRequest } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
-import { estimateEncodedBytes, isCodecSupported, MAX_IN_MEMORY_EXPORT_BYTES } from '@/lib/videoEncoder'
+import { estimateEncodedBytes, estimateExportMemoryBytes, isCodecSupported, MAX_IN_MEMORY_EXPORT_BYTES } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import type { DownloadMethod, ExportState } from '@/lib/useExportController'
@@ -77,7 +77,7 @@ export default function ExportPanel({
   playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
-  const [resolutionIdx, setResolutionIdx] = useState(0)
+  const [resolutionIdx, setResolutionIdx] = useState(1)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
@@ -97,13 +97,21 @@ export default function ExportPanel({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(initialCodecSupport)
 
+  const selectedResolution = RESOLUTION_PRESETS[resolutionIdx] ?? RESOLUTION_PRESETS[0]
   const bitrate = QUALITY_MAP[quality] ?? 8
   const safeDuration = clampExportDuration(duration)
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
   const estimatedOutputBytes = estimateEncodedBytes(safeDuration, safeBitrate)
   const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
+  const estimatedMemoryBytes = estimateExportMemoryBytes({
+    resolution: selectedResolution,
+    duration: safeDuration,
+    fps,
+    bitrate: safeBitrate,
+  })
+  const estimatedMemoryMb = estimatedMemoryBytes / 1024 / 1024
   const localExportTestStubEnabled = isLocalExportTestStubEnabled()
-  const exportTooLarge = estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES
+  const exportTooLarge = estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES || estimatedMemoryBytes > MAX_IN_MEMORY_EXPORT_BYTES
   const codecStatus = codecSupport[codec]
   const codecPending = codecStatus == null && !localExportTestStubEnabled
   const codecUnavailable = codecStatus === false && !localExportTestStubEnabled
@@ -126,7 +134,7 @@ export default function ExportPanel({
   }, [onClose, isExporting])
 
   const resScale = (() => {
-    const px = RESOLUTION_PRESETS[resolutionIdx].width * RESOLUTION_PRESETS[resolutionIdx].height
+    const px = selectedResolution.width * selectedResolution.height
     if (px <= 921600) return 0.6
     if (px <= 2073600) return 1.0
     return 3.0
@@ -161,9 +169,9 @@ export default function ExportPanel({
 
   const handleExport = useCallback(() => {
     if (!canStartExport) return
-    const resolution = RESOLUTION_PRESETS[resolutionIdx]
+    const resolution = selectedResolution
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate })
-  }, [onExport, resolutionIdx, codec, fps, safeDuration, safeBitrate, canStartExport])
+  }, [onExport, selectedResolution, codec, fps, safeDuration, safeBitrate, canStartExport])
 
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
@@ -195,7 +203,7 @@ export default function ExportPanel({
   if (!isOpen) return null
 
   const platformTip = (() => {
-    const r = RESOLUTION_PRESETS[resolutionIdx]
+    const r = selectedResolution
     if (r.width === 1080 && r.height === 1920) return t('export.tipTikTok')
     if (r.width === 1080 && (r.height === 1080 || r.height === 1350)) return t('export.tipInstagram')
     return t('export.tipYouTube')
@@ -396,9 +404,9 @@ export default function ExportPanel({
             </div>
 
             <p className="mb-2 text-xs" style={{ color: 'var(--t4)' }}>
-              {t('export.output')} {RESOLUTION_PRESETS[resolutionIdx].width}×{RESOLUTION_PRESETS[resolutionIdx].height} MP4
+              {t('export.output')} {selectedResolution.width}×{selectedResolution.height} MP4
               {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
-              {' '}· ~{estimatedOutputMb.toFixed(0)} MB
+              {' '}· ~{estimatedOutputMb.toFixed(0)} MB · ~{estimatedMemoryMb.toFixed(0)} MB {t('export.browserMemory')}
             </p>
             {exportTooLarge && (
               <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>

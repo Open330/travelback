@@ -38,6 +38,26 @@ export function totalDistance(points: TrackPoint[], segmentStartIndices: number[
   return d
 }
 
+export function findDistanceIndexAtOrAfter(
+  cumulativeDistances: number[],
+  targetDistance: number,
+  startIndex = 0,
+): number {
+  if (cumulativeDistances.length === 0) return 0
+  let lo = Math.max(0, Math.min(startIndex, cumulativeDistances.length - 1))
+  let hi = cumulativeDistances.length - 1
+  if (targetDistance <= cumulativeDistances[lo]) return lo
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    if (cumulativeDistances[mid] < targetDistance) {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  return lo
+}
+
 export function computeBearing(from: TrackPoint, to: TrackPoint): number {
   const dLng = toRad(shortestLngDelta(from.lng, to.lng))
   const y = Math.sin(dLng) * Math.cos(toRad(to.lat))

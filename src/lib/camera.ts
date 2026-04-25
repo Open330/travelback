@@ -94,6 +94,19 @@ function overviewZoomFromBox(box: BoundingBox): number {
   return Math.max(1, Math.min(18, z))
 }
 
+const overviewCameraCache = new WeakMap<Track, CameraState>()
+
+function computeOverviewCamera(track: Track): CameraState {
+  const cached = overviewCameraCache.get(track)
+  if (cached) return cached
+  const box = computeBoundingBox(track.points)
+  const camera: CameraState = box
+    ? { center: trackCenterFromBox(box), zoom: overviewZoomFromBox(box), pitch: 0, bearing: 0 }
+    : { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
+  overviewCameraCache.set(track, camera)
+  return camera
+}
+
 /**
  * Smoothly interpolate between two camera states with easing.
  * Uses shortest-path longitude interpolation for antimeridian-crossing routes.
@@ -139,12 +152,10 @@ export function computeCameraForScene(
 
   switch (scene.cameraMode) {
     case 'overview': {
-      const box = computeBoundingBox(track.points)
-      const center = box ? trackCenterFromBox(box) : [0, 20] as [number, number]
-      const zoom = box ? overviewZoomFromBox(box) : 2
+      const overviewCamera = computeOverviewCamera(track)
       return {
-        center,
-        zoom: Math.min(zoom, params.zoom),
+        center: overviewCamera.center,
+        zoom: Math.min(overviewCamera.zoom, params.zoom),
         pitch: params.pitch,
         bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
       }
@@ -384,10 +395,7 @@ export function computeCameraForProgress(
       // to avoid bearing jitter when lerping toward the first scene
       const nextScene = normalizedScenes[nextIdx]
       const gapT = nextScene.startPercent > 0 ? globalProgress / nextScene.startPercent : 1
-      const box = computeBoundingBox(track.points)
-      const overviewCamera: CameraState = box
-        ? { center: trackCenterFromBox(box), zoom: overviewZoomFromBox(box), pitch: 0, bearing: 0 }
-        : { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
+      const overviewCamera = computeOverviewCamera(track)
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {

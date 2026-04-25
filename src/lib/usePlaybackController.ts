@@ -207,15 +207,18 @@ export function usePlaybackHotkeys({
           }
           break
         case 'ArrowRight':
+          if (!track) break
           event.preventDefault()
           onStepSeek(0.02)
           break
         case 'ArrowLeft':
+          if (!track) break
           event.preventDefault()
           onStepSeek(-0.02)
           break
         case 'f':
         case 'F':
+          if (!track) break
           onToggleFollowCamera()
           break
         case 'e':

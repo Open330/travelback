@@ -48,6 +48,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       setIsDragging(false)
     }, 200)
   }, [])
+  const withRecoveryHint = useCallback((text: string) => `${text.replace(/[.!?]\s*$/, '')}. ${t('fileUpload.recoveryHint')}`, [t])
 
   const handleFile = useCallback(async (file: File) => {
     setError(null)
@@ -69,6 +70,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
         UNSUPPORTED_GOOGLE_FORMAT: 'fileUpload.parseFailed',
         READ_FAILED: 'fileUpload.readFailed',
+        WORKER_FAILED: 'fileUpload.parseFailed',
       }
       const code = err instanceof ParseError ? err.code : ''
       const message = err instanceof Error ? err.message : ''
@@ -77,7 +79,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const isFileTooLarge = code === 'FILE_TOO_LARGE'
       const isSafe = knownCode || isFileTooLarge
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
-      const withRecoveryHint = (text: string) => `${text.replace(/[.!?]\s*$/, '')}. ${t('fileUpload.recoveryHint')}`
       if (knownCode) {
         setError(withRecoveryHint(t(errorCodeMap[code as keyof typeof errorCodeMap] as Parameters<typeof t>[0])))
       } else if (isFileTooLarge) {
@@ -91,7 +92,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         inputRef.current.value = ''
       }
     }
-  }, [onTrackLoaded, t])
+  }, [onTrackLoaded, t, withRecoveryHint])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -100,14 +101,14 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
     if (file) {
       const ext = file.name.split('.').pop()?.toLowerCase()
       if (!ext || !VALID_EXTENSIONS.has(ext)) {
-        setError(t('fileUpload.unsupportedFormat'))
+        setError(withRecoveryHint(t('fileUpload.unsupportedFormat')))
         scheduleDragEnd()
         return
       }
       handleFile(file)
     }
     scheduleDragEnd()
-  }, [handleFile, t, loading, scheduleDragEnd])
+  }, [handleFile, t, loading, scheduleDragEnd, withRecoveryHint])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()

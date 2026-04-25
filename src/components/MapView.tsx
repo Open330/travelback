@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHand
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeCumulativeDistances, computeBearing, shortestLngDelta } from '@/lib/interpolate'
+import { interpolateAlongTrack, computeCumulativeDistances, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
 import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
@@ -636,8 +636,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const onGlobalStyleLoad = () => {
         const activeTrack = trackRef.current
         addReferenceGridLayers(map, styleKeyRef.current, activeTrack)
+        setMapError(null)
         if (!activeTrack) return
         addTrackLayers(map, activeTrack)
+        setMapError(null)
       }
       map.on('style.load', onGlobalStyleLoad)
 
@@ -685,8 +687,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     styleHandler = () => {
       const currentTrack = trackRef.current
       addReferenceGridLayers(map, mapStyleKey, currentTrack)
+      setMapError(null)
       if (currentTrack) {
         addTrackLayers(map, currentTrack)
+        setMapError(null)
       }
     }
     map.once('style.load', styleHandler)
@@ -911,10 +915,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       } else {
         const totalDistance = cumulDistRef.current[cumulDistRef.current.length - 1] ?? 0
         const lookAheadDistance = Math.min(totalDistance, result.distanceTraveled + LOOK_AHEAD_DISTANCE_METERS)
-        let lookAheadIdx = Math.min(segmentIndex + 1, track.points.length - 1)
-        while (lookAheadIdx < track.points.length - 1 && cumulDistRef.current[lookAheadIdx] < lookAheadDistance) {
-          lookAheadIdx += 1
-        }
+        const lookAheadIdx = findDistanceIndexAtOrAfter(cumulDistRef.current, lookAheadDistance, segmentIndex + 1)
 
         const lookAheadPoint = track.points[lookAheadIdx]
         const fallbackPoint = track.points[Math.min(segmentIndex + 1, track.points.length - 1)]

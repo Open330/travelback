@@ -33,6 +33,21 @@ export function estimateEncodedBytes(durationSeconds: number, bitrateMbps: numbe
   return (bitrateMbps * 1_000_000 * durationSeconds) / 8
 }
 
+export function estimateExportMemoryBytes(config: {
+  resolution: { width: number; height: number }
+  duration: number
+  fps: number
+  bitrate: number
+}): number {
+  const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(config.duration, EXPORT_LIMITS.duration.max))
+  const safeFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(config.fps, EXPORT_LIMITS.fps.max))
+  const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(config.bitrate, EXPORT_LIMITS.bitrate.max))
+  const rawFrameBytes = config.resolution.width * config.resolution.height * 4
+  const encodedBytes = estimateEncodedBytes(safeDuration, safeBitrate)
+  const frameBookkeepingBytes = Math.ceil(safeDuration * safeFps) * 64
+  return encodedBytes + rawFrameBytes * 4 + frameBookkeepingBytes
+}
+
 /**
  * Render and encode a video frame-by-frame using mediabunny.
  * 
@@ -67,7 +82,7 @@ export async function exportVideo(
     console.warn(`[Travelback] Export config clamped: duration=${duration}->${safeDuration}, fps=${fps}->${safeFps}, bitrate=${bitrate}->${safeBitrate}`)
   }
 
-  if (estimateEncodedBytes(safeDuration, safeBitrate) > MAX_IN_MEMORY_EXPORT_BYTES) {
+  if (estimateExportMemoryBytes({ resolution: config.resolution, duration: safeDuration, fps: safeFps, bitrate: safeBitrate }) > MAX_IN_MEMORY_EXPORT_BYTES) {
     throw new Error('This export is too large for in-browser video encoding. Lower the duration or quality.')
   }
 

@@ -239,7 +239,7 @@ test.describe('Travelback App', () => {
 
   test('shows file upload area on initial load', async ({ page }) => {
     // The file upload drop zone should be visible
-    await expect(page.getByText('Drop your travel file here')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Drop a .json Google Timeline export, .gpx, or .kml file here')).toBeVisible({ timeout: 10_000 })
   })
   test('landing keyboard flow prioritizes upload actions over the decorative map', async ({ page }) => {
     await page.keyboard.press('Tab')
@@ -417,9 +417,11 @@ test.describe('Travelback App', () => {
     await expect(visibleTrackTitle(page, 'Single Quote GPX')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('imports GPX files after stripping multiline entity declarations', async ({ page }) => {
-    await uploadCustomFile(page, MULTILINE_ENTITY_GPX_FIXTURE)
-    await expect(visibleTrackTitle(page, 'Multiline Entity GPX')).toBeVisible({ timeout: 15_000 })
+  test('rejects GPX files with entity declarations before XML parsing', async ({ page }) => {
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(MULTILINE_ENTITY_GPX_FIXTURE)
+    await expect(page.locator('p[role="alert"]')).toContainText('Failed to parse file', { timeout: 15_000 })
+    await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
   })
 
   test('imports valid XML files above the soft 1MB regression threshold', async ({ page }) => {
@@ -599,7 +601,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('global-toolbar')).toBeHidden()
     await expect(page.getByTestId('track-toolbar')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('track-title')).toBeHidden()
-    await expect(page.getByRole('button', { name: 'More controls' })).not.toHaveAttribute('aria-haspopup', 'dialog')
+    await expect(page.getByRole('button', { name: 'More controls' })).toHaveAttribute('aria-haspopup', 'dialog')
 
     await expect.poll(async () => {
       const [loadNewFileBox, trackToolbarBox] = await Promise.all([
@@ -1271,13 +1273,13 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Start Export')).toBeVisible()
   })
 
-  test('export panel defaults to landscape output', async ({ page }) => {
+  test('export panel defaults to vertical short-form output', async ({ page }) => {
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
-    await expect(exportPanel.getByRole('combobox').first()).toHaveValue('0')
-    await expect(exportPanel.locator('p').filter({ hasText: '1920×1080' })).toBeVisible()
+    await expect(exportPanel.getByRole('combobox').first()).toHaveValue('1')
+    await expect(exportPanel.locator('p').filter({ hasText: '1080×1920' })).toBeVisible()
   })
 
   test('export panel can select TikTok resolution', async ({ page }) => {
@@ -1455,7 +1457,7 @@ test.describe('Travelback App', () => {
       const fileInput = page.locator('input[type="file"]')
       await fileInput.setInputFiles(tmpFile)
       // Should show an error message (error text in the upload area)
-      await expect(page.locator('p[role="alert"]')).toContainText('Unsupported file format', { timeout: 10_000 })
+      await expect(page.locator('p[role="alert"]')).toContainText('That file is not a travel route file', { timeout: 10_000 })
       // App should not crash — heading should still be visible
       await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
     } finally {

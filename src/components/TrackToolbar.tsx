@@ -150,6 +150,7 @@ export default function TrackToolbar({
             aria-label={t('app.moreControls')}
             aria-expanded={menuOpen}
             aria-controls="track-toolbar-mobile-menu"
+            aria-haspopup="dialog"
           className="gi flex min-h-11 min-w-11 items-center justify-center px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
           style={{ color: 'var(--t1)' }}
         >
@@ -160,8 +161,8 @@ export default function TrackToolbar({
           <div
               ref={menuPanelRef}
               id="track-toolbar-mobile-menu"
-              role="group"
-            aria-label={t('app.moreControls')}
+              role="dialog"
+              aria-labelledby="track-toolbar-mobile-menu-title"
             data-testid="track-toolbar-mobile-menu"
             data-disable-playback-hotkeys="true"
             className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
@@ -169,6 +170,7 @@ export default function TrackToolbar({
             // Keep menuRef on the wrapper for outside-click detection; focus uses
             // this panel ref so the first popup action receives focus on open.
           >
+            <h2 id="track-toolbar-mobile-menu-title" className="sr-only">{t('app.moreControls')}</h2>
             <div className="space-y-2">
               <button
                     type="button"

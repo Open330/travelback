@@ -5,7 +5,7 @@ import { Check, Search } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
-import { totalDistance, formatDistance, shortestLngDelta, type UnitSystem } from '@/lib/interpolate'
+import { totalDistance, formatDistance, shortestLngDelta, normalizeLng, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
@@ -30,6 +30,14 @@ function approxDistanceMeters(a: { lat: number; lng: number }, b: { lat: number;
   const dLat = (b.lat - a.lat) * Math.PI / 180
   const dLng = shortestLngDelta(a.lng, b.lng) * Math.PI / 180 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180)
   return Math.sqrt(dLat * dLat + dLng * dLng) * R
+}
+
+function normalizeWaypoint(lng: number, lat: number): TrackPoint | null {
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  return {
+    lng: normalizeLng(lng),
+    lat: Math.max(-90, Math.min(90, lat)),
+  }
 }
 
 interface ParsedLocationResult {
@@ -104,12 +112,13 @@ function parseCoordinateQuery(query: string): ParsedLocationResult | null {
     decoded = trimmedQuery
   }
 
+  const coordinatePattern = '([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))'
   const patterns = [
-    /geo:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
-    /@(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
-    /[?&#](?:q|ll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i,
-    /#map=\d+(?:\.\d+)?\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)/i,
-    /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+    new RegExp(`geo:\\s*${coordinatePattern}\\s*,\\s*${coordinatePattern}`, 'i'),
+    new RegExp(`@${coordinatePattern}\\s*,\\s*${coordinatePattern}`),
+    new RegExp(`[?&#](?:q|ll)=${coordinatePattern}\\s*,\\s*${coordinatePattern}`, 'i'),
+    new RegExp(`#map=\\d+(?:\\.\\d+)?/${coordinatePattern}/${coordinatePattern}`, 'i'),
+    new RegExp(`${coordinatePattern}\\s*,\\s*${coordinatePattern}`),
   ]
 
   for (const pattern of patterns) {
@@ -298,13 +307,15 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         if (features.length > 0) return
 
         const { lng, lat } = e.lngLat
+        const waypoint = normalizeWaypoint(lng, lat)
+        if (!waypoint) return
         // Skip if too close to the last waypoint (likely accidental double-click)
         const pts = waypointsRef.current
         if (pts.length > 0) {
           const last = pts[pts.length - 1]
-          if (approxDistanceMeters({ lat, lng }, last) < PROXIMITY_THRESHOLD_METERS) return
+          if (approxDistanceMeters(waypoint, last) < PROXIMITY_THRESHOLD_METERS) return
         }
-        waypointsRef.current = [...pts, { lng, lat }]
+        waypointsRef.current = [...pts, waypoint]
         updateMapData()
         syncUI()
       }
@@ -337,9 +348,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       const updateDraggedPoint = (lng: number, lat: number) => {
         if (draggingIndexRef.current === null) return
+        const waypoint = normalizeWaypoint(lng, lat)
+        if (!waypoint) return
         dragMovedRef.current = true
         const pts = [...waypointsRef.current]
-        pts[draggingIndexRef.current] = { ...pts[draggingIndexRef.current], lng, lat }
+        pts[draggingIndexRef.current] = { ...pts[draggingIndexRef.current], ...waypoint }
         waypointsRef.current = pts
         updateMapData()
         syncUI()
@@ -510,17 +523,19 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const latNum = parseFloat(lat)
     if (!Number.isFinite(lng) || !Number.isFinite(latNum)) return
     if (Math.abs(latNum) > 90 || Math.abs(lng) > 180) return
+    const waypoint = normalizeWaypoint(lng, latNum)
+    if (!waypoint) return
     // Skip if too close to the last waypoint
     const pts = waypointsRef.current
-    if (pts.length > 0 && approxDistanceMeters({ lat: latNum, lng }, pts[pts.length - 1]) < PROXIMITY_THRESHOLD_METERS) {
+    if (pts.length > 0 && approxDistanceMeters(waypoint, pts[pts.length - 1]) < PROXIMITY_THRESHOLD_METERS) {
       setSearchResults([])
       setActiveSearchIndex(-1)
       setSearchQuery('')
       return
     }
     const map = mapRef.current?.getMap()
-    if (map) map.flyTo({ center: [lng, latNum], zoom: 14 })
-    waypointsRef.current = [...pts, { lng, lat: latNum }]
+    if (map) map.flyTo({ center: [waypoint.lng, waypoint.lat], zoom: 14 })
+    waypointsRef.current = [...pts, waypoint]
     updateMapData()
     syncUI()
     setSearchResults([])

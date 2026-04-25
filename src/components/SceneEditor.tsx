@@ -26,6 +26,17 @@ interface SceneEditorProps {
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
 type PresetType = 'cinematic' | 'simple' | 'birdeye' | 'dynamic'
 
+function scenesWereAdjusted(inputScenes: Scene[], normalizedScenes: Scene[]): boolean {
+  if (inputScenes.length !== normalizedScenes.length) return true
+  return inputScenes.some((scene, index) => {
+    const normalized = normalizedScenes[index]
+    return !normalized
+      || scene.id !== normalized.id
+      || scene.startPercent !== normalized.startPercent
+      || scene.endPercent !== normalized.endPercent
+  })
+}
+
 /** Small inline SVG icons for each camera mode */
 function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }) {
   const s = { width: size, height: size, flexShrink: 0 }
@@ -252,28 +263,21 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
-    // Validate raw scenes BEFORE normalization so invalid ranges are caught
-    // and surfaced to the user (normalizeScenes silently removes/corrects them).
+    const normalized = normalizeScenes(nextScenes)
     const w: string[] = []
+    // Validate raw scene ranges before normalization so scenes that were
+    // removed or clamped still get a concrete warning, then avoid stale
+    // overlap warnings by reporting only the post-normalization outcome.
     for (const s of nextScenes) {
       if (s.startPercent >= s.endPercent) {
         w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
       }
     }
-    // Check for overlapping ranges between different scenes
-    for (let i = 0; i < nextScenes.length; i++) {
-      for (let j = i + 1; j < nextScenes.length; j++) {
-        const a = nextScenes[i]
-        const b = nextScenes[j]
-        // Two ranges overlap if one starts before the other ends and vice versa
-        if (a.startPercent < b.endPercent && b.startPercent < a.endPercent) {
-          w.push(`"${a.name}" ${t('scenes.overlap')} "${b.name}" ${t('scenes.overlapSuffix')}`)
-        }
-      }
+    if (scenesWereAdjusted(nextScenes, normalized)) {
+      w.push(t('scenes.rangesAdjusted'))
     }
     setNormalizationWarnings(w)
 
-    const normalized = normalizeScenes(nextScenes)
     onChange(normalized)
   }, [onChange, t])
 
