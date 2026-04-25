@@ -33,3 +33,30 @@ Reviewed all UI components for information architecture, affordances, keyboard n
 - Scene range editor has proper keyboard interaction (Arrow keys, Home, End)
 - `inert` attribute used on map container when no track loaded
 - Responsive layout adapts between mobile and desktop
+
+## Addendum: Current Pass (2026-04-25)
+
+### C5-D4. JourneyCreator search validation is not bound to the combobox
+- **Severity**: MEDIUM | **Confidence**: HIGH
+- **File**: `src/components/JourneyCreator.tsx:645-689`
+- **Evidence**: In browser automation, after entering `not a location` and submitting, the combobox still had `aria-invalid=null` and `aria-describedby=null` even though the error text was rendered below it.
+- **Failure scenario**: Keyboard and screen reader users get a visible validation error, but the field itself is not marked invalid and the message is not associated with the input. The error can be missed entirely when navigating by forms or landmarks.
+- **Concrete fix**: Add `aria-invalid={!!searchError}` to the combobox, connect the privacy hint and error message with `aria-describedby`, and give the error a stable `id` plus `role="alert"` or `aria-live="polite"` so it is announced when validation fails.
+
+### C5-D5. Mobile overflow menu closes without returning focus to the trigger
+- **Severity**: MEDIUM | **Confidence**: HIGH
+- **File**: `src/components/TrackToolbar.tsx:58-85, 137-245`
+- **Evidence**: In browser automation on a mobile viewport, opening the menu moved focus to the first item (`New Route`), and pressing Escape collapsed the menu but left `document.activeElement` on `BODY` instead of the `More controls` button.
+- **Failure scenario**: Keyboard users lose their place after dismissing the popup and have to tab back from the top of the page. On touch/assistive setups, that makes the toolbar feel broken or jumpy.
+- **Concrete fix**: Store a ref to the trigger button, restore focus on close, and consider `aria-haspopup="menu"` plus `aria-controls` if the popup remains a menu-style surface.
+
+### C5-D6. Unit switchers do not expose their active state to assistive tech
+- **Severity**: LOW | **Confidence**: HIGH
+- **Files**: `src/components/GlobalToolbar.tsx:27-47` and `src/components/TrackToolbar.tsx:197-218`
+- **Evidence**: Browser DOM inspection showed the selected `km` button had a colored background, but both unit buttons reported `aria-pressed=null`. The active state is visual-only.
+- **Failure scenario**: Screen reader users hear two generic buttons with no indication of which unit system is currently selected. That makes the control usable only by sight.
+- **Concrete fix**: Convert the pair to a radio group or add `aria-pressed`/`aria-checked` state to the active button, plus a screen-reader-readable label that announces the current selection.
+
+## Verification Notes
+- Loaded the app in Playwright against the local dev server and exercised the upload/onboarding and loaded-track states.
+- Headless Chromium in this container could not create a WebGL context, so MapLibre showed its fallback map error banner; the UI shell, toolbar, modal, and form interactions were still verifiable through DOM and keyboard automation.

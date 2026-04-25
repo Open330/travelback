@@ -1,32 +1,68 @@
-# Security Reviewer — Cycle 5 (2026-04-23)
+# Security Review Report — Cycle 5
 
-## Methodology
-Reviewed all source files for OWASP Top 10 vulnerabilities, unsafe patterns, secrets exposure, XSS, injection, and auth/authz issues. Cross-referenced prior cycle findings.
+**Reviewer:** security-reviewer
+**Date:** 2026-04-25
+**Scope:** Reviewed `package.json`, `package-lock.json`, `next.config.ts`, `playwright*.ts`, `scripts/*.mjs`, `src/app/*`, `src/components/*`, `src/lib/*`, `src/types.ts`, `public/workers/trackParser.worker.js`, bundled map styles, sample fixtures, and the existing cycle-5 security artifact.
+**Risk Level:** MEDIUM
 
-## New Findings
+## Summary
+- Critical Issues: 0
+- High Issues: 0
+- Medium Issues: 2
+- Low Issues: 1
 
-### C5-S1. ReDoS potential in parseSemanticSegments coordinate regex
-- **Severity**: LOW | **Confidence**: MEDIUM
-- **Files**: `src/lib/parser.ts:277, 300`, `public/workers/trackParser.worker.js:106, 124`
-- **Issue**: The regex patterns used to parse coordinate strings from Google data use `([-\d.]+)` which could match very long numeric strings. However, these are applied to strings from parsed JSON data (already in memory), not user-typed input. The regex patterns themselves are not complex (no backtracking), so the ReDoS risk is negligible. The patterns are:
-  - `/geo:([-\d.]+),([-\d.]+)/` — no alternation or backtracking
-  - `/([-\d.]+)[°]?,\s*([-\d.]+)/` — simple alternation
-- **Impact**: Negligible — these regexes don't have catastrophic backtracking patterns. The input is bounded by JSON.parse limits.
+## Findings
 
-### C5-S2. CSP unsafe-inline remains in dev (acknowledged by prior finding)
-- **Severity**: MEDIUM | **Confidence**: HIGH (already deferred as DF-C17-003)
-- **File**: `src/app/layout.tsx:59-63`
-- **Status**: No change from prior cycles. The harden script exists and runs during build. CI validation is deferred.
+### C5-S1. Large GPX/KML imports are still parsed on the main thread, enabling client-side DoS
+- **Severity:** MEDIUM
+- **Category:** OWASP A04: Insecure Design
+- **Label:** Confirmed
+- **Confidence:** High
+- **Location:** `src/lib/parser.ts:152-154`, `src/lib/parser.ts:160-212`, `src/lib/parser.ts:521-523`, `src/lib/parser.ts:626-674`
+- **Exploitability:** Local, unauthenticated; attacker must convince a user to import a crafted large XML file.
+- **Blast Radius:** Browser tab freeze, excessive memory/CPU use, lost in-memory work, poor mobile-device stability.
+- **Failure Scenario:** The JSON path has worker isolation and a 100 MB limit, but GPX/KML still allow up to 200 MB and are decoded via `FileReader.readAsText()` and synchronously parsed with `DOMParser` on the UI thread. A maliciously large or structurally dense GPX/KML file can lock the page before recovery UI is usable.
+- **Issue:** Availability protection is asymmetric: JSON is bounded and worker-parsed; XML is not.
+- **Concrete Fix:** Move GPX/KML parsing into the worker path too, or sharply reduce XML size limits and reject files before `readAsText()`.
 
-## Security Posture Summary
-- No new security vulnerabilities found in this cycle
-- XSS: No `dangerouslySetInnerHTML` except the bootstrap script (which is minified and controlled)
-- Secrets: No API keys, tokens, or credentials in source code
-- Input validation: Parser has proper bounds checking (NaN, coordinate limits, file size, depth limits)
-- CSP: `frame-ancestors 'none'` prevents clickjacking; `object-src 'none'` prevents plugin injection
-- The `showSaveFilePicker` type casting is safe — the API is feature-detected first
-- Download fallback uses `document.createElement('a')` which is standard and safe
-- `navigator.share` is feature-detected and file-type validated before use
+### C5-S2. Vulnerable `postcss` versions remain in the dependency graph
+- **Severity:** MEDIUM
+- **Category:** OWASP A06: Vulnerable and Outdated Components
+- **Label:** Likely
+- **Confidence:** High
+- **Location:** `package-lock.json:1645-1656`, `package-lock.json:5328-5334`, `package-lock.json:5376-5379`, `package-lock.json:5734-5755`
+- **Exploitability:** Build-time, not direct runtime; requires attacker-controlled CSS entering the build pipeline.
+- **Blast Radius:** If untrusted CSS is ever processed, the known `</style>` escaping issue can produce XSS in generated output or previews.
+- **Failure Scenario:** `npm audit` reports GHSA-`qx2v-qp2m-jg93` for both `node_modules/next/node_modules/postcss@8.4.31` and top-level `postcss@8.5.6`, both below the patched range `<8.5.10`. This repo does not currently ingest user CSS at runtime, so exploitability is limited, but the vulnerable component is present.
+- **Concrete Fix:** Upgrade to dependency versions that pull `postcss >= 8.5.10`, or pin an override after compatibility testing.
 
-## Previously Deferred (Carried Forward)
-- DF-C17-003: CSP unsafe-inline CI check (MEDIUM/HIGH) — no change
+### C5-S3. CSP hardening still depends on a post-build mutation step
+- **Severity:** LOW
+- **Category:** OWASP A05: Security Misconfiguration
+- **Label:** Risk
+- **Confidence:** High
+- **Location:** `src/app/layout.tsx:8-10`, `src/app/layout.tsx:58-66`, `scripts/harden-static-export.mjs:103-115`, `scripts/smoke-static.mjs:100-140`
+- **Exploitability:** Deployment/configuration mistake; not directly exploitable from the app alone.
+- **Blast Radius:** Site-wide loss of CSP defense-in-depth if un-hardened HTML is deployed.
+- **Failure Scenario:** Source HTML still emits a placeholder CSP with `'unsafe-inline'` in production and relies on `postbuild` mutation to replace it with hash-based policy. The smoke test catches this on the normal build path, but any alternate deployment path that skips or bypasses `postbuild` would publish the weaker CSP.
+- **Provenance:** Carries forward the existing deferred concern in `.context/reviews/security-reviewer-cycle5.md` (`DF-C17-003`).
+- **Concrete Fix:** Fail the build if the placeholder remains, or generate the final hash-based CSP directly in the emitted output path rather than relying on a rewrite step.
+
+## Confirmed Clean Areas
+- No hardcoded secrets found in current source or obvious git history hits from targeted secret-pattern scans.
+- Worker message validation is present and bounded: `public/workers/trackParser.worker.js:289-320`.
+- JSON imports have depth and size guards plus worker isolation: `src/lib/parser.ts:469-621`, `public/workers/trackParser.worker.js:250-320`.
+- No runtime auth/authz surface exists in this repo; this is a static client app with no API routes or session logic.
+- No dangerous runtime HTML sinks were found beyond the controlled bootstrap script in `src/app/layout.tsx:53-58`.
+- No remote geocoder or third-party data fetch path exists in the app runtime; network use is limited to local static assets and browser download/share flows.
+
+## Security Checklist
+- [x] Secrets scan completed
+- [x] Dependency audit completed
+- [x] Worker/message trust boundary reviewed
+- [x] File parsing paths reviewed
+- [x] Unsafe browser/XSS patterns reviewed
+- [x] Auth/authz assumptions reviewed
+- [ ] No vulnerable dependencies
+- [ ] No client-side parsing DoS path
+- [ ] CSP hardening independent of deployment path

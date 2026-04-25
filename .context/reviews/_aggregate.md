@@ -1,234 +1,311 @@
-# Aggregate Review - Cycle 4 Recovery (2026-04-25)
+# Cycle 5 Aggregate Review — 2026-04-25
 
-## Scope
+## Fan-out Coverage
 
-This aggregate synthesizes the modified cycle 4 review artifacts that existed at recovery time:
+Completed review lanes:
+- `code-reviewer` → `.context/reviews/code-reviewer-cycle5.md`
+- `security-reviewer` → `.context/reviews/security-reviewer-cycle5.md`
+- `critic` → `.context/reviews/critic-cycle5.md`
+- `verifier` → `.context/reviews/verifier-cycle5.md`
+- `test-engineer` → `.context/reviews/test-engineer-cycle5.md`
+- `architect` → `.context/reviews/architect-cycle5.md`
+- `debugger` → `.context/reviews/debugger-cycle5.md`
+- `designer` → `.context/reviews/designer-cycle5.md`
+- `dependency-expert` as document specialist → `.context/reviews/document-specialist-cycle5.md`
+- `default` as perf-reviewer → `.context/reviews/perf-reviewer-cycle5.md`
+- `default` as tracer → `.context/reviews/tracer-cycle5.md`
 
-- `.context/reviews/code-reviewer.md`
-- `.context/reviews/critic.md`
-- `.context/reviews/debugger.md`
-- `.context/reviews/designer.md`
-- `.context/reviews/test-engineer.md`
-- `.context/reviews/verifier.md`
+Agent constraints:
+- Environment enforced a hard thread cap, so the fan-out was completed in slot-cycled batches after the initial batch hit `agent thread limit reached`.
+- `security-reviewer`, `architect`, and `code-reviewer` reported from read-only lanes. Their results were incorporated into their cycle-5 artifacts or already matched the existing artifact.
 
-The user explicitly directed recovery from the current modified review notes. Older historical review files were retained for provenance but were not counted as new cycle 4 findings.
+AGENT FAILURES: none unresolved.
 
-## Agent Status
+## Merged Findings
 
-- Completed from on-disk artifacts: code-reviewer, critic, debugger, designer, test-engineer, verifier.
-- Agent limitations: the earlier fan-out was interrupted before all requested specialist surfaces wrote fresh modified artifacts. Recovery continued from the modified files present on disk, per user instruction.
-- Browser limitation from designer: WebGL could not initialize in headless Chromium, so the designer validated the fallback/error path plus DOM/focus behavior rather than a normal rendered map.
+### F5-01 — Playback and export hot paths rebuild too much per frame
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** critic, architect, perf-reviewer
+- **Evidence:** `src/lib/usePlaybackController.ts:95-135`, `src/app/page.tsx:106-123`, `src/components/MapView.tsx:839-861`, `src/components/TrackWorkspace.tsx:52-170`, `src/lib/videoEncoder.ts:93-130`
+- **Failure scenario:** Large tracks can trigger React churn, repeated GeoJSON allocation/upload, WebGL idle waits, and visible playback/export jank.
+- **Fix:** Move high-frequency progress out of the full app shell, cache or incrementally render traveled geometry, and use an export-specific render path or narrower idle signal.
 
-## New Findings
+### F5-02 — Timeline drag performs full O(n) track commits during pointer movement
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** perf-reviewer
+- **Evidence:** `src/components/TimelineSelector.tsx:182-226`, `src/app/page.tsx:231-257`, `src/components/MapView.tsx:770-830`
+- **Failure scenario:** Dragging a 250k-point track can perform repeated full-array slices and map rebuilds, locking the UI.
+- **Fix:** Separate live drag preview from committed track mutation; commit on pointer-up or debounce, and represent trim bounds as view state.
 
-### F1. Clean-checkout typecheck can fail before build-generated Next types exist
-- Severity: High
-- Confidence: High
-- Status: confirmed
-- Agreement: code-reviewer
-- Evidence: `package.json:10-15`, `tsconfig.json:25-31`
-- Failure scenario: `npm run typecheck` runs before `npm run build`, but generated `.next/types/**/*.ts` entries can reference generated files that are missing or stale on a clean/dev checkout.
-- Fix: run `next typegen` before `tsc --noEmit` so Next's expected generated route types exist before TypeScript checks them.
+### F5-03 — GPX/KML imports parse large files on the main thread
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** security-reviewer, perf-reviewer, architect
+- **Evidence:** `src/lib/parser.ts:152-212`, `src/lib/parser.ts:521-523`, `src/lib/parser.ts:626-674`
+- **Failure scenario:** A crafted or legitimately large XML track can freeze the tab before recovery UI is available.
+- **Fix:** Move XML parsing behind the worker boundary or lower XML limits until worker parsing exists.
 
-### F2. Static Playwright base URL is missing a trailing slash
-- Severity: Medium
-- Confidence: High
-- Status: confirmed
-- Agreement: code-reviewer
-- Evidence: `playwright.static.config.ts:18`, `playwright.static.config.ts:39`
-- Failure scenario: with Playwright URLs set to `/travelback` instead of `/travelback/`, `page.goto('/')` can resolve to the origin root rather than the static subpath and server readiness checks can target a subtly different URL.
-- Fix: set the static Playwright base URL and web-server readiness URL to `http://localhost:${PORT}/travelback/`.
+### F5-04 — Worker/main-thread Google parser logic is duplicated
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** architect, code-reviewer, document-specialist
+- **Evidence:** `src/lib/parser.ts:465-620`, `public/workers/trackParser.worker.js:1-322`
+- **Failure scenario:** A Google export shape fix can land in one path but not the other, producing browser-dependent parsing.
+- **Fix:** Extract a shared parser core and build the worker from that source with a typed message/error contract.
 
-### F3. Dev E2E is coupled to fixed port 3099
-- Severity: Low
-- Confidence: High
-- Status: confirmed/manual-validation risk
-- Agreement: critic, debugger
-- Evidence: `playwright.config.ts:3-44`, `package.json:12`
-- Failure scenario: `npm run test:e2e` fails in shared workspaces when another dev server already owns port 3099.
-- Fix: run dev Playwright through a dynamic-port wrapper like the static E2E wrapper.
+### F5-05 — Shipped map styles lack real geographic context
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** critic
+- **Evidence:** `public/map-styles/voyager.json:4-28`, `scripts/fetch-map-styles.mjs:14-37`, `src/components/MapView.tsx:225-379`
+- **Failure scenario:** Exported journeys render as lines over a plain background/grid, undercutting the product promise of recognizable travel maps.
+- **Fix:** Ship real local basemap data/style, add an opt-in remote basemap mode, or narrow product positioning.
 
-### F4. Flat Google JSON arrays are only recognized if the first 100 entries include a record
-- Severity: Medium
-- Confidence: High
-- Status: likely
-- Agreement: debugger
-- Evidence: `src/lib/parser.ts:479-483`, `public/workers/trackParser.worker.js:209`
-- Failure scenario: a valid flat Google Takeout array with metadata/noise first and real location records after index 99 is rejected.
-- Fix: search the full array for a recognizable location record before dispatching to `parseRecords`.
+### F5-06 — Export lifecycle and encoded output are not exercised by tests
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** code-reviewer, test-engineer, verifier, tracer
+- **Evidence:** `e2e/travelback.spec.ts:1139-1203`, `e2e/travelback.spec.ts:1292-1347`, `src/lib/useExportController.ts:91-181`, `src/lib/videoEncoder.ts:40-159`
+- **Failure scenario:** Encoder, canvas capture, cleanup, save/share, or download fallback regressions pass CI because tests stop at the visible button.
+- **Fix:** Add an export-path test that starts export and asserts done/download state, plus lower-layer controller/encoder tests or a bounded test seam.
 
-### F5. Parser implementation is duplicated between main thread and worker
-- Severity: Low
-- Confidence: High
-- Status: risk
-- Agreement: code-reviewer, test-engineer, verifier
-- Evidence: `src/lib/parser.ts:145-675`, `public/workers/trackParser.worker.js:1-322`
-- Failure scenario: a parser bug is fixed in one copy but not the other, so worker and fallback paths disagree.
-- Fix: plan a shared parser module or generation strategy with parity tests.
+### F5-07 — Exported videos omit the visible moving position marker
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** tracer
+- **Evidence:** `src/components/MapView.tsx:746-767`, `src/components/MapView.tsx:849-853`, `src/lib/useExportController.ts:94-100`, `src/lib/videoEncoder.ts:80-85`
+- **Failure scenario:** Playback shows a moving marker, but MP4 capture only records the WebGL canvas, so DOM marker overlays are missing.
+- **Fix:** Render the moving marker as a MapLibre layer/source, or add an export-only point layer synchronized with playback.
 
-### F6. Export panel defaults to the portrait/TikTok preset
-- Severity: Medium
-- Confidence: Medium
-- Status: likely
-- Agreement: critic
-- Evidence: `src/components/ExportPanel.tsx:67`, `src/components/ExportPanel.tsx:177-181`, `src/components/ExportPanel.tsx:300-306`
-- Failure scenario: a desktop user opens Export and clicks Start Export without inspecting the dropdown, producing vertical output unexpectedly.
-- Fix: restore the landscape preset as the default and add an E2E guard.
+### F5-08 — Controlled theme no longer follows OS changes after hydration
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** code-reviewer, debugger, architect
+- **Evidence:** `src/app/page.tsx:63-84`, `src/app/page.tsx:344-358`, `src/components/ThemeToggle.tsx:36-55`
+- **Failure scenario:** With no explicit override, a user leaves the app open through an OS theme change and the UI/map style stays stale.
+- **Fix:** Own the `matchMedia` subscription in `page.tsx` or shared preference logic, gated on whether the user explicitly overrode theme/style.
 
-### F7. Journey Creator icon picker does not affect the rendered route preview
-- Severity: Low
-- Confidence: High
-- Status: confirmed
-- Agreement: critic, debugger
-- Evidence: `src/components/JourneyCreator.tsx:52-59`, `src/components/JourneyCreator.tsx:181-229`, `src/components/JourneyCreator.tsx:695-722`
-- Failure scenario: selecting Plane, Bus, or Train leaves the map preview looking identical because the rendered layer is still a plain orange circle layer.
-- Fix: make the selected travel mode visible in the preview or relabel the control. Cycle 4 uses per-icon marker/line colors as the low-risk visible preview signal.
+### F5-09 — New tracks inherit previous playback/export settings
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** critic, debugger
+- **Evidence:** `src/lib/usePlaybackController.ts:20-45`, `src/app/page.tsx:209-219`, `src/components/ExportPanel.tsx:70-117`
+- **Failure scenario:** A new route starts with previous speed/duration/follow-camera/export choices, confusing session state.
+- **Fix:** Reset session-scoped playback/export controls when loading a new track, while preserving intentional global preferences.
 
-### F8. Journey Creator search result background uses undefined `--bg1`
-- Severity: Low
-- Confidence: High
-- Status: confirmed
-- Agreement: critic, debugger, verifier
-- Evidence: `src/components/JourneyCreator.tsx:680-685`; repo-wide search found no `--bg1` definition.
-- Failure scenario: the coordinate search listbox can render transparently on top of the map.
-- Fix: replace `--bg1` with an existing background token.
+### F5-10 — Dev E2E harness hides overlays and relies on fixed sleeps
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** critic, test-engineer, perf-reviewer
+- **Evidence:** `e2e/travelback.spec.ts:135-147`, `e2e/travelback.spec.ts:210-238`, fixed waits at `e2e/travelback.spec.ts:507`, `523`, `817`, `845`, `922`, `937`, `1299`, `1336`
+- **Failure scenario:** Hydration/runtime overlay regressions are deleted from the DOM and timing issues become flaky retries instead of actionable failures.
+- **Fix:** Fail on unexpected console/overlay errors and replace sleeps with state/readiness probes.
 
-### F9. Journey Creator can give up on map hookup after about 3 seconds
-- Severity: Low
-- Confidence: High
-- Status: likely
-- Agreement: debugger
-- Evidence: `src/components/JourneyCreator.tsx:243-250`
-- Failure scenario: on slow starts the panel becomes active before `mapRef.current?.getMap()` exists, exhausts retries, and stays inert until toggled.
-- Fix: extend the retry window or bind to a real map-ready signal.
+### F5-11 — No lower-layer test harness protects deterministic logic
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** test-engineer
+- **Evidence:** `package.json:5-15`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/parser.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`
+- **Failure scenario:** Parser, interpolation, camera, playback, or export cleanup regressions rely on broad browser tests and can ship unobserved.
+- **Fix:** Add a unit/component test lane for pure helpers and hooks before expanding browser coverage.
 
-### F10. Map fallback blocks pointer/touch access to onboarding controls when WebGL fails
-- Severity: High
-- Confidence: High
-- Status: confirmed
-- Agreement: designer
-- Evidence: `src/components/MapView.tsx:948-975`, `src/app/page.tsx:371-394`
-- Failure scenario: if WebGL cannot initialize, the map error layer intercepts clicks intended for Browse Files, Try Sample, or route creation.
-- Fix: make the map error a non-blocking alert/banner so onboarding remains pointer-accessible.
+### F5-12 — Parser worker/fallback/error branches are under-tested
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Sources:** test-engineer
+- **Evidence:** `src/lib/parser.ts:446-675`, `src/components/FileUpload.tsx:52-93`, `e2e/travelback.spec.ts:1215-1277`
+- **Failure scenario:** Worker unavailable, worker creation failure, `READ_FAILED`, point caps, and size/depth guard regressions surface only in real browsers/files.
+- **Fix:** Add tests with mocked `Worker`, `FileReader`, and `File` around parser branch behavior and UI error mapping.
 
-### F11. Successful file/sample load does not move focus or announce the workspace transition
-- Severity: Medium
-- Confidence: High
-- Status: confirmed
-- Agreement: designer
-- Evidence: `src/app/page.tsx:197-205`, `src/app/page.tsx:253-276`
-- Failure scenario: keyboard and screen-reader users activate a file/sample load and focus falls back to `body` with no announcement that the workspace is ready.
-- Fix: add a focusable polite status handoff after `loadTrackIntoSession`.
+### F5-13 — JSON worker enforces point cap after high-memory parsing
+- **Severity:** HIGH
+- **Confidence:** MEDIUM-HIGH
+- **Sources:** perf-reviewer
+- **Evidence:** `public/workers/trackParser.worker.js:207-241`, `public/workers/trackParser.worker.js:307-312`, `src/lib/parser.ts:465-519`
+- **Failure scenario:** An under-100MB Google export with far more than 250k raw points materializes large strings/objects/sets before rejection.
+- **Fix:** Enforce point budgets during extraction or switch large Google parsing to streaming/bounded parsing.
 
-### F12. Current verifier artifact was stale
-- Severity: Low
-- Confidence: High
-- Status: confirmed
-- Agreement: critic
-- Evidence: `.context/reviews/verifier.md:15-19`
-- Failure scenario: future cycles chase already-fixed issues because the persisted verifier note contradicts current code.
-- Fix: refresh verifier context and this aggregate.
+### F5-14 — Dependency tree contains vulnerable `postcss` versions
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** critic, security-reviewer
+- **Evidence:** `package-lock.json:1645-1656`, `package-lock.json:5328-5334`, `package-lock.json:5376-5379`, `package-lock.json:5734-5755`
+- **Failure scenario:** Build-time CSS processing remains exposed to known `postcss` advisories if untrusted CSS enters the toolchain.
+- **Fix:** Upgrade consumers or add a tested `postcss >= 8.5.10` override.
 
-### F13. No direct tests protect parser, camera, playback, interpolation, or export logic
-- Severity: High
-- Confidence: High
-- Status: confirmed
-- Agreement: test-engineer, verifier
-- Evidence: no `*.test.*` or `*.spec.*` files outside `e2e/travelback.spec.ts`; high-risk modules include `src/lib/parser.ts`, `src/lib/interpolate.ts`, `src/lib/camera.ts`, `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`, `src/lib/videoEncoder.ts`.
-- Failure scenario: core math, parser, playback, or export state regressions slip through UI smoke coverage.
-- Fix: add a unit/integration layer in a follow-up plan.
+### F5-15 — CSP hardening depends on post-build mutation
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** security-reviewer
+- **Evidence:** `src/app/layout.tsx:8-10`, `src/app/layout.tsx:58-66`, `scripts/harden-static-export.mjs:103-115`, `scripts/smoke-static.mjs:100-140`
+- **Failure scenario:** An alternate deploy path that skips `postbuild` can publish placeholder CSP with `'unsafe-inline'`.
+- **Fix:** Fail closed if placeholder CSP remains or generate final CSP directly.
 
-### F14. Parser worker/main-thread parity and failure paths are under-tested
-- Severity: High
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer, verifier
-- Evidence: `src/lib/parser.ts:145-675`, `public/workers/trackParser.worker.js:1-322`, `e2e/travelback.spec.ts:410-437`, `e2e/travelback.spec.ts:1206-1243`
-- Failure scenario: segment indices, date coercion, dedup ordering, JSON depth, point-limit, or worker fallback behavior diverges while happy-path imports still pass.
-- Fix: add fixture parity tests and explicit failure-code tests.
+### F5-16 — Error boundary fallback removes the main landmark
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** verifier, debugger
+- **Evidence:** `src/app/page.tsx:382-385`, `src/components/ErrorBoundary.tsx:37-72`
+- **Failure scenario:** A fatal child error leaves assistive-tech users on a fallback page without a main region.
+- **Fix:** Render fallback inside `<main>` or add `role="main"` and a labeled heading.
 
-### F15. Upload parser error coverage only proves unsupported extensions
-- Severity: High
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer
-- Evidence: `src/components/FileUpload.tsx:52-93`, `src/lib/parser.ts:446-675`, `public/workers/trackParser.worker.js:254-320`, `e2e/travelback.spec.ts:1247-1260`
-- Failure scenario: invalid supported files, oversized files, too-few-points, deep JSON, or worker-only failures show wrong messages or leave loading state stuck.
-- Fix: add upload-surface error taxonomy tests.
+### F5-17 — `READ_FAILED` maps to the wrong user-facing message
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** code-reviewer, debugger
+- **Evidence:** `src/components/FileUpload.tsx:63-72`, `src/lib/parser.ts:672`, `src/lib/i18n.ts:40`
+- **Failure scenario:** A read failure is reported as parse failure, misdirecting users and support.
+- **Fix:** Map `READ_FAILED` to `fileUpload.readFailed`.
 
-### F16. Export execution/download states are largely untested
-- Severity: High
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer, verifier
-- Evidence: `src/lib/useExportController.ts:83-245`, `src/lib/videoEncoder.ts:40-225`, `src/components/ExportPanel.tsx:142-260`, `e2e/travelback.spec.ts:1139-1201`, `e2e/travelback.spec.ts:1265-1320`
-- Failure scenario: cancel, error, done, save picker, fallback download, share, or cleanup branches break while dialog-only tests pass.
-- Fix: add controller integration tests and one deterministic export completion test.
+### F5-18 — `waitForApp()` uses a weak/flaky readiness signal
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** verifier
+- **Evidence:** `e2e/travelback.spec.ts:136-138`, flaky retry in static E2E
+- **Failure scenario:** Tests retry or fail waiting for a heading even when the app root is ready.
+- **Fix:** Wait on `main#app[data-travelback-app-root="true"]` or the map container first.
 
-### F17. Keyboard/focus coverage misses export-overlay cancel and post-close focus behavior
-- Severity: Medium
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer
-- Evidence: `src/app/page.tsx:173-187`, `src/lib/usePlaybackController.ts:166-217`, `e2e/travelback.spec.ts:259-279`, `e2e/travelback.spec.ts:746-785`, `e2e/travelback.spec.ts:1139-1153`
-- Failure scenario: Escape cancel or focus return regresses during export without a failing test.
-- Fix: add focused export-overlay keyboard tests.
+### F5-19 — Assertions are broad enough to pass against wrong controls
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** test-engineer
+- **Evidence:** `e2e/travelback.spec.ts:310-311`, `406`, `416`, `698`, `1004`, `1169`, `1185`, `1219-1269`
+- **Failure scenario:** Duplicate mobile/desktop controls or a new button can satisfy assertions while intended controls regress.
+- **Fix:** Use scoped roles/test ids and panel-local locators.
 
-### F18. Timeline selector touch, region drag, start-handle drag, and reset are under-protected
-- Severity: Medium
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer
-- Evidence: `src/components/TimelineSelector.tsx:25-522`, `src/components/TimelineSelector.tsx:271-291`, `src/components/TimelineSelector.tsx:515-517`, `e2e/travelback.spec.ts:695-785`
-- Failure scenario: mobile touch or start/region/reset interactions break while end-handle and keyboard tests pass.
-- Fix: add targeted timeline interaction tests.
+### F5-20 — Timer/global-state UI behaviors lack direct tests
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** test-engineer
+- **Evidence:** `src/components/ModalDialog.tsx:31-189`, `src/components/Toast.tsx:19-91`, `src/components/SceneEditor.tsx:244-333`, `src/components/TimelineSelector.tsx:76-148`
+- **Failure scenario:** Modal inert/scroll cleanup, toast dismissal, scene undo, or timeline hint behavior regresses without focused failure.
+- **Fix:** Add component tests with fake timers for those behaviors.
 
-### F19. Scene editing coverage misses range editing, undo, warnings, and swipe-dismiss
-- Severity: Medium
-- Confidence: High
-- Status: likely gap
-- Agreement: test-engineer
-- Evidence: `src/components/SceneEditor.tsx:48-334`, `e2e/travelback.spec.ts:979-1064`
-- Failure scenario: clamping, overlap warnings, undo timers, or mobile dismiss regress without coverage.
-- Fix: add focused scene editor interaction tests.
+### F5-21 — Static worker-backed JSON import parity is only indirectly covered
+- **Severity:** MEDIUM
+- **Confidence:** MEDIUM
+- **Sources:** test-engineer
+- **Evidence:** `src/lib/parser.ts:536-620`, `playwright.static.config.ts:12-43`, `scripts/smoke-static.mjs:191-203`
+- **Failure scenario:** `/travelback/workers/trackParser.worker.js` breaks in static deploy while small fixtures silently fall back.
+- **Fix:** Add a static-mode worker request/instrumentation test with a fixture large enough to require worker path.
 
-### F20. E2E suite remains flake-prone due to hard sleeps, dev-overlay stripping, serialization, and a single large spec
-- Severity: Medium
-- Confidence: High
-- Status: confirmed
-- Agreement: test-engineer, debugger
-- Evidence: `playwright.config.ts:8-39`, `playwright.static.config.ts:8-39`, `e2e/travelback.spec.ts:139-147`, `e2e/travelback.spec.ts:211-235`, and hard waits at `e2e/travelback.spec.ts:147`, `507`, `523`, `817`, `845`, `922`, `937`, `1272`, `1309`
-- Failure scenario: timing drift or hydration changes cause intermittent failures or retry-only greens.
-- Fix: replace waits with state-driven waits and split tests by domain.
+### F5-22 — Script branch behavior is under-tested
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** test-engineer
+- **Evidence:** `scripts/serve-static.mjs:69-170`, `scripts/run-dev-e2e.mjs:5-58`, `scripts/run-static-e2e.mjs:5-58`, `scripts/smoke-static.mjs:70-203`
+- **Failure scenario:** `400`, `403`, `405`, invalid-port, or port-fallback behavior regresses without focused failure.
+- **Fix:** Add script-level tests around path resolution, headers, methods, and port fallback.
 
-### F21. Final MP4 save/share behavior remains manual-validation risk
-- Severity: Medium
-- Confidence: High
-- Status: manual-validation risk
-- Agreement: test-engineer, verifier
-- Evidence: `src/lib/videoEncoder.ts:171-212`, `src/components/ExportPanel.tsx:148-173`, `src/components/ExportPanel.tsx:211-260`, `.context/agents/non-tech-traveler-reviewer.md:84-101`
-- Failure scenario: picker, anchor fallback, or share APIs differ across browsers while panel smoke tests pass.
-- Fix: keep a manual matrix and add browser API mock integration tests.
+### F5-23 — Preference ownership is duplicated across bootstrap/page/widgets
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** architect
+- **Evidence:** `src/app/layout.tsx:53-58`, `src/app/page.tsx:35-57`, `src/app/page.tsx:63-84`, `src/app/page.tsx:344-375`, `src/components/ThemeToggle.tsx:7-22`
+- **Failure scenario:** First-render theme/style/locale behavior drifts across hand-maintained paths.
+- **Fix:** Centralize preference resolution/persistence and generate bootstrap behavior from the same model.
 
-### F22. Responsive/mobile/i18n coverage is broad but shallow for gestures and locale formatting
-- Severity: Low
-- Confidence: Medium
-- Status: likely gap
-- Agreement: test-engineer, designer
-- Evidence: `src/lib/i18n.ts:8-1823`, `src/components/TimelineSelector.tsx:50-58`, `src/components/ExportPanel.tsx:96-106`, `src/components/SceneEditor.tsx:280-291`, `src/components/TimelineSelector.tsx:271-291`, `e2e/travelback.spec.ts:282-317`, `e2e/travelback.spec.ts:567-814`
-- Failure scenario: localized date formatting or mobile gestures regress while headline string and layout overlap checks pass.
-- Fix: add locale-format and mobile gesture tests.
+### F5-24 — `HomeInner` remains a broad session orchestration hub
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** architect
+- **Evidence:** `src/app/page.tsx:59-158`, `src/app/page.tsx:201-375`, `src/app/page.tsx:444-481`, `src/components/TrackWorkspace.tsx:13-50`
+- **Failure scenario:** New workspace behavior requires touching page shell, forwarding component, and leaves, broadening regression risk.
+- **Fix:** Introduce a `TrackSession`/workspace boundary with reducer/context closer to loaded-track UI.
 
-### F23. Static hardening script lacks narrow fixture tests
-- Severity: Low
-- Confidence: Medium
-- Status: likely gap
-- Agreement: test-engineer
-- Evidence: `scripts/harden-static-export.mjs:1-93`, `scripts/smoke-static.mjs:89-174`, `.github/workflows/deploy-pages.yml:18-27`
-- Failure scenario: a Next export shape change breaks CSP replacement or bootstrap inlining, and root-cause isolation depends on a full app build.
-- Fix: add script-level fixture tests for hardening transformations.
+### F5-25 — i18n payload and runtime logic are coupled in one large client module
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** architect, perf-reviewer
+- **Evidence:** `src/lib/i18n.ts:11-1829`
+- **Failure scenario:** Translation edits churn runtime logic and all locales load for every user as strings grow.
+- **Fix:** Split locale payloads from provider/runtime code and move payloads to per-locale modules or JSON.
 
-## Implementation Disposition
+### F5-26 — Theme toggle first-frame accessible semantics are inverted in dark mode
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** critic
+- **Evidence:** `src/components/ThemeToggle.tsx:27-30`, `src/components/ThemeToggle.tsx:65-78`
+- **Failure scenario:** Screen reader users can hear “Switch to dark mode” while the app is already dark during the first hydrated frame.
+- **Fix:** Derive accessible label from actual effective mode, deferring only visual icon if needed.
 
-- Scheduled and implemented in cycle 4: F1, F2, F3, F4, F6, F7, F8, F9, F10, F11, F12.
-- Deferred with explicit records in `plan/deferred-cycle4-review-2026-04-25.md`: F5, F13, F14, F15, F16, F17, F18, F19, F20 remaining wait/split work, F21, F22, F23.
+### F5-27 — JourneyCreator search validation is not bound to the combobox
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** designer
+- **Evidence:** `src/components/JourneyCreator.tsx:645-689`
+- **Failure scenario:** Screen reader users see no invalid state or described error on the field after failed search.
+- **Fix:** Add `aria-invalid`, stable `aria-describedby`, and live error semantics.
+
+### F5-28 — Mobile overflow menu does not restore focus to trigger
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** designer
+- **Evidence:** `src/components/TrackToolbar.tsx:58-85`, `src/components/TrackToolbar.tsx:137-245`
+- **Failure scenario:** Keyboard users lose focus context after dismissing the mobile menu.
+- **Fix:** Store the trigger ref and restore focus on close; add menu popup semantics if retained.
+
+### F5-29 — Unit switchers expose active state only visually
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** designer
+- **Evidence:** `src/components/GlobalToolbar.tsx:27-47`, `src/components/TrackToolbar.tsx:197-218`
+- **Failure scenario:** Screen reader users hear two generic buttons with no current unit state.
+- **Fix:** Use radio-group semantics or `aria-pressed`/`aria-checked`.
+
+### F5-30 — GoogleGuide tabs lack arrow-key navigation
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** designer
+- **Evidence:** `src/components/GoogleGuide.tsx:289`
+- **Failure scenario:** Tablist users must tab through each tab instead of using expected arrow-key navigation.
+- **Fix:** Implement roving focus and Left/Right/Home/End tab navigation.
+
+### F5-31 — FileUpload drop zone focus indicator remains weak
+- **Severity:** LOW
+- **Confidence:** MEDIUM
+- **Sources:** designer
+- **Evidence:** `src/components/FileUpload.tsx`
+- **Failure scenario:** Keyboard users may not perceive when the drop zone is focused.
+- **Fix:** Add an explicit visible focus style for the interactive drop zone.
+
+### F5-32 — Overview doc overstates Google semantic visit support
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** document-specialist
+- **Evidence:** `.context/project/01-overview.md:37-44`, `src/lib/parser.ts:329-369`
+- **Failure scenario:** Structured `placeLocation` exports lose visit points despite docs implying support.
+- **Fix:** Narrow docs to supported `latLng` string shape or extend parser/fixtures.
+
+### F5-33 — Export UI advertises an envelope too large for in-memory `BufferTarget`
+- **Severity:** MEDIUM
+- **Confidence:** HIGH
+- **Sources:** document-specialist
+- **Evidence:** `src/types.ts:80-116`, `src/components/ExportPanel.tsx:87-117`, `src/lib/videoEncoder.ts:50-78`
+- **Failure scenario:** Long high-bitrate/4K exports can exhaust memory before finalization.
+- **Fix:** Reduce/qualify advertised limits or switch large exports to streaming/file-backed output.
+
+### F5-34 — Worker comments claim constants “must match” without enforcement
+- **Severity:** LOW
+- **Confidence:** HIGH
+- **Sources:** document-specialist
+- **Evidence:** `public/workers/trackParser.worker.js:209`, `public/workers/trackParser.worker.js:213`
+- **Failure scenario:** Parser/worker error codes or limits drift without type/build-time detection.
+- **Fix:** Validate worker constants against TypeScript definitions or generate the worker from typed source.
+
+## Cross-Agent Agreement
+
+Highest-signal overlaps:
+- Export lifecycle test gap: code-reviewer, test-engineer, verifier, tracer.
+- Playback/export performance hot path: critic, architect, perf-reviewer.
+- GPX/KML main-thread parsing: security-reviewer, perf-reviewer, architect.
+- Theme/system preference drift: code-reviewer, debugger, architect.
+- Error boundary landmark: verifier, debugger.
+- `READ_FAILED` messaging: code-reviewer, debugger.
+- Vulnerable `postcss`: critic, security-reviewer.
+
+## Final Sweep
+
+No review-relevant source, script, config, active context doc, or e2e file was intentionally skipped. Binary assets, generated output, screenshots, dependency directories, and historical archives were not treated as implementation surfaces except where referenced for provenance.
