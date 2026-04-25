@@ -8,6 +8,14 @@ const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
 const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.omx', '.claude', '.codex', '.git'])
 
+function normalizeBasePath(value) {
+  if (!value || value === '/') return ''
+  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed ? `/${trimmed}` : ''
+}
+
+const basePath = normalizeBasePath(process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback')
+
 const requestedPort = Number(process.env.STATIC_SMOKE_PORT ?? '4183')
 if (!Number.isInteger(requestedPort) || requestedPort <= 0) {
   console.error(`[smoke-static] Invalid port: ${requestedPort}`)
@@ -36,12 +44,15 @@ async function reserveAvailablePort(preferredPort, allowFallback) {
 }
 
 const port = await reserveAvailablePort(requestedPort, !process.env.STATIC_SMOKE_PORT)
+const origin = `http://127.0.0.1:${port}`
+const appPath = basePath ? `${basePath}/` : '/'
+const appUrl = (pathname = '/') => `${origin}${basePath}${pathname}`
 
 await access(outSample, constants.R_OK)
 
 const serverProcess = spawn(
   process.execPath,
-  ['scripts/serve-static.mjs', '--port', String(port), '--base-path', '/travelback'],
+  ['scripts/serve-static.mjs', '--port', String(port), '--base-path', basePath || '/'],
   {
     cwd,
     stdio: 'inherit',
@@ -50,6 +61,19 @@ const serverProcess = spawn(
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function stopServerProcess() {
+  if (serverProcess.exitCode !== null || serverProcess.signalCode !== null) return
+  const exited = new Promise(resolve => {
+    serverProcess.once('exit', resolve)
+  })
+  serverProcess.kill('SIGTERM')
+  await Promise.race([exited, delay(2000)])
+  if (serverProcess.exitCode === null && serverProcess.signalCode === null) {
+    serverProcess.kill('SIGKILL')
+    await Promise.race([exited, delay(1000)])
+  }
 }
 
 async function waitForReady(url) {
@@ -105,7 +129,7 @@ async function findChunkAssetUrl() {
     throw new Error(`No JS chunks found in ${chunksDir}`)
   }
 
-  return `http://127.0.0.1:${port}/travelback/_next/static/chunks/${chunkFiles[0]}`
+  return appUrl(`/_next/static/chunks/${chunkFiles[0]}`)
 }
 
 async function assertStaticCspWasHardened() {
@@ -130,6 +154,22 @@ async function assertStaticCspWasHardened() {
 
   if (!csp.includes("connect-src 'self'")) {
     throw new Error('Static CSP is missing connect-src self')
+  }
+
+  if (!csp.includes("style-src 'self'")) {
+    throw new Error("Static CSP must keep stylesheet loading restricted to self")
+  }
+
+  if (!csp.includes("style-src-elem 'self'")) {
+    throw new Error("Static CSP must keep style elements restricted to self-hosted stylesheets")
+  }
+
+  if (csp.includes("style-src 'self' 'unsafe-inline'")) {
+    throw new Error('Static CSP still allows unsafe-inline in style-src')
+  }
+
+  if (!csp.includes("style-src-attr 'unsafe-inline'")) {
+    throw new Error("Static CSP must isolate legacy inline style attributes in style-src-attr")
   }
 
   if (csp.includes('nominatim.openstreetmap.org')) {
@@ -210,6 +250,13 @@ async function assertWorkerParserConstantsMatch() {
       throw new Error(`Worker error code ${code} is not mirrored in src/lib/parser.ts`)
     }
   }
+
+  if (!parserSource.includes('parseSemanticPoint')) {
+    throw new Error('Parser must keep semantic geo URI parsing in parseSemanticPoint')
+  }
+  if (!workerSource.includes('parseSemanticPoint')) {
+    throw new Error('Worker must mirror semantic geo URI parsing in parseSemanticPoint')
+  }
 }
 
 async function assertNoToolResidue(rootDir) {
@@ -231,8 +278,8 @@ async function assertNoToolResidue(rootDir) {
 
 async function assertRuntimePublicAssetCachePolicy() {
   const runtimeAssetUrls = [
-    `http://127.0.0.1:${port}/travelback/workers/trackParser.worker.js`,
-    `http://127.0.0.1:${port}/travelback/map-styles/voyager.json`,
+    appUrl('/workers/trackParser.worker.js'),
+    appUrl('/map-styles/voyager.json'),
   ]
   for (const url of runtimeAssetUrls) {
     const res = await fetch(url, { redirect: 'manual' })
@@ -249,14 +296,16 @@ async function assertRuntimePublicAssetCachePolicy() {
 let failed = false
 
 try {
-  await waitForReady(`http://127.0.0.1:${port}/travelback/`)
-  await assertStatus(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 200)
-  await assertHeadStatus(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 200)
+  await waitForReady(`${origin}${appPath}`)
+  await assertStatus(appUrl('/sample-trip.gpx'), 200)
+  await assertHeadStatus(appUrl('/sample-trip.gpx'), 200)
   const chunkUrl = await findChunkAssetUrl()
   await assertStatus(chunkUrl, 200)
-  await assertStatus(`http://127.0.0.1:${port}/travelback/_not-found.html`, 200)
-  await assertStatus(`http://127.0.0.1:${port}/sample-trip.gpx`, 404)
-  await assertCacheControl(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 'immutable', { invert: true })
+  await assertStatus(appUrl('/_not-found.html'), 200)
+  if (basePath) {
+    await assertStatus(`${origin}/sample-trip.gpx`, 404)
+  }
+  await assertCacheControl(appUrl('/sample-trip.gpx'), 'immutable', { invert: true })
   await assertCacheControl(chunkUrl, 'immutable')
   await assertStaticCspWasHardened()
   await assertNoToolResidue(path.resolve(cwd, 'public'))
@@ -269,9 +318,7 @@ try {
   failed = true
   console.error('[smoke-static] FAILED:', err instanceof Error ? err.message : String(err))
 } finally {
-  if (!serverProcess.killed) {
-    serverProcess.kill('SIGTERM')
-  }
+  await stopServerProcess()
 }
 
 if (failed) {

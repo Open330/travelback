@@ -110,6 +110,16 @@ function parseTimelineEdits(edits) {
   return out
 }
 
+function parseSemanticPoint(value) {
+  if (typeof value !== 'string') return null
+  const match = value.match(/^\s*geo:\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:[;?].*)?\s*$/i)
+  if (!match) return null
+  const lat = parseOptionalNumber(match[1])
+  const lng = parseOptionalNumber(match[2])
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
 function parseSemanticSegments(segments) {
   const outSegments = []
   for (const seg of segments) {
@@ -117,14 +127,10 @@ function parseSemanticSegments(segments) {
 
     if (Array.isArray(seg.timelinePath)) {
       for (const pt of seg.timelinePath) {
-        if (!pt.point) continue
-        const m = String(pt.point).match(/geo:([-\d.]+),([-\d.]+)/)
-        if (!m) continue
-        const lat = parseOptionalNumber(m[1])
-        const lng = parseOptionalNumber(m[2])
-        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        const point = parseSemanticPoint(pt.point)
+        if (!point) continue
         assertPointBudget(pathSegment)
-        pathSegment.push({ lat, lng, time: gTime(pt.timestamp) })
+        pathSegment.push({ ...point, time: gTime(pt.timestamp) })
       }
     }
 

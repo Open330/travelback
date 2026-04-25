@@ -20,7 +20,13 @@ export interface Track {
 
 export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'
 
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+function normalizeBasePath(value: string | undefined): string {
+  if (!value || value === '/') return ''
+  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed ? `/${trimmed}` : ''
+}
+
+const BASE_PATH = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
 
 export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
   voyager: {

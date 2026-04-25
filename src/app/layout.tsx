@@ -63,7 +63,7 @@ export default function RootLayout({
         <meta
           httpEquiv="Content-Security-Policy"
           data-travelback-csp="placeholder"
-          content={`default-src 'self'; script-src ${placeholderScriptSrc}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;`}
+          content={`default-src 'self'; script-src ${placeholderScriptSrc}; script-src-attr 'none'; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;`}
         />
         <link
           rel="stylesheet"

@@ -14,8 +14,8 @@ function readArg(name, fallback) {
 
 function normalizeBasePath(value) {
   if (!value || value === '/') return '/'
-  const trimmed = value.replace(/\/+$/, '')
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed ? `/${trimmed}` : '/'
 }
 
 function isInside(parent, child) {
@@ -24,7 +24,10 @@ function isInside(parent, child) {
 
 const outDir = path.resolve(process.cwd(), 'out')
 const port = Number(readArg('port', process.env.PORT ?? '3000'))
-const basePath = normalizeBasePath(readArg('base-path', process.env.STATIC_BASE_PATH ?? '/'))
+const basePath = normalizeBasePath(readArg(
+  'base-path',
+  process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback',
+))
 
 if (!Number.isInteger(port) || port <= 0) {
   console.error(`[serve-static] Invalid port: ${port}`)

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/serve-static.mjs --base-path /travelback",
+    "start": "node scripts/serve-static.mjs",
     "preview": "npm run start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",

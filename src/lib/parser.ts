@@ -2,6 +2,8 @@ import { gpx, kml } from '@tmcw/togeojson'
 import type { Track, TrackPoint } from '@/types'
 
 const MAX_TRACK_POINTS = 250_000
+const XML_MAX_TAGS = 150_000
+const XML_MAX_NESTING_DEPTH = 128
 
 /**
  * Parser error with a machine-readable code for i18n mapping.
@@ -155,7 +157,34 @@ function stripXmlEntities(text: string): string {
     .replace(/<!ENTITY[\s\S]*?>/gi, '')
 }
 
+function preflightXml(text: string, formatName: string): void {
+  if (/<!DOCTYPE|<!ENTITY/i.test(text)) {
+    throw new ParseError(`Invalid ${formatName}: XML entity declarations are not supported`, 'XML_PARSE_ERROR')
+  }
+
+  let tagCount = 0
+  let depth = 0
+  for (const match of text.matchAll(/<\s*(\/?)([A-Za-z_][\w:.-]*)([^>]*)>/g)) {
+    const [, closing, tagName, rest] = match
+    if (tagName.startsWith('!') || tagName.startsWith('?')) continue
+    tagCount++
+    if (tagCount > XML_MAX_TAGS) {
+      throw new ParseError(`Invalid ${formatName}: XML document is too complex`, 'XML_PARSE_ERROR')
+    }
+    if (closing) {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    if (rest.trim().endsWith('/')) continue
+    depth++
+    if (depth > XML_MAX_NESTING_DEPTH) {
+      throw new ParseError(`Invalid ${formatName}: XML nesting is too deep`, 'XML_PARSE_ERROR')
+    }
+  }
+}
+
 function parseXml(text: string, formatName: string): Document {
+  preflightXml(text, formatName)
   const safeText = stripXmlEntities(text)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
@@ -334,6 +363,16 @@ function parseTimelineEdits(edits: Record<string, unknown>[]): TrackSegment {
   return out
 }
 
+function parseSemanticPoint(value: unknown): TrackPoint | null {
+  if (typeof value !== 'string') return null
+  const match = value.match(/^\s*geo:\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:[;?].*)?\s*$/i)
+  if (!match) return null
+  const lat = parseOptionalNumber(match[1])
+  const lng = parseOptionalNumber(match[2])
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
 /* ---------- Format 4: semanticSegments (phone export) -------------- */
 // { semanticSegments: [{ timelinePath | visit }] }
 function parseSemanticSegments(segments: Record<string, unknown>[]): TrackSegment[] {
@@ -344,15 +383,11 @@ function parseSemanticSegments(segments: Record<string, unknown>[]): TrackSegmen
     // timelinePath: [{ point: "geo:lat,lng", timestamp }]
     if (Array.isArray(seg.timelinePath)) {
       for (const pt of seg.timelinePath as Record<string, unknown>[]) {
-        if (!pt.point) continue
-        const m = (pt.point as string).match(/geo:([-\d.]+),([-\d.]+)/)
-        if (!m) continue
-        const lat = parseOptionalNumber(m[1])
-        const lng = parseOptionalNumber(m[2])
-        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        const point = parseSemanticPoint(pt.point)
+        if (!point) continue
         assertPointBudget(pathSegment)
         pathSegment.push({
-          lat, lng,
+          ...point,
           time: gTime(pt.timestamp as string),
         })
       }
@@ -554,6 +589,12 @@ function parseSmallGoogleJsonFallback(buffer: ArrayBuffer): Track {
   return parseGoogleLocationHistory(decodeJsonBuffer(buffer))
 }
 
+function normalizeBasePath(value: string | undefined): string {
+  if (!value || value === '/') return ''
+  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed ? `/${trimmed}` : ''
+}
+
 async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Promise<Track> {
   if (typeof Worker === 'undefined') {
     return parseSmallGoogleJsonFallback(buffer)
@@ -567,7 +608,7 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 
     let worker: Worker
     try {
-      const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '')
+      const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
       worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))
@@ -627,13 +668,13 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
       // Worker crashed (e.g., memory pressure). Fall back only for small files
       // where the bounded pre-transfer copy is safe to decode on the main thread.
       if (!fallbackBuffer) {
-        reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+        reject(new ParseError(event.message || 'Worker parser failed', 'WORKER_FAILED'))
         return
       }
       try {
         resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
       } catch {
-        reject(event.error instanceof Error ? event.error : new Error('Failed to parse Google Location History'))
+        reject(new ParseError(event.message || 'Worker parser failed', 'WORKER_FAILED'))
       }
     }
 
@@ -669,6 +710,9 @@ export function parseTrackFile(file: File): Promise<Track> {
 
     if (ext === 'json') {
       file.arrayBuffer()
+        .catch(() => {
+          throw new ParseError('Failed to read file', 'READ_FAILED')
+        })
         .then(parseGoogleLocationHistoryInWorkerBuffer)
         .then(finalizeTrack)
         .catch(reject)
