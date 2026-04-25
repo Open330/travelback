@@ -86,6 +86,7 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
 
   const progressX = progress * 100
   const elevRange = maxEle - minEle
+  const progressPercent = Math.round(progressX)
 
   return (
     <div className="w-full">
@@ -97,11 +98,15 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="h-10 w-full rounded cursor-pointer"
-        role="img"
+        role="slider"
         tabIndex={0}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         aria-label={t('elevation.profileAria')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progressPercent}
+        aria-valuetext={`${progressPercent}%`}
       >
         <defs aria-hidden="true">
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

@@ -16,6 +16,12 @@ export class ParseError extends Error {
   }
 }
 
+function assertPointBudget(points: TrackPoint[], nextCount = 1): void {
+  if (points.length + nextCount > MAX_TRACK_POINTS) {
+    throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
+  }
+}
+
 function parseOptionalNumber(value: unknown): number | undefined {
   if (value == null) return undefined
   if (typeof value === 'string' && value.trim() === '') return undefined
@@ -236,6 +242,7 @@ function pushE7(
   const lat = e7(parsedLatE7)
   const lng = e7(parsedLngE7)
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+  assertPointBudget(out)
   out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
 }
 
@@ -251,6 +258,7 @@ function parseRecords(locations: Record<string, unknown>[]): TrackSegment {
     const lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : undefined)
     const lng = parseOptionalNumber(loc.longitude) ?? (lngE7 != null ? e7(lngE7) : undefined)
     if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+    assertPointBudget(out)
     out.push({
       lat, lng,
       ele: parseOptionalNumber(loc.altitude),
@@ -342,6 +350,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[]): TrackSegmen
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        assertPointBudget(pathSegment)
         pathSegment.push({
           lat, lng,
           time: gTime(pt.timestamp as string),
@@ -366,6 +375,7 @@ function parseSemanticSegments(segments: Record<string, unknown>[]): TrackSegmen
           const lat = parseOptionalNumber(m[1])
           const lng = parseOptionalNumber(m[2])
           if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+          assertPointBudget(visitSegment)
           visitSegment.push({ lat, lng, time: gTime(dur) })
         }
       }
@@ -435,6 +445,7 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []
   for (const segment of segments) {
+    assertPointBudget(points, segment.points.length)
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
     }
@@ -519,7 +530,7 @@ export function parseGoogleLocationHistory(text: string): Track {
 }
 
 export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
-export const XML_MAX_FILE_SIZE = 16 * 1024 * 1024 // 16MB keeps XML DOM parsing off the browser-hostile path
+export const XML_MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB keeps XML DOM parsing off the browser-hostile path
 export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB keeps JSON imports inside a safer in-browser memory envelope
 const MAIN_THREAD_JSON_FALLBACK_SIZE = 16 * 1024 * 1024
 

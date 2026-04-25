@@ -149,7 +149,6 @@ export default function TrackToolbar({
             onClick={() => setMenuOpen((open) => !open)}
             aria-label={t('app.moreControls')}
             aria-expanded={menuOpen}
-            aria-haspopup="dialog"
             aria-controls="track-toolbar-mobile-menu"
           className="gi flex min-h-11 min-w-11 items-center justify-center px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
           style={{ color: 'var(--t1)' }}

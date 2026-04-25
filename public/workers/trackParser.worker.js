@@ -33,6 +33,7 @@ function pushE7(out, latE7, lngE7, ts, tsMs, alt) {
   const lat = e7(parsedLatE7)
   const lng = e7(parsedLngE7)
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
+  assertPointBudget(out)
   out.push({
     lat,
     lng,
@@ -49,6 +50,7 @@ function parseRecords(locations) {
     const lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : undefined)
     const lng = parseOptionalNumber(loc.longitude) ?? (lngE7 != null ? e7(lngE7) : undefined)
     if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+    assertPointBudget(out)
     out.push({
       lat,
       lng,
@@ -121,6 +123,7 @@ function parseSemanticSegments(segments) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        assertPointBudget(pathSegment)
         pathSegment.push({ lat, lng, time: gTime(pt.timestamp) })
       }
     }
@@ -139,6 +142,7 @@ function parseSemanticSegments(segments) {
         const lat = parseOptionalNumber(m[1])
         const lng = parseOptionalNumber(m[2])
         if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
+        assertPointBudget(visitSegment)
         visitSegment.push({ lat, lng, time: gTime(seg.startTime) })
       }
     }
@@ -197,6 +201,7 @@ function flattenGoogleSegments(rawSegments) {
   const points = []
   const segmentStartIndices = []
   for (const segment of segments) {
+    assertPointBudget(points, segment.points.length)
     if (points.length > 0) segmentStartIndices.push(points.length)
     points.push(...segment.points)
   }
@@ -249,6 +254,7 @@ function parseGoogleLocationHistory(text) {
 
 // Must match JSON_MAX_FILE_SIZE in src/lib/parser.ts
 const MAX_MESSAGE_SIZE = 100 * 1024 * 1024 // 100MB
+const MAX_TRACK_POINTS = 250000
 const MAX_JSON_DEPTH = 64
 
 // Error codes — must match ParseError codes in src/lib/parser.ts
@@ -264,6 +270,12 @@ class WorkerParseError extends Error {
   constructor(message, code) {
     super(message)
     this.code = code
+  }
+}
+
+function assertPointBudget(points, nextCount = 1) {
+  if (points.length + nextCount > MAX_TRACK_POINTS) {
+    throw new WorkerParseError('Track contains too many points', ERROR_CODE.TOO_MANY_POINTS)
   }
 }
 
@@ -308,7 +320,7 @@ self.onmessage = (event) => {
     checkJsonDepth(text)
 
     const track = parseGoogleLocationHistory(text)
-    if (track.points.length > 250000) {
+    if (track.points.length > MAX_TRACK_POINTS) {
       throw new WorkerParseError('Track contains too many points (max 250,000)', ERROR_CODE.TOO_MANY_POINTS)
     }
     self.postMessage({ track })

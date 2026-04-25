@@ -28,6 +28,10 @@ const RESOLUTION_KEYS = [
 
 const MAX_ESTIMATED_EXPORT_BYTES = 512 * 1024 * 1024
 
+function clampExportDuration(value: number): number {
+  return Math.max(EXPORT_LIMITS.duration.min, Math.min(value, EXPORT_LIMITS.duration.max))
+}
+
 /** Cache for codec support results — scoped to component state so it
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
@@ -84,7 +88,7 @@ export default function ExportPanel({
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally sync derived state from prop once on panel open
-        setDuration(playbackDuration)
+        setDuration(clampExportDuration(playbackDuration))
       }
       panelOpenedRef.current = true
     } else {
@@ -96,13 +100,13 @@ export default function ExportPanel({
   const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(initialCodecSupport)
 
   const bitrate = QUALITY_MAP[quality] ?? 8
-  const safeDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+  const safeDuration = clampExportDuration(duration)
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
   const estimatedOutputBytes = (safeBitrate * 1_000_000 * safeDuration) / 8
   const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
-	  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
-	  const codecReady = codecSupport[codec] === true
-	  const canStartExport = (codecReady || isLocalExportTestStubEnabled()) && !exportTooLarge
+  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
+  const codecReady = codecSupport[codec] === true
+  const canStartExport = (codecReady || isLocalExportTestStubEnabled()) && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

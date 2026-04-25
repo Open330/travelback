@@ -367,6 +367,10 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     onPreviewScene?.(null)
   }, [onPreviewScene])
 
+  const statusMessage = deletedScene
+    ? `${t('scenes.deleted')} ${deletedScene.scene.name}`
+    : normalizationWarnings.join(' ')
+
   const localizePresetScenes = useCallback((presetType: PresetType, nextScenes: Scene[]) => {
     const names: Record<PresetType, string[]> = {
       cinematic: [
@@ -407,6 +411,9 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
         <h3 id="scene-editor-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
+        <div data-testid="scene-editor-status" role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {statusMessage}
+        </div>
         <div className="flex gap-2">
           <button type="button" onClick={addScene}
             className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer">
@@ -582,6 +589,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                         if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, zoom: value } })
                       }}
                       onPointerUp={clearPreview}
+                      onKeyUp={clearPreview}
+                      onBlur={clearPreview}
                       aria-label={t('scenes.zoomAria').replace('{name}', scene.name)}
                       aria-valuetext={`${t('scenes.zoom')} ${scene.params.zoom}`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -598,6 +607,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                         if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, pitch: value } })
                       }}
                       onPointerUp={clearPreview}
+                      onKeyUp={clearPreview}
+                      onBlur={clearPreview}
                       aria-label={t('scenes.pitchAria').replace('{name}', scene.name)}
                       aria-valuetext={`${t('scenes.pitch')} ${scene.params.pitch}°`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -617,6 +628,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                         if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, bearingOffset: value } })
                       }}
                       onPointerUp={clearPreview}
+                      onKeyUp={clearPreview}
+                      onBlur={clearPreview}
                       aria-label={t('scenes.bearingAria').replace('{name}', scene.name)}
                       aria-valuetext={`${t('scenes.bearing')} ${scene.params.bearingOffset}°`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
@@ -633,6 +646,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                         if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, rotationSpeed: value } })
                       }}
                       onPointerUp={clearPreview}
+                      onKeyUp={clearPreview}
+                      onBlur={clearPreview}
                       aria-label={t('scenes.rotationAria').replace('{name}', scene.name)}
                       aria-valuetext={`${t('scenes.rotation')} ${scene.params.rotationSpeed}°/s`}
                       className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />

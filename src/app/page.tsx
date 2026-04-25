@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, type SetStateAction } from 'react'
 import type { Track, MapStyleKey, Scene } from '@/types'
 import MapView, { type MapViewHandle } from '@/components/MapView'
 import FileUpload from '@/components/FileUpload'
@@ -13,7 +13,7 @@ import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import TrackWorkspace from '@/components/TrackWorkspace'
 import { MAP_STYLES } from '@/types'
-import { computeCameraForScene } from '@/lib/camera'
+import { computeCameraForProgress, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
 import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, useLocale } from '@/lib/i18n'
@@ -293,6 +293,7 @@ function HomeInner() {
       setScenes([])
       setShowSceneEditor(false)
     }
+    resetExportSession()
 
     const filteredTrack: Track = {
       name: fullTrack.name,
@@ -309,7 +310,7 @@ function HomeInner() {
 
     setTrack(filteredTrack)
     resetPlayback()
-  }, [fullTrack, resetPlayback, scenes.length])
+  }, [fullTrack, resetExportSession, resetPlayback, scenes.length])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
     loadTrackIntoSession(nextTrack)
@@ -381,12 +382,34 @@ function HomeInner() {
     setShowExport(false)
   }, [resetExportSession])
 
+  const handleScenesChange = useCallback((value: SetStateAction<Scene[]>) => {
+    resetExportSession()
+    setScenes(value)
+  }, [resetExportSession])
+
+  const handleTransitionDurationChange = useCallback((value: number) => {
+    resetExportSession()
+    setTransitionDuration(value)
+  }, [resetExportSession])
+
   const handlePreviewScene = useCallback((scene: Scene | null) => {
-    if (!scene || !track) return
+    if (!track) return
+    if (!scene) {
+      const cameraState = computeCameraForProgress(
+        track,
+        cumulativeDistances,
+        scenes,
+        progress,
+        progress * duration,
+        transitionDuration,
+      )
+      mapViewRef.current?.applyCameraState(cameraState)
+      return
+    }
 
     const cameraState = computeCameraForScene(track, cumulativeDistances, scene, 0.5, 0)
     mapViewRef.current?.applyCameraState(cameraState)
-  }, [track, cumulativeDistances])
+  }, [track, cumulativeDistances, scenes, progress, duration, transitionDuration])
 
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
     setHasExplicitThemeChoice(true)
@@ -513,9 +536,9 @@ function HomeInner() {
               onUnitsChange={handleUnitsChange}
               onOpenHelp={() => setShowKeyboardHelp(true)}
               onOpenImportGuide={handleOpenGoogleGuide}
-              onScenesChange={setScenes}
+              onScenesChange={handleScenesChange}
               transitionDuration={transitionDuration}
-              onTransitionDurationChange={setTransitionDuration}
+              onTransitionDurationChange={handleTransitionDurationChange}
               onPreviewScene={handlePreviewScene}
               onStartNewTrack={startFreshJourneySession}
               onToggleSceneEditor={handleToggleSceneEditor}
