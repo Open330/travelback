@@ -44,7 +44,7 @@ export default defineConfig({
   webServer: {
     command: `next dev --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: false,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === '1',
     timeout: 60_000,
   },
 })

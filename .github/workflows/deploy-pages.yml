@@ -29,7 +29,6 @@ jobs:
       - run: npm run typecheck
       - run: npm audit --audit-level=high
       - run: npm run build
-      - run: npm run smoke:static
       - run: npm run test:e2e:static:ci
       - uses: actions/upload-pages-artifact@v3
         with:

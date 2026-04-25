@@ -412,6 +412,19 @@ test.describe('Travelback App', () => {
     await expect(visibleTrackTitle(page, 'Multiline Entity GPX')).toBeVisible({ timeout: 15_000 })
   })
 
+  test('rejects oversized XML files before main-thread parsing', async ({ page }) => {
+    const tmpFile = path.resolve(__dirname, `fixtures/oversized-${process.pid}.gpx`)
+    fs.writeFileSync(tmpFile, `<gpx>${' '.repeat(4 * 1024 * 1024 + 1)}</gpx>`, 'utf8')
+    try {
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles(tmpFile)
+      await expect(page.locator('p[role="alert"]')).toContainText('Maximum size is 4MB', { timeout: 10_000 })
+      await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
+    } finally {
+      fs.unlinkSync(tmpFile)
+    }
+  })
+
   test('imports KML files composed from point placemarks', async ({ page }) => {
     await uploadCustomFile(page, POINT_PLACEMARKS_KML_FIXTURE)
     await expect(visibleTrackTitle(page, 'Point Placemark KML')).toBeVisible({ timeout: 15_000 })
@@ -420,7 +433,9 @@ test.describe('Travelback App', () => {
   test('elevation profile ignores malformed elevation values instead of rendering NaN geometry', async ({ page }) => {
     await uploadCustomFile(page, INVALID_ELEVATION_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Invalid Elevation Track')).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('svg[aria-label="Elevation profile"]')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('slider', { name: 'Elevation profile' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('slider', { name: 'Elevation profile' })).toHaveAttribute('aria-valuemin', '0')
+    await expect(page.getByRole('slider', { name: 'Elevation profile' })).toHaveAttribute('aria-valuemax', '100')
     await expect
       .poll(async () => page.locator('svg[aria-label="Elevation profile"]').innerHTML())
       .not.toContain('NaN')
@@ -453,6 +468,9 @@ test.describe('Travelback App', () => {
     await searchInput.fill('37.5665, 126.9780')
     await page.getByTestId('journey-search-submit').click({ force: true })
 
+    const option = page.getByRole('option', { name: /37\.56650, 126\.97800/ })
+    await expect(option).toBeVisible({ timeout: 10_000 })
+    await expect.poll(async () => option.evaluate((element) => element.tagName.toLowerCase())).toBe('div')
     await expect(page.getByText('37.56650, 126.97800')).toBeVisible({ timeout: 10_000 })
   })
 
@@ -560,6 +578,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('global-toolbar')).toBeHidden()
     await expect(page.getByTestId('track-toolbar')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('track-title')).toBeHidden()
+    await expect(page.getByRole('button', { name: 'More controls' })).not.toHaveAttribute('aria-haspopup', 'dialog')
 
     await expect.poll(async () => {
       const [loadNewFileBox, trackToolbarBox] = await Promise.all([
@@ -981,6 +1000,67 @@ test.describe('Travelback App', () => {
     const modeCombobox = page.locator('.space-y-2 select').first()
     await expect(modeCombobox).toBeVisible()
     await expect(modeCombobox).toHaveValue('flyover')
+
+    await page.getByRole('button', { name: 'Delete scene Scene 1' }).click({ force: true })
+    await expect(page.getByTestId('scene-editor-status')).toContainText('Deleted Scene 1')
+  })
+
+  test('scene parameter preview clear restores the live route camera', async ({ page }) => {
+    await uploadGpx(page)
+    const playbackProgress = page.getByLabel('Playback progress')
+    await playbackProgress.evaluate((element) => {
+      const input = element as HTMLInputElement
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, '0.8')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await expect(playbackProgress).toHaveValue('0.8')
+    await page.waitForTimeout(1500)
+
+    const baselineZoom = await page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getCamera: () => { zoom: number } | null
+        }
+      }
+      return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+    })
+    if (baselineZoom == null) throw new Error('Missing baseline camera')
+
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: '+ Add' }).click({ force: true })
+    await page.getByRole('button', { name: 'Customize' }).click({ force: true })
+
+    const zoomSlider = page.getByLabel('Zoom for Scene 1')
+    await zoomSlider.evaluate((element) => {
+      const input = element as HTMLInputElement
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, '20')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    await expect.poll(async () => page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getCamera: () => { zoom: number } | null
+        }
+      }
+      return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+    }), { timeout: 10_000, intervals: [120, 200, 300] }).toBeGreaterThan(18)
+
+    await zoomSlider.press('ArrowUp')
+
+    await expect.poll(async () => page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getCamera: () => { zoom: number } | null
+        }
+      }
+      return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+    }), { timeout: 10_000, intervals: [120, 200, 300] }).toBeLessThan(Math.max(18, baselineZoom + 3))
   })
 
   test('timeline trimming clears scenes authored against the previous full track', async ({ page }) => {
@@ -1201,6 +1281,43 @@ test.describe('Travelback App', () => {
     await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
     await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
+  })
+
+  test('export panel clamps playback duration to the supported export limit', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByLabel('Animation duration').selectOption('300')
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(exportPanel.locator('input[type="number"]').first()).toHaveValue('180')
+  })
+
+  test('track edits clear completed export results before the next export', async ({ page }) => {
+    await page.evaluate(() => window.localStorage.setItem('travelback-export-test-stub', '1'))
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Close panel' }).click({ force: true })
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const timeline = page.getByTestId('timeline-selector')
+    const [handleBox, timelineBox] = await Promise.all([endHandle.boundingBox(), timeline.boundingBox()])
+    if (!handleBox || !timelineBox) throw new Error('Missing timeline geometry for export reset test')
+
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.75, handleBox.y + handleBox.height / 2, { steps: 10 })
+    await page.mouse.up()
+
+    await page.getByText('Export', { exact: true }).click({ force: true })
+    const reopenedPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(reopenedPanel.getByRole('heading', { name: 'Export Video' })).toBeVisible({ timeout: 10_000 })
+    await expect(reopenedPanel.getByRole('button', { name: 'Start Export' })).toBeVisible()
+    await expect(reopenedPanel.getByRole('link', { name: /Download MP4/i })).toHaveCount(0)
   })
 
   test('export panel close button works', async ({ page }) => {

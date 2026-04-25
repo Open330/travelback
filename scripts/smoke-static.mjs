@@ -179,6 +179,17 @@ async function assertWorkerParserConstantsMatch() {
     throw new Error('Worker MAX_MESSAGE_SIZE must match JSON_MAX_FILE_SIZE in src/lib/parser.ts')
   }
 
+  const parserTrackLimit = parserSource.match(/const MAX_TRACK_POINTS = ([\d_]+)/)
+  const workerTrackLimit = workerSource.match(/const MAX_TRACK_POINTS = ([\d_]+)/)
+  if (!parserTrackLimit || !workerTrackLimit || parserTrackLimit[1].replace(/_/g, '') !== workerTrackLimit[1].replace(/_/g, '')) {
+    throw new Error('Worker MAX_TRACK_POINTS must match MAX_TRACK_POINTS in src/lib/parser.ts')
+  }
+
+  const parserXmlLimit = parserSource.match(/export const XML_MAX_FILE_SIZE = (\d+) \* 1024 \* 1024/)
+  if (!parserXmlLimit || Number(parserXmlLimit[1]) > 4) {
+    throw new Error('XML_MAX_FILE_SIZE must stay at or below 4MB for main-thread XML parsing')
+  }
+
   const parserCodes = [...parserSource.matchAll(/'([A-Z_]+)'/g)]
     .map(match => match[1])
     .filter(code => code.endsWith('FORMAT') || code.endsWith('JSON') || code.endsWith('POINTS') || code.endsWith('LARGE') || code.endsWith('FAILED') || code.endsWith('EXCEEDED') || code.endsWith('ERROR'))
