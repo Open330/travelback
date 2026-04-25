@@ -30,6 +30,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
           onClick={() => onUnitsChange('metric')}
           className="flex min-h-11 min-w-11 items-center justify-center px-2 py-1.5 cursor-pointer"
           style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
+          aria-pressed={units === 'metric'}
           aria-label={t('units.metric')}
           title={t('units.metric')}
         >
@@ -40,6 +41,7 @@ export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsC
           onClick={() => onUnitsChange('imperial')}
           className="flex min-h-11 min-w-11 items-center justify-center px-2 py-1.5 cursor-pointer"
           style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
+          aria-pressed={units === 'imperial'}
           aria-label={t('units.imperial')}
           title={t('units.imperial')}
         >

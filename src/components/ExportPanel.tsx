@@ -32,6 +32,17 @@ const MAX_ESTIMATED_EXPORT_BYTES = 512 * 1024 * 1024
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
 
+function isLocalExportTestStubEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  if (!isLocalHost) return false
+  try {
+    return window.localStorage.getItem('travelback-export-test-stub') === '1'
+  } catch {
+    return false
+  }
+}
+
 interface ExportPanelProps {
   isOpen: boolean
   onClose: () => void
@@ -89,9 +100,9 @@ export default function ExportPanel({
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
   const estimatedOutputBytes = (safeBitrate * 1_000_000 * safeDuration) / 8
   const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
-  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
-  const codecReady = codecSupport[codec] === true
-  const canStartExport = codecReady && !exportTooLarge
+	  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
+	  const codecReady = codecSupport[codec] === true
+	  const canStartExport = (codecReady || isLocalExportTestStubEnabled()) && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -364,8 +375,6 @@ export default function ExportPanel({
                         <option value={24}>24</option>
                         <option value={30}>30</option>
                         <option value={60}>60</option>
-                        <option value={90}>90</option>
-                        <option value={120}>120</option>
                       </select>
                     </div>
                     <div>

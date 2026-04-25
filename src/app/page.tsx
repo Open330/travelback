@@ -31,6 +31,8 @@ export default function Home() {
 
 const MAP_STYLE_STORAGE_KEY = 'travelback-mapstyle'
 const MAP_STYLE_EXPLICIT_STORAGE_KEY = 'travelback-mapstyle-explicit'
+const THEME_STORAGE_KEY = 'travelback-theme'
+const THEME_EXPLICIT_STORAGE_KEY = 'travelback-theme-explicit'
 
 function readStoredMapStyleKey(): MapStyleKey | null {
   if (typeof localStorage === 'undefined') return null
@@ -67,10 +69,23 @@ function HomeInner() {
     const currentMode = document.documentElement.getAttribute('data-mode')
     if (currentMode === 'dark' || currentMode === 'light') return currentMode
     try {
-      const stored = localStorage.getItem('travelback-theme')
-      if (stored === 'dark' || stored === 'light') return stored
+      const stored = localStorage.getItem(THEME_STORAGE_KEY)
+      const explicit = localStorage.getItem(THEME_EXPLICIT_STORAGE_KEY)
+      if ((explicit === '1' || explicit == null) && (stored === 'dark' || stored === 'light')) return stored
     } catch { /* ignore */ }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+  const [hasExplicitThemeChoice, setHasExplicitThemeChoice] = useState(() => {
+    if (typeof localStorage === 'undefined') return false
+    try {
+      const explicit = localStorage.getItem(THEME_EXPLICIT_STORAGE_KEY)
+      if (explicit === '1') return true
+      if (explicit === '0') return false
+      const stored = localStorage.getItem(THEME_STORAGE_KEY)
+      return stored === 'dark' || stored === 'light'
+    } catch {
+      return false
+    }
   })
   const [hasExplicitMapStyleChoice, setHasExplicitMapStyleChoice] = useState(readInitialExplicitMapStyleChoice)
   const [mapStyleKey, setMapStyleKey] = useState<MapStyleKey>(() => {
@@ -96,6 +111,14 @@ function HomeInner() {
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const { messages: toasts, addToast, dismissToast } = useToast()
 
+  const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
+    document.documentElement.setAttribute('data-mode', mode)
+  }, [])
+
+  const applyDocumentMapStyle = useCallback((key: MapStyleKey) => {
+    document.documentElement.setAttribute('data-mapstyle', key)
+  }, [])
+
   useEffect(() => {
     applyDocumentMode(colorMode)
     applyDocumentMapStyle(mapStyleKey)
@@ -119,6 +142,7 @@ function HomeInner() {
     toggleFollowCamera,
     pausePlayback,
     resetPlayback,
+    resetPlaybackSession,
     setPlaybackProgress,
   } = playback
 
@@ -182,6 +206,37 @@ function HomeInner() {
     return () => cancelAnimationFrame(frameId)
   }, [pendingWorkspaceFocus, track])
 
+  useEffect(() => {
+    if (hasExplicitThemeChoice || typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const applySystemMode = (matches: boolean) => {
+      const nextMode = matches ? 'dark' : 'light'
+      setColorMode(nextMode)
+      applyDocumentMode(nextMode)
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, nextMode)
+        localStorage.setItem(THEME_EXPLICIT_STORAGE_KEY, '0')
+      } catch { /* ignore */ }
+
+      if (!hasExplicitMapStyleChoice) {
+        const nextStyle = nextMode === 'dark' ? 'dark' : 'voyager'
+        setMapStyleKey(nextStyle)
+        applyDocumentMapStyle(nextStyle)
+        try {
+          localStorage.setItem(MAP_STYLE_STORAGE_KEY, nextStyle)
+          localStorage.setItem(MAP_STYLE_EXPLICIT_STORAGE_KEY, '0')
+        } catch { /* ignore */ }
+      }
+    }
+    const handler = (event: MediaQueryListEvent) => applySystemMode(event.matches)
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handler)
+      return () => media.removeEventListener('change', handler)
+    }
+    media.addListener(handler)
+    return () => media.removeListener(handler)
+  }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice, hasExplicitThemeChoice])
+
   // Escape-to-cancel while the export-overlay progress dialog is visible.
   // Matches the repo's modal convention (ModalDialog binds Escape to onClose).
   useEffect(() => {
@@ -211,22 +266,22 @@ function HomeInner() {
     mapViewRef.current?.clearTrackArtifacts()
     setFullTrack(nextTrack)
     setTrack(nextTrack)
-    resetPlayback()
+    resetPlaybackSession()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
     setWorkspaceAnnouncement(`${t('app.trackLoaded')} ${nextTrack.name}`)
     setPendingWorkspaceFocus(true)
-  }, [resetPlayback, resetTrackWorkspace, t])
+  }, [resetPlaybackSession, resetTrackWorkspace, t])
 
   const startFreshJourneySession = useCallback(() => {
     resetTrackWorkspace()
     mapViewRef.current?.clearTrackArtifacts()
     setTrack(null)
     setFullTrack(null)
-    resetPlayback()
+    resetPlaybackSession()
     setIsCreatingJourney(true)
     setTrackSessionKey((key) => key + 1)
-  }, [resetPlayback, resetTrackWorkspace])
+  }, [resetPlaybackSession, resetTrackWorkspace])
 
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return
@@ -333,18 +388,14 @@ function HomeInner() {
     mapViewRef.current?.applyCameraState(cameraState)
   }, [track, cumulativeDistances])
 
-  const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
-    document.documentElement.setAttribute('data-mode', mode)
-  }, [])
-
-  const applyDocumentMapStyle = useCallback((key: MapStyleKey) => {
-    document.documentElement.setAttribute('data-mapstyle', key)
-  }, [])
-
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
+    setHasExplicitThemeChoice(true)
     setColorMode(mode)
     applyDocumentMode(mode)
-    try { localStorage.setItem('travelback-theme', mode) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, mode)
+      localStorage.setItem(THEME_EXPLICIT_STORAGE_KEY, '1')
+    } catch { /* ignore */ }
 
     if (!hasExplicitMapStyleChoice) {
       const key = mode === 'dark' ? 'dark' : 'voyager'
@@ -363,6 +414,7 @@ function HomeInner() {
     const nextKey = keys[(currentIndex + 1) % keys.length]
     const nextMode = nextKey === 'dark' ? 'dark' : 'light'
     setHasExplicitMapStyleChoice(true)
+    setHasExplicitThemeChoice(true)
     setMapStyleKey(nextKey)
     setColorMode(nextMode)
     applyDocumentMapStyle(nextKey)
@@ -371,7 +423,10 @@ function HomeInner() {
       localStorage.setItem(MAP_STYLE_STORAGE_KEY, nextKey)
       localStorage.setItem(MAP_STYLE_EXPLICIT_STORAGE_KEY, '1')
     } catch { /* ignore */ }
-    try { localStorage.setItem('travelback-theme', nextMode) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, nextMode)
+      localStorage.setItem(THEME_EXPLICIT_STORAGE_KEY, '1')
+    } catch { /* ignore */ }
   }, [applyDocumentMapStyle, applyDocumentMode, mapStyleKey])
 
   const handleUnitsChange = useCallback((nextUnits: UnitSystem) => {

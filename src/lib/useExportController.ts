@@ -17,6 +17,17 @@ function isMapRenderExportError(error: unknown): boolean {
   return error.message.includes('Map did not finish rendering')
 }
 
+function isLocalExportTestStubEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  if (!isLocalHost) return false
+  try {
+    return window.localStorage.getItem('travelback-export-test-stub') === '1'
+  } catch {
+    return false
+  }
+}
+
 interface UseExportControllerOptions {
   track: Track | null
   scenes: Scene[]
@@ -143,24 +154,36 @@ export function useExportController({
         }
       }
 
-      const cumulDist = cumulativeDistancesProp?.length
-        ? cumulativeDistancesProp
-        : computeCumulativeDistances(track.points, track.segmentStartIndices)
+	      const cumulDist = cumulativeDistancesProp?.length
+	        ? cumulativeDistancesProp
+	        : computeCumulativeDistances(track.points, track.segmentStartIndices)
 
-      const result = await exportVideo(
-        canvas,
-        track,
-        exportConfig,
-        async (nextProgress, cameraState) => {
-          mapHandle.applyCameraState(cameraState)
-          setPlaybackProgress(nextProgress)
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-        },
-        (nextProgress) => setExportProgress(nextProgress),
-        waitForStableMap,
-        abortController.signal,
-        cumulDist,
-      )
+	      const result = isLocalExportTestStubEnabled()
+	        ? await new Promise<{ buffer: ArrayBuffer; filename: string; mimeType: string }>((resolve) => {
+	            setPlaybackProgress(1)
+	            setExportProgress(1)
+	            requestAnimationFrame(() => {
+	              resolve({
+	                buffer: new TextEncoder().encode('travelback-test-export').buffer,
+	                filename: `Travelback - ${track.name}.mp4`,
+	                mimeType: 'video/mp4',
+	              })
+	            })
+	          })
+	        : await exportVideo(
+	            canvas,
+	            track,
+	            exportConfig,
+	            async (nextProgress, cameraState) => {
+	              mapHandle.applyCameraState(cameraState)
+	              setPlaybackProgress(nextProgress)
+	              await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+	            },
+	            (nextProgress) => setExportProgress(nextProgress),
+	            waitForStableMap,
+	            abortController.signal,
+	            cumulDist,
+	          )
 
       const blob = new Blob([result.buffer], { type: result.mimeType })
       pendingVideoUrl = URL.createObjectURL(blob)

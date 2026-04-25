@@ -39,17 +39,19 @@ const MARKER_COLOR = '#ef4444'
 const LOOK_AHEAD_DISTANCE_METERS = 600
 const CAMERA_SMOOTHING = 0.1
 const BEARING_SMOOTHING = 0.04
-const SCENE_CAMERA_SMOOTHING = 0.34
+const SCENE_CAMERA_SMOOTHING = 0.7
 const SEEK_SNAP_DISTANCE_METERS = 2500
 const SEEK_SNAP_BEARING_DEGREES = 120
 const WAIT_FOR_IDLE_TIMEOUT_MS = 5000
-const MIN_CAMERA_MOVE_METERS = 0.5
-const MIN_CAMERA_BEARING_DELTA = 0.75
+const MIN_CAMERA_MOVE_METERS = 0.01
+const MIN_CAMERA_BEARING_DELTA = 0.01
 const MIN_CAMERA_ZOOM_DELTA = 0.01
 const MIN_CAMERA_PITCH_DELTA = 0.1
 const REFERENCE_GRID_SOURCE = 'reference-grid'
 const REFERENCE_GRID_MINOR_LAYER = 'reference-grid-minor'
 const REFERENCE_GRID_MAJOR_LAYER = 'reference-grid-major'
+const POSITION_MARKER_SOURCE = 'current-position'
+const POSITION_MARKER_LAYER = 'current-position-layer'
 
 const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }> = {
   voyager: { minor: 'rgba(120, 130, 120, 0.22)', major: 'rgba(120, 130, 120, 0.38)' },
@@ -205,10 +207,23 @@ function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
 }
 
 function removeTrackArtifacts(map: maplibregl.Map) {
+  if (map.getLayer(POSITION_MARKER_LAYER)) map.removeLayer(POSITION_MARKER_LAYER)
   if (map.getLayer('trail-line')) map.removeLayer('trail-line')
   if (map.getLayer('route-line')) map.removeLayer('route-line')
+  if (map.getSource(POSITION_MARKER_SOURCE)) map.removeSource(POSITION_MARKER_SOURCE)
   if (map.getSource('trail')) map.removeSource('trail')
   if (map.getSource('route')) map.removeSource('route')
+}
+
+function markerPointFeature(point: TrackPoint): GeoJSON.Feature<GeoJSON.Point> {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Point',
+      coordinates: [point.lng, point.lat],
+    },
+  }
 }
 
 function chooseReferenceGridStep(span: number): number {
@@ -605,14 +620,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           getMapState: () => {
             const currentMap = mapRef.current
             if (!currentMap) return null
-            return {
-              hasRouteSource: Boolean(currentMap.getSource('route')),
-              hasTrailSource: Boolean(currentMap.getSource('trail')),
-              hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
-              hasTrailLayer: Boolean(currentMap.getLayer('trail-line')),
-              hasMarker: Boolean(markerRef.current),
-              hasReferenceGridLayer: Boolean(currentMap.getLayer(REFERENCE_GRID_MINOR_LAYER) && currentMap.getLayer(REFERENCE_GRID_MAJOR_LAYER)),
-            }
+	            return {
+	              hasRouteSource: Boolean(currentMap.getSource('route')),
+	              hasTrailSource: Boolean(currentMap.getSource('trail')),
+	              hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
+	              hasTrailLayer: Boolean(currentMap.getLayer('trail-line')),
+	              hasMarker: Boolean(markerRef.current),
+	              hasExportMarkerLayer: Boolean(currentMap.getLayer(POSITION_MARKER_LAYER)),
+	              hasReferenceGridLayer: Boolean(currentMap.getLayer(REFERENCE_GRID_MINOR_LAYER) && currentMap.getLayer(REFERENCE_GRID_MAJOR_LAYER)),
+	            }
           },
         }
       }
@@ -741,6 +757,27 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       })
     }
+
+    if (map.getSource(POSITION_MARKER_SOURCE)) {
+      (map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource).setData(markerPointFeature(track.points[0]))
+    } else {
+      map.addSource(POSITION_MARKER_SOURCE, {
+        type: 'geojson',
+        data: markerPointFeature(track.points[0]),
+      })
+      map.addLayer({
+        id: POSITION_MARKER_LAYER,
+        type: 'circle',
+        source: POSITION_MARKER_SOURCE,
+        paint: {
+          'circle-radius': 7,
+          'circle-color': MARKER_COLOR,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0.95,
+        },
+      })
+    }
   }, [])
 
   const ensureMarker = useCallback((map: maplibregl.Map, startPoint: Track['points'][number]) => {
@@ -849,8 +886,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress)
     const { point, segmentIndex } = result
 
-    // Update marker position
-    markerRef.current?.setLngLat([point.lng, point.lat])
+      // Update marker position
+      markerRef.current?.setLngLat([point.lng, point.lat])
+      const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+      markerSource?.setData(markerPointFeature(point))
 
     // Update trail
     const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
@@ -934,9 +973,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           pitch: cameraState.pitch,
           bearing: cameraState.bearing,
         })
+        lastCameraStateRef.current = cameraState
       }
 
-      lastCameraStateRef.current = cameraState
       lastSeekNonceRef.current = seekNonce
     } else {
       lastCameraStateRef.current = null

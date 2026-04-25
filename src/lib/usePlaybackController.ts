@@ -23,6 +23,7 @@ export function usePlaybackController(track: Track | null) {
   const [seekNonce, setSeekNonce] = useState(0)
 
   const animFrameRef = useRef<number>(0)
+  const fallbackTimerRef = useRef<number>(0)
   const progressRef = useRef(0)
   const speedRef = useRef(speed)
   const durationRef = useRef(duration)
@@ -59,6 +60,14 @@ export function usePlaybackController(track: Track | null) {
   const resetPlayback = useCallback((nextProgress = 0) => {
     setPlaybackProgress(nextProgress)
     setIsPlaying(false)
+  }, [setPlaybackProgress])
+
+  const resetPlaybackSession = useCallback((nextProgress = 0) => {
+    setPlaybackProgress(nextProgress)
+    setIsPlaying(false)
+    setSpeed(1)
+    setDuration(30)
+    setFollowCamera(true)
   }, [setPlaybackProgress])
 
   const togglePlay = useCallback(() => {
@@ -103,13 +112,22 @@ export function usePlaybackController(track: Track | null) {
     startProgressRef.current = progressRef.current
     awaitingFirstFrameRef.current = true
 
+    const scheduleNextFrame = () => {
+      cancelAnimationFrame(animFrameRef.current)
+      window.clearTimeout(fallbackTimerRef.current)
+      animFrameRef.current = requestAnimationFrame(animate)
+      fallbackTimerRef.current = window.setTimeout(() => animate(performance.now()), 250)
+    }
+
     const animate = (now: number) => {
+      cancelAnimationFrame(animFrameRef.current)
+      window.clearTimeout(fallbackTimerRef.current)
       if (!isPlayingRef.current || !mountedRef.current) return
       if (awaitingFirstFrameRef.current) {
         awaitingFirstFrameRef.current = false
         startTimestampRef.current = now
         setPlaybackProgress(startProgressRef.current)
-        animFrameRef.current = requestAnimationFrame(animate)
+        scheduleNextFrame()
         return
       }
 
@@ -123,14 +141,15 @@ export function usePlaybackController(track: Track | null) {
       }
 
       setPlaybackProgress(nextProgress)
-      animFrameRef.current = requestAnimationFrame(animate)
+      scheduleNextFrame()
     }
 
-    animFrameRef.current = requestAnimationFrame(animate)
+    scheduleNextFrame()
 
     return () => {
       awaitingFirstFrameRef.current = false
       cancelAnimationFrame(animFrameRef.current)
+      window.clearTimeout(fallbackTimerRef.current)
     }
   }, [isPlaying, track, setPlaybackProgress])
 
@@ -149,6 +168,7 @@ export function usePlaybackController(track: Track | null) {
     toggleFollowCamera,
     pausePlayback,
     resetPlayback,
+    resetPlaybackSession,
     setPlaybackProgress,
   }
 }

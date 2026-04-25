@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Plus, Settings } from 'lucide-react'
 import { useLocale, type Locale } from '@/lib/i18n'
 import type { MapStyleKey } from '@/types'
@@ -53,19 +53,27 @@ export default function TrackToolbar({
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null)
   useFocusFirstOnOpen(menuOpen, menuPanelRef)
+
+  const closeMenu = useCallback((restoreFocus = true) => {
+    setMenuOpen(false)
+    if (restoreFocus) {
+      requestAnimationFrame(() => menuTriggerRef.current?.focus({ preventScroll: true }))
+    }
+  }, [])
 
   useEffect(() => {
     if (!menuOpen) return
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current?.contains(event.target as Node)) return
-      setMenuOpen(false)
+      closeMenu(false)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setMenuOpen(false)
+        closeMenu()
       }
     }
 
@@ -77,11 +85,11 @@ export default function TrackToolbar({
       document.removeEventListener('touchstart', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [menuOpen])
+  }, [closeMenu, menuOpen])
 
   const runAndCloseMenu = (action: () => void) => {
     action()
-    setMenuOpen(false)
+    closeMenu()
   }
 
   return (
@@ -135,11 +143,14 @@ export default function TrackToolbar({
       </button>
 
       <div className="relative sm:hidden" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-label={t('app.moreControls')}
-          aria-expanded={menuOpen}
+          <button
+            ref={menuTriggerRef}
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={t('app.moreControls')}
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
+            aria-controls="track-toolbar-mobile-menu"
           className="gi flex min-h-11 min-w-11 items-center justify-center px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
           style={{ color: 'var(--t1)' }}
         >
@@ -148,8 +159,9 @@ export default function TrackToolbar({
 
         {menuOpen && (
           <div
-            ref={menuPanelRef}
-            role="group"
+              ref={menuPanelRef}
+              id="track-toolbar-mobile-menu"
+              role="group"
             aria-label={t('app.moreControls')}
             data-testid="track-toolbar-mobile-menu"
             data-disable-playback-hotkeys="true"
@@ -160,7 +172,7 @@ export default function TrackToolbar({
           >
             <div className="space-y-2">
               <button
-                type="button"
+                    type="button"
                 onClick={() => runAndCloseMenu(onStartNewTrack)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
@@ -169,7 +181,7 @@ export default function TrackToolbar({
                 <Plus size={14} strokeWidth={2.5} />
               </button>
               <button
-                type="button"
+                    type="button"
                 onClick={() => runAndCloseMenu(onCycleStyle)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
@@ -177,7 +189,7 @@ export default function TrackToolbar({
                 <span>{t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}</span>
               </button>
               <button
-                type="button"
+                    type="button"
                 onClick={() => runAndCloseMenu(onOpenImportGuide)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
@@ -185,7 +197,7 @@ export default function TrackToolbar({
                 <span>{t('fileUpload.importGuideLink')}</span>
               </button>
               <button
-                type="button"
+                    type="button"
                 onClick={() => runAndCloseMenu(onOpenHelp)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
@@ -198,18 +210,20 @@ export default function TrackToolbar({
               <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.08em]" style={{ color: 'var(--t4)' }}>
                 {t('units.label')}
               </div>
-              <div className="gi inline-flex w-full items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
-                <button
-                  type="button"
-                  onClick={() => onUnitsChange('metric')}
+                <div className="gi inline-flex w-full items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
+                  <button
+                    type="button"
+                    aria-pressed={units === 'metric'}
+                    onClick={() => onUnitsChange('metric')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
                 >
                   {t('units.km')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onUnitsChange('imperial')}
+                  <button
+                    type="button"
+                    aria-pressed={units === 'imperial'}
+                    onClick={() => onUnitsChange('imperial')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
                 >

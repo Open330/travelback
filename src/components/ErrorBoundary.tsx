@@ -38,7 +38,7 @@ class ErrorBoundaryInner extends React.Component<
     if (this.state.hasError) {
       const t = (key: Parameters<typeof translate>[0]) => translate(key, this.props.locale)
       return (
-        <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
+        <main className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
           <div className="gc text-center max-w-md p-8" style={{ borderRadius: 'var(--r-glass)' }}>
             <svg className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--err, #ef4444)" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
             <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
@@ -65,7 +65,7 @@ class ErrorBoundaryInner extends React.Component<
               </button>
             </div>
           </div>
-        </div>
+        </main>
       )
     }
 

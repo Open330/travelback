@@ -134,17 +134,10 @@ function expectStableCameraMotion(samples: { center: [number, number]; bearing: 
 
 /** Helper: wait for the app to be ready (map container rendered, with or without WebGL) */
 async function waitForApp(page: Page) {
-  // Wait for the heading to be visible (confirms React rendered)
+  await expect(page.locator('main#app[data-travelback-app-root="true"]')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('map-container')).toBeAttached({ timeout: 30_000 })
   await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible({ timeout: 30_000 })
-  // Remove Next.js dev overlay portal that intercepts pointer events and blocks clicks.
-  // The portal is injected by Next.js after hydration and can reappear on re-renders,
-  // so we remove it every time we wait for the app to be ready.
-  await page.evaluate(() => {
-    document.querySelectorAll('nextjs-portal').forEach(el => el.remove())
-    document.querySelectorAll('[id^="nextjs"]').forEach(el => el.remove())
-  })
-  // Give the app a moment to settle
-  await page.waitForTimeout(500)
+  await expect(page.locator('input[type="file"]')).toBeAttached({ timeout: 30_000 })
 }
 
 /** Helper: upload a GPX file and wait for the track to load */
@@ -157,28 +150,39 @@ function visibleTrackTitle(page: Page, name: string) {
 
 async function uploadGpx(page: Page) {
   const fileInput = page.locator('input[type="file"]')
-  await fileInput.setInputFiles(GPX_FIXTURE)
+  await fileInput.setInputFiles(GPX_FIXTURE, { timeout: 30_000 })
   await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
 /** Helper: upload a KML file and wait for the track to load */
 async function uploadKml(page: Page) {
   const fileInput = page.locator('input[type="file"]')
-  await fileInput.setInputFiles(KML_FIXTURE)
+  await fileInput.setInputFiles(KML_FIXTURE, { timeout: 30_000 })
   await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
 /** Helper: upload a JSON file and wait for the track to load */
 async function uploadJson(page: Page, fixture: string) {
   const fileInput = page.locator('input[type="file"]')
-  await fileInput.setInputFiles(fixture)
+  await fileInput.setInputFiles(fixture, { timeout: 30_000 })
   await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible({ timeout: 20_000 })
 }
 
 async function uploadCustomFile(page: Page, fixture: string) {
   const fileInput = page.locator('input[type="file"]')
-  await fileInput.setInputFiles(fixture)
+  await fileInput.setInputFiles(fixture, { timeout: 30_000 })
   await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
+}
+
+async function startPlayback(page: Page) {
+  const playBtn = page.getByRole('button', { name: 'Play' })
+  await expect(playBtn).toBeVisible({ timeout: 10_000 })
+  await playBtn.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 5_000 })
+  await expect.poll(async () => {
+    return Number(await page.getByLabel('Playback progress').inputValue())
+  }, { timeout: 10_000, intervals: [100, 150, 250, 500] }).toBeGreaterThan(0)
 }
 
 async function loadedTrackPointCounts(page: Page) {
@@ -211,27 +215,6 @@ test.describe('Travelback App', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('travelback-debug', '1')
-    })
-    // Remove Next.js dev overlay before page loads. Hydration mismatches from the
-    // bootstrap script (which sets data-mode before React hydrates) trigger the
-    // overlay in dev mode, interfering with test locators, keyboard focus, and
-    // pointer events. The overlay uses both `#nextjs*` IDs and `<nextjs-portal>`
-    // custom elements. Simply hiding with CSS is not enough because Playwright's
-    // click action still detects the portal as an interception target; we must
-    // remove it from the DOM entirely. A MutationObserver watches for the portal
-    // being added, and waitForApp also removes it after each navigation.
-    await page.addInitScript({
-      content: `
-        const style = document.createElement('style')
-        style.textContent = '[id^="nextjs"]{display:none!important;}'
-        document.documentElement.appendChild(style)
-        const removeNextjsOverlay = () => {
-          document.querySelectorAll('nextjs-portal').forEach(el => el.remove())
-          document.querySelectorAll('[id^="nextjs"]').forEach(el => el.remove())
-        }
-        const observer = new MutationObserver(() => { removeNextjsOverlay() })
-        observer.observe(document, { childList: true, subtree: true })
-      `,
     })
     await page.goto('/')
     await waitForApp(page)
@@ -921,10 +904,7 @@ test.describe('Travelback App', () => {
     // Wait for map layers to fully initialize before starting playback
     await page.waitForTimeout(3000)
 
-    const playBtn = page.getByRole('button', { name: 'Play' })
-    await expect(playBtn).toBeVisible({ timeout: 10_000 })
-    await playBtn.click({ force: true })
-
+    await startPlayback(page)
     const samples = await collectCameraSamples(page)
 
     expectStableCameraMotion(samples)
@@ -944,10 +924,7 @@ test.describe('Travelback App', () => {
     await expect(addSceneBtn).toBeVisible({ timeout: 5_000 })
     await addSceneBtn.click({ force: true })
 
-    const playBtn = page.getByRole('button', { name: 'Play' })
-    await expect(playBtn).toBeVisible({ timeout: 10_000 })
-    await playBtn.click({ force: true })
-
+    await startPlayback(page)
     const samples = await collectCameraSamples(page)
 
     expectStableCameraMotion(samples)
@@ -1111,6 +1088,20 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-style-button')).toHaveText(/Map:\s*Voyager/, { timeout: 10_000 })
   })
 
+  test('system theme changes update theme-derived map style without an explicit override', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.goto('/')
+    await waitForApp(page)
+    await uploadGpx(page)
+
+    const styleBtn = page.getByTestId('map-style-button')
+    await expect(styleBtn).toHaveText(/Map:\s*Voyager/, { timeout: 10_000 })
+
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('dark')
+    await expect(styleBtn).toHaveText(/Map:\s*Dark/, { timeout: 10_000 })
+  })
+
   test('explicit map style choices survive later system theme changes', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto('/')
@@ -1198,6 +1189,18 @@ test.describe('Travelback App', () => {
 
     // Output description should update - the × is a Unicode multiply sign
     await expect(exportPanel.locator('p').filter({ hasText: '1080' })).toBeVisible()
+  })
+
+  test('export panel can complete the local export path', async ({ page }) => {
+    await page.evaluate(() => window.localStorage.setItem('travelback-export-test-stub', '1'))
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(exportPanel).toBeVisible()
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
   test('export panel close button works', async ({ page }) => {

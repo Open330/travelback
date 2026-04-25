@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { GripHorizontal, RotateCcw } from 'lucide-react'
 import { Track } from '@/types'
 import { useLocale } from '@/lib/i18n'
@@ -16,6 +16,8 @@ interface TimelineSelectorProps {
 
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
+const TIMELINE_KEY_GUARD_MS = 750
+const TIMELINE_KEYS = new Set(['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'])
 
 /** Map a distance-fraction ratio to a point index via binary search on
  *  cumulative distances.  The histogram uses distance-based bucketing, so
@@ -65,9 +67,26 @@ function TimelineSelector({
 }: TimelineSelectorProps) {
   const { t, locale } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
+  const startHandleRef = useRef<HTMLDivElement>(null)
+  const endHandleRef = useRef<HTMLDivElement>(null)
+  const keyboardGuardUntilRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const onRangeChangeRef = useRef(onRangeChange)
   useEffect(() => { onRangeChangeRef.current = onRangeChange }, [onRangeChange])
+
+  useEffect(() => {
+    const stopLeakedTimelineKeys = (event: KeyboardEvent) => {
+      if (!TIMELINE_KEYS.has(event.key)) return
+      const target = event.target instanceof Node ? event.target : null
+      if (target && containerRef.current?.contains(target)) return
+      if (performance.now() > keyboardGuardUntilRef.current) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    window.addEventListener('keydown', stopLeakedTimelineKeys, true)
+    return () => window.removeEventListener('keydown', stopLeakedTimelineKeys, true)
+  }, [])
 
   // startRatio and endRatio are [0,1] fractions of the full timeline
   const [startRatio, setStartRatio] = useState(0)
@@ -241,6 +260,17 @@ function TimelineSelector({
     }
   }, [clampRatios, points.length, resolveIndexesForRatios])
 
+  const commitKeyboardRatios = useCallback((
+    nextStartRatio: number,
+    nextEndRatio: number,
+    handleRef: RefObject<HTMLDivElement | null>
+  ) => {
+    keyboardGuardUntilRef.current = performance.now() + TIMELINE_KEY_GUARD_MS
+    commitRatios(nextStartRatio, nextEndRatio)
+    handleRef.current?.focus({ preventScroll: true })
+    requestAnimationFrame(() => handleRef.current?.focus({ preventScroll: true }))
+  }, [commitRatios])
+
   const startDrag = (
     type: 'start' | 'end' | 'region',
     clientX: number
@@ -370,6 +400,7 @@ function TimelineSelector({
 
         {/* Start handle — 44px min touch target */}
         <div
+          ref={startHandleRef}
           data-testid="timeline-start-handle"
           role="slider"
           tabIndex={0}
@@ -393,24 +424,24 @@ function TimelineSelector({
             e.stopPropagation()
             if (e.touches.length > 0) startDrag('start', e.touches[0].clientX)
           }}
-          onKeyDown={(e) => {
+          onKeyDownCapture={(e) => {
             const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio)
+              commitKeyboardRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio, startHandleRef)
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(Math.max(startRatio - step, 0), endRatio)
+              commitKeyboardRatios(Math.max(startRatio - step, 0), endRatio, startHandleRef)
             } else if (e.key === 'Home') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(0, endRatio)
+              commitKeyboardRatios(0, endRatio, startHandleRef)
             } else if (e.key === 'End') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(endRatio - 0.01, endRatio)
+              commitKeyboardRatios(endRatio - 0.01, endRatio, startHandleRef)
             }
           }}
         >
@@ -427,6 +458,7 @@ function TimelineSelector({
 
         {/* End handle — 44px min touch target */}
         <div
+          ref={endHandleRef}
           data-testid="timeline-end-handle"
           role="slider"
           tabIndex={0}
@@ -450,24 +482,24 @@ function TimelineSelector({
             e.stopPropagation()
             if (e.touches.length > 0) startDrag('end', e.touches[0].clientX)
           }}
-          onKeyDown={(e) => {
+          onKeyDownCapture={(e) => {
             const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(startRatio, Math.min(endRatio + step, 1))
+              commitKeyboardRatios(startRatio, Math.min(endRatio + step, 1), endHandleRef)
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01))
+              commitKeyboardRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01), endHandleRef)
             } else if (e.key === 'Home') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(startRatio, startRatio + 0.01)
+              commitKeyboardRatios(startRatio, startRatio + 0.01, endHandleRef)
             } else if (e.key === 'End') {
               e.preventDefault()
               e.stopPropagation()
-              commitRatios(startRatio, 1)
+              commitKeyboardRatios(startRatio, 1, endHandleRef)
             }
           }}
         >

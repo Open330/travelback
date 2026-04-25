@@ -68,7 +68,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         INVALID_GOOGLE_JSON: 'fileUpload.parseFailed',
         JSON_DEPTH_EXCEEDED: 'fileUpload.parseFailed',
         UNSUPPORTED_GOOGLE_FORMAT: 'fileUpload.parseFailed',
-        READ_FAILED: 'fileUpload.parseFailed',
+        READ_FAILED: 'fileUpload.readFailed',
       }
       const code = err instanceof ParseError ? err.code : ''
       const message = err instanceof Error ? err.message : ''
@@ -170,7 +170,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center"
+          tabIndex={-1}
+          className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
         style={{
           borderRadius: 'var(--r-glass)',
           borderColor: isDragging ? 'rgb(var(--gl))' : undefined,

@@ -646,11 +646,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 type="text"
                 role="combobox"
                 aria-label={t('journey.searchPlaceholder')}
-                aria-expanded={searchResults.length > 0}
-                aria-controls="journey-search-listbox"
-                aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}
-                aria-autocomplete="list"
-                value={searchQuery}
+                  aria-expanded={searchResults.length > 0}
+                  aria-controls="journey-search-listbox"
+                  aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}
+                  aria-autocomplete="list"
+                  aria-invalid={searchError ? true : undefined}
+                  aria-describedby={searchError ? 'journey-search-error journey-search-privacy' : 'journey-search-privacy'}
+                  value={searchQuery}
                 onChange={e => handleSearchInputChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder={t('journey.searchPlaceholder')}
@@ -680,13 +682,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 </button>
               </div>
             </div>
-            <p className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
-              {t('journey.searchPrivacy')}
-            </p>
-            {searchError && (
-              <p className="mt-1 text-[10px]" style={{ color: 'var(--err)' }}>
-                {searchError}
+              <p id="journey-search-privacy" className="mt-1 text-[10px]" style={{ color: 'var(--t4)' }}>
+                {t('journey.searchPrivacy')}
               </p>
+              {searchError && (
+                <p id="journey-search-error" role="alert" className="mt-1 text-[10px]" style={{ color: 'var(--err)' }}>
+                  {searchError}
+                </p>
             )}
             {searchResults.length > 0 && (
               <div id="journey-search-listbox" role="listbox" className="absolute left-4 right-4 top-full mt-0.5 rounded-lg overflow-hidden shadow-lg z-20"
