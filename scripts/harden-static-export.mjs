@@ -4,6 +4,7 @@ import crypto from 'node:crypto'
 
 const outDir = path.resolve(process.cwd(), 'out')
 const htmlFiles = []
+const CSP_META_REGEX = /<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i
 
 // `frame-ancestors` intentionally omitted from the meta CSP: the directive is
 // header-only per the CSP spec (https://www.w3.org/TR/CSP3/#frame-ancestors)
@@ -83,14 +84,24 @@ function inlineTravelbackBootstrap(html) {
 
 function replaceCspMeta(html, csp) {
   const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-  // Single regex handles attributes in any order with either quote style
-  const CSP_META_REGEX = /<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i
   const match = html.match(CSP_META_REGEX)
   if (!match) return html
   return html.replace(
     CSP_META_REGEX,
     `<meta http-equiv="Content-Security-Policy" data-travelback-csp="static-export" content="${contentAttribute}"/>`,
   )
+}
+
+function assertStaticCspMeta(html, htmlFile) {
+  const match = html.match(CSP_META_REGEX)
+  if (!match) {
+    throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
+  }
+
+  const cspMeta = decodeHtmlEntities(match[0])
+  if (cspMeta.includes('data-travelback-csp="placeholder"') || cspMeta.includes("script-src 'self' 'unsafe-inline'")) {
+    throw new Error(`Refusing to publish HTML with placeholder script CSP in ${htmlFile}`)
+  }
 }
 
 await stat(outDir)
@@ -112,6 +123,7 @@ for (const htmlFile of htmlFiles) {
   if (nextHtml === html) {
     throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
   }
+  assertStaticCspMeta(nextHtml, htmlFile)
   await writeFile(htmlFile, nextHtml)
 }
 

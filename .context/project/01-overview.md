@@ -41,7 +41,7 @@ Deployment note:
    - Semantic Location History: `{ "timelineObjects": [{ "activitySegment" | "placeVisit" }] }`
    - Timeline Edits: `{ "timelineEdits": [{ "rawSignal": { "signal": { "position": {...} } } }] }`
    - Semantic segments format: `{ "semanticSegments": [{ "timelinePath": [...] }] }`
-   - `semanticSegments.visit.topCandidate.placeLocation` variants and flat arrays with decimal or E7 coordinates
+   - `semanticSegments.visit.topCandidate.placeLocation.latLng` string points
 
 ## Project Structure
 
@@ -87,11 +87,11 @@ src/
 - **Scene blending**: Smooth transitions between scenes with smoothstep interpolation
 - **Playback controls**: Play/pause, 6 speed levels (0.5x–16x), seekable progress bar
 - **Configurable playback duration**: 10s to 5min presets in the playback controls
-- **Configurable export duration**: 5s to 10min in the export panel
+- **Configurable export duration**: 5s to 3min in the export panel
 - **5 map styles**: Voyager, Light, Dark, Liberty, Bright
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
 - **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape, 4K Landscape, 4K Portrait
-- **Configurable bitrate**: 1–50 Mbps
+- **Configurable bitrate**: 1–20 Mbps
 - **Import guide**: Step-by-step instructions for Google Maps/Takeout plus common GPS and fitness app exports
 - **SEO + Open Graph**: Full metadata for social sharing
 - **Responsive UI**: Floating controls with backdrop blur, mobile-friendly

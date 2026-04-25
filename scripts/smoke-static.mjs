@@ -169,6 +169,27 @@ async function assertMapStylesPinnedLocally() {
   }
 }
 
+async function assertWorkerParserConstantsMatch() {
+  const parserSource = await readFile(path.resolve(cwd, 'src/lib/parser.ts'), 'utf8')
+  const workerSource = await readFile(path.resolve(cwd, 'public/workers/trackParser.worker.js'), 'utf8')
+
+  const parserJsonLimit = parserSource.match(/export const JSON_MAX_FILE_SIZE = (\d+) \* 1024 \* 1024/)
+  const workerMessageLimit = workerSource.match(/const MAX_MESSAGE_SIZE = (\d+) \* 1024 \* 1024/)
+  if (!parserJsonLimit || !workerMessageLimit || parserJsonLimit[1] !== workerMessageLimit[1]) {
+    throw new Error('Worker MAX_MESSAGE_SIZE must match JSON_MAX_FILE_SIZE in src/lib/parser.ts')
+  }
+
+  const parserCodes = [...parserSource.matchAll(/'([A-Z_]+)'/g)]
+    .map(match => match[1])
+    .filter(code => code.endsWith('FORMAT') || code.endsWith('JSON') || code.endsWith('POINTS') || code.endsWith('LARGE') || code.endsWith('FAILED') || code.endsWith('EXCEEDED') || code.endsWith('ERROR'))
+  const workerCodes = [...workerSource.matchAll(/'([A-Z_]+)'/g)].map(match => match[1])
+  for (const code of workerCodes.filter(code => code !== 'message')) {
+    if (code.includes('_') && !parserCodes.includes(code) && code !== 'UNSUPPORTED_GOOGLE_FORMAT') {
+      throw new Error(`Worker error code ${code} is not mirrored in src/lib/parser.ts`)
+    }
+  }
+}
+
 async function assertNoToolResidue(rootDir) {
   async function walk(currentDir) {
     const entries = await readdir(currentDir, { withFileTypes: true })
@@ -201,6 +222,7 @@ try {
   await assertNoToolResidue(path.resolve(cwd, 'public'))
   await assertNoToolResidue(path.resolve(cwd, 'out'))
   await assertMapStylesPinnedLocally()
+  await assertWorkerParserConstantsMatch()
   console.log('[smoke-static] OK')
 } catch (err) {
   failed = true

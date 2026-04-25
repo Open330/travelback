@@ -78,9 +78,9 @@ export interface Scene {
 export type VideoCodec = 'h264' | 'h265' | 'av1'
 
 export const EXPORT_LIMITS = {
-  duration: { min: 5, max: 600 },
-  fps: { min: 1, max: 120 },
-  bitrate: { min: 1, max: 50 },
+  duration: { min: 5, max: 180 },
+  fps: { min: 1, max: 60 },
+  bitrate: { min: 1, max: 20 },
 } as const
 
 export const CODEC_LABELS: Record<VideoCodec, string> = {

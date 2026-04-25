@@ -519,6 +519,7 @@ export function parseGoogleLocationHistory(text: string): Track {
 }
 
 export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
+export const XML_MAX_FILE_SIZE = 16 * 1024 * 1024 // 16MB keeps XML DOM parsing off the browser-hostile path
 export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB keeps JSON imports inside a safer in-browser memory envelope
 const MAIN_THREAD_JSON_FALLBACK_SIZE = 16 * 1024 * 1024
 
@@ -623,7 +624,11 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 export function parseTrackFile(file: File): Promise<Track> {
   return new Promise((resolve, reject) => {
     const ext = file.name.split('.').pop()?.toLowerCase()
-    const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : MAX_FILE_SIZE
+    const maxForType = ext === 'json'
+      ? JSON_MAX_FILE_SIZE
+      : ext === 'gpx' || ext === 'kml'
+        ? XML_MAX_FILE_SIZE
+        : MAX_FILE_SIZE
     if (file.size > maxForType) {
       reject(new ParseError(
         `File is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Maximum size is ${(maxForType / 1024 / 1024).toFixed(0)}MB.`,
