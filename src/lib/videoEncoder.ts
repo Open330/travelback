@@ -4,6 +4,8 @@ import type { CameraState } from './camera'
 import { computeCameraForProgress, normalizeScenes } from './camera'
 import { computeCumulativeDistances } from './interpolate'
 
+export const MAX_IN_MEMORY_EXPORT_BYTES = 256 * 1024 * 1024
+
 /** Map our codec names to mediabunny's codec names */
 function toMediabunnyCodec(codec: AppVideoCodec): 'avc' | 'hevc' | 'av1' {
   switch (codec) {
@@ -25,6 +27,10 @@ export interface VideoExportResult {
   buffer: ArrayBuffer
   filename: string
   mimeType: string
+}
+
+export function estimateEncodedBytes(durationSeconds: number, bitrateMbps: number): number {
+  return (bitrateMbps * 1_000_000 * durationSeconds) / 8
 }
 
 /**
@@ -59,6 +65,10 @@ export async function exportVideo(
 
   if (safeDuration !== duration || safeFps !== fps || safeBitrate !== bitrate) {
     console.warn(`[Travelback] Export config clamped: duration=${duration}->${safeDuration}, fps=${fps}->${safeFps}, bitrate=${bitrate}->${safeBitrate}`)
+  }
+
+  if (estimateEncodedBytes(safeDuration, safeBitrate) > MAX_IN_MEMORY_EXPORT_BYTES) {
+    throw new Error('This export is too large for in-browser video encoding. Lower the duration or quality.')
   }
 
   const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))

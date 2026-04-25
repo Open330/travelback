@@ -77,12 +77,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
       const isFileTooLarge = code === 'FILE_TOO_LARGE'
       const isSafe = knownCode || isFileTooLarge
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
+      const withRecoveryHint = (text: string) => `${text.replace(/[.!?]\s*$/, '')}. ${t('fileUpload.recoveryHint')}`
       if (knownCode) {
-        setError(t(errorCodeMap[code as keyof typeof errorCodeMap] as Parameters<typeof t>[0]))
+        setError(withRecoveryHint(t(errorCodeMap[code as keyof typeof errorCodeMap] as Parameters<typeof t>[0])))
       } else if (isFileTooLarge) {
-        setError(message)
+        setError(withRecoveryHint(message))
       } else {
-        setError(t('fileUpload.parseFailed'))
+        setError(withRecoveryHint(t('fileUpload.parseFailed')))
       }
     } finally {
       setLoading(false)

@@ -420,9 +420,9 @@ function segmentSortTime(segment: TrackSegment): number | undefined {
 }
 
 function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoint[]; segmentStartIndices: number[] } {
-  const seen = new Set<string>()
   const segments = rawSegments
     .map((segment, order) => {
+      const seen = new Set<string>()
       const points: TrackPoint[] = []
       for (const point of sortPointsWithinSegment(segment)) {
         const key = pointKey(point)
@@ -444,12 +444,21 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
 
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []
+  const seenTimedObservations = new Set<string>()
   for (const segment of segments) {
-    assertPointBudget(points, segment.points.length)
+    const nextPoints = segment.points.filter((point) => {
+      if (!point.time) return true
+      const key = pointKey(point)
+      if (seenTimedObservations.has(key)) return false
+      seenTimedObservations.add(key)
+      return true
+    })
+    if (nextPoints.length === 0) continue
+    assertPointBudget(points, nextPoints.length)
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
     }
-    points.push(...segment.points)
+    points.push(...nextPoints)
   }
   return { points, segmentStartIndices }
 }

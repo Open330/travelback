@@ -16,8 +16,10 @@ interface TimelineSelectorProps {
 
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
-const TIMELINE_KEY_GUARD_MS = 750
+const TIMELINE_KEY_GUARD_MS = 3000
 const TIMELINE_KEYS = new Set(['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'])
+const DRAG_EPSILON_PX = 0.5
+const RATIO_EPSILON = 0.000001
 
 /** Map a distance-fraction ratio to a point index via binary search on
  *  cumulative distances.  The histogram uses distance-based bucketing, so
@@ -71,6 +73,7 @@ function TimelineSelector({
   const endHandleRef = useRef<HTMLDivElement>(null)
   const keyboardGuardUntilRef = useRef(0)
   const rafRef = useRef<number | null>(null)
+  const lastDragClientXRef = useRef<number | null>(null)
   const onRangeChangeRef = useRef(onRangeChange)
   useEffect(() => { onRangeChangeRef.current = onRangeChange }, [onRangeChange])
 
@@ -91,6 +94,13 @@ function TimelineSelector({
   // startRatio and endRatio are [0,1] fractions of the full timeline
   const [startRatio, setStartRatio] = useState(0)
   const [endRatio, setEndRatio] = useState(1)
+  const ratioRef = useRef({ start: 0, end: 1 })
+
+  const applyRatioState = useCallback((s: number, e: number) => {
+    ratioRef.current = { start: s, end: e }
+    setStartRatio(s)
+    setEndRatio(e)
+  }, [])
 
   // Show drag hint on first appearance, dismiss on interaction or click
   const [showHint, setShowHint] = useState(false)
@@ -198,67 +208,72 @@ function TimelineSelector({
     return { startIdx, endIdx }
   }, [points.length, cumulDist])
 
+  const applyDragNow = useCallback((clientX: number) => {
+    const ds = dragState.current
+    if (!ds.dragging) return false
+    if (Math.abs(clientX - ds.originX) <= DRAG_EPSILON_PX) return false
+    const width = getWidth()
+    const dx = (clientX - ds.originX) / width
+
+    let newStartRatio = ds.originStart
+    let newEndRatio = ds.originEnd
+
+    if (ds.dragging === 'start') {
+      const newStart = Math.max(0, Math.min(ds.originStart + dx, ds.originEnd - 0.01))
+      const [s, e] = clampRatios(newStart, ds.originEnd)
+      newStartRatio = s
+      newEndRatio = e
+    } else if (ds.dragging === 'end') {
+      const newEnd = Math.max(ds.originStart + 0.01, Math.min(1, ds.originEnd + dx))
+      const [s, e] = clampRatios(ds.originStart, newEnd)
+      newStartRatio = s
+      newEndRatio = e
+    } else if (ds.dragging === 'region') {
+      const span = ds.originEnd - ds.originStart
+      let ns = ds.originStart + dx
+      let ne = ds.originEnd + dx
+      if (ns < 0) { ns = 0; ne = span }
+      if (ne > 1) { ne = 1; ns = 1 - span }
+      newStartRatio = ns
+      newEndRatio = ne
+    }
+
+    const current = ratioRef.current
+    if (
+      Math.abs(newStartRatio - current.start) <= RATIO_EPSILON
+      && Math.abs(newEndRatio - current.end) <= RATIO_EPSILON
+    ) {
+      return false
+    }
+
+    dragMovedRef.current = true
+    applyRatioState(newStartRatio, newEndRatio)
+
+    return true
+  }, [applyRatioState, clampRatios])
+
   const applyDrag = useCallback(
     (clientX: number) => {
+      lastDragClientXRef.current = clientX
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
-        const ds = dragState.current
-        if (!ds.dragging) return
-        dragMovedRef.current = true
-        const width = getWidth()
-        const dx = (clientX - ds.originX) / width
-
-        let newStartRatio = 0
-        let newEndRatio = 1
-
-        if (ds.dragging === 'start') {
-          const newStart = Math.max(0, Math.min(ds.originStart + dx, ds.originEnd - 0.01))
-          const [s, e] = clampRatios(newStart, ds.originEnd)
-          newStartRatio = s
-          newEndRatio = e
-          setStartRatio(s)
-          setEndRatio(e)
-        } else if (ds.dragging === 'end') {
-          const newEnd = Math.max(ds.originStart + 0.01, Math.min(1, ds.originEnd + dx))
-          const [s, e] = clampRatios(ds.originStart, newEnd)
-          newStartRatio = s
-          newEndRatio = e
-          setStartRatio(s)
-          setEndRatio(e)
-        } else if (ds.dragging === 'region') {
-          const span = ds.originEnd - ds.originStart
-          let ns = ds.originStart + dx
-          let ne = ds.originEnd + dx
-          if (ns < 0) { ns = 0; ne = span }
-          if (ne > 1) { ne = 1; ns = 1 - span }
-          newStartRatio = ns
-          newEndRatio = ne
-          setStartRatio(ns)
-          setEndRatio(ne)
+        if (lastDragClientXRef.current != null) {
+          applyDragNow(lastDragClientXRef.current)
         }
-
-        // Fire onRangeChange during drag (throttled by rAF) so the filtered
-        // track updates live rather than only on drag end.
-        if (points.length > 0) {
-          const { startIdx, endIdx } = resolveIndexesForRatios(newStartRatio, newEndRatio)
-          onRangeChangeRef.current(startIdx, endIdx)
-        }
-
         rafRef.current = null
       })
     },
-    [clampRatios, points.length, resolveIndexesForRatios]
+    [applyDragNow]
   )
 
   const commitRatios = useCallback((nextStartRatio: number, nextEndRatio: number) => {
     const [s, e] = clampRatios(nextStartRatio, nextEndRatio)
-    setStartRatio(s)
-    setEndRatio(e)
+    applyRatioState(s, e)
     if (points.length > 0) {
       const { startIdx, endIdx } = resolveIndexesForRatios(s, e)
       onRangeChangeRef.current(startIdx, endIdx)
     }
-  }, [clampRatios, points.length, resolveIndexesForRatios])
+  }, [applyRatioState, clampRatios, points.length, resolveIndexesForRatios])
 
   const commitKeyboardRatios = useCallback((
     nextStartRatio: number,
@@ -283,20 +298,25 @@ function TimelineSelector({
       originEnd: endRatio,
     }
     dragMovedRef.current = false
+    lastDragClientXRef.current = clientX
   }
 
   const endDrag = useCallback(() => {
+    const finalClientX = lastDragClientXRef.current
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    const flushedFinalDrag = finalClientX != null && applyDragNow(finalClientX)
     dragState.current.dragging = null
-    if (dragMovedRef.current && points.length > 0) {
-      const { startIdx, endIdx } = resolveRangeIndexes()
+    if ((flushedFinalDrag || dragMovedRef.current) && points.length > 0) {
+      const { start, end } = ratioRef.current
+      const { startIdx, endIdx } = resolveIndexesForRatios(start, end)
       onRangeChangeRef.current(startIdx, endIdx)
     }
     dragMovedRef.current = false
-  }, [resolveRangeIndexes, points.length])
+    lastDragClientXRef.current = null
+  }, [applyDragNow, resolveIndexesForRatios, points.length])
 
   // Global mouse/touch listeners for drag
   useEffect(() => {

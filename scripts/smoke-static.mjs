@@ -75,6 +75,17 @@ async function assertStatus(url, expected) {
   return res
 }
 
+async function assertHeadStatus(url, expected) {
+  const res = await fetch(url, { method: 'HEAD', redirect: 'manual' })
+  if (res.status !== expected) {
+    throw new Error(`HEAD ${url} returned ${res.status}, expected ${expected}`)
+  }
+  if (!res.headers.has('content-length')) {
+    throw new Error(`HEAD ${url} did not include content-length`)
+  }
+  return res
+}
+
 async function assertCacheControl(url, expectedSubstring, { invert = false } = {}) {
   const res = await fetch(url, { redirect: 'manual' })
   const cacheControl = res.headers.get('cache-control') ?? ''
@@ -218,11 +229,29 @@ async function assertNoToolResidue(rootDir) {
   await walk(rootDir)
 }
 
+async function assertRuntimePublicAssetCachePolicy() {
+  const runtimeAssetUrls = [
+    `http://127.0.0.1:${port}/travelback/workers/trackParser.worker.js`,
+    `http://127.0.0.1:${port}/travelback/map-styles/voyager.json`,
+  ]
+  for (const url of runtimeAssetUrls) {
+    const res = await fetch(url, { redirect: 'manual' })
+    if (res.status !== 200) {
+      throw new Error(`${url} returned ${res.status}, expected 200`)
+    }
+    const cacheControl = res.headers.get('cache-control') ?? ''
+    if (!cacheControl.includes('no-cache') && !cacheControl.includes('must-revalidate')) {
+      throw new Error(`${url} cache-control was "${cacheControl}", expected no-cache or must-revalidate`)
+    }
+  }
+}
+
 let failed = false
 
 try {
   await waitForReady(`http://127.0.0.1:${port}/travelback/`)
   await assertStatus(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 200)
+  await assertHeadStatus(`http://127.0.0.1:${port}/travelback/sample-trip.gpx`, 200)
   const chunkUrl = await findChunkAssetUrl()
   await assertStatus(chunkUrl, 200)
   await assertStatus(`http://127.0.0.1:${port}/travelback/_not-found.html`, 200)
@@ -234,6 +263,7 @@ try {
   await assertNoToolResidue(path.resolve(cwd, 'out'))
   await assertMapStylesPinnedLocally()
   await assertWorkerParserConstantsMatch()
+  await assertRuntimePublicAssetCachePolicy()
   console.log('[smoke-static] OK')
 } catch (err) {
   failed = true

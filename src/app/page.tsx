@@ -200,7 +200,9 @@ function HomeInner() {
   useEffect(() => {
     if (!pendingWorkspaceFocus || !track) return
     const frameId = requestAnimationFrame(() => {
-      workspaceStatusRef.current?.focus({ preventScroll: true })
+      const firstWorkspaceControl = document.querySelector<HTMLButtonElement>('[data-testid="controls-primary-row"] button')
+      const focusTarget = firstWorkspaceControl ?? workspaceStatusRef.current
+      focusTarget?.focus({ preventScroll: true })
       setPendingWorkspaceFocus(false)
     })
     return () => cancelAnimationFrame(frameId)

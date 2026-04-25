@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { constants } from 'node:fs'
-import { access, readFile, stat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { access, stat } from 'node:fs/promises'
 import path from 'node:path'
 
 const args = process.argv.slice(2)
@@ -63,6 +64,7 @@ function resolveCacheControl(filePath) {
   const relativePath = path.relative(outDir, filePath).split(path.sep).join('/')
   if (relativePath.endsWith('.html')) return 'no-cache'
   if (relativePath.startsWith('_next/static/')) return 'public, max-age=31536000, immutable'
+  if (relativePath.startsWith('workers/') || relativePath.startsWith('map-styles/')) return 'no-cache, must-revalidate'
   return 'public, max-age=3600'
 }
 
@@ -112,7 +114,7 @@ async function resolveFile(urlPathname) {
       return { status: 404 }
     }
 
-    return { status: 200, absolutePath }
+    return { status: 200, absolutePath, size: stats.size }
   } catch {
     return { status: 404 }
   }
@@ -143,10 +145,9 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    const body = await readFile(resolved.absolutePath)
     res.writeHead(200, {
       'Content-Type': resolveContentType(resolved.absolutePath),
-      'Content-Length': body.length,
+      'Content-Length': resolved.size,
       'Cache-Control': resolveCacheControl(resolved.absolutePath),
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
@@ -162,7 +163,9 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    res.end(body)
+    createReadStream(resolved.absolutePath)
+      .on('error', () => res.destroy())
+      .pipe(res)
   } catch {
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })

@@ -599,10 +599,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       } catch {
         debugStorageEnabled = false
       }
+      const isLocalDebugHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       const canExposeDebugCamera =
         process.env.NODE_ENV === 'development'
-        || debugParams.get('__travelbackDebug') === '1'
-        || debugStorageEnabled
+        || (isLocalDebugHost && (debugParams.get('__travelbackDebug') === '1' || debugStorageEnabled))
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {

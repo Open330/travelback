@@ -96,7 +96,7 @@ For each fixture file, the E2E test should walk through Mina's full flow:
 The export pipeline uses WebCodecs via mediabunny. In headless Chromium with SwiftShader:
 
 - The `CanvasSource` captures frames from the MapLibre GL canvas
-- The encoder writes H.264 MP4 to a `BufferTarget`
+- The encoder writes the selected MP4 codec to a `BufferTarget`
 - On success, `exportState` transitions to `'done'` and the success screen appears with video preview and "Export Again" button
 - The test should verify the fullest state transition supported by the environment and explicitly record any gap in final MP4 save-path coverage.
 

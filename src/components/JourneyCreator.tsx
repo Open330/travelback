@@ -158,6 +158,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   // Track dragging state
   const draggingIndexRef = useRef<number | null>(null)
   const dragMovedRef = useRef(false)
+  const suppressMapClickUntilRef = useRef(0)
   // Store cleanup functions
   const cleanupRef = useRef<(() => void) | null>(null)
 
@@ -287,6 +288,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       // --- Click to add waypoint ---
       const onClick = (e: maplibregl.MapMouseEvent) => {
+        if (performance.now() <= suppressMapClickUntilRef.current) {
+          suppressMapClickUntilRef.current = 0
+          return
+        }
+        suppressMapClickUntilRef.current = 0
         // Ignore clicks on existing waypoints (handled separately)
         const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_POINTS] })
         if (features.length > 0) return
@@ -340,6 +346,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
 
       const stopDrag = () => {
+        if (dragMovedRef.current) {
+          suppressMapClickUntilRef.current = performance.now() + 250
+        }
         draggingIndexRef.current = null
         map.getCanvas().style.cursor = ''
         map.dragPan.enable()
@@ -418,6 +427,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         map.dragPan.enable()
         draggingIndexRef.current = null
         dragMovedRef.current = false
+        suppressMapClickUntilRef.current = 0
       }
     }
 

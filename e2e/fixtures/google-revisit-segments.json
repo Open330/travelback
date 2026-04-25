@@ -1,0 +1,29 @@
+{
+  "semanticSegments": [
+    {
+      "visit": {
+        "topCandidate": {
+          "placeLocation": {
+            "latLng": "37.566500, 126.978000"
+          }
+        }
+      }
+    },
+    {
+      "timelinePath": [
+        {
+          "point": "geo:35.179600,129.075600"
+        }
+      ]
+    },
+    {
+      "visit": {
+        "topCandidate": {
+          "placeLocation": {
+            "latLng": "37.566500, 126.978000"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -9,6 +9,8 @@ const JSON_RECORDS_FIXTURE = path.resolve(__dirname, 'fixtures/google-records.js
 const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-location.json')
 const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
+const JSON_REVISIT_SEGMENTS_FIXTURE = path.resolve(__dirname, 'fixtures/google-revisit-segments.json')
+const JSON_MIXED_DUPLICATE_BRANCHES_FIXTURE = path.resolve(__dirname, 'fixtures/google-mixed-duplicate-branches.json')
 const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
 const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
 const SINGLE_QUOTE_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/single-quote-attrs.gpx')
@@ -390,6 +392,14 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible({ timeout: 10_000 })
   })
 
+  test('moves focus to a visible workspace control after a track loads', async ({ page }) => {
+    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
+
+    await expect.poll(async () => activeElementState(page), { timeout: 10_000, intervals: [100, 200, 300] })
+      .toMatchObject({ tag: 'button', aria: 'Play' })
+  })
+
   test('imports GPX file and displays track', async ({ page }) => {
     await uploadGpx(page)
 
@@ -410,6 +420,17 @@ test.describe('Travelback App', () => {
   test('imports GPX files after stripping multiline entity declarations', async ({ page }) => {
     await uploadCustomFile(page, MULTILINE_ENTITY_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Multiline Entity GPX')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('imports valid XML files above the soft 1MB regression threshold', async ({ page }) => {
+    const tmpFile = path.resolve(__dirname, `fixtures/valid-large-${process.pid}.gpx`)
+    fs.writeFileSync(tmpFile, `<gpx><trk><name>Large Valid GPX</name><trkseg><trkpt lat="37.5665" lon="126.9780"><time>2024-01-01T00:00:00Z</time></trkpt><trkpt lat="37.5666" lon="126.9790"><time>2024-01-01T00:01:00Z</time></trkpt></trkseg></trk>${' '.repeat(1024 * 1024 + 1)}</gpx>`, 'utf8')
+    try {
+      await uploadCustomFile(page, tmpFile)
+      await expect(visibleTrackTitle(page, 'Large Valid GPX')).toContainText('2 / 2 locations', { timeout: 15_000 })
+    } finally {
+      fs.unlinkSync(tmpFile)
+    }
   })
 
   test('rejects oversized XML files before main-thread parsing', async ({ page }) => {
@@ -1242,7 +1263,9 @@ test.describe('Travelback App', () => {
 
     // Codec is now behind the Advanced toggle — click to expand
     await page.getByText('Advanced').click({ force: true })
-    await expect(page.getByText('Codec')).toBeVisible()
+    await expect(page.getByText('Codec', { exact: true })).toBeVisible()
+
+    await expect(page.getByRole('dialog', { name: 'Export Video' }).getByText('This browser cannot export')).toHaveCount(0)
 
     // Should have Start Export button
     await expect(page.getByText('Start Export')).toBeVisible()
@@ -1320,6 +1343,29 @@ test.describe('Travelback App', () => {
     await expect(reopenedPanel.getByRole('link', { name: /Download MP4/i })).toHaveCount(0)
   })
 
+  test('timeline no-op clicks preserve completed export results', async ({ page }) => {
+    await page.evaluate(() => window.localStorage.setItem('travelback-export-test-stub', '1'))
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Close panel' }).click({ force: true })
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const handleBox = await endHandle.boundingBox()
+    if (!handleBox) throw new Error('Missing end handle geometry for no-op export preservation test')
+
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.up()
+
+    await page.getByText('Export', { exact: true }).click({ force: true })
+    const reopenedPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(reopenedPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible({ timeout: 10_000 })
+  })
+
   test('export panel close button works', async ({ page }) => {
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
@@ -1387,6 +1433,16 @@ test.describe('Travelback App', () => {
     await uploadJson(page, JSON_SEMANTIC_SEG_FIXTURE)
     await expect(visibleTrackTitle(page, 'Google Location History')).toBeVisible()
     await expect(page.locator('text=/\\d+ \\/ \\d+ locations/').first()).toBeVisible()
+  })
+
+  test('preserves repeated untimed Google visits across semantic segments', async ({ page }) => {
+    await uploadJson(page, JSON_REVISIT_SEGMENTS_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Google Location History')).toContainText('3 / 3 locations', { timeout: 20_000 })
+  })
+
+  test('deduplicates timed Google observations repeated across matching export branches', async ({ page }) => {
+    await uploadJson(page, JSON_MIXED_DUPLICATE_BRANCHES_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Google Location History')).toContainText('2 / 2 locations', { timeout: 20_000 })
   })
 
   // --- Error resilience ---

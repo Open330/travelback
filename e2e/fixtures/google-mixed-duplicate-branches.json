@@ -1,0 +1,28 @@
+{
+  "locations": [
+    {
+      "latitudeE7": 375665000,
+      "longitudeE7": 1269780000,
+      "timestamp": "2024-01-01T00:00:00Z"
+    },
+    {
+      "latitudeE7": 375666000,
+      "longitudeE7": 1269790000,
+      "timestamp": "2024-01-01T00:02:00Z"
+    }
+  ],
+  "semanticSegments": [
+    {
+      "timelinePath": [
+        {
+          "point": "geo:37.566500,126.978000",
+          "timestamp": "2024-01-01T00:00:00Z"
+        },
+        {
+          "point": "geo:37.566600,126.979000",
+          "timestamp": "2024-01-01T00:02:00Z"
+        }
+      ]
+    }
+  ]
+}

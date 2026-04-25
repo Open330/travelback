@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react'
 import type { VideoCodec, ExportRequest } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
-import { isCodecSupported } from '@/lib/videoEncoder'
+import { estimateEncodedBytes, isCodecSupported, MAX_IN_MEMORY_EXPORT_BYTES } from '@/lib/videoEncoder'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import type { DownloadMethod, ExportState } from '@/lib/useExportController'
@@ -25,8 +25,6 @@ const RESOLUTION_KEYS = [
   'resolution.4k',
   'resolution.4kPortrait',
 ] as const
-
-const MAX_ESTIMATED_EXPORT_BYTES = 512 * 1024 * 1024
 
 function clampExportDuration(value: number): number {
   return Math.max(EXPORT_LIMITS.duration.min, Math.min(value, EXPORT_LIMITS.duration.max))
@@ -102,14 +100,21 @@ export default function ExportPanel({
   const bitrate = QUALITY_MAP[quality] ?? 8
   const safeDuration = clampExportDuration(duration)
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
-  const estimatedOutputBytes = (safeBitrate * 1_000_000 * safeDuration) / 8
+  const estimatedOutputBytes = estimateEncodedBytes(safeDuration, safeBitrate)
   const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
-  const exportTooLarge = estimatedOutputBytes > MAX_ESTIMATED_EXPORT_BYTES
-  const codecReady = codecSupport[codec] === true
-  const canStartExport = (codecReady || isLocalExportTestStubEnabled()) && !exportTooLarge
+  const localExportTestStubEnabled = isLocalExportTestStubEnabled()
+  const exportTooLarge = estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES
+  const codecStatus = codecSupport[codec]
+  const codecPending = codecStatus == null && !localExportTestStubEnabled
+  const codecUnavailable = codecStatus === false && !localExportTestStubEnabled
+  const canStartExport = !codecPending && !codecUnavailable && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!(e.target as HTMLElement | null)?.closest('[data-export-swipe-handle="true"]')) {
+      touchStartRef.current = null
+      return
+    }
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
   }, [])
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -206,7 +211,7 @@ export default function ExportPanel({
       closeOnBackdrop={!isExporting}
     >
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} data-disable-playback-hotkeys="true">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex items-center justify-between gap-4" data-export-swipe-handle="true">
           <h3 id="export-panel-title" className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
             {t('export.title')}
           </h3>
@@ -398,6 +403,16 @@ export default function ExportPanel({
             {exportTooLarge && (
               <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>
                 {t('export.tooLarge')}
+              </p>
+            )}
+            {codecUnavailable && (
+              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>
+                {t('export.codecUnavailable')}
+              </p>
+            )}
+            {codecPending && (
+              <p role="status" className="mb-2 text-xs" style={{ color: 'var(--t4)' }}>
+                {t('export.codecChecking')}
               </p>
             )}
             <p className="mb-4 text-xs" style={{ color: 'var(--t4)' }}>

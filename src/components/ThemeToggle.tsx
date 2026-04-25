@@ -26,8 +26,9 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
   const [mode, setMode] = useState<'dark' | 'light'>(() => detectInitialMode())
   const [hydrated, setHydrated] = useState(false)
   const effectiveMode = controlledMode ?? mode
-  const visualMode = hydrated ? effectiveMode : 'light'
+  const visualMode = effectiveMode
   const actionLabel = visualMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')
+  const buttonLabel = hydrated ? actionLabel : t('theme.toggle')
 
   useEffect(() => {
     const frameId = requestAnimationFrame(() => setHydrated(true))
@@ -67,12 +68,14 @@ export default function ThemeToggle({ mode: controlledMode, onModeChange }: { mo
     <button
       type="button"
       onClick={toggle}
-      title={actionLabel}
-      aria-label={actionLabel}
+      title={buttonLabel}
+      aria-label={buttonLabel}
       className="gi flex h-11 w-11 items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
       style={{ color: 'var(--t2)' }}
     >
-      {visualMode === 'dark' ? (
+      {!hydrated ? (
+        <span aria-hidden="true" className="block h-[18px] w-[18px] rounded-full border" style={{ borderColor: 'currentColor' }} />
+      ) : visualMode === 'dark' ? (
         <Sun size={18} strokeWidth={2} />
       ) : (
         <Moon size={18} strokeWidth={2} />

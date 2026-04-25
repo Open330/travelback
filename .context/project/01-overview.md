@@ -32,8 +32,8 @@ Deployment note:
 
 ## Supported Input Formats
 
-1. **GPX** (.gpx) — Standard GPS Exchange Format with tracks, timestamps, elevation
-2. **KML** (.kml) — Keyhole Markup Language from Google Earth and similar tools; browser parsing depends on `DOMParser` plus `@tmcw/togeojson`, so malformed XML or unsupported KML extensions may be rejected
+1. **GPX** (.gpx) — Standard GPS Exchange Format with tracks, timestamps, elevation; current browser-side XML parsing is capped at 4 MB to avoid UI freezes
+2. **KML** (.kml) — Keyhole Markup Language from Google Earth and similar tools; browser parsing depends on `DOMParser` plus `@tmcw/togeojson`, so malformed XML, unsupported KML extensions, or files above the 4 MB XML safety cap may be rejected
 3. **Google Location History JSON** (.json) — Google Takeout export formats:
    - Legacy format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestampMs" }] }`
    - New format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestamp" }] }`
@@ -88,7 +88,7 @@ src/
 - **Playback controls**: Play/pause, 6 speed levels (0.5x–16x), seekable progress bar
 - **Configurable playback duration**: 10s to 5min presets in the playback controls
 - **Configurable export duration**: 5s to 3min in the export panel
-- **5 map styles**: Voyager, Light, Dark, Liberty, Bright
+- **5 local background themes**: Voyager, Light, Dark, Liberty, Bright; these are privacy-preserving route backdrops, not full road/city basemaps
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
 - **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape, 4K Landscape, 4K Portrait
 - **Configurable bitrate**: 1–20 Mbps

@@ -107,7 +107,7 @@ All track parsing and video encoding happen in the browser. There is no app-owne
 - Works offline after initial page load, including Journey Creator coordinate jumps
 
 Privacy/trust-boundary note:
-- Local style JSON, palette choices, and layer definitions are bundled with the app, so normal map display no longer needs any third-party map requests.
+- Local style JSON, palette choices, and layer definitions are bundled with the app, so normal route display no longer needs any third-party map requests. The bundled themes are abstract/local backdrops rather than full road/city basemaps.
 - Journey Creator includes a local-only coordinate jump tool that accepts pasted coordinates or coordinate-bearing links without geocoding.
 - Users with strict privacy requirements can keep route planning fully local by clicking on the map or pasting coordinates.
 
