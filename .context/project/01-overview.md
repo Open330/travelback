@@ -29,6 +29,7 @@ npm run test:e2e:static
 
 Deployment note:
 - The static bundle ships a client-side frame-busting fallback. Hosts/CDNs that support response headers should also send `Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`; GitHub Pages cannot attach those custom headers, so the Pages deployment relies on the JS fallback unless it is fronted by a header-capable CDN.
+- Production builds default to the GitHub Pages mount path `/travelback`. Set `TRAVELBACK_BASE_PATH` for another mount path and use the same value when serving `out/` with `scripts/serve-static.mjs`.
 
 ## Supported Input Formats
 

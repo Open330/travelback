@@ -49,7 +49,7 @@ map styles, export presets, or improve the scene editor.
 
 **Scene Editor** — Compose multi-segment cinematic sequences with per-scene camera modes and smooth transitions. Coverage bar shows scene boundaries.
 
-**Scene Presets** — Cinematic, Simple, Dynamic, Bird's Eye — one-click compositions that auto-generate 4–6 scenes.
+**Scene Presets** — Cinematic (6 scenes), Simple (1), Dynamic (8), and Bird's Eye (1) one-click compositions.
 
 **Timeline Selector** — Drag handles to trim a time range from large location histories. Shows point count and date range.
 
@@ -142,7 +142,7 @@ travelback/
 │   └── types.ts                    # TrackPoint, Scene, CameraMode, ExportConfig, resolution presets
 │
 ├── e2e/
-│   ├── travelback.spec.ts          # 39 Playwright E2E tests
+│   ├── travelback.spec.ts          # 74 Playwright E2E tests
 │   └── fixtures/                   # GPX, KML, JSON test fixtures
 │
 ├── public/                         # Static assets
@@ -201,6 +201,7 @@ npm run start
 
 Static output is generated in `out/` for deployment.
 `npm run start` serves the exported app at `http://localhost:3000/travelback/`.
+Set `TRAVELBACK_BASE_PATH` at build and serve time to deploy under a different mount path, for example `TRAVELBACK_BASE_PATH=/ npm run build` for a root-hosted export.
 
 ## Deploy
 
@@ -213,7 +214,7 @@ Automatically deployed to GitHub Pages on push to `main` via `.github/workflows/
 - **Journey Creator now uses a local-only coordinate jump tool.** You can paste coordinates or supported map links without sending any network request.
 - **Large files are bounded for browser safety.** The uploader rejects very large files and extremely high point-count tracks to reduce tab-freeze risk from pathological inputs.
 
-If you need a stricter privacy posture, avoid place search and consider self-hosting map/style assets in a future deployment.
+If you need a stricter privacy posture, self-host the static bundle behind response headers you control.
 
 ## Acknowledgements
 

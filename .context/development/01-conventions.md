@@ -12,7 +12,7 @@
 - Node.js 24 LTS
 - Next.js 16 App Router
 - React 19 with hooks (no class components)
-- All components use `'use client'` directive (client-side app)
+- Interactive React components use the `'use client'` directive; App Router layout/page files may stay server components when they only compose metadata/static shell markup
 
 ## Naming
 
