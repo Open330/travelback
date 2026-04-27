@@ -117,17 +117,17 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
 
         <path d={areaD} fill={`url(#${gradientId})`} aria-hidden="true" />
 
-        <path d={pathD} fill="none" style={{ stroke: 'rgb(var(--gl))', strokeWidth: 1.5 }} vectorEffect="non-scaling-stroke" aria-hidden="true" />
+        <path d={pathD} fill="none" stroke="rgb(var(--gl))" strokeWidth={1.5} vectorEffect="non-scaling-stroke" aria-hidden="true" />
 
         <clipPath id={clipId}>
           <rect x="0" y="0" width={progressX} height="100" />
         </clipPath>
-        <path d={areaD} style={{ fill: 'rgb(var(--gl))', opacity: 0.25 }} clipPath={`url(#${clipId})`} aria-hidden="true" />
+        <path d={areaD} fill="rgb(var(--gl))" opacity={0.25} clipPath={`url(#${clipId})`} aria-hidden="true" />
 
         <line
           x1={progressX} y1="0" x2={progressX} y2="100"
-          style={{ stroke: 'var(--trail, #f97316)', strokeWidth: 1.5 }} vectorEffect="non-scaling-stroke"
-          opacity="0.8"
+          stroke="var(--trail, #f97316)" strokeWidth={1.5} vectorEffect="non-scaling-stroke"
+          opacity={0.8}
           aria-hidden="true"
         />
       </svg>
