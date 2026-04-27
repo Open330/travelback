@@ -37,9 +37,9 @@ export default function Home() {
  * since a boundary at the first point carries no meaningful break
  * information — the trimmed range always starts a fresh segment.
  */
-function buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number): Track {
+function buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number): Track | null {
   const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
-  if (slicedPoints.length < 2) return fullTrack // caller should check
+  if (slicedPoints.length < 2) return null
   return {
     name: fullTrack.name,
     points: slicedPoints,
@@ -332,6 +332,7 @@ function HomeInner() {
     resetExportSession()
 
     const filteredTrack = buildFilteredTrack(fullTrack, startIdx, endIdx)
+    if (!filteredTrack) return
 
     setTrack(filteredTrack)
     resetPlayback()
@@ -347,6 +348,7 @@ function HomeInner() {
     if (slicedPoints.length < 2) return
     resetExportSession()
     const filteredTrack = buildFilteredTrack(fullTrack, startIdx, endIdx)
+    if (!filteredTrack) return
     setTrack(filteredTrack)
     resetPlayback()
   }, [pendingTrimRange, fullTrack, resetExportSession, resetPlayback])
