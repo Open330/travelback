@@ -501,7 +501,11 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
   return { points, segmentStartIndices }
 }
 
-function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
+// Exported for use by the Web Worker path — on the main thread, JSON.parse
+// throws RangeError on excessive nesting depth, which is caught and converted
+// to a ParseError. The worker cannot recover from a RangeError (it crashes the
+// process), so it uses this pre-flight check instead.
+export function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
   let inString = false
   let escape = false
