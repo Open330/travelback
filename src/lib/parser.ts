@@ -642,11 +642,17 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 
     worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string; code?: string }>) => {
       cleanup()
+      // Validate message shape before accessing properties
+      if (!event.data || typeof event.data !== 'object') {
+        reject(new ParseError('Worker returned invalid response', 'INVALID_GOOGLE_JSON'))
+        return
+      }
       if (event.data.error) {
         // Worker reported a parse error — the worker already tried and
         // failed, so reject with its error rather than falling back to
         // the main-thread parser (which would likely fail the same way).
-        reject(new ParseError(event.data.error, event.data.code ?? 'INVALID_GOOGLE_JSON'))
+        const errorMsg = typeof event.data.error === 'string' ? event.data.error : String(event.data.error)
+        reject(new ParseError(errorMsg, event.data.code ?? 'INVALID_GOOGLE_JSON'))
         return
       }
       if (!event.data.track) {
