@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHand
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeCumulativeDistances, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
+import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
 import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
@@ -940,9 +940,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return
     }
 
-    cumulDistRef.current = cumulativeDistancesProp?.length
-      ? cumulativeDistancesProp
-      : computeCumulativeDistances(track.points, track.segmentStartIndices)
+    cumulDistRef.current = cumulativeDistancesProp ?? []
     precomputedSegmentsRef.current = precomputeWrappedSegments(track.points, track.segmentStartIndices)
 
     const attachTrackToReadyStyle = () => {
