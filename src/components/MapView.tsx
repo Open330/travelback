@@ -392,6 +392,8 @@ function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, g
         'line-width': 1.1,
       },
     })
+  } else {
+    map.setPaintProperty(REFERENCE_GRID_MINOR_LAYER, 'line-color', gridPaint.minor)
   }
 
   if (!map.getLayer(REFERENCE_GRID_MAJOR_LAYER)) {
@@ -406,6 +408,8 @@ function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, g
         'line-width': 1.8,
       },
     })
+  } else {
+    map.setPaintProperty(REFERENCE_GRID_MAJOR_LAYER, 'line-color', gridPaint.major)
   }
 }
 
