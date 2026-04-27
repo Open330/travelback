@@ -276,12 +276,29 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
         w.push(`"${s.name}" ${t('scenes.willBeRemoved')}`)
       }
     }
-    // Only show the "ranges adjusted" warning if normalization actually
-    // changed something beyond the already-reported removals above.
+    // Show specific adjustment details when normalization changed something
+    // beyond the already-reported removals above.
     if (scenesWereAdjusted(nextScenes, normalized)) {
       const hasRemovals = nextScenes.some(s => s.startPercent >= s.endPercent)
       if (!hasRemovals) {
-        w.push(t('scenes.rangesAdjusted'))
+        // Find specific adjustments by comparing pre- and post-normalization
+        const normMap = new Map(normalized.map(s => [s.id, s]))
+        for (const orig of nextScenes) {
+          const norm = normMap.get(orig.id)
+          if (!norm) continue
+          const startDiff = Math.abs(norm.startPercent - orig.startPercent)
+          const endDiff = Math.abs(norm.endPercent - orig.endPercent)
+          if (startDiff > 0.001) {
+            w.push(`"${orig.name}" start: ${Math.round(orig.startPercent * 100)}% → ${Math.round(norm.startPercent * 100)}%`)
+          }
+          if (endDiff > 0.001) {
+            w.push(`"${orig.name}" end: ${Math.round(orig.endPercent * 100)}% → ${Math.round(norm.endPercent * 100)}%`)
+          }
+        }
+        // Fallback if no specific diff found (should not happen)
+        if (w.length === 0) {
+          w.push(t('scenes.rangesAdjusted'))
+        }
       }
     }
     setNormalizationWarnings(w)
