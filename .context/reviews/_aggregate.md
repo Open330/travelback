@@ -1,189 +1,206 @@
-# Cycle 10 Aggregate Review — 2026-04-27
+# Cycle 14 Aggregate Review — 2026-04-27
 
 Repository: `/Users/hletrd/flash-shared/Travelback`
 
-## Review lanes completed
+## Review methodology
 
-Completed and persisted per-agent reviews:
+Single-pass deep code review by one agent examining all source files with full context from 4 prior aggregate reviews (50+ findings across cycles 1, 2, 12, and 13). Focus on:
+1. Genuinely new findings not previously reported
+2. Verifying status of carried findings
+3. Cross-file interaction issues that may have been missed
+4. Current committed code state
 
-- `cycle10-code-reviewer-2026-04-27.md` — 5 findings (1 LOW-MEDIUM, 4 LOW)
-- `cycle10-perf-reviewer-2026-04-27.md` — 2 findings (1 LOW-MEDIUM, 1 LOW)
-- `cycle10-security-reviewer-2026-04-27.md` — 0 findings (clean)
-- `cycle10-critic-2026-04-27.md` — 3 findings (1 LOW-MEDIUM, 2 LOW)
-- `cycle10-verifier-2026-04-27.md` — 1 finding (1 LOW)
-- `cycle10-test-engineer-2026-04-27.md` — 2 findings (1 LOW-MEDIUM, 1 LOW)
-- `cycle10-tracer-2026-04-27.md` — 2 findings (1 LOW-MEDIUM, 1 LOW)
-- `cycle10-architect-2026-04-27.md` — 2 findings (1 LOW-MEDIUM, 1 LOW)
-- `cycle10-debugger-2026-04-27.md` — 2 findings (2 LOW)
-- `cycle10-designer-2026-04-27.md` — 2 findings (2 LOW)
-- `cycle10-document-specialist-2026-04-27.md` — 0 findings (clean)
+## Carried findings — status update
 
-Total: 21 raw findings across 11 reviewers.
+### Resolved since last aggregate
 
-## Deduplicated findings
+| Prior ID | Finding | Resolution |
+|----------|---------|------------|
+| C13-F01 | handleRangeChange stale pendingTrimRange | RESOLVED — `handleScenesChange` now clears `pendingTrimRange` when scenes become empty (page.tsx line 434) |
+| C13-F04 | computeCameraForProgress negative gapT | RESOLVED — defensive guard added at camera.ts line 395-397, treats as within previous scene |
+| C13-F06 | buildFitBounds degenerate padding too small | RESOLVED — DEGENERATE_PADDING increased to 0.1 (MapView.tsx line 217) |
+| C13-F07 | exportVideo progress unclamped | RESOLVED — progress clamped with Math.max(0, Math.min(1, progress)) at videoEncoder.ts line 165 |
+| C13-F08 | Scene normalization on every drag move | RESOLVED — `updateSceneRaw` applies without normalization during drag; `onCommit` fires on pointerup with normalization (SceneEditor.tsx lines 413-434, 648-651) |
+| C13-F09 | isLocalExportTestStubEnabled duplicated | RESOLVED — ExportPanel now imports from `@/lib/test-stub` (ExportPanel.tsx line 11) |
+| C13-F10 | 0.01ms animation duration for reduced-motion | RESOLVED — `animation: none !important` used at vitro-base.css line 769 |
 
-Severity/confidence preserves the highest level reported by any lane. "Agreement" lists lanes that independently flagged the same or overlapping issue.
+### Still open (carried forward unchanged)
+
+| Prior ID | Severity | Summary |
+|----------|----------|---------|
+| N01 | MEDIUM-HIGH | Per-frame trail geometry rebuild (partially resolved by precomputed segments) |
+| N02 | HIGH | No unit test layer for pure functions |
+| N03 | HIGH | E2E export success path exercises only stub |
+| N04 | MEDIUM-HIGH | Google JSON parser duplicated in worker vs main |
+| N07 | MEDIUM | normalizeBasePath triplication (partially resolved) |
+| N08 | MEDIUM | Scene editor static aria-valuemin/aria-valuemax |
+| N09 | MEDIUM | handleRangeChange clears all scenes on non-full trim |
+| N10 | MEDIUM | Scene normalization silently mutates user intent |
+| N11 | MEDIUM | Map layer ownership split across components |
+| N12 | MEDIUM | Track session state spread across 12+ atoms |
+| N13 | MEDIUM | Animated mesh vs prefers-reduced-motion (partially resolved — animation:none applied but `transition-duration: 0.01ms !important` still present at vitro-base.css line 770) |
+| N14 | MEDIUM | Export memory guard underestimates 4K peak |
+| N15 | MEDIUM | Worker crash fallback 16MB limit (partially resolved) |
+| N17 | MEDIUM | Mobile toolbar dialog not truly modal |
+| N18 | LOW | ExportError consistency (partially resolved — ExportError exists but videoEncoder still throws generic Error in some paths) |
+| N19 | LOW | Export test stub not documented |
+| N21 | LOW | isLocalExportTestStubEnabled duplicated (RESOLVED — fixed in C13-F09) |
+| N22 | LOW | computeCumulativeDistances fallback in MapView |
+| N23 | LOW | RTL unreadiness |
+| N24 | LOW | Architecture doc missing isExporting/precomputed segments (partially resolved) |
+| N25 | MEDIUM | videoEncoder double-rAF fallback without tile guarantee |
+| N26 | LOW | Playback timer unmount race |
+| N27 | LOW | Reference grid caching (RESOLVED — useMemo keyed on track) |
+| N29 | MEDIUM | checkJsonDepth double traversal |
+| N30 | MEDIUM | No test for isExporting guard |
+| N31 | MEDIUM | isExporting implicit contract |
+| N32 | LOW | Trail update strategy split |
+| N33 | INFO | stripXmlEntities redundancy |
+| N34 | LOW | Architecture doc incomplete |
+| N35 | LOW | Export panel swipe conflict |
+| C12-F02 | LOW | setExportProgress fires on every frame without throttling (RESOLVED — time-based throttle) |
+| C12-F03 | LOW | buildFilteredTrack returns full track on degenerate slice |
+| C12-F05 | LOW | No test for downloadVideo behavior |
+| C13-F02 | LOW | ModalDialog openModalStack HMR stale state |
+| C13-F03 | LOW | downloadVideo fallback <a> click may fail on iOS Safari |
+| C13-F05 | LOW | TimelineSelector never calls onRangeChange on click-without-drag |
+
+## New findings (deduplicated)
 
 ---
 
-### C10-F01 — `handleLoadSample` closes over `t` directly (inconsistent with tRef pattern)
-
-- **Severity:** LOW-MEDIUM
-- **Confidence:** High
-- **Status:** Confirmed
-- **Files:** `src/app/page.tsx:369-392`
-- **Agreement:** code-reviewer (C10-CR-01), critic (C10-CT-01), tracer (C10-T-01), architect (C10-ARCH-01)
-- **Detail:** After C8-F02 and C9-F04 systematically replaced `t` with `tRef` in `useExportController` and `loadTrackIntoSession`, `handleLoadSample` remains the one callback in `page.tsx` that closes over `t` directly. It includes `t` in its dependency array, causing unnecessary re-creation on locale changes.
-- **Failure scenario:** When locale changes, `handleLoadSample` is recreated, causing `FileUpload` to re-render even when no sample load is in progress.
-- **Suggested fix:** Use `tRef.current('app.sampleLoadFailed')` inside the callback and remove `t` from deps.
-
----
-
-### C10-F02 — Duplicated track-slicing logic between `handleRangeChange` and `confirmTrimClear`
+### C14-F01 — `reduced-motion: reduce` still uses `transition-duration: 0.01ms !important` instead of `0ms`
 
 - **Severity:** LOW
 - **Confidence:** High
-- **Status:** Confirmed
-- **Files:** `src/app/page.tsx:298-330, 332-355`
-- **Agreement:** code-reviewer (C10-CR-02), critic (C10-CT-02), tracer (C10-T-02), architect (C10-ARCH-02)
-- **Detail:** The track-slicing, segment-remapping, and filtered-track construction logic is copy-pasted between `handleRangeChange` and `confirmTrimClear`. The two differ only in that `confirmTrimClear` first clears scenes and `handleRangeChange` short-circuits when scenes exist.
-- **Failure scenario:** A future fix to segment remapping in one path but not the other introduces behavioral drift.
-- **Suggested fix:** Extract shared `buildFilteredTrack(fullTrack, startIdx, endIdx)` helper.
+- **Status:** Related to N13 (carried forward — animation fixed but transition not)
+- **Files:** `src/styles/vitro-base.css:770`
+- **Detail:** While `animation: none !important` was correctly applied (C13-F10), the `transition-duration: 0.01ms !important` remains in the reduced-motion block. A 0.01ms transition still triggers the CSS transition machinery (style recalculation + compositing step) even though the visual change is imperceptible. For users with vestibular disorders, the correct approach is `transition-duration: 0ms !important` or `transition: none !important`. The difference from animation is that transitions still "run" at 0.01ms — they complete in one frame but still invoke the transition start/end callbacks and cause a compositing step.
+- **Failure scenario:** On a low-power device with reduced-motion enabled, elements that have CSS transitions (hover effects, color changes) still cause unnecessary style recalculations and compositing work per transition, even though the visual effect is imperceptible.
+- **Suggested fix:** Change `transition-duration: 0.01ms !important` to `transition-duration: 0ms !important` in the `@media (prefers-reduced-motion: reduce)` block.
 
 ---
 
-### C10-F03 — `buildTrackGeometry` fallback generates invalid GeoJSON when segments is empty
+### C14-F02 — `handleScenesChange` reads stale `scenes` from closure via `value(scenes)` pattern
 
-- **Severity:** LOW
+- **Severity:** MEDIUM
 - **Confidence:** High
-- **Status:** Confirmed (latent)
-- **Files:** `src/components/MapView.tsx:176-179`
-- **Agreement:** code-reviewer (C10-CR-03), debugger (C10-DBG-01)
-- **Detail:** When `segments` is empty, the fallback `buildWrappedCoordinates(points.slice(0, 1))` produces either an empty or single-point LineString coordinates array, which is invalid per the GeoJSON RFC 7946. MapLibre tolerates this but logs a console warning.
-- **Failure scenario:** Console warning on degenerate tracks. Not user-visible currently because the parser enforces >= 2 valid points.
-- **Suggested fix:** Return `{ type: 'LineString', coordinates: [] }` when `segments.length === 0`.
+- **Files:** `src/app/page.tsx:430-437`
+- **Detail:** `handleScenesChange` accepts `SetStateAction<Scene[]>` and calls `const resolved = typeof value === 'function' ? value(scenes) : value` to detect when scenes become empty and clear `pendingTrimRange`. However, `scenes` in this closure is captured from the component's render scope, not from a ref. If `setScenes(value)` triggers a re-render that commits before `resolved` is computed, the `scenes` variable used in `value(scenes)` could be stale. In React 18+ with automatic batching this is unlikely to cause issues in practice, but the pattern is fragile — it depends on the synchronous nature of `setScenes` and the function updater running against the current state at the time of the call, not the render-scope `scenes`.
+- **Failure scenario:** In a concurrent rendering scenario, `scenes` in the closure could be stale, causing `resolved` to reflect an outdated state. The `pendingTrimRange` cleanup may not fire when it should, or may fire incorrectly.
+- **Suggested fix:** Move the `pendingTrimRange` cleanup into a `useEffect` that watches `scenes.length` and `pendingTrimRange`, rather than trying to compute it synchronously in the callback. Alternatively, use a ref for `scenes` to avoid stale closures.
 
 ---
 
-### C10-F04 — Export progress throttling uses absolute delta instead of time-based interval
+### C14-F03 — `useExportController` `exportTrack` depends on `scenes` in its dependency array but reads `scenes` directly for `exportScenes`
 
 - **Severity:** LOW-MEDIUM
 - **Confidence:** High
-- **Status:** Likely
-- **Files:** `src/lib/useExportController.ts:202-204`
-- **Agreement:** perf-reviewer (C10-P-01)
-- **Detail:** The export playback progress update is throttled when `nextProgress - exportProgressRef.current >= 0.02`. Since progress is linear in frames, the throttle fires more frequently for short exports and less for long ones. A time-based throttle would provide consistent ~10 Hz UI updates.
-- **Failure scenario:** Short exports may have fewer progress updates than expected; long exports may have more. Not a user-facing bug but inconsistent UX timing.
-- **Suggested fix:** Replace absolute-delta throttle with `performance.now()` based interval (100ms = 10 Hz).
+- **Files:** `src/lib/useExportController.ts:152-154`
+- **Detail:** In `exportTrack`, `const exportScenes = scenes.length > 0 ? scenes : generateDefaultScenes()` reads `scenes` directly from the callback's closure. While `scenes` is in the dependency array (line 297), this means `exportTrack` is recreated on every scenes change. For an async function that may be running during a scenes change, the old closure's `scenes` value is used for the already-running export (which is correct behavior — you don't want mid-export scene changes). However, the dependency array inclusion means `exportTrack` identity changes frequently, which could cause unnecessary re-renders in components that receive it as a prop.
+- **Failure scenario:** Frequent scene edits cause `exportTrack` to be recreated on every change. Components receiving `exportTrack` as a prop re-render unnecessarily.
+- **Suggested fix:** Store `scenes` in a ref (`scenesRef`) and read from the ref inside `exportTrack`, removing `scenes` from the dependency array. The export already captures scenes at the start of the async function, so this is semantically equivalent.
 
 ---
 
-### C10-F05 — Export progress bar `aria-valuenow` not defensively clamped
+### C14-F04 — `usePlaybackController` fallback timer can fire after component unmount
+
+- **Severity:** LOW
+- **Confidence:** High
+- **Status:** Related to N26 (carried forward) but more specific
+- **Files:** `src/lib/usePlaybackController.ts:119`
+- **Detail:** The `animate` function is scheduled via both `requestAnimationFrame` and a 250ms `setTimeout` fallback. The cleanup function at line 149-153 cancels both. However, the `animate` function calls `scheduleNextFrame()` which schedules a new pair. If the component unmounts between when `animate` runs and when the cleanup function cancels the timers, the `mountedRef.current` guard (line 125) prevents state updates. But the `setTimeout` fallback timer is still scheduled and will fire — the only thing preventing state mutation is the `mountedRef` check inside `animate`. If `animate` is called by the fallback timer after unmount, it reads `isPlayingRef.current` (false after unmount) and returns early. This is safe in practice but wastes a timer callback.
+- **Failure scenario:** Minor — a 250ms timer fires after component unmount, reads `isPlayingRef.current === false`, returns early. No state mutation, but unnecessary work.
+- **Suggested fix:** No action needed — the existing `mountedRef` guard is sufficient. Documenting as a known minor pattern.
+
+---
+
+### C14-F05 — `checkJsonDepth` does not handle multi-byte UTF-8 characters correctly in string detection
 
 - **Severity:** LOW
 - **Confidence:** Medium
-- **Files:** `src/components/ExportPanel.tsx:295`
-- **Agreement:** verifier (C10-V-01), debugger (C10-DBG-02)
-- **Detail:** `aria-valuenow={Math.round(exportProgress * 100)}` could theoretically exceed 100 if `exportProgress` exceeds 1.0. Currently safe because the video encoder clamps progress, but no defensive guard exists at the display layer.
-- **Suggested fix:** `aria-valuenow={Math.min(100, Math.round(exportProgress * 100))}`.
+- **Status:** Related to N29 (carried forward)
+- **Files:** `src/lib/parser.ts:511-529`
+- **Detail:** `checkJsonDepth` iterates character-by-character (`text[i]`) to track JSON nesting depth while skipping string literals. In JavaScript, `string[i]` returns UTF-16 code units, not Unicode code points. For strings containing characters outside the Basic Multilingual Plane (e.g., emoji, CJK extension B), a single character is represented as two UTF-16 code units (a surrogate pair). The `ch === '"'` check will never match the second half of a surrogate pair, so it cannot prematurely break out of a string. However, if a JSON key or value contains a lone surrogate (which is invalid JSON but could appear in a malformed file), the character-by-character iteration could miscount depth if a `"` appears as the second half of a surrogate pair. In practice, `JSON.parse` would reject such files before `checkJsonDepth` is called on the main thread, but the worker uses `checkJsonDepth` as a preflight check.
+- **Failure scenario:** A malformed Google JSON file with lone surrogates could cause `checkJsonDepth` to miscount nesting depth, either passing a file that should fail or rejecting a valid file. Extremely unlikely in practice since Google exports use ASCII keys and the depth tracker only matters for `{`/`}` outside strings.
+- **Suggested fix:** Use `for (const ch of text)` instead of `for (let i = 0; i < text.length; i++)` to iterate over Unicode code points rather than UTF-16 code units. This is semantically more correct and handles surrogate pairs properly.
 
 ---
 
-### C10-F06 — No unit test for antimeridian-crossing tracks
-
-- **Severity:** LOW-MEDIUM
-- **Confidence:** High
-- **Files:** `src/lib/interpolate.test.ts`, `src/lib/camera.test.ts`
-- **Agreement:** test-engineer (C10-TE-01)
-- **Detail:** The `wrapLngNear`, `shortestLngDelta`, `buildFitBounds`, and `buildTrackGeometry` functions all have explicit antimeridian handling, but no unit test exercises tracks that cross the +-180 longitude boundary.
-- **Failure scenario:** A refactor to antimeridian handling breaks silently because no test exercises those paths.
-- **Suggested fix:** Add antimeridian-crossing test fixtures and test cases.
-
----
-
-### C10-F07 — No unit test for segment-remapping in trimmed tracks
+### C14-F06 — `SceneEditor` `removeScene` calls `commitScenes` which normalizes, but `setDeletedScene` stores the pre-normalization scene for undo
 
 - **Severity:** LOW
 - **Confidence:** High
-- **Files:** `src/app/page.tsx:310-326`
-- **Agreement:** test-engineer (C10-TE-02)
-- **Detail:** The segment-start-index remapping logic in `handleRangeChange` (and duplicated in `confirmTrimClear`) is only tested through E2E. It should be extracted and unit-tested.
-- **Failure scenario:** A change to the remapping logic breaks segment boundaries for trimmed tracks without being caught by E2E.
-- **Suggested fix:** Extract `buildFilteredTrack` and add unit tests.
+- **Files:** `src/components/SceneEditor.tsx:363-367`
+- **Detail:** When a scene is removed, `removeScene` first captures the scene from the current array (`scenes[idx]`) into `deletedScene`, then calls `commitScenes(scenes.filter(...))` which normalizes the remaining scenes. If the user then clicks "Undo", the scene is re-inserted at its original position with its original (pre-normalization) range values. When `commitScenes` is called on the restored array, normalization may adjust the restored scene's ranges, potentially producing a different result than the original state before the deletion.
+- **Failure scenario:** User has scenes A(0-0.3) and B(0.3-0.6). They delete scene A. Scene B is normalized to B(0-0.6). User undoes. Scene A(0-0.3) is re-inserted before B(0.3-0.6). But the undo restored B's range as (0.3-0.6), not the original. If B had been adjusted during normalization after deletion, undo restores stale values. In this specific case the values happen to be consistent, but with overlapping scenes the undo could produce unexpected results.
+- **Suggested fix:** Store the entire scenes array snapshot before deletion and restore it on undo, rather than splicing a single scene back into the current (post-normalization) array.
 
 ---
 
-### C10-F08 — Export panel swipe-to-dismiss has no visual affordance on mobile
-
-- **Severity:** LOW
-- **Confidence:** High
-- **Files:** `src/components/ExportPanel.tsx:111-127`
-- **Agreement:** designer (C10-D-01)
-- **Detail:** The export panel supports a vertical swipe-to-dismiss gesture but provides no visual indicator (drag handle, chevron, hint text) that this gesture is available.
-- **Suggested fix:** Add a subtle drag handle at the top of the modal panel for touch devices.
-
----
-
-### C10-F09 — File upload drop zone is focusable via `tabIndex={-1}` with no keyboard action or ARIA label
+### C14-F07 — `buildFitBounds` does not handle antimeridian-wrapped degenerate bounds correctly
 
 - **Severity:** LOW
 - **Confidence:** Medium
-- **Files:** `src/components/FileUpload.tsx:175`
-- **Agreement:** designer (C10-D-02)
-- **Detail:** The drag-and-drop area has `tabIndex={-1}` making it focusable, but no keyboard action is provided. Screen-reader users may encounter a focusable element with no indication of its purpose.
-- **Suggested fix:** Either remove `tabIndex={-1}` from the drop zone or add `aria-label` indicating it is a drop zone for mouse/touch users.
+- **Files:** `src/components/MapView.tsx:193-228`
+- **Detail:** When all track points are coincident and the track crosses the antimeridian (e.g., a point at longitude 179.9 and another at -179.9), `buildFitBounds` first extends the bounds in shifted coordinates (0-360 range), then checks for degenerate bounds using `bounds.getSouthWest().lng` vs `bounds.getNorthEast().lng`. However, after wrapping the shifted coordinates through `bounds.extend()`, the SW/NE values may be in shifted space (e.g., SW.lng=179.9, NE.lng=180.1). The degenerate check uses `Math.abs(SW.lng - NE.lng) < 1e-10`, which would correctly detect the non-degenerate case. But the `DEGENERATE_PADDING` of 0.1 degrees is applied in the original coordinate space, not the shifted space, which could produce an asymmetric padding when the center is near the antimeridian.
+- **Failure scenario:** A degenerate track at longitude 179.95 produces bounds centered near 180 degrees. Adding 0.1 degrees of padding gives SW.lng=179.85, NE.lng=180.05, but the NE value may wrap to -179.95, producing a bounds that spans the entire world instead of a small region around 180.
+- **Suggested fix:** Apply `DEGENERATE_PADDING` in the same coordinate space as the bounds — if the bounds were computed in shifted space, pad in shifted space.
 
 ---
 
-### C10-F10 — `computeCumulativeDistances` recomputed redundantly for trimmed tracks
+### C14-F08 — `ExportPanel` `handleShare` silently fails without user feedback when `navigator.share` throws non-AbortError
 
 - **Severity:** LOW
 - **Confidence:** High
-- **Files:** `src/app/page.tsx:158-168`
-- **Agreement:** perf-reviewer (C10-P-02)
-- **Detail:** When a track is trimmed (track !== fullTrack), cumulative distances are recomputed from scratch via O(n) haversine, even when the trim preserves most points.
-- **Failure scenario:** Trimming a 250K-point track to 249K points recomputes all 249K distances unnecessarily. Minor since trim is user-initiated.
-- **Suggested fix:** Consider slice-based reuse: if the trim starts at index 0, offset the full distances. Full optimization may not be worth the code complexity.
+- **Files:** `src/components/ExportPanel.tsx:169-180`
+- **Detail:** `handleShare` catches `DOMException` with `name === 'AbortError'` (user cancelled share dialog) and returns silently, which is correct. But for other errors (e.g., `NotAllowedError` when share is called without user activation, or `DataError` when the file is too large for the share API), the function only logs to console.error without showing any user feedback. The user taps "Share" and nothing happens visible — no toast, no error message.
+- **Failure scenario:** User taps Share on a device where `navigator.share` is supported for files but the share dialog fails for a non-obvious reason (e.g., the file is too large for the system share sheet). No error is shown.
+- **Suggested fix:** Add a toast message for non-AbortError share failures, similar to the export error handling pattern.
 
 ---
 
-## Verified already-fixed (confirmed this cycle)
+## Verified this cycle
 
-| ID | Original Severity | Verification |
-|----|------------------|-------------|
-| C9-F01 | MEDIUM | ElevationProfile SVG focus-visible confirmed at line 100 |
-| C9-F02 | LOW-MEDIUM | Export progress bar ARIA progressbar role confirmed at line 295 |
-| C9-F03 | LOW | toLocaleString(locale) confirmed at lines 127, 135 |
-| C9-F04 | LOW | tRef in loadTrackIntoSession confirmed at line 284 |
-
-## Carried forward (still open, not newly addressed)
-
-| ID | Severity | Note |
-|----|----------|------|
-| AG6-05 | LOW-MEDIUM | Worker message validation |
-| AG6-09 | LOW-MEDIUM | Bootstrap regex comments |
-| AG6-10 | LOW | Unsafe type casts |
-| AG6-11 | LOW | Stale frame logging |
-| AG6-12 | LOW | Grid memo optimization |
-| AG6-13 | LOW-MEDIUM | Buffer copy optimization |
-| AG6-14 | LOW-MEDIUM | Normalization warnings specificity |
-| AG6-15 | LOW-MEDIUM | Export progress bar transition |
-| AG6-16 | LOW | Toast z-index overlap |
-| AG6-17 | LOW | README accuracy |
-| AG6-18 | MEDIUM | Camera unit test coverage |
-| AG6-19 | MEDIUM | DEFERRED — architectural refactor |
-| C7-F06 | LOW | ElevationProfile SVG click padding (latent) |
-| C7-F07 | LOW | handleSearchSubmit guard (latent) |
-| C8-F03 | LOW | SceneEditor locale cascade (optimization) |
+| Claim | Verdict |
+|-------|---------|
+| ESLint passes with zero errors/warnings | VERIFIED |
+| TypeScript `--noEmit` passes | VERIFIED |
+| `next build` succeeds | VERIFIED |
+| `isExporting` guard suppresses MapView progress effect | VERIFIED — line 1063 of MapView.tsx |
+| Precomputed segments used for trail updates | VERIFIED — lines 1087-1135 of MapView.tsx |
+| `renderFrameAndWait` has 5s timeout | VERIFIED — line 647 of MapView.tsx |
+| `resetSize` clears container styles before map.resize() | VERIFIED — lines 683-698 of MapView.tsx |
+| `downloadVideo` no longer checks user activation | VERIFIED — line 211 of videoEncoder.ts |
+| Export progress throttle uses 100ms interval | VERIFIED — lines 209-212 of useExportController.ts |
+| Reference grid cached via useMemo keyed on track | VERIFIED — line 473 of MapView.tsx |
+| `normalizeBasePath` rejects `..` | VERIFIED — line 5 of env.ts |
+| `buildFilteredTrack` returns `null` for degenerate slices | VERIFIED — line 42 of page.tsx |
+| `pendingTrimRange` cleared when scenes emptied | VERIFIED — lines 434-436 of page.tsx |
+| Gap negative-t guard in computeCameraForProgress | VERIFIED — lines 395-397 of camera.ts |
+| DEGENERATE_PADDING is 0.1 | VERIFIED — line 217 of MapView.tsx |
+| Progress clamped to [0,1] in exportVideo | VERIFIED — line 165 of videoEncoder.ts |
+| SceneEditor uses updateSceneRaw during drag + onCommit | VERIFIED — lines 413-434, 648-651 of SceneEditor.tsx |
+| ExportPanel imports isLocalExportTestStubEnabled from test-stub.ts | VERIFIED — line 11 of ExportPanel.tsx |
+| `animation: none !important` for reduced-motion | VERIFIED — line 769 of vitro-base.css |
+| `handleScenesChange` clears pendingTrimRange when scenes empty | VERIFIED — lines 434-436 of page.tsx |
 
 ## Finding count summary
 
-| Severity | Count |
-|----------|-------|
-| LOW-MEDIUM | 3 (C10-F01, C10-F04, C10-F06) |
-| LOW | 7 (C10-F02, C10-F03, C10-F05, C10-F07, C10-F08, C10-F09, C10-F10) |
-| **Total** | **10** |
+| Severity | Count | New this cycle | Carried from prior cycles |
+|----------|-------|----------------|--------------------------|
+| HIGH | 2 | 0 | N02, N03 |
+| MEDIUM-HIGH | 2 | 0 | N01, N04 |
+| MEDIUM | 13 | 1 (C14-F02) | 12 carried |
+| LOW-MEDIUM | 2 | 1 (C14-F03) | 1 carried (C13-F04 resolved) |
+| LOW | 12 | 5 (C14-F01, C14-F05, C14-F06, C14-F07, C14-F08) | 7 carried |
+| INFO | 1 | 0 | N33 |
+| **Total new** | **7** | **7** | — |
 
 ## Actionable this cycle
 
-C10-F01 (low-medium — use tRef in handleLoadSample), C10-F02 (low — extract buildFilteredTrack), C10-F03 (low — fix degenerate GeoJSON fallback), C10-F05 (low — clamp aria-valuenow), C10-F04 (low-medium — time-based export throttle)
+1. **C14-F01** (LOW) — Change `transition-duration: 0.01ms !important` to `0ms !important` in reduced-motion block
+2. **C14-F02** (MEDIUM) — Move `pendingTrimRange` cleanup to a `useEffect` watching `scenes.length` instead of computing in `handleScenesChange` closure
+3. **C14-F03** (LOW-MEDIUM) — Store `scenes` in a ref inside `useExportController` to avoid recreating `exportTrack` on every scene change
+4. **C14-F06** (LOW) — Store full scenes array snapshot before deletion for undo instead of splicing single scene back
+5. **C14-F08** (LOW) — Add toast feedback for non-AbortError share failures in ExportPanel
