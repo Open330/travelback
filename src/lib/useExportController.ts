@@ -17,6 +17,8 @@ export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
   EXPORT_TOO_LARGE: 'app.exportFailedSuffix',
   EXPORT_NO_BUFFER: 'app.exportFailedSuffix',
+  EXPORT_MAP_RENDER: 'app.exportMapRenderFailed',
+  EXPORT_MAP_IDLE: 'app.exportMapRenderFailed',
 }
 
 function isMapRenderExportError(error: unknown): boolean {
@@ -170,7 +172,7 @@ export function useExportController({
 
       const mapSettledAfterResize = await mapHandle.waitForIdle(abortController.signal)
       if (!mapSettledAfterResize) {
-        throw new Error('Map did not finish rendering after resize')
+        throw new ExportError('Map did not finish rendering after resize', 'EXPORT_MAP_RENDER')
       }
 
       let consecutiveIdleTimeouts = 0
@@ -183,7 +185,7 @@ export function useExportController({
 
         consecutiveIdleTimeouts += 1
         if (consecutiveIdleTimeouts >= 2) {
-          throw new Error('Map did not finish rendering in time for export')
+          throw new ExportError('Map did not finish rendering in time for export', 'EXPORT_MAP_IDLE')
         }
       }
 
