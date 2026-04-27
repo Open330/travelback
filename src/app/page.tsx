@@ -325,7 +325,7 @@ function HomeInner() {
 
     setTrack(filteredTrack)
     resetPlayback()
-  }, [fullTrack, resetExportSession, resetPlayback, scenes.length, t])
+  }, [fullTrack, resetExportSession, resetPlayback, scenes.length])
 
   const confirmTrimClear = useCallback(() => {
     if (!pendingTrimRange || !fullTrack) return
