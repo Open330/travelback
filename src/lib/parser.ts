@@ -614,6 +614,10 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
     // Keep only a bounded binary fallback copy before transferring the
     // ArrayBuffer. Large JSON files should stay worker-only; decoding a full
     // text copy on the main thread defeats the worker memory/isolation goal.
+    // Note: for files at or below 16 MB, this creates a brief ~2x memory
+    // spike (original + fallback). This is intentional — small files can be
+    // safely decoded on the main thread if the worker fails. For files above
+    // 16 MB, fallbackBuffer is null and no extra copy is made (C16-F08).
     const fallbackBuffer = buffer.byteLength <= MAIN_THREAD_JSON_FALLBACK_SIZE ? buffer.slice(0) : null
 
     let worker: Worker
