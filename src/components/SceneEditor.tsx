@@ -268,16 +268,21 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const commitScenes = useCallback((nextScenes: Scene[]) => {
     const normalized = normalizeScenes(nextScenes)
     const w: string[] = []
-    // Validate raw scene ranges before normalization so scenes that were
-    // removed or clamped still get a concrete warning, then avoid stale
-    // overlap warnings by reporting only the post-normalization outcome.
+    // Identify scenes that will be removed by normalization (start >= end)
+    // and report them as "will be removed" rather than "has start >= end",
+    // since the scene won't exist in the final list.
     for (const s of nextScenes) {
       if (s.startPercent >= s.endPercent) {
-        w.push(`"${s.name}" ${t('scenes.hasStartGteEnd')}`)
+        w.push(`"${s.name}" ${t('scenes.willBeRemoved')}`)
       }
     }
+    // Only show the "ranges adjusted" warning if normalization actually
+    // changed something beyond the already-reported removals above.
     if (scenesWereAdjusted(nextScenes, normalized)) {
-      w.push(t('scenes.rangesAdjusted'))
+      const hasRemovals = nextScenes.some(s => s.startPercent >= s.endPercent)
+      if (!hasRemovals) {
+        w.push(t('scenes.rangesAdjusted'))
+      }
     }
     setNormalizationWarnings(w)
 
