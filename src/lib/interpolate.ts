@@ -2,7 +2,10 @@ import type { TrackPoint } from '@/types'
 
 const toRad = (deg: number) => (deg * Math.PI) / 180
 const toDeg = (rad: number) => (rad * 180) / Math.PI
-export const normalizeLng = (lng: number) => ((lng + 180) % 360 + 360) % 360 - 180
+export const normalizeLng = (lng: number) => {
+  if (!Number.isFinite(lng)) return 0
+  return ((lng + 180) % 360 + 360) % 360 - 180
+}
 export const shortestLngDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180
 
 /** Adjust a longitude to be within ±180° of a reference longitude.
