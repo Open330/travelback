@@ -172,8 +172,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const draggingIndexRef = useRef<number | null>(null)
   const dragMovedRef = useRef(false)
   const suppressMapClickUntilRef = useRef(0)
-  // Store cleanup functions
-  const cleanupRef = useRef<(() => void) | null>(null)
+  // Store cleanup functions — accumulated across style reloads so that
+  // bindListeners() calls never overwrite a previous cleanup (C15-F01).
+  const cleanupRef = useRef<(() => void)[]>([])
 
   const syncUI = useCallback(() => {
     const pts = waypointsRef.current
@@ -280,10 +281,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
     if (!isActive) {
       // Clean up when deactivated
-      if (cleanupRef.current) {
-        cleanupRef.current()
-        cleanupRef.current = null
-      }
+      for (const fn of cleanupRef.current) fn()
+      cleanupRef.current = []
       removeLayers(map)
       waypointsRef.current = []
       setPointCount(0)
@@ -294,9 +293,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
     // Set up layers and event handlers
     const bindListeners = () => {
-      if (cleanupRef.current) {
-        cleanupRef.current()
-      }
+      // Run all previous cleanups before adding new listeners
+      for (const fn of cleanupRef.current) fn()
+      cleanupRef.current = []
 
       addLayers(map)
       updateMapData()
@@ -430,7 +429,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       map.on('mouseenter', LAYER_POINTS, onMouseEnterPoint)
       map.on('mouseleave', LAYER_POINTS, onMouseLeavePoint)
 
-      cleanupRef.current = () => {
+      cleanupRef.current.push(() => {
         map.off('click', onClick)
         map.off('click', LAYER_POINTS, onPointClick)
         map.off('mousedown', LAYER_POINTS, onMouseDownPoint)
@@ -447,7 +446,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         draggingIndexRef.current = null
         dragMovedRef.current = false
         suppressMapClickUntilRef.current = 0
-      }
+      })
     }
 
     const handleStyleReload = () => {
@@ -467,10 +466,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     }
 
     return () => {
-      if (cleanupRef.current) {
-        cleanupRef.current()
-        cleanupRef.current = null
-      }
+      for (const fn of cleanupRef.current) fn()
+      cleanupRef.current = []
       map.off('style.load', handleInitialStyleLoad)
       map.off('style.load', handleStyleReload)
       removeLayers(map)
