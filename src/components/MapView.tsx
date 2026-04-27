@@ -214,7 +214,7 @@ function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
   // Guard: degenerate bounds (single point or all coincident points) cause
   // fitBounds to zoom to maximum level. Expand by a small margin so the
   // map shows a reasonable view instead.
-  const DEGENERATE_PADDING = 0.01
+  const DEGENERATE_PADDING = 0.1
   if (
     Math.abs(bounds.getSouthWest().lng - bounds.getNorthEast().lng) < 1e-10
     && Math.abs(bounds.getSouthWest().lat - bounds.getNorthEast().lat) < 1e-10
