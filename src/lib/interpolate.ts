@@ -5,6 +5,15 @@ const toDeg = (rad: number) => (rad * 180) / Math.PI
 export const normalizeLng = (lng: number) => ((lng + 180) % 360 + 360) % 360 - 180
 export const shortestLngDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180
 
+/** Adjust a longitude to be within ±180° of a reference longitude.
+ *  Used for antimeridian wrapping when building continuous coordinate arrays. */
+export function wrapLngNear(referenceLng: number, nextLng: number): number {
+  let adjusted = nextLng
+  while (adjusted - referenceLng > 180) adjusted -= 360
+  while (adjusted - referenceLng < -180) adjusted += 360
+  return adjusted
+}
+
 function haversineDistance(a: TrackPoint, b: TrackPoint): number {
   const R = 6371000
   const dLat = toRad(b.lat - a.lat)

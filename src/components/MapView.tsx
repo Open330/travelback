@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImper
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
+import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter, wrapLngNear } from '@/lib/interpolate'
 import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
@@ -117,13 +117,6 @@ function precomputeWrappedSegments(
   points: Track['points'],
   segmentStartIndices: number[] = [],
 ): PrecomputedSegment[] {
-  const wrapLngNear = (referenceLng: number, nextLng: number) => {
-    let adjusted = nextLng
-    while (adjusted - referenceLng > 180) adjusted -= 360
-    while (adjusted - referenceLng < -180) adjusted += 360
-    return adjusted
-  }
-
   const ranges = buildSegmentRanges(points.length, segmentStartIndices)
   return ranges.map((range) => {
     const coordinates: [number, number][] = []
@@ -143,13 +136,6 @@ function buildTrackGeometry(
   uptoIndex?: number,
   interpolatedPoint?: TrackPoint,
 ): GeoJSON.LineString | GeoJSON.MultiLineString {
-  const wrapLngNear = (referenceLng: number, nextLng: number) => {
-    let adjusted = nextLng
-    while (adjusted - referenceLng > 180) adjusted -= 360
-    while (adjusted - referenceLng < -180) adjusted += 360
-    return adjusted
-  }
-
   const buildWrappedCoordinates = (segmentPoints: TrackPoint[]) => {
     const coordinates: [number, number][] = []
     for (const point of segmentPoints) {
@@ -1026,13 +1012,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (trailSource && precomputedSegmentsRef.current.length > 0) {
       const segments = precomputedSegmentsRef.current
       const trailSegments: [number, number][][] = []
-
-      const wrapLngNear = (referenceLng: number, nextLng: number) => {
-        let adjusted = nextLng
-        while (adjusted - referenceLng > 180) adjusted -= 360
-        while (adjusted - referenceLng < -180) adjusted += 360
-        return adjusted
-      }
 
       for (const seg of segments) {
         if (seg.range.start > segmentIndex) break
