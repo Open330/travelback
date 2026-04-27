@@ -86,6 +86,10 @@ function SceneRangeEditor({
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
   const onCommitRef = useRef(onCommit)
   useEffect(() => { onCommitRef.current = onCommit }, [onCommit])
+  const startPercentRef = useRef(startPercent)
+  useEffect(() => { startPercentRef.current = startPercent }, [startPercent])
+  const endPercentRef = useRef(endPercent)
+  useEffect(() => { endPercentRef.current = endPercent }, [endPercent])
 
   const clampRange = useCallback((start: number, end: number): [number, number] => {
     let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
@@ -101,12 +105,12 @@ function SceneRangeEditor({
     dragState.current = {
       type,
       originX: clientX,
-      originStart: startPercent,
-      originEnd: endPercent,
+      originStart: startPercentRef.current,
+      originEnd: endPercentRef.current,
     }
     dragWidthRef.current = containerRef.current?.getBoundingClientRect().width || 1
     setDragging(true)
-  }, [endPercent, startPercent])
+  }, [])
 
   useEffect(() => {
     if (!dragging) return
