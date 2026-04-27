@@ -313,7 +313,7 @@ function HomeInner() {
 
     setTrack(filteredTrack)
     resetPlayback()
-  }, [fullTrack, resetExportSession, resetPlayback, scenes.length])
+  }, [fullTrack, resetExportSession, resetPlayback, scenes.length, t])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
     loadTrackIntoSession(nextTrack)
