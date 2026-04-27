@@ -1,5 +1,6 @@
 import { gpx, kml } from '@tmcw/togeojson'
 import type { Track, TrackPoint } from '@/types'
+import { basePath } from '@/lib/env'
 
 const MAX_TRACK_POINTS = 250_000
 const XML_MAX_TAGS = 150_000
@@ -591,12 +592,6 @@ function parseSmallGoogleJsonFallback(buffer: ArrayBuffer): Track {
   return parseGoogleLocationHistory(decodeJsonBuffer(buffer))
 }
 
-function normalizeBasePath(value: string | undefined): string {
-  if (!value || value === '/') return ''
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : ''
-}
-
 async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Promise<Track> {
   if (typeof Worker === 'undefined') {
     return parseSmallGoogleJsonFallback(buffer)
@@ -610,7 +605,6 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
 
     let worker: Worker
     try {
-      const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
       worker = new Worker(`${basePath}/workers/trackParser.worker.js`)
     } catch (err) {
       console.warn('Worker creation failed, falling back to main thread:', err instanceof Error ? err.message : String(err))

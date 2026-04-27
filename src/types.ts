@@ -20,34 +20,28 @@ export interface Track {
 
 export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'
 
-function normalizeBasePath(value: string | undefined): string {
-  if (!value || value === '/') return ''
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : ''
-}
-
-const BASE_PATH = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
+import { basePath } from '@/lib/env'
 
 export const MAP_STYLES: Record<MapStyleKey, { label: string; url: string }> = {
   voyager: {
     label: 'Voyager',
-    url: `${BASE_PATH}/map-styles/voyager.json`,
+    url: `${basePath}/map-styles/voyager.json`,
   },
   positron: {
     label: 'Light',
-    url: `${BASE_PATH}/map-styles/positron.json`,
+    url: `${basePath}/map-styles/positron.json`,
   },
   dark: {
     label: 'Dark',
-    url: `${BASE_PATH}/map-styles/dark.json`,
+    url: `${basePath}/map-styles/dark.json`,
   },
   liberty: {
     label: 'Liberty',
-    url: `${BASE_PATH}/map-styles/liberty.json`,
+    url: `${basePath}/map-styles/liberty.json`,
   },
   bright: {
     label: 'Bright',
-    url: `${BASE_PATH}/map-styles/bright.json`,
+    url: `${basePath}/map-styles/bright.json`,
   },
 }
 
