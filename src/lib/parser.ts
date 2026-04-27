@@ -521,11 +521,17 @@ function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
 }
 
 export function parseGoogleLocationHistory(text: string): Track {
-  checkJsonDepth(text)
+  // Skip checkJsonDepth on the main thread — JSON.parse throws RangeError on
+  // excessive nesting depth, which we convert to a ParseError below.  The
+  // separate char-by-char scan is still kept for the worker path (where a
+  // RangeError would crash the worker process entirely).
   let data: GoogleLocationData | Record<string, unknown>[]
   try {
     data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
-  } catch {
+  } catch (err) {
+    if (err instanceof RangeError) {
+      throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
+    }
     throw new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON')
   }
   const segments: TrackSegment[] = []
