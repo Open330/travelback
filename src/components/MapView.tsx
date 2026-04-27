@@ -173,10 +173,14 @@ function buildTrackGeometry(
     }
   }
 
-  if (segments.length <= 1) {
+  if (segments.length === 0) {
+    return { type: 'LineString', coordinates: [] }
+  }
+
+  if (segments.length === 1) {
     return {
       type: 'LineString',
-      coordinates: segments[0] ?? buildWrappedCoordinates(points.slice(0, 1)),
+      coordinates: segments[0],
     }
   }
 
