@@ -45,7 +45,10 @@ export function estimateExportMemoryBytes(config: {
   const rawFrameBytes = config.resolution.width * config.resolution.height * 4
   const encodedBytes = estimateEncodedBytes(safeDuration, safeBitrate)
   const frameBookkeepingBytes = Math.ceil(safeDuration * safeFps) * 64
-  return encodedBytes + rawFrameBytes * 4 + frameBookkeepingBytes
+  // 8x multiplier: accounts for double-buffering, codec intermediate buffers,
+  // canvas readback, and GPU staging. Higher resolutions need more headroom.
+  const resolutionMultiplier = (config.resolution.width * config.resolution.height) > (1920 * 1080) ? 1.5 : 1
+  return encodedBytes + rawFrameBytes * 8 * resolutionMultiplier + frameBookkeepingBytes
 }
 
 /**
@@ -142,7 +145,11 @@ export async function exportVideo(
       if (waitForIdle) {
         await waitForIdle()
       } else {
-        // Fallback: double-rAF
+        // Fallback: double-rAF. NOTE: this does NOT guarantee tile loading
+        // completion — it only ensures two paint frames have elapsed. Export
+        // callers should always provide a waitForIdle callback via MapView's
+        // imperative handle for correct tile rendering.
+        console.warn('[Travelback] No waitForIdle callback provided for export frame — tile completeness is not guaranteed')
         await new Promise<void>(resolve => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => resolve())
