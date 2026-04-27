@@ -60,7 +60,14 @@ export function useExportController({
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
   const exportProgressRef = useRef<number | undefined>(undefined)
+  const playbackProgressRef = useRef(playbackProgress)
   const mountedRef = useRef(true)
+
+  // Keep the ref in sync with the prop so exportTrack can read the latest
+  // value without closing over the rapidly-changing state variable.
+  useEffect(() => {
+    playbackProgressRef.current = playbackProgress
+  }, [playbackProgress])
 
   useEffect(() => {
     return () => {
@@ -117,8 +124,7 @@ export function useExportController({
 
     const abortController = new AbortController()
     exportAbortRef.current = abortController
-    const preExportProgress = playbackProgress
-    const hadExistingExport = exportedVideoUrlRef.current !== null
+    const preExportProgress = playbackProgressRef.current
     let pendingVideoUrl: string | null = null
     let pendingVideoUrlStored = false
 
@@ -184,7 +190,7 @@ export function useExportController({
 	            track,
 	            exportConfig,
 	            async (nextProgress, cameraState) => {
-	              await mapHandle.renderFrameAndWait(cameraState, abortController.signal)
+	              await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)
 	              // Throttle visible playback state updates to ~10 Hz
 	              if (exportProgressRef.current === undefined || nextProgress - exportProgressRef.current >= 0.02) {
 	                setPlaybackProgress(nextProgress)
@@ -230,7 +236,7 @@ export function useExportController({
               : 'app.exportFailedSuffix'
           addToast(`${t('app.exportFailed')} ${t(detailKey)}`, 'error')
         }
-        setExportState(hadExistingExport ? 'done' : 'idle')
+        setExportState('idle')
       }
     } finally {
       exportAbortRef.current = null
@@ -263,7 +269,6 @@ export function useExportController({
     addToast,
     mapViewRef,
     pausePlayback,
-    playbackProgress,
     scenes,
     setPlaybackProgress,
     t,
