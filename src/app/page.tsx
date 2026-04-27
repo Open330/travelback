@@ -476,6 +476,7 @@ function HomeInner() {
           transitionDuration={transitionDuration}
           cumulativeDistances={cumulativeDistances}
           allowInteractionWithoutTrack={isCreatingJourney}
+          isExporting={isExporting}
         />
 
         {!isCreatingJourney && (

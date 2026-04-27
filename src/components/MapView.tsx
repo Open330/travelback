@@ -21,6 +21,7 @@ interface MapViewProps {
   transitionDuration?: number
   cumulativeDistances?: number[]
   allowInteractionWithoutTrack?: boolean
+  isExporting?: boolean
 }
 
 export interface MapViewHandle {
@@ -450,6 +451,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     transitionDuration = 0.03,
     cumulativeDistances: cumulativeDistancesProp,
     allowInteractionWithoutTrack = false,
+    isExporting = false,
   },
   ref,
 ) {
@@ -609,14 +611,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.resize()
     },
     resetSize: () => {
-      const map = mapRef.current
       const container = containerRef.current
+      // Clear container styles first — this always succeeds and is the
+      // critical step to prevent a permanently resized map.
       if (container) {
         container.style.width = ''
         container.style.height = ''
       }
       originalSizeRef.current = null
-      map?.resize()
+      // map.resize() can throw if the map was destroyed during export.
+      // The container is already restored above, so a resize failure is
+      // non-critical — the map will be functional on next interaction.
+      try {
+        mapRef.current?.resize()
+      } catch {
+        // Map may have been destroyed — container is already restored
+      }
     },
     waitForIdle: (signal?: AbortSignal) => {
       return new Promise<boolean>((resolve, reject) => {
@@ -986,6 +996,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Update animation state
   useEffect(() => {
+    // During export, camera/trail/marker updates are handled by
+    // renderFrameAndWait — skip this React-driven effect to avoid
+    // redundant state updates and React re-render overhead.
+    if (isExporting) return
+
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0) return
 
@@ -1142,7 +1157,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastSeekNonceRef.current = seekNonce
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of per-frame re-execution if their deps ever change. The effect already handles missing layers via the isStyleLoaded + layer-existence guard above.
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting])
 
   return (
     <div
