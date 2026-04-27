@@ -200,7 +200,10 @@ export interface DownloadResult {
   method: 'picker' | 'fallback'
 }
 
-/** Track the previous fallback anchor to prevent DOM accumulation on rapid clicks */
+/** Track the previous fallback anchor to prevent DOM accumulation on rapid clicks.
+ *  Module-level state is safe here: the cleanup logic in downloadVideo uses an
+ *  identity check (`prevFallbackAnchor === a`) so a stale reference from a
+ *  previous HMR cycle is silently ignored rather than causing a double-remove. */
 let prevFallbackAnchor: HTMLAnchorElement | null = null
 
 /** Trigger a download from an existing object URL */
