@@ -273,7 +273,7 @@ function SceneRangeEditor({
 
 function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
-  const [deletedScene, setDeletedScene] = useState<{ scene: Scene; precedingSceneId: string | null } | null>(null)
+  const [deletedScene, setDeletedScene] = useState<{ preDeletionScenes: Scene[]; deletedName: string } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
@@ -362,21 +362,15 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
-    if (idx >= 0) setDeletedScene({ scene: scenes[idx], precedingSceneId: idx > 0 ? scenes[idx - 1].id : null })
+    if (idx >= 0) setDeletedScene({ preDeletionScenes: scenes, deletedName: scenes[idx].name })
     commitScenes(scenes.filter(s => s.id !== id))
   }, [commitScenes, scenes])
 
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
-    const restored = [...scenes]
-    const precedingIdx = deletedScene.precedingSceneId
-      ? restored.findIndex(s => s.id === deletedScene.precedingSceneId)
-      : -1
-    const insertIdx = precedingIdx >= 0 ? precedingIdx + 1 : restored.length
-    restored.splice(insertIdx, 0, deletedScene.scene)
-    commitScenes(restored)
+    commitScenes(deletedScene.preDeletionScenes)
     setDeletedScene(null)
-  }, [commitScenes, deletedScene, scenes])
+  }, [commitScenes, deletedScene])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null
@@ -438,7 +432,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   }, [onPreviewScene])
 
   const statusMessage = deletedScene
-    ? `${t('scenes.deleted')} ${deletedScene.scene.name}`
+    ? `${t('scenes.deleted')} ${deletedScene.deletedName}`
     : normalizationWarnings.join(' ')
 
   const localizePresetScenes = useCallback((presetType: PresetType, nextScenes: Scene[]) => {
@@ -743,7 +737,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {deletedScene && (
         <div className="px-3 py-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--div)' }}>
           <span className="text-xs" style={{ color: 'var(--t3)' }}>
-            {t('scenes.deleted')} &ldquo;{deletedScene.scene.name}&rdquo;
+            {t('scenes.deleted')} &ldquo;{deletedScene.deletedName}&rdquo;
           </span>
           <button type="button" onClick={undoDelete}
             className="text-xs px-2 py-0.5 font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'rgb(var(--gl))' }}>
