@@ -160,4 +160,6 @@ During export, the map container is resized to the target resolution (e.g., 1920
 | `trail-line` | line | Traveled portion, high opacity, grows with progress |
 | `journey-line` | line | Manual journey creator connecting line |
 | `journey-points` | circle | Manual journey creator waypoint markers |
-| Marker | HTML overlay | Pulsing red dot at current interpolated position |
+| `current-position` | circle (GeoJSON source) | Current position dot during export (replaces HTML marker for canvas capture) |
+| `current-position-layer` | circle | Layer rendering the `current-position` source |
+| Marker | HTML overlay | Pulsing red dot at current interpolated position (playback only, not captured in export) |
