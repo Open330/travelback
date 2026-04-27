@@ -162,7 +162,7 @@ export async function exportVideo(
       const timestamp = frame * frameDuration
       await videoSource.add(timestamp, frameDuration)
 
-      onProgress?.(progress)
+      onProgress?.(Math.max(0, Math.min(1, progress)))
     }
     completed = true
   } finally {
