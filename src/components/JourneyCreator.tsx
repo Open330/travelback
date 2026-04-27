@@ -5,7 +5,7 @@ import { Check, Search } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
-import { totalDistance, formatDistance, shortestLngDelta, normalizeLng, type UnitSystem } from '@/lib/interpolate'
+import { totalDistance, formatDistance, shortestLngDelta, normalizeLng, wrapLngNear, type UnitSystem } from '@/lib/interpolate'
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
@@ -87,12 +87,6 @@ function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Featu
         coordinates: [],
       },
     }
-  }
-  const wrapLngNear = (referenceLng: number, nextLng: number) => {
-    let adjusted = nextLng
-    while (adjusted - referenceLng > 180) adjusted -= 360
-    while (adjusted - referenceLng < -180) adjusted += 360
-    return adjusted
   }
   const coordinates: [number, number][] = []
   for (const waypoint of waypoints) {
