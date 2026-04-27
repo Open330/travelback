@@ -71,6 +71,7 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
       })
     }
     if (nextPoints.length === 0) return
+    assertPointBudget(points, nextPoints.length)
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
     }
@@ -218,6 +219,7 @@ function parseGPX(text: string): Track {
         if (acc.points.length > 0) {
           acc.segmentStartIndices.push(acc.points.length)
         }
+        assertPointBudget(acc.points, segment.length)
         acc.points.push(...segment)
         return acc
       }, { points: [], segmentStartIndices: [] })
