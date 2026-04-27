@@ -30,6 +30,30 @@ export default function Home() {
   )
 }
 
+/**
+ * Slice a track by point-index range and remap segment-start indices
+ * into the trimmed coordinate space. A segment boundary at exactly
+ * `startIdx` maps to index 0, which is then filtered out (index > 0)
+ * since a boundary at the first point carries no meaningful break
+ * information — the trimmed range always starts a fresh segment.
+ */
+function buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number): Track {
+  const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
+  if (slicedPoints.length < 2) return fullTrack // caller should check
+  return {
+    name: fullTrack.name,
+    points: slicedPoints,
+    ...(fullTrack.segmentStartIndices
+      ? {
+          segmentStartIndices: fullTrack.segmentStartIndices
+            .filter((index) => index >= startIdx && index <= endIdx)
+            .map((index) => index - startIdx)
+            .filter((index) => index > 0),
+        }
+      : {}),
+  }
+}
+
 const MAP_STYLE_STORAGE_KEY = 'travelback-mapstyle'
 const MAP_STYLE_EXPLICIT_STORAGE_KEY = 'travelback-mapstyle-explicit'
 const THEME_STORAGE_KEY = 'travelback-theme'
@@ -307,23 +331,7 @@ function HomeInner() {
     }
     resetExportSession()
 
-    // Remap segment start indices into the trimmed slice.
-    // A segment boundary at exactly startIdx maps to 0, which normalizeSegmentStarts
-    // then filters out (index > 0) since a boundary at the first point carries no
-    // meaningful break information. This is intentional — the trimmed range always
-    // starts a fresh segment regardless of whether the original did.
-    const filteredTrack: Track = {
-      name: fullTrack.name,
-      points: slicedPoints,
-      ...(fullTrack.segmentStartIndices
-        ? {
-            segmentStartIndices: fullTrack.segmentStartIndices
-              .filter((index) => index >= startIdx && index <= endIdx)
-              .map((index) => index - startIdx)
-              .filter((index) => index > 0),
-          }
-        : {}),
-    }
+    const filteredTrack = buildFilteredTrack(fullTrack, startIdx, endIdx)
 
     setTrack(filteredTrack)
     resetPlayback()
@@ -338,18 +346,7 @@ function HomeInner() {
     const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
     if (slicedPoints.length < 2) return
     resetExportSession()
-    const filteredTrack: Track = {
-      name: fullTrack.name,
-      points: slicedPoints,
-      ...(fullTrack.segmentStartIndices
-        ? {
-            segmentStartIndices: fullTrack.segmentStartIndices
-              .filter((index) => index >= startIdx && index <= endIdx)
-              .map((index) => index - startIdx)
-              .filter((index) => index > 0),
-          }
-        : {}),
-    }
+    const filteredTrack = buildFilteredTrack(fullTrack, startIdx, endIdx)
     setTrack(filteredTrack)
     resetPlayback()
   }, [pendingTrimRange, fullTrack, resetExportSession, resetPlayback])
@@ -387,9 +384,9 @@ function HomeInner() {
         responseStatus,
         error: error instanceof Error ? error.message : String(error),
       })
-      addToast(t('app.sampleLoadFailed'), 'error')
+      addToast(tRef.current('app.sampleLoadFailed'), 'error')
     }
-  }, [addToast, loadTrackIntoSession, t])
+  }, [addToast, loadTrackIntoSession])
 
   const handleOpenGoogleGuide = useCallback(() => {
     setShowGoogleGuide(true)
