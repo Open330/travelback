@@ -107,6 +107,35 @@ function buildSegmentRanges(pointCount: number, segmentStartIndices: number[] = 
   }))
 }
 
+interface PrecomputedSegment {
+  coordinates: [number, number][]
+  range: { start: number; end: number }
+}
+
+function precomputeWrappedSegments(
+  points: Track['points'],
+  segmentStartIndices: number[] = [],
+): PrecomputedSegment[] {
+  const wrapLngNear = (referenceLng: number, nextLng: number) => {
+    let adjusted = nextLng
+    while (adjusted - referenceLng > 180) adjusted -= 360
+    while (adjusted - referenceLng < -180) adjusted += 360
+    return adjusted
+  }
+
+  const ranges = buildSegmentRanges(points.length, segmentStartIndices)
+  return ranges.map((range) => {
+    const coordinates: [number, number][] = []
+    for (let i = range.start; i <= range.end; i++) {
+      const point = points[i]
+      const previous = coordinates[coordinates.length - 1]
+      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+      coordinates.push([lng, point.lat])
+    }
+    return { coordinates, range }
+  })
+}
+
 function buildTrackGeometry(
   points: Track['points'],
   segmentStartIndices: number[] = [],
@@ -430,6 +459,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerEl = useRef<HTMLDivElement | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const cumulDistRef = useRef<number[]>([])
+  const precomputedSegmentsRef = useRef<PrecomputedSegment[]>([])
   const trackRef = useRef<Track | null>(track)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
@@ -565,6 +595,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
+      precomputedSegmentsRef.current = []
     },
     resize: (width: number, height: number) => {
       const map = mapRef.current
@@ -895,12 +926,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
+      precomputedSegmentsRef.current = []
       return
     }
 
     cumulDistRef.current = cumulativeDistancesProp?.length
       ? cumulativeDistancesProp
       : computeCumulativeDistances(track.points, track.segmentStartIndices)
+    precomputedSegmentsRef.current = precomputeWrappedSegments(track.points, track.segmentStartIndices)
 
     const attachTrackToReadyStyle = () => {
       if (!map.isStyleLoaded()) {
@@ -970,13 +1003,64 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
       markerSource?.setData(markerPointFeature(point))
 
-    // Update trail
+    // Update trail — use precomputed segments to avoid O(n) rebuild per frame
     const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
-    trailSource?.setData({
-      type: 'Feature',
-      properties: {},
-      geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
-    })
+    if (trailSource && precomputedSegmentsRef.current.length > 0) {
+      const segments = precomputedSegmentsRef.current
+      const trailSegments: [number, number][][] = []
+
+      const wrapLngNear = (referenceLng: number, nextLng: number) => {
+        let adjusted = nextLng
+        while (adjusted - referenceLng > 180) adjusted -= 360
+        while (adjusted - referenceLng < -180) adjusted += 360
+        return adjusted
+      }
+
+      for (const seg of segments) {
+        if (seg.range.start > segmentIndex) break
+
+        if (seg.range.end <= segmentIndex) {
+          // Fully traversed segment — use precomputed coordinates directly
+          trailSegments.push(seg.coordinates)
+        } else {
+          // Partial segment — copy up to current position, then add interpolated point
+          const partialCoords: [number, number][] = []
+          for (let i = 0; i < seg.coordinates.length; i++) {
+            if (seg.range.start + i > segmentIndex) break
+            partialCoords.push(seg.coordinates[i])
+          }
+          // Add interpolated point
+          if (point) {
+            const previous = partialCoords[partialCoords.length - 1]
+            const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+            partialCoords.push([lng, point.lat])
+          }
+          if (partialCoords.length === 1) {
+            partialCoords.push([...partialCoords[0]] as [number, number])
+          }
+          if (partialCoords.length >= 2) {
+            trailSegments.push(partialCoords)
+          }
+        }
+      }
+
+      const trailGeometry: GeoJSON.LineString | GeoJSON.MultiLineString =
+        trailSegments.length <= 1
+          ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
+          : { type: 'MultiLineString', coordinates: trailSegments }
+
+      trailSource.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: trailGeometry,
+      })
+    } else if (trailSource) {
+      trailSource.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
+      })
+    }
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
     if (followCamera && !suspendAutoCamera) {
