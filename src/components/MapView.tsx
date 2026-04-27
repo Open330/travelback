@@ -238,6 +238,46 @@ function removeTrackArtifacts(map: maplibregl.Map) {
   if (map.getSource('route')) map.removeSource('route')
 }
 
+/**
+ * Build trail GeoJSON from precomputed segments up to a given segment index.
+ * Shared by both the export path (renderFrameAndWait) and the playback path
+ * (progress useEffect) to avoid logic duplication (N01/C18-F03).
+ */
+function buildTrailGeoJSONFromSegments(
+  precomputedSegments: PrecomputedSegment[],
+  segmentIndex: number,
+  point: TrackPoint,
+): GeoJSON.LineString | GeoJSON.MultiLineString {
+  const trailSegments: [number, number][][] = []
+
+  for (const seg of precomputedSegments) {
+    if (seg.range.start > segmentIndex) break
+
+    if (seg.range.end <= segmentIndex) {
+      trailSegments.push(seg.coordinates)
+    } else {
+      const partialCoords: [number, number][] = []
+      for (let i = 0; i < seg.coordinates.length; i++) {
+        if (seg.range.start + i > segmentIndex) break
+        partialCoords.push(seg.coordinates[i])
+      }
+      const previous = partialCoords[partialCoords.length - 1]
+      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+      partialCoords.push([lng, point.lat])
+      if (partialCoords.length === 1) {
+        partialCoords.push([...partialCoords[0]] as [number, number])
+      }
+      if (partialCoords.length >= 2) {
+        trailSegments.push(partialCoords)
+      }
+    }
+  }
+
+  return trailSegments.length <= 1
+    ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
+    : { type: 'MultiLineString', coordinates: trailSegments }
+}
+
 function markerPointFeature(point: TrackPoint): GeoJSON.Feature<GeoJSON.Point> {
   return {
     type: 'Feature',
@@ -544,45 +584,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
           lastTrailSegmentIndexRef.current = segmentIndex
           if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
-            const segments = precomputedSegmentsRef.current
-            const trailSegments: [number, number][][] = []
-
-            for (const seg of segments) {
-              if (seg.range.start > segmentIndex) break
-
-              if (seg.range.end <= segmentIndex) {
-                trailSegments.push(seg.coordinates)
-              } else {
-                const partialCoords: [number, number][] = []
-                for (let i = 0; i < seg.coordinates.length; i++) {
-                  if (seg.range.start + i > segmentIndex) break
-                  partialCoords.push(seg.coordinates[i])
-                }
-                if (point) {
-                  const previous = partialCoords[partialCoords.length - 1]
-                  const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
-                  partialCoords.push([lng, point.lat])
-                }
-                if (partialCoords.length === 1) {
-                  partialCoords.push([...partialCoords[0]] as [number, number])
-                }
-                if (partialCoords.length >= 2) {
-                  trailSegments.push(partialCoords)
-                }
-              }
-            }
-
-            const trailGeometry: GeoJSON.LineString | GeoJSON.MultiLineString =
-              trailSegments.length <= 1
-                ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
-                : { type: 'MultiLineString', coordinates: trailSegments }
-
             trailSource.setData({
               type: 'Feature',
               properties: {},
-              geometry: trailGeometry,
+              geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
             })
           } else if (trailSource && segmentIndexChanged) {
+            // Fallback when precomputed segments are not available (defensive —
+            // precomputedSegmentsRef is populated alongside cumulDistRef, so this
+            // branch should be unreachable in practice).
             trailSource.setData({
               type: 'Feature',
               properties: {},
@@ -1087,46 +1097,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
     lastTrailSegmentIndexRef.current = segmentIndex
     if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
-      const segments = precomputedSegmentsRef.current
-      const trailSegments: [number, number][][] = []
-
-      for (const seg of segments) {
-        if (seg.range.start > segmentIndex) break
-
-        if (seg.range.end <= segmentIndex) {
-          // Fully traversed segment — use precomputed coordinates directly
-          trailSegments.push(seg.coordinates)
-        } else {
-          // Partial segment — copy up to current position, then add interpolated point
-          const partialCoords: [number, number][] = []
-          for (let i = 0; i < seg.coordinates.length; i++) {
-            if (seg.range.start + i > segmentIndex) break
-            partialCoords.push(seg.coordinates[i])
-          }
-          // Add interpolated point
-          if (point) {
-            const previous = partialCoords[partialCoords.length - 1]
-            const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
-            partialCoords.push([lng, point.lat])
-          }
-          if (partialCoords.length === 1) {
-            partialCoords.push([...partialCoords[0]] as [number, number])
-          }
-          if (partialCoords.length >= 2) {
-            trailSegments.push(partialCoords)
-          }
-        }
-      }
-
-      const trailGeometry: GeoJSON.LineString | GeoJSON.MultiLineString =
-        trailSegments.length <= 1
-          ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
-          : { type: 'MultiLineString', coordinates: trailSegments }
-
       trailSource.setData({
         type: 'Feature',
         properties: {},
-        geometry: trailGeometry,
+        geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
       })
     } else if (trailSource && segmentIndexChanged) {
       trailSource.setData({
