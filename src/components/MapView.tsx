@@ -583,20 +583,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
           const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
           lastTrailSegmentIndexRef.current = segmentIndex
-          if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
+          if (trailSource && segmentIndexChanged) {
             trailSource.setData({
               type: 'Feature',
               properties: {},
               geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
-            })
-          } else if (trailSource && segmentIndexChanged) {
-            // Fallback when precomputed segments are not available (defensive —
-            // precomputedSegmentsRef is populated alongside cumulDistRef, so this
-            // branch should be unreachable in practice).
-            trailSource.setData({
-              type: 'Feature',
-              properties: {},
-              geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
             })
           }
         }
@@ -1077,9 +1068,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0 || cumulDistRef.current.length !== track.points.length) return
 
-    if (map.isStyleLoaded() && (!map.getLayer('route-line') || !map.getLayer('trail-line'))) {
-      addTrackLayers(map, track)
-    }
+    if (!map.getSource('trail') || !map.getSource('route')) return
 
     ensureMarker(map, track.points[0])
 
@@ -1096,17 +1085,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
     const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
     lastTrailSegmentIndexRef.current = segmentIndex
-    if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
+    if (trailSource && segmentIndexChanged) {
       trailSource.setData({
         type: 'Feature',
         properties: {},
         geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
-      })
-    } else if (trailSource && segmentIndexChanged) {
-      trailSource.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
       })
     }
 
