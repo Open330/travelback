@@ -95,14 +95,10 @@ export function usePlaybackController(track: Track | null) {
     setFollowCamera((following) => !following)
   }, [])
 
-  // Mount guard to prevent state updates after unmount
-  useEffect(() => {
-    mountedRef.current = true
-    return () => { mountedRef.current = false }
-  }, [])
-
   useEffect(() => {
     if (!isPlaying || !track) return
+
+    mountedRef.current = true
 
     // Use accumulator-based progress: record the timestamp and progress
     // when playback starts so each frame computes nextProgress from
@@ -147,6 +143,7 @@ export function usePlaybackController(track: Track | null) {
     scheduleNextFrame()
 
     return () => {
+      mountedRef.current = false
       awaitingFirstFrameRef.current = false
       cancelAnimationFrame(animFrameRef.current)
       window.clearTimeout(fallbackTimerRef.current)
