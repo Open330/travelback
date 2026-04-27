@@ -180,11 +180,14 @@ function TimelineSelector({
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
 
   const clampRatios = useCallback((s: number, e: number): [number, number] => {
-    const minGap = 1 / (points.length || 1)
+    // Enforce a minimum visible range of at least 2 points-worth of the
+    // timeline so the resulting slice always has >= 2 points.
+    const minGap = Math.max(1 / (points.length || 1), 2 / (points.length || 1))
     s = Math.max(0, Math.min(s, 1 - minGap))
     e = Math.max(minGap, Math.min(e, 1))
-    if (s >= e - minGap) {
+    if (e - s < minGap) {
       e = Math.min(1, s + minGap)
+      s = Math.max(0, e - minGap)
     }
     return [s, e]
   }, [points.length])
