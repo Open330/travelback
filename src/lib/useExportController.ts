@@ -63,6 +63,7 @@ export function useExportController({
 
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
+  const exportProgressRef = useRef<number | undefined>(undefined)
   const mountedRef = useRef(true)
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
@@ -120,6 +121,7 @@ export function useExportController({
     setIsExporting(true)
     setExportState('exporting')
     setExportProgress(0)
+    exportProgressRef.current = undefined
     pausePlayback()
 
     try {
@@ -175,9 +177,12 @@ export function useExportController({
 	            track,
 	            exportConfig,
 	            async (nextProgress, cameraState) => {
-	              mapHandle.applyCameraState(cameraState)
-	              setPlaybackProgress(nextProgress)
-	              await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+	              await mapHandle.renderFrameAndWait(cameraState, abortController.signal)
+	              // Throttle visible playback state updates to ~10 Hz
+	              if (exportProgressRef.current === undefined || nextProgress - exportProgressRef.current >= 0.02) {
+	                setPlaybackProgress(nextProgress)
+	                exportProgressRef.current = nextProgress
+	              }
 	            },
 	            (nextProgress) => setExportProgress(nextProgress),
 	            waitForStableMap,
@@ -199,6 +204,9 @@ export function useExportController({
       pendingVideoUrlStored = true
       setExportState('done')
       addToast(t('app.exportSuccess'), 'success')
+      // Restore playback progress to final position after export
+      setPlaybackProgress(1)
+      exportProgressRef.current = undefined
     } catch (error) {
       if (pendingVideoUrl && !pendingVideoUrlStored) {
         URL.revokeObjectURL(pendingVideoUrl)

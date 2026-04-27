@@ -27,6 +27,7 @@ export interface MapViewHandle {
   getMap: () => maplibregl.Map | null
   getCanvas: () => HTMLCanvasElement | null
   applyCameraState: (state: CameraState) => void
+  renderFrameAndWait: (state: CameraState, signal?: AbortSignal) => Promise<void>
   clearTrackArtifacts: () => void
   resize: (width: number, height: number) => void
   resetSize: () => void
@@ -480,6 +481,39 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         zoom: state.zoom,
         pitch: state.pitch,
         bearing: state.bearing,
+      })
+    },
+    renderFrameAndWait: (state: CameraState, signal?: AbortSignal) => {
+      return new Promise<void>((resolve, reject) => {
+        const map = mapRef.current
+        if (!map) { resolve(); return }
+
+        map.jumpTo({
+          center: state.center as [number, number],
+          zoom: state.zoom,
+          pitch: state.pitch,
+          bearing: state.bearing,
+        })
+
+        const onRender = () => {
+          map.off('render', onRender)
+          signal?.removeEventListener('abort', onAbort)
+          // Wait one more rAF to ensure WebGL canvas is painted
+          requestAnimationFrame(() => resolve())
+        }
+
+        const onAbort = () => {
+          map.off('render', onRender)
+          reject(new DOMException('Export cancelled', 'AbortError'))
+        }
+
+        if (signal?.aborted) {
+          onAbort()
+          return
+        }
+
+        signal?.addEventListener('abort', onAbort, { once: true })
+        map.once('render', onRender)
       })
     },
     clearTrackArtifacts: () => {
