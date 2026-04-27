@@ -400,7 +400,9 @@ function TimelineSelector({
           </button>
         )}
 
-        {/* Selected region overlay - draggable */}
+        {/* Selected region overlay - draggable; click without drag could seek
+            playback in a future enhancement (C13-F05, deferred: requires new
+            onSeek prop and design decision about click-on-region behavior). */}
         <div
           data-testid="timeline-selected-region"
           className="absolute top-0 bottom-0 cursor-grab active:cursor-grabbing"
