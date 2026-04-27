@@ -73,15 +73,23 @@ function computeScriptHashes(html) {
 
 function inlineTravelbackBootstrap(html) {
   const nextScriptPattern = /<script>\(self\.__next_s=self\.__next_s\|\|\[\]\)\.push\(\[0,(\{"children":"(?:\\.|[^"\\])*","id":"travelback-bootstrap"\})\]\)<\/script>/i
+  const hasBootstrap = /travelback-bootstrap/.test(html)
+  let replaced = false
 
-  return html.replace(nextScriptPattern, (_, payload) => {
+  const result = html.replace(nextScriptPattern, (_, payload) => {
     const { children } = JSON.parse(payload)
     if (typeof children !== 'string' || children.trim() === '') {
       throw new Error('Travelback bootstrap script payload is empty')
     }
-
+    replaced = true
     return `<script id="travelback-bootstrap">${children}</script>`
   })
+
+  if (hasBootstrap && !replaced) {
+    throw new Error('travelback-bootstrap payload found in HTML but regex did not match — Next.js output shape may have changed')
+  }
+
+  return result
 }
 
 function replaceCspMeta(html, csp) {
