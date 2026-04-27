@@ -48,7 +48,7 @@ function ratioToIndex(
     if (cumulDist[mid] <= targetDist) lo = mid
     else hi = mid
   }
-  return edge === 'end' && (cumulDist[hi] ?? targetDist) <= targetDist ? hi : lo
+  return edge === 'end' ? hi : lo
 }
 
 function formatDate(date: Date | undefined, locale?: string): string {
