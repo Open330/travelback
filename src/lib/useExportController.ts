@@ -62,7 +62,15 @@ export function useExportController({
   const exportProgressRef = useRef<number | undefined>(undefined)
   const mountedRef = useRef(true)
 
-  useEffect(() => { return () => { mountedRef.current = false } }, [])
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+      // Abort any in-progress export when the owning component unmounts.
+      // Without this, the export loop continues against a destroyed map,
+      // producing a video with blank/stale frames.
+      exportAbortRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     exportedVideoUrlRef.current = exportedVideoUrl
@@ -118,6 +126,9 @@ export function useExportController({
     setExportState('exporting')
     setExportProgress(0)
     exportProgressRef.current = undefined
+    // Clear any stale video from a previous export so a failed new export
+    // cannot show the old video in "done" state (CF5-03).
+    revokeExportedVideoUrl()
     pausePlayback()
 
     try {

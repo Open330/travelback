@@ -456,6 +456,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
+  const lastTrailSegmentIndexRef = useRef(-1)
   const scenesRef = useRef(scenes)
   const normalizedScenesRef = useRef<Scene[]>([])
   const durationRef = useRef(duration)
@@ -511,7 +512,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     renderFrameAndWait: (state: CameraState, signal?: AbortSignal) => {
       return new Promise<void>((resolve, reject) => {
         const map = mapRef.current
-        if (!map) { resolve(); return }
+        if (!map) {
+          // Reject rather than resolve so the export loop can distinguish
+          // "frame ready" from "map unavailable" and abort cleanly.
+          reject(new DOMException('Map not available for frame render', 'AbortError'))
+          return
+        }
 
         // If camera state is identical to current map state, resolve immediately
         // — MapLibre won't repaint so the render event would never fire
@@ -708,10 +714,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       } catch {
         debugStorageEnabled = false
       }
-      const isLocalDebugHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       const canExposeDebugCamera =
         process.env.NODE_ENV === 'development'
-        || (isLocalDebugHost && (debugParams.get('__travelbackDebug') === '1' || debugStorageEnabled))
+        || debugParams.get('__travelbackDebug') === '1'
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {
@@ -932,6 +937,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       cumulDistRef.current = []
       precomputedSegmentsRef.current = []
+      lastTrailSegmentIndexRef.current = -1
       return
     }
 
@@ -995,7 +1001,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (isExporting) return
 
     const map = mapRef.current
-    if (!map || !track || cumulDistRef.current.length === 0) return
+    if (!map || !track || cumulDistRef.current.length === 0 || cumulDistRef.current.length !== track.points.length) return
 
     if (map.isStyleLoaded() && (!map.getLayer('route-line') || !map.getLayer('trail-line'))) {
       addTrackLayers(map, track)
@@ -1011,9 +1017,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
       markerSource?.setData(markerPointFeature(point))
 
-    // Update trail — use precomputed segments to avoid O(n) rebuild per frame
+    // Update trail — skip expensive GeoJSON rebuild when segment index hasn't
+    // changed since the last trail update (marker-only updates are cheap above).
     const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
-    if (trailSource && precomputedSegmentsRef.current.length > 0) {
+    const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
+    lastTrailSegmentIndexRef.current = segmentIndex
+    if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
       const segments = precomputedSegmentsRef.current
       const trailSegments: [number, number][][] = []
 
@@ -1055,7 +1064,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         properties: {},
         geometry: trailGeometry,
       })
-    } else if (trailSource) {
+    } else if (trailSource && segmentIndexChanged) {
       trailSource.setData({
         type: 'Feature',
         properties: {},
