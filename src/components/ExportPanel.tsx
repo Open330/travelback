@@ -292,7 +292,7 @@ export default function ExportPanel({
             <div className="mb-2 text-sm" style={{ color: 'var(--t3)' }}>
               {t('export.rendering')} {Math.round(exportProgress * 100)}%
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
+            <div role="progressbar" aria-valuenow={Math.round(exportProgress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={t('export.rendering')} className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
               <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))' }} />
             </div>
             {(() => {
