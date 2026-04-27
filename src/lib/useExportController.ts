@@ -65,6 +65,7 @@ export function useExportController({
   const playbackProgressRef = useRef(playbackProgress)
   const mountedRef = useRef(true)
   const tRef = useRef(t)
+  const scenesRef = useRef(scenes)
 
   // Keep the ref in sync with the prop so exportTrack can read the latest
   // value without closing over the rapidly-changing state variable.
@@ -77,6 +78,12 @@ export function useExportController({
   useEffect(() => {
     tRef.current = t
   }, [t])
+
+  // Keep scenes ref in sync so exportTrack can read the latest scenes
+  // without closing over the state variable (which changes on every edit).
+  useEffect(() => {
+    scenesRef.current = scenes
+  }, [scenes])
 
   useEffect(() => {
     return () => {
@@ -149,8 +156,8 @@ export function useExportController({
     pausePlayback()
 
     try {
-      const exportScenes = scenes.length > 0
-        ? scenes
+      const exportScenes = scenesRef.current.length > 0
+        ? scenesRef.current
         : generateDefaultScenes()
 
       const exportConfig: ExportConfig = {
@@ -294,7 +301,6 @@ export function useExportController({
     mapViewRef,
     pausePlayback,
     revokeExportedVideoUrl,
-    scenes,
     setPlaybackProgress,
     track,
     transitionDuration,
