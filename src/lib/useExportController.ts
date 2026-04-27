@@ -269,6 +269,7 @@ export function useExportController({
     addToast,
     mapViewRef,
     pausePlayback,
+    revokeExportedVideoUrl,
     scenes,
     setPlaybackProgress,
     t,
