@@ -120,7 +120,10 @@ export default function ExportPanel({
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x
     touchStartRef.current = null
-    if (dy > 80 && Math.abs(dx) < Math.abs(dy)) onClose()
+    // Require vertical-dominant swipe to dismiss: horizontal component must be
+    // less than 30% of vertical component. This prevents accidental dismissal
+    // when the user is scrolling the panel content on small viewports.
+    if (dy > 80 && Math.abs(dx) < Math.abs(dy) * 0.3) onClose()
   }, [onClose, isExporting])
 
   const resScale = (() => {
