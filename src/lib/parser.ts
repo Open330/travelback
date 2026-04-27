@@ -186,11 +186,11 @@ function preflightXml(text: string, formatName: string): void {
 }
 
 function parseXml(text: string, formatName: string): Document {
-  // Strip entities first so the preflight check validates the sanitized text.
-  // This makes stripXmlEntities the primary XXE defense and preflightXml
-  // the redundant guard (defense-in-depth).
+  // Reject dangerous constructs first, then sanitize as defense-in-depth.
+  // preflightXml is the primary rejection guard on the raw input;
+  // stripXmlEntities removes any entities that slipped past for DOMParser safety.
+  preflightXml(text, formatName)
   const safeText = stripXmlEntities(text)
-  preflightXml(safeText, formatName)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
   if (parseError) throw new ParseError(`Invalid ${formatName}: XML parse error`, 'XML_PARSE_ERROR')
