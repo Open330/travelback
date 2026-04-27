@@ -74,6 +74,23 @@ export default function TrackToolbar({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeMenu()
+        return
+      }
+      // Focus trap: keep Tab/Shift+Tab within the menu panel
+      if (event.key === 'Tab' && menuPanelRef.current) {
+        const focusable = menuPanelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
       }
     }
 
