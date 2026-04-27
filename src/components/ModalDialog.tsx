@@ -28,6 +28,12 @@ function isVisible(element: HTMLElement) {
   return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
 }
 
+// Module-level state for managing the modal stacking order. During development
+// HMR, the module is re-evaluated which resets these variables. The openModal
+// and closeModal functions handle this gracefully because they check the stack
+// contents before modifying DOM attributes. If HMR resets the stack while a
+// modal is open, the worst case is that body scroll is not locked — a minor
+// development-only inconvenience that is self-correcting on the next modal open.
 const openModalStack: string[] = []
 let lockedBodyOverflow: string | null = null
 
