@@ -80,8 +80,8 @@ export async function exportVideo(
   track: Track,
   config: ExportConfig,
   renderFrame: RenderFrameCallback,
+  waitForIdle: () => Promise<void>,
   onProgress?: ExportProgressCallback,
-  waitForIdle?: () => Promise<void>,
   signal?: AbortSignal,
   cumulDistParam?: number[],
 ): Promise<VideoExportResult> {
@@ -156,20 +156,7 @@ export async function exportVideo(
       }
 
       // Wait for the map to finish rendering tiles
-      if (waitForIdle) {
-        await waitForIdle()
-      } else {
-        // Fallback: double-rAF. NOTE: this does NOT guarantee tile loading
-        // completion — it only ensures two paint frames have elapsed. Export
-        // callers should always provide a waitForIdle callback via MapView's
-        // imperative handle for correct tile rendering.
-        console.warn('[Travelback] No waitForIdle callback provided for export frame — tile completeness is not guaranteed')
-        await new Promise<void>(resolve => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve())
-          })
-        })
-      }
+      await waitForIdle()
 
       // Capture frame
       const timestamp = frame * frameDuration

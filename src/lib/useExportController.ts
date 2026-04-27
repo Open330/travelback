@@ -180,8 +180,8 @@ export function useExportController({
 	                exportProgressRef.current = nextProgress
 	              }
 	            },
-	            (nextProgress) => setExportProgress(nextProgress),
 	            waitForStableMap,
+	            (nextProgress) => setExportProgress(nextProgress),
 	            abortController.signal,
 	            cumulDist,
 	          )
