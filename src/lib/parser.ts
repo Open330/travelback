@@ -512,8 +512,7 @@ export function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
   let inString = false
   let escape = false
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
+  for (const ch of text) {
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
     if (ch === '"') { inString = !inString; continue }
