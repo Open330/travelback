@@ -430,11 +430,15 @@ function HomeInner() {
   const handleScenesChange = useCallback((value: SetStateAction<Scene[]>) => {
     resetExportSession()
     setScenes(value)
-    const resolved = typeof value === 'function' ? value(scenes) : value
-    if (resolved.length === 0 && pendingTrimRange) {
+  }, [resetExportSession])
+
+  // Clear stale pendingTrimRange when scenes are emptied — avoids applying a
+  // stale trim confirmation range after the user deletes all scenes.
+  useEffect(() => {
+    if (scenes.length === 0 && pendingTrimRange) {
       setPendingTrimRange(null)
     }
-  }, [resetExportSession, scenes, pendingTrimRange])
+  }, [scenes.length, pendingTrimRange])
 
   const handleTransitionDurationChange = useCallback((value: number) => {
     resetExportSession()
