@@ -60,6 +60,7 @@ export function useExportController({
   const exportAbortRef = useRef<AbortController | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
   const exportProgressRef = useRef<number | undefined>(undefined)
+  const lastProgressUpdateTimeRef = useRef<number>(0)
   const playbackProgressRef = useRef(playbackProgress)
   const mountedRef = useRef(true)
   const tRef = useRef(t)
@@ -139,6 +140,7 @@ export function useExportController({
     setExportState('exporting')
     setExportProgress(0)
     exportProgressRef.current = undefined
+    lastProgressUpdateTimeRef.current = 0
     // Clear any stale video from a previous export so a failed new export
     // cannot show the old video in "done" state (CF5-03).
     revokeExportedVideoUrl()
@@ -198,10 +200,14 @@ export function useExportController({
 	            exportConfig,
 	            async (nextProgress, cameraState) => {
 	              await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)
-	              // Throttle visible playback state updates to ~10 Hz
-	              if (exportProgressRef.current === undefined || nextProgress - exportProgressRef.current >= 0.02) {
+	              // Throttle visible playback state updates to ~10 Hz using
+	              // a time-based interval so UI refresh rate is consistent
+	              // regardless of export duration or frame rate.
+	              const now = performance.now()
+	              if (exportProgressRef.current === undefined || now - lastProgressUpdateTimeRef.current >= 100) {
 	                setPlaybackProgress(nextProgress)
 	                exportProgressRef.current = nextProgress
+	                lastProgressUpdateTimeRef.current = now
 	              }
 	            },
 	            waitForStableMap,
