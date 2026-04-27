@@ -430,7 +430,11 @@ function HomeInner() {
   const handleScenesChange = useCallback((value: SetStateAction<Scene[]>) => {
     resetExportSession()
     setScenes(value)
-  }, [resetExportSession])
+    const resolved = typeof value === 'function' ? value(scenes) : value
+    if (resolved.length === 0 && pendingTrimRange) {
+      setPendingTrimRange(null)
+    }
+  }, [resetExportSession, scenes, pendingTrimRange])
 
   const handleTransitionDurationChange = useCallback((value: number) => {
     resetExportSession()
