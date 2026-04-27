@@ -264,13 +264,10 @@ function HomeInner() {
         } catch { /* ignore */ }
       }
     }
+    // MediaQueryList.addEventListener is supported since Safari 14, Chrome 80, Firefox 65
     const handler = (event: MediaQueryListEvent) => applySystemMode(event.matches)
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', handler)
-      return () => media.removeEventListener('change', handler)
-    }
-    media.addListener(handler)
-    return () => media.removeListener(handler)
+    media.addEventListener('change', handler)
+    return () => media.removeEventListener('change', handler)
   }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice, hasExplicitThemeChoice])
 
   // Escape-to-cancel while the export-overlay progress dialog is visible.
