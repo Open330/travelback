@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
@@ -379,11 +379,10 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
   }
 }
 
-function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, track?: Track | null) {
+function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, gridData: GeoJSON.FeatureCollection) {
   if (!map.isStyleLoaded()) return
 
   const gridPaint = GRID_PAINT_BY_STYLE[mapStyleKey]
-  const gridData = buildReferenceGridData(track)
 
   if (!map.getSource(REFERENCE_GRID_SOURCE)) {
     map.addSource(REFERENCE_GRID_SOURCE, {
@@ -473,6 +472,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const transitionDurationRef = useRef(transitionDuration)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
+
+  // Cache reference grid data keyed on track reference — avoids recomputing
+  // grid coordinates on every style change when the track hasn't changed.
+  const referenceGridData = useMemo(() => buildReferenceGridData(track), [track])
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -751,7 +754,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       const onGlobalStyleLoad = () => {
         const activeTrack = trackRef.current
-        addReferenceGridLayers(map, styleKeyRef.current, activeTrack)
+        addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
         setMapError(null)
         if (!activeTrack) return
         addTrackLayers(map, activeTrack)
@@ -802,7 +805,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     let styleHandler: (() => void) | null = null
     styleHandler = () => {
       const currentTrack = trackRef.current
-      addReferenceGridLayers(map, mapStyleKey, currentTrack)
+      addReferenceGridLayers(map, mapStyleKey, referenceGridData)
       setMapError(null)
       if (currentTrack) {
         addTrackLayers(map, currentTrack)
@@ -930,7 +933,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (!map) return
 
     if (!track) {
-      addReferenceGridLayers(map, styleKeyRef.current, null)
+      addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
       removeTrackArtifacts(map)
       markerRef.current?.remove()
       markerRef.current = null
@@ -948,7 +951,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         return false
       }
 
-      addReferenceGridLayers(map, styleKeyRef.current, track)
+      addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
       addTrackLayers(map, track)
 
       // Fit map to track bounds
