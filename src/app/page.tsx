@@ -12,6 +12,7 @@ import KeyboardHelp from '@/components/KeyboardHelp'
 import Toast, { useToast } from '@/components/Toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import TrackWorkspace from '@/components/TrackWorkspace'
+import ModalDialog from '@/components/ModalDialog'
 import { MAP_STYLES } from '@/types'
 import { computeCameraForProgress, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
@@ -108,6 +109,7 @@ function HomeInner() {
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
   const [workspaceAnnouncement, setWorkspaceAnnouncement] = useState('')
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
+  const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const { messages: toasts, addToast, dismissToast } = useToast()
 
@@ -146,15 +148,21 @@ function HomeInner() {
     setPlaybackProgress,
   } = playback
 
-  const cumulativeDistances = useMemo(
-    () => track ? computeCumulativeDistances(track.points, track.segmentStartIndices) : [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid O(n) recomputation when only the track object reference changes
-    [track?.points, track?.segmentStartIndices]
-  )
   const fullTrackCumulativeDistances = useMemo(
     () => fullTrack ? computeCumulativeDistances(fullTrack.points, fullTrack.segmentStartIndices) : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: keep the full-track timeline in full-track distance space
     [fullTrack?.points, fullTrack?.segmentStartIndices]
+  )
+  const cumulativeDistances = useMemo(
+    () => {
+      if (!track) return []
+      // When no trimming is applied, reuse the full-track distances to avoid
+      // redundant O(n) haversine computation (CF5-12).
+      if (track === fullTrack && fullTrackCumulativeDistances.length > 0) return fullTrackCumulativeDistances
+      return computeCumulativeDistances(track.points, track.segmentStartIndices)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid O(n) recomputation when only the track object reference changes
+    [track, track?.points, track?.segmentStartIndices, fullTrack, fullTrackCumulativeDistances]
   )
 
   const {
@@ -292,9 +300,8 @@ function HomeInner() {
     if (slicedPoints.length < 2) return
     const isFullRange = startIdx === 0 && endIdx === fullTrack.points.length - 1
     if (!isFullRange && scenes.length > 0) {
-      if (!window.confirm(t('scenes.trimClearConfirm'))) return
-      setScenes([])
-      setShowSceneEditor(false)
+      setPendingTrimRange({ startIdx, endIdx })
+      return
     }
     resetExportSession()
 
@@ -319,6 +326,35 @@ function HomeInner() {
     setTrack(filteredTrack)
     resetPlayback()
   }, [fullTrack, resetExportSession, resetPlayback, scenes.length, t])
+
+  const confirmTrimClear = useCallback(() => {
+    if (!pendingTrimRange || !fullTrack) return
+    setScenes([])
+    setShowSceneEditor(false)
+    setPendingTrimRange(null)
+    const { startIdx, endIdx } = pendingTrimRange
+    const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
+    if (slicedPoints.length < 2) return
+    resetExportSession()
+    const filteredTrack: Track = {
+      name: fullTrack.name,
+      points: slicedPoints,
+      ...(fullTrack.segmentStartIndices
+        ? {
+            segmentStartIndices: fullTrack.segmentStartIndices
+              .filter((index) => index >= startIdx && index <= endIdx)
+              .map((index) => index - startIdx)
+              .filter((index) => index > 0),
+          }
+        : {}),
+    }
+    setTrack(filteredTrack)
+    resetPlayback()
+  }, [pendingTrimRange, fullTrack, resetExportSession, resetPlayback])
+
+  const cancelTrimClear = useCallback(() => {
+    setPendingTrimRange(null)
+  }, [])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
     loadTrackIntoSession(nextTrack)
@@ -467,7 +503,7 @@ function HomeInner() {
 
   return (
     <ErrorBoundary>
-      <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true">
+      <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true" data-travelback-exporting={isExporting ? 'true' : undefined} data-has-track={track ? 'true' : undefined}>
         <MapView
           ref={mapViewRef}
           track={track}
@@ -588,6 +624,28 @@ function HomeInner() {
         ) : null}
 
         <Toast messages={toasts} onDismiss={dismissToast} />
+
+        {pendingTrimRange && (
+          <ModalDialog
+            open
+            onClose={cancelTrimClear}
+            labelledBy="trim-confirm-title"
+            overlayClassName="z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-md"
+            panelClassName="go w-full max-w-sm p-5 shadow-xl"
+          >
+            <p id="trim-confirm-title" className="mb-4 text-sm font-medium" style={{ color: 'var(--t1)' }}>{t('scenes.trimClearConfirm')}</p>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={cancelTrimClear}
+                className="gi px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
+                {t('app.cancel')}
+              </button>
+              <button type="button" onClick={confirmTrimClear}
+                className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
+                {t('app.discard')}
+              </button>
+            </div>
+          </ModalDialog>
+        )}
       </main>
     </ErrorBoundary>
   )
