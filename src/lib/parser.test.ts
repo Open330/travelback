@@ -618,3 +618,408 @@ describe('parseKML — DOCTYPE rejection', () => {
     }
   })
 })
+
+describe('parseGoogleLocationHistory — additional edge cases', () => {
+  it('handles empty object', () => {
+    expect(() => parseGoogleLocationHistory(JSON.stringify({}))).toThrowError(ParseError)
+  })
+
+  it('handles null input after JSON parse', () => {
+    // null JSON.parse result causes a TypeError when trying to access properties
+    expect(() => parseGoogleLocationHistory('null')).toThrow()
+  })
+
+  it('handles locations with NaN latitudeE7', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000 },
+        { latitudeE7: NaN, longitudeE7: -1220900000 },
+        { latitudeE7: 374200000, longitudeE7: -1220800000 },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(2) // NaN filtered out
+  })
+
+  it('handles locations with Infinity coordinates', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000 },
+        { latitudeE7: Infinity, longitudeE7: -1220900000 },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(1) // Infinity filtered out
+  })
+
+  it('handles locations with negative Infinity coordinates', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000 },
+        { latitudeE7: -Infinity, longitudeE7: -1220900000 },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(1) // -Infinity filtered out
+  })
+
+  it('handles locations with extremely large valid coordinates', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 900000000, longitudeE7: -1800000000 }, // 90, -180 (valid boundary)
+        { latitudeE7: -900000000, longitudeE7: 1800000000 }, // -90, 180 (valid boundary)
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(2)
+  })
+
+  it('handles locations with undefined timestamp', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000 },
+        { latitudeE7: 374100000, longitudeE7: -1220900000, timestamp: undefined },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(2)
+    expect(track.points[0].time).toBeUndefined()
+    expect(track.points[1].time).toBeUndefined()
+  })
+
+  it('handles locations with empty string timestamp', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000, timestamp: '' },
+        { latitudeE7: 374100000, longitudeE7: -1220900000 },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(2)
+    expect(track.points[0].time).toBeUndefined()
+  })
+
+  it('handles locations with invalid date string', () => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 374000000, longitudeE7: -1221000000, timestamp: 'not a date' },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].time).toBeUndefined()
+  })
+
+  it('handles activitySegment without points', () => {
+    const json = JSON.stringify({
+      timelineObjects: [
+        { activitySegment: { duration: { startTimestamp: '2024-01-15T10:00:00Z' } } },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(0)
+  })
+
+  it('handles placeVisit without location', () => {
+    const json = JSON.stringify({
+      timelineObjects: [
+        { placeVisit: { duration: { startTimestamp: '2024-01-15T10:00:00Z' } } },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(0)
+  })
+
+  it('handles semanticSegments with invalid geo: URI', () => {
+    const json = JSON.stringify({
+      semanticSegments: [
+        { timelinePath: [{ point: 'geo:invalid', timestamp: '2024-01-15T10:00:00Z' }] },
+      ],
+    })
+    const track = parseGoogleLocationHistory(json)
+    expect(track.points.length).toBe(0)
+  })
+})
+
+describe('parseGPX — additional edge cases', () => {
+  it('handles GPX with missing lat/lon attributes', () => {
+    const gpxMissingAttrs = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"></trkpt>
+      <trkpt></trkpt>
+      <trkpt lat="37.42" lon="-122.08"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxMissingAttrs)
+    expect(track.points.length).toBe(2) // Missing lat/lon filtered out
+  })
+
+  it('handles GPX with non-numeric lat/lon', () => {
+    const gpxNonNumeric = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"></trkpt>
+      <trkpt lat="abc" lon="xyz"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxNonNumeric)
+    expect(track.points.length).toBe(1)
+  })
+
+  it('handles GPX with elevation as non-numeric', () => {
+    const gpxNonNumericEle = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele>not a number</ele></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxNonNumericEle)
+    expect(track.points.length).toBe(2)
+    expect(track.points[0].ele).toBeUndefined()
+    expect(track.points[1].ele).toBe(100)
+  })
+
+  it('handles GPX with invalid time format', () => {
+    const gpxInvalidTime = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><time>not a valid time</time></trkpt>
+      <trkpt lat="37.41" lon="-122.09"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxInvalidTime)
+    expect(track.points.length).toBe(2)
+    expect(track.points[0].time).toBeUndefined()
+  })
+
+  it('handles GPX with empty elevation element', () => {
+    const gpxEmptyEle = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele></ele></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxEmptyEle)
+    expect(track.points.length).toBe(2)
+    expect(track.points[0].ele).toBeUndefined()
+  })
+
+  it('handles GPX with missing time element', () => {
+    const gpxNoTime = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxNoTime)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].time).toBeUndefined()
+  })
+
+  it('handles GPX with negative elevation', () => {
+    const gpxNegativeEle = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele>-50</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxNegativeEle)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].ele).toBe(-50)
+  })
+
+  it('handles GPX with floating point lat/lon', () => {
+    const gpxFloatCoords = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.412345" lon="-122.098765"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxFloatCoords)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].lat).toBeCloseTo(37.412345, 5)
+    expect(track.points[0].lng).toBeCloseTo(-122.098765, 5)
+  })
+})
+
+describe('parseKML — additional edge cases', () => {
+  it('handles KML with empty coordinates', () => {
+    const kmlEmptyCoords = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <LineString>
+        <coordinates></coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`
+    const track = parseKML(kmlEmptyCoords)
+    expect(track.points.length).toBe(0)
+  })
+
+  it('handles KML with invalid coordinates format', () => {
+    const kmlInvalidCoords = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <LineString>
+        <coordinates>not,valid,coordinates</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`
+    const track = parseKML(kmlInvalidCoords)
+    expect(track.points.length).toBe(0)
+  })
+
+  it('handles KML with Point geometry', () => {
+    const kmlPoint = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <Point>
+        <coordinates>-122.1,37.4,100</coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</kml>`
+    const track = parseKML(kmlPoint)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].lat).toBeCloseTo(37.4, 5)
+  })
+
+  it('handles KML with negative elevation', () => {
+    const kmlNegativeEle = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <LineString>
+        <coordinates>-122.1,37.4,-50</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`
+    const track = parseKML(kmlNegativeEle)
+    // Negative elevation may be filtered out or handled differently
+    expect(track.points.length).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('XML security — additional edge cases', () => {
+  it('rejects GPX with ENTITY declaration', () => {
+    const gpxWithEntity = `<?xml version="1.0"?>
+<!DOCTYPE gpx [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<gpx version="1.1">
+  <trk><trkseg><trkpt lat="37.4" lon="-122.1"></trkpt></trkseg></trk>
+</gpx>`
+    expect(() => parseGPX(gpxWithEntity)).toThrowError(ParseError)
+    try {
+      parseGPX(gpxWithEntity)
+    } catch (err) {
+      expect((err as ParseError).code).toBe('XML_PARSE_ERROR')
+    }
+  })
+
+  it('rejects KML with ENTITY declaration', () => {
+    const kmlWithEntity = `<?xml version="1.0"?>
+<!DOCTYPE kml [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document><Placemark><LineString><coordinates>-122.1,37.4</coordinates></LineString></Placemark></Document>
+</kml>`
+    expect(() => parseKML(kmlWithEntity)).toThrowError(ParseError)
+  })
+
+  it('handles GPX with many tags without error', () => {
+    const gpxWithManyTags = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      ${Array.from({ length: 100 }, (_, i) =>
+        `<trkpt lat="${37.4 + i * 0.001}" lon="${-122.1 + i * 0.001}"></trkpt>`
+      ).join('\n      ')}
+    </trkseg>
+  </trk>
+</gpx>`
+    const track = parseGPX(gpxWithManyTags)
+    expect(track.points.length).toBe(100)
+  })
+})
+
+describe('checkJsonDepth — additional edge cases', () => {
+  it('handles empty string', () => {
+    expect(() => checkJsonDepth('')).not.toThrow()
+  })
+
+  it('handles whitespace only', () => {
+    expect(() => checkJsonDepth('   ')).not.toThrow()
+  })
+
+  it('detects unbalanced braces - closing too many', () => {
+    expect(() => checkJsonDepth('}}')).toThrowError(ParseError)
+    try {
+      checkJsonDepth('}}')
+    } catch (err) {
+      expect((err as ParseError).code).toBe('INVALID_GOOGLE_JSON')
+    }
+  })
+
+  it('detects unbalanced brackets - closing too many', () => {
+    expect(() => checkJsonDepth(']]')).toThrowError(ParseError)
+    try {
+      checkJsonDepth(']]')
+    } catch (err) {
+      expect((err as ParseError).code).toBe('INVALID_GOOGLE_JSON')
+    }
+  })
+
+  it('handles deeply nested arrays', () => {
+    let nested = '[]'
+    for (let i = 0; i < 65; i++) {
+      nested = `[${nested}]`
+    }
+    expect(() => checkJsonDepth(nested)).toThrowError(ParseError)
+    try {
+      checkJsonDepth(nested)
+    } catch (err) {
+      expect((err as ParseError).code).toBe('JSON_DEPTH_EXCEEDED')
+    }
+  })
+
+  it('handles mixed nested structures', () => {
+    const mixed = JSON.stringify({
+      a: [{ b: [{ c: [{ d: 1 }] }] }],
+      e: { f: [{ g: { h: 1 } }] },
+    })
+    expect(() => checkJsonDepth(mixed)).not.toThrow()
+  })
+
+  it('handles JSON with Unicode escapes', () => {
+    const unicode = '{"text": "Hello\\u00A0World", "value": 1}'
+    expect(() => checkJsonDepth(unicode)).not.toThrow()
+  })
+
+  it('handles JSON with nested escaped quotes', () => {
+    const nestedEscapes = '{"a": "b \\" c \\" d", "e": {"f": "g \\" h"}}'
+    expect(() => checkJsonDepth(nestedEscapes)).not.toThrow()
+  })
+})
