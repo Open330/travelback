@@ -8,6 +8,7 @@ import { estimateEncodedBytes, estimateExportMemoryBytes, isCodecSupported, MAX_
 import { useLocale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import type { DownloadMethod, ExportState } from '@/lib/useExportController'
+import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
 
 const QUALITY_MAP: Record<string, number> = {
   low: 2,
@@ -33,17 +34,6 @@ function clampExportDuration(value: number): number {
 /** Cache for codec support results — scoped to component state so it
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
-
-function isLocalExportTestStubEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  if (!isLocalHost) return false
-  try {
-    return window.localStorage.getItem('travelback-export-test-stub') === '1'
-  } catch {
-    return false
-  }
-}
 
 interface ExportPanelProps {
   isOpen: boolean

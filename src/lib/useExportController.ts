@@ -8,6 +8,7 @@ import { computeCumulativeDistances } from '@/lib/interpolate'
 import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
+import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
@@ -15,17 +16,6 @@ export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 function isMapRenderExportError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   return error.message.includes('Map did not finish rendering')
-}
-
-function isLocalExportTestStubEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  if (!isLocalHost) return false
-  try {
-    return window.localStorage.getItem('travelback-export-test-stub') === '1'
-  } catch {
-    return false
-  }
 }
 
 interface UseExportControllerOptions {
