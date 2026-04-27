@@ -13,7 +13,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 **Fix:** Add Tailwind focus-visible outline classes to the SVG element, consistent with other interactive elements:
 - Add `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]` to the SVG className
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -30,7 +30,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 - Add `aria-valuemax={100}`
 - Add `aria-label={t('export.rendering')}`
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -42,7 +42,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 
 **Fix:** Change `track.points.length.toLocaleString()` to `track.points.length.toLocaleString(locale)` and `fullTrack.points.length.toLocaleString()` to `fullTrack.points.length.toLocaleString(locale)`.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
@@ -58,7 +58,7 @@ Derived from `.context/reviews/_aggregate.md` (cycle 9).
 - Replace `t('app.trackLoaded')` with `tRef.current('app.trackLoaded')` inside `loadTrackIntoSession`
 - Remove `t` from `loadTrackIntoSession` dependency array
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
