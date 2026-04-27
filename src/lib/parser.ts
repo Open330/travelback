@@ -670,7 +670,10 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
       // Worker crashed (e.g., memory pressure). Fall back only for small files
       // where the bounded pre-transfer copy is safe to decode on the main thread.
       if (!fallbackBuffer) {
-        reject(new ParseError(event.message || 'Worker parser failed', 'WORKER_FAILED'))
+        reject(new ParseError(
+          event.message || 'Worker parser failed. This file may be too large for your browser. Try importing a smaller date range or using a different browser.',
+          'WORKER_FAILED',
+        ))
         return
       }
       try {
