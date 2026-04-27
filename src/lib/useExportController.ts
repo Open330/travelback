@@ -7,11 +7,17 @@ import type { MapViewHandle } from '@/components/MapView'
 import { computeCumulativeDistances } from '@/lib/interpolate'
 import { generateDefaultScenes } from '@/lib/camera'
 import type { TranslationKey } from '@/lib/i18n'
-import { exportVideo, downloadVideo } from '@/lib/videoEncoder'
+import { exportVideo, downloadVideo, ExportError } from '@/lib/videoEncoder'
 import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
+
+/** Map ExportError codes to i18n keys for localized toast messages */
+const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
+  EXPORT_TOO_LARGE: 'app.exportFailedSuffix',
+  EXPORT_NO_BUFFER: 'app.exportFailedSuffix',
+}
 
 function isMapRenderExportError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
@@ -208,7 +214,9 @@ export function useExportController({
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
           const detailKey: TranslationKey = isMapRenderExportError(error)
             ? 'app.exportMapRenderFailed'
-            : 'app.exportFailedSuffix'
+            : error instanceof ExportError && EXPORT_ERROR_I18N[error.code]
+              ? EXPORT_ERROR_I18N[error.code]
+              : 'app.exportFailedSuffix'
           addToast(`${t('app.exportFailed')} ${t(detailKey)}`, 'error')
         }
         setExportState(hadExistingExport ? 'done' : 'idle')

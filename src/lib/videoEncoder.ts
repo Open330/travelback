@@ -6,6 +6,20 @@ import { computeCumulativeDistances } from './interpolate'
 
 export const MAX_IN_MEMORY_EXPORT_BYTES = 256 * 1024 * 1024
 
+/**
+ * Export error with a machine-readable code for i18n mapping.
+ * Mirrors the ParseError pattern in parser.ts so export errors can be
+ * classified and translated without depending on English message text.
+ */
+export class ExportError extends Error {
+  readonly code: string
+  constructor(message: string, code: string) {
+    super(message)
+    this.name = 'ExportError'
+    this.code = code
+  }
+}
+
 /** Map our codec names to mediabunny's codec names */
 function toMediabunnyCodec(codec: AppVideoCodec): 'avc' | 'hevc' | 'av1' {
   switch (codec) {
@@ -86,7 +100,7 @@ export async function exportVideo(
   }
 
   if (estimateExportMemoryBytes({ resolution: config.resolution, duration: safeDuration, fps: safeFps, bitrate: safeBitrate }) > MAX_IN_MEMORY_EXPORT_BYTES) {
-    throw new Error('This export is too large for in-browser video encoding. Lower the duration or quality.')
+    throw new ExportError('This export is too large for in-browser video encoding. Lower the duration or quality.', 'EXPORT_TOO_LARGE')
   }
 
   const totalFrames = Math.max(2, Math.ceil(safeDuration * safeFps))
@@ -173,7 +187,7 @@ export async function exportVideo(
 
   const buffer = target.buffer
   if (!buffer) {
-    throw new Error('Video encoding failed: no output buffer')
+    throw new ExportError('Video encoding failed: no output buffer', 'EXPORT_NO_BUFFER')
   }
 
   const sanitizedName = track.name
