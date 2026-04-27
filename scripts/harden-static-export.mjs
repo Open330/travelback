@@ -71,6 +71,21 @@ function computeScriptHashes(html) {
   return [...hashes].sort()
 }
 
+/**
+ * Rewrite Next.js's inline <script> that contains the travelback-bootstrap payload
+ * from the obfuscated `self.__next_s.push([...])` form to a plain <script id="travelback-bootstrap">
+ * form. This is required because CSP hash computation needs to find the script content
+ * in a stable, parseable location — the `__next_s.push` wrapper is not a direct <script> body
+ * and would not be picked up by the SHA-256 extraction loop above.
+ *
+ * The regex matches the exact output shape produced by Next.js 15's static export:
+ *   <script>(self.__next_s=self.__next_s||[]).push([0,{"children":"...","id":"travelback-bootstrap"}])</script>
+ *
+ * If Next.js changes how it serializes inline scripts (e.g., adding whitespace around the
+ * push call, changing attribute order in the JSON, using different encoding), this regex
+ * will silently fail to match. The `hasBootstrap && !replaced` check below catches this
+ * case and throws at build time.
+ */
 function inlineTravelbackBootstrap(html) {
   const nextScriptPattern = /<script>\(self\.__next_s=self\.__next_s\|\|\[\]\)\.push\(\[0,(\{"children":"(?:\\.|[^"\\])*","id":"travelback-bootstrap"\})\]\)<\/script>/i
   const hasBootstrap = /travelback-bootstrap/.test(html)
