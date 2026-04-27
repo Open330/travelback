@@ -111,6 +111,8 @@ function HomeInner() {
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
+  const tRef = useRef(t)
+  useEffect(() => { tRef.current = t }, [t])
   const { messages: toasts, addToast, dismissToast } = useToast()
 
   const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
@@ -279,9 +281,9 @@ function HomeInner() {
     resetPlaybackSession()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
-    setWorkspaceAnnouncement(`${t('app.trackLoaded')} ${nextTrack.name}`)
+    setWorkspaceAnnouncement(`${tRef.current('app.trackLoaded')} ${nextTrack.name}`)
     setPendingWorkspaceFocus(true)
-  }, [resetPlaybackSession, resetTrackWorkspace, t])
+  }, [resetPlaybackSession, resetTrackWorkspace])
 
   const startFreshJourneySession = useCallback(() => {
     resetTrackWorkspace()
