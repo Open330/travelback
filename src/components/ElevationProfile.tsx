@@ -97,7 +97,7 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="h-10 w-full rounded cursor-pointer"
+        className="h-10 w-full rounded cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
         role="slider"
         tabIndex={0}
         onClick={handleClick}
