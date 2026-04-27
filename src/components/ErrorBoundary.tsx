@@ -6,6 +6,7 @@ import { useLocale, t as translate, type Locale } from '@/lib/i18n'
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
+  componentStack: string | null
   resetKey: number
 }
 
@@ -15,7 +16,7 @@ class ErrorBoundaryInner extends React.Component<
 > {
   constructor(props: { children: React.ReactNode; locale: Locale }) {
     super(props)
-    this.state = { hasError: false, error: null, resetKey: 0 }
+    this.state = { hasError: false, error: null, componentStack: null, resetKey: 0 }
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
@@ -24,6 +25,8 @@ class ErrorBoundaryInner extends React.Component<
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error.message, info.componentStack)
+    // Preserve the component stack for display in development mode
+    this.setState({ componentStack: info.componentStack ?? null })
   }
 
   handleReload = () => {
@@ -31,7 +34,7 @@ class ErrorBoundaryInner extends React.Component<
   }
 
   handleReset = () => {
-    this.setState((prev) => ({ hasError: false, error: null, resetKey: prev.resetKey + 1 }))
+    this.setState((prev) => ({ hasError: false, error: null, componentStack: null, resetKey: prev.resetKey + 1 }))
   }
 
   render() {
@@ -47,6 +50,28 @@ class ErrorBoundaryInner extends React.Component<
             <p className="text-sm mb-6" style={{ color: 'var(--t3)' }}>
               {t('error.fallback')}
             </p>
+            {process.env.NODE_ENV === 'development' && this.state.error && (
+              <details className="mb-6 text-left text-xs" style={{ color: 'var(--t4)' }}>
+                <summary className="cursor-pointer font-medium mb-2" style={{ color: 'var(--t5, var(--t4))' }}>
+                  Error details (development only)
+                </summary>
+                <pre className="whitespace-pre-wrap break-all p-3 rounded opacity-70" style={{ background: 'rgba(var(--err-rgb, 239,68,68),.08)', maxHeight: '200px', overflow: 'auto' }}>
+                  {this.state.error.message}
+                  {this.state.error.stack && (
+                    <>
+                      {'\n\n'}
+                      {this.state.error.stack}
+                    </>
+                  )}
+                  {this.state.componentStack && (
+                    <>
+                      {'\n\nComponent stack:'}
+                      {this.state.componentStack}
+                    </>
+                  )}
+                </pre>
+              </details>
+            )}
             <div className="flex gap-3 justify-center">
               <button
                 type="button"
