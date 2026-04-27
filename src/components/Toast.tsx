@@ -66,7 +66,7 @@ export default function Toast({ messages, onDismiss }: ToastProps) {
   // When both types are present, use assertive to ensure errors are heard.
   const hasError = messages.some(m => m.type === 'error')
   return (
-    <div aria-live={hasError ? 'assertive' : 'polite'} aria-atomic="false" className="fixed bottom-28 sm:bottom-24 right-4 z-50 flex flex-col gap-2">
+    <div aria-live={hasError ? 'assertive' : 'polite'} aria-atomic="false" className="travelback-toast fixed bottom-28 right-4 z-50 flex flex-col gap-2">
       {messages.map(msg => (
         <ToastItem key={msg.id} message={msg} onDismiss={() => onDismiss(msg.id)} />
       ))}

@@ -434,6 +434,11 @@ body {
   animation: mesh-rot 22s linear infinite;
 }
 
+/* Pause mesh animation during video export to avoid competing with WebGL canvas */
+[data-travelback-exporting="true"] .vitro-mesh {
+  animation-play-state: paused !important;
+}
+
 [data-mesh=off] .vitro-mesh {
   animation: none !important;
 }
@@ -786,5 +791,28 @@ textarea:focus-visible,
   select,
   textarea {
     min-height: max(44px, var(--vitro-min-touch));
+  }
+}
+
+/* ── Toast positioning ── */
+/* When a track is loaded, the playback controls occupy the bottom of the
+   viewport.  Push toasts above them so they remain visible and tappable. */
+.travelback-toast {
+  transition: bottom .2s ease;
+}
+
+@media (min-width: 640px) {
+  .travelback-toast {
+    bottom: 6rem;
+  }
+}
+
+[data-has-track="true"] .travelback-toast {
+  bottom: 11rem;
+}
+
+@media (min-width: 640px) {
+  [data-has-track="true"] .travelback-toast {
+    bottom: 10rem;
   }
 }
