@@ -28,7 +28,7 @@ export interface MapViewHandle {
   getMap: () => maplibregl.Map | null
   getCanvas: () => HTMLCanvasElement | null
   applyCameraState: (state: CameraState) => void
-  renderFrameAndWait: (state: CameraState, signal?: AbortSignal) => Promise<void>
+  renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => Promise<void>
   clearTrackArtifacts: () => void
   resize: (width: number, height: number) => void
   resetSize: () => void
@@ -509,7 +509,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         bearing: state.bearing,
       })
     },
-    renderFrameAndWait: (state: CameraState, signal?: AbortSignal) => {
+    renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => {
       return new Promise<void>((resolve, reject) => {
         const map = mapRef.current
         if (!map) {
@@ -517,6 +517,72 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           // "frame ready" from "map unavailable" and abort cleanly.
           reject(new DOMException('Map not available for frame render', 'AbortError'))
           return
+        }
+
+        // Imperatively update trail and marker for this export frame.
+        // During export the React progress effect is gated by isExporting,
+        // so we must update visual state here to produce a correct video.
+        const track = trackRef.current
+        const cumulDist = cumulDistRef.current
+        if (track && cumulDist.length === track.points.length && cumulDist.length > 0) {
+          const result = interpolateAlongTrack(track.points, cumulDist, progress)
+          const { point, segmentIndex } = result
+
+          // Update marker position
+          markerRef.current?.setLngLat([point.lng, point.lat])
+          const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+          markerSource?.setData(markerPointFeature(point))
+
+          // Update trail
+          const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
+          const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
+          lastTrailSegmentIndexRef.current = segmentIndex
+          if (trailSource && segmentIndexChanged && precomputedSegmentsRef.current.length > 0) {
+            const segments = precomputedSegmentsRef.current
+            const trailSegments: [number, number][][] = []
+
+            for (const seg of segments) {
+              if (seg.range.start > segmentIndex) break
+
+              if (seg.range.end <= segmentIndex) {
+                trailSegments.push(seg.coordinates)
+              } else {
+                const partialCoords: [number, number][] = []
+                for (let i = 0; i < seg.coordinates.length; i++) {
+                  if (seg.range.start + i > segmentIndex) break
+                  partialCoords.push(seg.coordinates[i])
+                }
+                if (point) {
+                  const previous = partialCoords[partialCoords.length - 1]
+                  const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+                  partialCoords.push([lng, point.lat])
+                }
+                if (partialCoords.length === 1) {
+                  partialCoords.push([...partialCoords[0]] as [number, number])
+                }
+                if (partialCoords.length >= 2) {
+                  trailSegments.push(partialCoords)
+                }
+              }
+            }
+
+            const trailGeometry: GeoJSON.LineString | GeoJSON.MultiLineString =
+              trailSegments.length <= 1
+                ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
+                : { type: 'MultiLineString', coordinates: trailSegments }
+
+            trailSource.setData({
+              type: 'Feature',
+              properties: {},
+              geometry: trailGeometry,
+            })
+          } else if (trailSource && segmentIndexChanged) {
+            trailSource.setData({
+              type: 'Feature',
+              properties: {},
+              geometry: buildTrackGeometry(track.points, track.segmentStartIndices, segmentIndex, point),
+            })
+          }
         }
 
         // If camera state is identical to current map state, resolve immediately
@@ -707,16 +773,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       mapRef.current = map
       styleKeyRef.current = initialStyleKey
 
-      const debugParams = new URLSearchParams(window.location.search)
-      let debugStorageEnabled = false
-      try {
-        debugStorageEnabled = window.localStorage.getItem('travelback-debug') === '1'
-      } catch {
-        debugStorageEnabled = false
-      }
       const canExposeDebugCamera =
         process.env.NODE_ENV === 'development'
-        || debugParams.get('__travelbackDebug') === '1'
       if (canExposeDebugCamera) {
         const debugWindow = window as TravelbackDebugWindow
         debugWindow.__travelbackDebug = {
@@ -995,9 +1053,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Update animation state
   useEffect(() => {
-    // During export, camera/trail/marker updates are handled by
-    // renderFrameAndWait — skip this React-driven effect to avoid
-    // redundant state updates and React re-render overhead.
+    // During export, all visual updates (camera, trail, marker) are handled
+    // imperatively by renderFrameAndWait to avoid React re-render overhead.
+    // Skip this React-driven effect entirely during export.
     if (isExporting) return
 
     const map = mapRef.current
