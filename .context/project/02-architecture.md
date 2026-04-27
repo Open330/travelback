@@ -66,7 +66,19 @@ downloadVideo() → Browser download
 MapView.resetSize() → Restore original dimensions
 ```
 
-Note: `waitForIdle()` is still used for initial map settling after resize (before the frame loop starts). The per-frame capture uses `renderFrameAndWait()` instead, which waits for MapLibre's `render` event with a 5-second timeout fallback.
+Note: `waitForIdle()` is still used for initial map settling after resize (before the frame loop starts). The per-frame capture uses `renderFrameAndWait()` instead, which waits for MapLibre's `render` event with a 5-second timeout fallback. If the camera state is identical to the current map state (within rounding), `renderFrameAndWait` resolves immediately without waiting for a render event, preventing deadlocks when MapLibre would not repaint.
+
+### Export / Playback separation
+
+During export, `useExportController` sets `isExporting=true` on MapView. The progress-driven `useEffect` in MapView returns early when `isExporting` is true, preventing React-driven trail/marker/camera updates that would conflict with the export frame loop. Camera updates go exclusively through `renderFrameAndWait`. After export completes (or is cancelled), `isExporting` is set to `false` and the progress effect re-syncs trail and marker state.
+
+### Trail rendering with precomputed segments
+
+At track load time, `precomputeWrappedSegments()` builds per-segment coordinate arrays with antimeridian wrapping already applied. During playback, the trail update iterates precomputed segments: fully-traversed segments are pushed as O(1) references, and only the partial (current) segment is copied with the interpolated endpoint. This eliminates per-frame O(n) wrapping/copying for completed segments.
+
+### Export cleanup: resetSize
+
+`resetSize()` clears container inline styles (`width`, `height`) before calling `map.resize()`. If `map.resize()` throws (e.g., the map was destroyed during export), the container is already restored to its natural dimensions. This prevents a permanently resized map on cleanup failure.
 
 ## Camera System
 
