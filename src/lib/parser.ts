@@ -508,11 +508,21 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
 // throws RangeError on excessive nesting depth, which is caught and converted
 // to a ParseError. The worker cannot recover from a RangeError (it crashes the
 // process), so it uses this pre-flight check instead.
+//
+// Scanning is capped at MAX_DEPTH_SCAN_CHARS (10 MB) because valid Google
+// Location History files have consistent nesting depth throughout — if the
+// first 10 MB are safe, the rest will be too.  Without the cap, a 100 MB
+// file would require iterating ~100 M characters before the worker can start
+// parsing (C19-F05).
+const MAX_DEPTH_SCAN_CHARS = 10 * 1024 * 1024
+
 export function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
   let depth = 0
   let inString = false
   let escape = false
-  for (const ch of text) {
+  const limit = Math.min(text.length, MAX_DEPTH_SCAN_CHARS)
+  for (let i = 0; i < limit; i++) {
+    const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
     if (ch === '"') { inString = !inString; continue }
