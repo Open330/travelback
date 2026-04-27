@@ -271,13 +271,24 @@ export function useExportController({
       }
     } finally {
       exportAbortRef.current = null
-      try {
-        mapViewRef.current?.resetSize()
-      } catch (resetError) {
-        // resetSize() is expected to clear forced dimensions itself; this log
-        // keeps unexpected map teardown failures visible without reaching into
-        // MapView's DOM from the controller.
-        console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
+      // Only reset map size when the component is still mounted — calling
+      // resetSize() on a destroyed map can throw (C15-F05).
+      if (mountedRef.current) {
+        try {
+          mapViewRef.current?.resetSize()
+        } catch (resetError) {
+          // resetSize() is expected to clear forced dimensions itself; this log
+          // keeps unexpected map teardown failures visible without reaching into
+          // MapView's DOM from the controller.
+          console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
+        }
+      } else {
+        // Component unmounted during export — attempt a best-effort container
+        // style cleanup only (resetSize clears container style + calls
+        // map.resize). The container style clear is non-throwing.
+        try {
+          mapViewRef.current?.resetSize()
+        } catch { /* map destroyed — container already cleaned by unmount */ }
       }
       // Wait for map to settle after resize on the normal-completion path.
       // Skip the idle wait when the export was aborted — the signal is already
