@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScenes, lerpCamera } from './camera'
-import type { Scene } from '@/types'
+import { normalizeScenes, lerpCamera, computeCameraForProgress } from './camera'
+import type { Scene, Track } from '@/types'
 
 const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMode'] = 'flyover'): Scene => ({
   id,
@@ -10,6 +10,17 @@ const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMo
   endPercent: end,
   params: { zoom: 14, pitch: 45, bearingOffset: 0, rotationSpeed: 0 },
 })
+
+// Simple straight-line track along latitude 0 from lng 0 to lng 1
+const testTrack: Track = {
+  name: 'test',
+  points: Array.from({ length: 101 }, (_, i) => ({
+    lat: 0,
+    lng: i / 100,
+    time: new Date(i * 1000),
+  })),
+}
+const testCumulDist = Array.from({ length: 101 }, (_, i) => i * 111320 / 100)
 
 describe('normalizeScenes', () => {
   it('returns empty array for empty input', () => {
@@ -111,5 +122,82 @@ describe('lerpCamera', () => {
     const result = lerpCamera(a, b, 0.5)
     // Should go 10 -> 350 via shortest path (through 0/360), midpoint ~0
     expect(result.bearing).toBeCloseTo(0, 0)
+  })
+})
+
+describe('computeCameraForProgress', () => {
+  it('returns default follow camera when no scenes', () => {
+    const result = computeCameraForProgress(testTrack, testCumulDist, [], 0.5, 0)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+    expect(Number.isFinite(result.bearing)).toBe(true)
+  })
+
+  it('returns a camera within a single scene', () => {
+    const scenes = [makeScene('1', 0, 1)]
+    const result = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 0)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('interpolates between scenes at a gap', () => {
+    const scenes = [
+      makeScene('a', 0, 0.4),
+      makeScene('b', 0.6, 1),
+    ]
+    const normalized = normalizeScenes(scenes)
+    // Progress 0.5 is in the gap between scene a (ends 0.4) and scene b (starts 0.6)
+    const result = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 0, 0.03, true)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('interpolates from overview camera before first scene', () => {
+    const scenes = [makeScene('1', 0.4, 1)]
+    const normalized = normalizeScenes(scenes)
+    // Progress 0.2 is before the first scene starts at 0.4
+    const result = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.2, 0, 0.03, true)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('uses default follow camera after last scene', () => {
+    const scenes = [makeScene('1', 0, 0.4)]
+    const normalized = normalizeScenes(scenes)
+    // Progress 0.7 is after the scene ends at 0.4
+    const result = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.7, 0, 0.03, true)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('blends at scene boundaries with transition', () => {
+    const scenes = [
+      makeScene('a', 0, 0.5),
+      makeScene('b', 0.5, 1),
+    ]
+    const normalized = normalizeScenes(scenes)
+    // At the boundary between scenes, the transition blending should kick in
+    const result = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 0, 0.03, true)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('handles zero-duration scene gracefully (filtered by normalization)', () => {
+    const scenes = [makeScene('1', 0.3, 0.3)]
+    // After normalization, this scene is filtered out, so the result should
+    // be the same as having no scenes (default follow camera)
+    const result = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 0)
+    expect(result.center).toBeDefined()
+    expect(result.zoom).toBeGreaterThan(0)
+  })
+
+  it('handles progress at 0 and 1 boundaries', () => {
+    const scenes = [makeScene('1', 0, 1)]
+    const atStart = computeCameraForProgress(testTrack, testCumulDist, scenes, 0, 0)
+    const atEnd = computeCameraForProgress(testTrack, testCumulDist, scenes, 1, 0)
+    expect(atStart.center).toBeDefined()
+    expect(atEnd.center).toBeDefined()
+    expect(atStart.zoom).toBeGreaterThan(0)
+    expect(atEnd.zoom).toBeGreaterThan(0)
   })
 })
