@@ -488,6 +488,30 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const map = mapRef.current
         if (!map) { resolve(); return }
 
+        // If camera state is identical to current map state, resolve immediately
+        // — MapLibre won't repaint so the render event would never fire
+        const center = map.getCenter()
+        const current = {
+          lng: Math.round(center.lng * 1e6) / 1e6,
+          lat: Math.round(center.lat * 1e6) / 1e6,
+          zoom: Math.round(map.getZoom() * 1e3) / 1e3,
+          pitch: Math.round(map.getPitch() * 10) / 10,
+          bearing: Math.round(map.getBearing() * 10) / 10,
+        }
+        const next = {
+          lng: Math.round((state.center as [number, number])[0] * 1e6) / 1e6,
+          lat: Math.round((state.center as [number, number])[1] * 1e6) / 1e6,
+          zoom: Math.round(state.zoom * 1e3) / 1e3,
+          pitch: Math.round(state.pitch * 10) / 10,
+          bearing: Math.round(state.bearing * 10) / 10,
+        }
+        if (current.lng === next.lng && current.lat === next.lat
+          && current.zoom === next.zoom && current.pitch === next.pitch
+          && current.bearing === next.bearing) {
+          resolve()
+          return
+        }
+
         map.jumpTo({
           center: state.center as [number, number],
           zoom: state.zoom,
@@ -495,17 +519,34 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           bearing: state.bearing,
         })
 
-        const onRender = () => {
+        let settled = false
+
+        const cleanup = () => {
+          if (settled) return
+          settled = true
           map.off('render', onRender)
+          clearTimeout(timeoutId)
           signal?.removeEventListener('abort', onAbort)
+        }
+
+        const onRender = () => {
+          cleanup()
           // Wait one more rAF to ensure WebGL canvas is painted
           requestAnimationFrame(() => resolve())
         }
 
         const onAbort = () => {
-          map.off('render', onRender)
+          cleanup()
           reject(new DOMException('Export cancelled', 'AbortError'))
         }
+
+        // Timeout: if MapLibre never fires a render event (e.g. identical state
+        // slipped through rounding), resolve anyway after 5s. A duplicate frame
+        // is acceptable for export; a deadlock is not.
+        const timeoutId = setTimeout(() => {
+          cleanup()
+          resolve()
+        }, 5000)
 
         if (signal?.aborted) {
           onAbort()
