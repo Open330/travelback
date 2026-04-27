@@ -1,11 +1,6 @@
-let _idCounter = 0
-
-export function generateId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${(_idCounter++).toString(36)}-${Math.random().toString(36).slice(2)}`
-}
+// Re-export generateId from its dedicated module for backward compatibility.
+// New imports should use `import { generateId } from '@/lib/id'` directly.
+export { generateId } from '@/lib/id'
 
 export interface TrackPoint {
   lng: number

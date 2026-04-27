@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
-import { generateId } from '@/types'
+import { generateId } from '@/lib/id'
 
 export interface ToastMessage {
   id: string
