@@ -45,7 +45,7 @@ map styles, export presets, or improve the scene editor.
 
 **Route Animation** — Animated trail with a pulsing marker following the track. Seekable progress bar with 6 speed levels (0.5×–16×).
 
-**6 Camera Modes** — Overview, Flyover, Orbit, Ground Follow, Closeup, Bird's Eye. Each with configurable zoom, pitch, bearing offset, and rotation speed.
+**6 Camera Modes** — Overview, Flyover, Spin Around, Street View, Closeup, Bird's Eye. Each with configurable zoom, pitch, bearing offset, and rotation speed.
 
 **Scene Editor** — Compose multi-segment cinematic sequences with per-scene camera modes and smooth transitions. Coverage bar shows scene boundaries.
 
@@ -61,7 +61,7 @@ map styles, export presets, or improve the scene editor.
 
 **Liquid Glass UI** — [Vitro](https://github.com/circle-oo/vitro) design system with 4-level glass materials, animated mesh background, and light/dark mode toggle.
 
-**Google Takeout Guide** — Step-by-step instructions with a direct link to export your Google Location History.
+**Travel Data Import Guide** — Step-by-step instructions for Google Maps (phone export + Takeout), Strava, Garmin, AllTrails, Komoot, and generic GPX/KML apps, with a direct link to export your Google Location History.
 
 ## Supported Formats
 

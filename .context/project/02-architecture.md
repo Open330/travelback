@@ -70,14 +70,14 @@ MapView.resetSize() → Restore original dimensions
 
 ### Camera Modes
 
-| Mode | Zoom | Pitch | Bearing | Special |
-|------|------|-------|---------|---------|
-| Overview | 10 | 45° | Slow rotation (10°/s) | Centers on full track bounding box |
-| Flyover | 13 | 55° | Track direction | Standard follow |
-| Orbit | 14 | 60° | Fast rotation (36°/s) | Orbits around current position |
-| Ground | 15.5 | 70° | Track direction | Low-altitude chase |
-| Closeup | 17 | 30° | Track direction | Street-level view |
-| Bird's Eye | 11 | 65° | Look-ahead bearing + drift | High-altitude tilted overview |
+| Mode (internal key) | UI label | Zoom | Pitch | Bearing | Special |
+|--------------------|----------|------|-------|---------|---------|
+| Overview | Overview | 10 | 45° | Slow rotation (10°/s) | Centers on full track bounding box |
+| Flyover | Flyover | 13 | 55° | Track direction | Standard follow |
+| Orbit | Spin Around | 14 | 60° | Fast rotation (36°/s) | Orbits around current position |
+| Ground | Street View | 15.5 | 70° | Track direction | Low-altitude chase |
+| Closeup | Closeup | 17 | 30° | Track direction | Street-level view |
+| Bird's Eye | Bird's Eye | 11 | 65° | Look-ahead bearing + drift | High-altitude tilted overview |
 
 ### Scene System
 
