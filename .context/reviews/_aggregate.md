@@ -1,118 +1,85 @@
-# Cycle 7 Aggregate Review (2026-04-27)
+# Cycle 9 Aggregate Review (2026-04-27)
 
-Consolidated single deep pass (6+ prior converged cycles). Source: cycle7-focused-review-2026-04-27.md
+Consolidated from cycle9-focused-review-2026-04-27.md and prior cycle 8 aggregate.
 
 ---
 
 ## New Findings
 
-### C7-F01 — `handleRangeChange` has unnecessary `t` dependency causing callback churn
-
-- **Severity:** LOW-MEDIUM
-- **Confidence:** High
-- **Files:** `src/app/page.tsx:328`
-- **Detail:** `useCallback` has unnecessary dependency `t`. The callback never calls `t` inside its body, causing recreation on every locale change.
-- **Fix:** Remove `t` from the dependency array.
-
----
-
-### C7-F02 — `exportTrack` useCallback missing `revokeExportedVideoUrl` dependency
-
-- **Severity:** LOW-MEDIUM
-- **Confidence:** High
-- **Files:** `src/lib/useExportController.ts:268`
-- **Detail:** `revokeExportedVideoUrl` is called inside `exportTrack` (line 137) but omitted from the dependency array. Currently safe because it has `[]` deps, but violates exhaustive-deps.
-- **Fix:** Add `revokeExportedVideoUrl` to the dependency array.
-
----
-
-### C7-F03 — `playbackProgress` still in `exportTrack` deps despite ref optimization (AG6-07 partial)
-
-- **Severity:** LOW-MEDIUM
-- **Confidence:** High
-- **Files:** `src/lib/useExportController.ts:268`
-- **Detail:** `playbackProgressRef` was added for reading inside the callback, but `playbackProgress` state still appears in deps at line 268, negating the optimization.
-- **Fix:** Remove `playbackProgress` from the dependency array.
-
----
-
-### C7-F04 — `handleModeChange` theme-map coupling (intentional)
-
-- **Severity:** LOW
-- **Confidence:** Medium
-- **Files:** `src/app/page.tsx:458-476`
-- **Detail:** Theme changes silently override map style when no explicit map style choice exists. Intentional design decision — no fix needed.
-
----
-
-### C7-F05 — After-last-scene gap lerp bearing wobble (AG6-03 partial fix)
+### C9-F01 — MEDIUM — ElevationProfile SVG missing focus-visible indicator (WCAG 2.4.7)
 
 - **Severity:** MEDIUM
 - **Confidence:** High
-- **Files:** `src/lib/camera.ts:401-410`
-- **Detail:** The lerp start point `computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)` uses current `elapsedSec`, causing the start point to move during rotation modes. Creates visible bearing wobble instead of smooth blend.
-- **Fix:** Cache the previous scene's end-state camera when the gap is first entered and hold it constant throughout the gap transition.
+- **Files:** `src/components/ElevationProfile.tsx:97-110`
+- **Detail:** The SVG element has `role="slider"` and `tabIndex={0}` for keyboard accessibility, but no visible focus indicator. When a keyboard user tabs to the elevation profile, there is no visual ring or outline to indicate focus. This violates WCAG 2.4.7 (Focus Visible) and 2.4.11 (Focus Appearance).
+- **Fix:** Add `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]` classes to the SVG element.
+- **Cross-agent agreement:** New finding, consistent with prior C7-F06 (ElevationProfile SVG click padding — latent).
 
----
+### C9-F02 — LOW-MEDIUM — Export progress bar lacks ARIA progressbar role (WCAG 4.1.2)
 
-### C7-F06 — ElevationProfile SVG click handler padding risk (latent)
+- **Severity:** LOW-MEDIUM
+- **Confidence:** High
+- **Files:** `src/components/ExportPanel.tsx:295-297`
+- **Detail:** The export progress bar is a pair of `<div>` elements with no `role="progressbar"`, `aria-valuenow`, `aria-valuemin`, or `aria-valuemax`. Screen readers cannot convey progress in the standard way.
+- **Fix:** Add `role="progressbar"` with `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`, and `aria-label` to the progress bar container.
 
-- **Severity:** LOW
-- **Confidence:** Medium
-- **Files:** `src/components/ElevationProfile.tsx:64-71`
-- **Detail:** Click coordinate calculation does not account for CSS padding. Currently no padding is applied, so no current bug.
-- **Fix:** No immediate fix needed. Flag as latent risk.
-
----
-
-### C7-F07 — `handleSearchSubmit` guard redundant (latent)
+### C9-F03 — LOW — TrackWorkspace `toLocaleString()` without explicit locale
 
 - **Severity:** LOW
 - **Confidence:** High
-- **Files:** `src/components/JourneyCreator.tsx:552-555`
-- **Detail:** Guard checks `searchEnabled` but the search UI is not rendered when disabled. No current bug.
-- **Fix:** No immediate fix needed.
+- **Files:** `src/components/TrackWorkspace.tsx:127,135`
+- **Detail:** `track.points.length.toLocaleString()` and `fullTrack.points.length.toLocaleString()` use the browser's default locale instead of the app's selected locale, producing visual inconsistency.
+- **Fix:** Pass `locale` prop to `toLocaleString(locale)`.
+
+### C9-F04 — LOW — `loadTrackIntoSession` depends on `t` (same pattern as C8-F02)
+
+- **Severity:** LOW
+- **Confidence:** High
+- **Files:** `src/app/page.tsx:274-284`
+- **Detail:** `loadTrackIntoSession` includes `t` in its dependency array solely for `setWorkspaceAnnouncement`. Same pattern that was fixed in C8-F02 for `useExportController`. Cascades to `handleTrackLoaded`, `handleJourneyComplete`, `handleLoadSample`.
+- **Fix:** Use a `tRef` and read `tRef.current('app.trackLoaded')` inside the callback. Remove `t` from deps.
 
 ---
 
-## Carried Forward from Cycle 6 (still relevant)
+## Verified Already-Fixed (confirmed this cycle)
 
-| ID | Severity | Status | Note |
-|----|----------|--------|------|
-| AG6-01 | HIGH | **FIXED** | Trail/marker updates added to `renderFrameAndWait` |
-| AG6-02 | MEDIUM | **FIXED** | `hadExistingExport` removed |
-| AG6-03 | MEDIUM | PARTIAL | After-last-scene gap lerp added but wobble remains (C7-F05) |
-| AG6-04 | MEDIUM | **FIXED** | Debug URL parameter removed |
-| AG6-05 | LOW-MEDIUM | OPEN | Worker message validation not added |
-| AG6-06 | MEDIUM | **FIXED** | Resolved by AG6-01 fix |
-| AG6-07 | LOW-MEDIUM | PARTIAL | Ref added but `playbackProgress` still in deps (C7-F03) |
-| AG6-08 | LOW-MEDIUM | **FIXED** | Resolved by AG6-01 fix |
-| AG6-09 | LOW-MEDIUM | OPEN | Bootstrap regex comments not added |
-| AG6-10 | LOW | OPEN | Unsafe type casts |
-| AG6-11 | LOW | OPEN | Stale frame logging |
-| AG6-12 | LOW | OPEN | Grid memo optimization |
-| AG6-13 | LOW-MEDIUM | OPEN | Buffer copy optimization |
-| AG6-14 | LOW-MEDIUM | OPEN | Normalization warnings specificity |
-| AG6-15 | LOW-MEDIUM | OPEN | Export progress bar transition |
-| AG6-16 | LOW | OPEN | Toast z-index overlap |
-| AG6-17 | LOW | OPEN | README accuracy |
-| AG6-18 | MEDIUM | OPEN | Camera unit test coverage |
-| AG6-19 | MEDIUM | DEFERRED | Architectural refactor of useExportController |
+| ID | Original Severity | Verification |
+|----|------------------|-------------|
+| C8-F01 | MEDIUM | `elapsedSec=0` confirmed in transition-blending calls |
+| C8-F02 | LOW-MEDIUM | `tRef` confirmed in useExportController, `t` removed from exportTrack deps |
 
 ---
 
-## Summary by severity
+## Carried Forward (still open, not newly addressed)
+
+| ID | Severity | Note |
+|----|----------|------|
+| AG6-05 | LOW-MEDIUM | Worker message validation |
+| AG6-09 | LOW-MEDIUM | Bootstrap regex comments |
+| AG6-10 | LOW | Unsafe type casts |
+| AG6-11 | LOW | Stale frame logging |
+| AG6-12 | LOW | Grid memo optimization |
+| AG6-13 | LOW-MEDIUM | Buffer copy optimization |
+| AG6-14 | LOW-MEDIUM | Normalization warnings specificity |
+| AG6-15 | LOW-MEDIUM | Export progress bar transition |
+| AG6-16 | LOW | Toast z-index overlap |
+| AG6-17 | LOW | README accuracy |
+| AG6-18 | MEDIUM | Camera unit test coverage |
+| AG6-19 | MEDIUM | DEFERRED — architectural refactor |
+| C7-F06 | LOW | ElevationProfile SVG click padding (latent) |
+| C7-F07 | LOW | handleSearchSubmit guard (latent) |
+| C8-F03 | LOW | SceneEditor locale cascade (optimization) |
+
+---
+
+## Summary
 
 | Severity | Count | IDs |
 |----------|-------|-----|
-| MEDIUM | 1 | C7-F05 |
-| LOW-MEDIUM | 3 | C7-F01, C7-F02, C7-F03 |
-| LOW | 2 | C7-F04 (intentional), C7-F06 (latent) |
+| MEDIUM | 1 | C9-F01 |
+| LOW-MEDIUM | 1 | C9-F02 |
+| LOW | 2 | C9-F03, C9-F04 |
 
 ## Actionable this cycle
 
-C7-F01 (trivial — remove `t` from deps), C7-F02 (trivial — add `revokeExportedVideoUrl` to deps), C7-F03 (trivial — remove `playbackProgress` from deps), C7-F05 (medium — cache gap start camera state)
-
-## Deferred to future cycles
-
-AG6-05 (worker message validation), AG6-09 through AG6-19 (see cycle 6 aggregate), C7-F04 (intentional), C7-F06 (latent), C7-F07 (latent)
+C9-F01 (medium — add focus indicator to ElevationProfile SVG), C9-F02 (low-medium — add ARIA progressbar role to export progress bar), C9-F03 (low — pass locale to toLocaleString), C9-F04 (low — use tRef in loadTrackIntoSession)
