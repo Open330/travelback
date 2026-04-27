@@ -4,6 +4,8 @@ import crypto from 'node:crypto'
 
 const outDir = path.resolve(process.cwd(), 'out')
 const htmlFiles = []
+// Match the CSP <meta> tag injected by Next.js so we can replace it with a
+// hardened version containing SHA-256 hashes of all inline scripts.
 const CSP_META_REGEX = /<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i
 
 // `frame-ancestors` intentionally omitted from the meta CSP: the directive is
@@ -31,6 +33,7 @@ const STYLE_POLICY = [
   'upgrade-insecure-requests',
 ].join('; ')
 
+/** Recursively find all .html files under the output directory. */
 async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const absolutePath = path.join(directory, entry.name)
@@ -45,6 +48,12 @@ async function walk(directory) {
   }
 }
 
+/**
+ * Decode common HTML entities so that script content extracted from inline
+ * <script> tags can be hashed as the browser would interpret it, not as the
+ * HTML-encoded source form. Without this, SHA-256 hashes would not match the
+ * CSP hashes the browser computes from the decoded script body.
+ */
 function decodeHtmlEntities(text) {
   return text
     .replace(/&amp;/g, '&')
@@ -57,6 +66,12 @@ function decodeHtmlEntities(text) {
     .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
 }
 
+/**
+ * Find all inline (non-src) <script> elements in the HTML and compute
+ * SHA-256 hashes of their decoded content. These hashes are injected into
+ * the CSP script-src directive so the browser allows only these known
+ * inline scripts to execute — blocking any injected malicious scripts.
+ */
 function computeScriptHashes(html) {
   const hashes = new Set()
   const scriptPattern = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
@@ -107,6 +122,7 @@ function inlineTravelbackBootstrap(html) {
   return result
 }
 
+/** Replace the placeholder CSP <meta> tag with the hardened CSP containing script hashes. */
 function replaceCspMeta(html, csp) {
   const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
   const match = html.match(CSP_META_REGEX)
@@ -117,6 +133,11 @@ function replaceCspMeta(html, csp) {
   )
 }
 
+/**
+ * Safety check: verify the CSP meta tag was actually replaced (not left as
+ * a placeholder or with 'unsafe-inline'). Throws at build time if the
+ * hardening did not take effect, preventing deployment of weak CSP.
+ */
 function assertStaticCspMeta(html, htmlFile) {
   const match = html.match(CSP_META_REGEX)
   if (!match) {
