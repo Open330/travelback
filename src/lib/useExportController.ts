@@ -61,6 +61,7 @@ export function useExportController({
   const exportedVideoUrlRef = useRef<string | null>(null)
   const exportProgressRef = useRef<number | undefined>(undefined)
   const lastProgressUpdateTimeRef = useRef<number>(0)
+  const lastExportProgressUpdateTimeRef = useRef<number>(0)
   const playbackProgressRef = useRef(playbackProgress)
   const mountedRef = useRef(true)
   const tRef = useRef(t)
@@ -141,6 +142,7 @@ export function useExportController({
     setExportProgress(0)
     exportProgressRef.current = undefined
     lastProgressUpdateTimeRef.current = 0
+    lastExportProgressUpdateTimeRef.current = 0
     // Clear any stale video from a previous export so a failed new export
     // cannot show the old video in "done" state (CF5-03).
     revokeExportedVideoUrl()
@@ -211,7 +213,16 @@ export function useExportController({
 	              }
 	            },
 	            waitForStableMap,
-	            (nextProgress) => setExportProgress(nextProgress),
+	            (nextProgress) => {
+	              // Throttle export progress display updates to ~10 Hz so the
+	              // progress bar does not re-render on every frame (same pattern
+	              // as the playback progress throttle above).
+	              const now = performance.now()
+	              if (now - lastExportProgressUpdateTimeRef.current >= 100) {
+	                setExportProgress(nextProgress)
+	                lastExportProgressUpdateTimeRef.current = now
+	              }
+	            },
 	            abortController.signal,
 	            cumulDist,
 	          )
