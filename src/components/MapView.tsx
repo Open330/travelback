@@ -821,7 +821,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
-    const initialTrailGeometry = buildTrackGeometry(track.points, track.segmentStartIndices, 0, track.points[0])
+    // Start with empty trail — the progress effect will populate it on the
+    // first render, avoiding an unnecessary geometry construction at index 0.
+    const emptyTrailGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
 
     // Full route line
     if (map.getSource('route')) {
@@ -857,7 +859,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       (map.getSource('trail') as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
         properties: {},
-        geometry: initialTrailGeometry,
+        geometry: emptyTrailGeometry,
       })
     } else {
       map.addSource('trail', {
@@ -865,7 +867,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         data: {
           type: 'Feature',
           properties: {},
-          geometry: initialTrailGeometry,
+          geometry: emptyTrailGeometry,
         },
       })
       map.addLayer({
