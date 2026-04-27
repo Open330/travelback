@@ -166,8 +166,11 @@ export default function ExportPanel({
     onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate })
   }, [onExport, selectedResolution, codec, fps, safeDuration, safeBitrate, canStartExport])
 
+  const [shareError, setShareError] = useState(false)
+
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
+    setShareError(false)
     try {
       const file = new File([exportedVideoBlob], exportedVideoFilename ?? 'travelback.mp4', { type: 'video/mp4' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -176,6 +179,7 @@ export default function ExportPanel({
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       console.error('Share failed:', err instanceof Error ? err.message : 'Unknown error')
+      setShareError(true)
     }
   }, [exportedVideoBlob, exportedVideoFilename])
 
@@ -284,6 +288,11 @@ export default function ExportPanel({
                   <Share2 size={14} strokeWidth={2} />
                   {t('export.share')}
                 </button>
+              )}
+              {shareError && (
+                <p role="alert" className="col-span-full text-xs" style={{ color: 'var(--warn)' }}>
+                  {t('export.shareFailed')}
+                </p>
               )}
             </div>
           </div>
