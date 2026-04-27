@@ -45,84 +45,25 @@ Deferred item details:
 
 ## Active Implementation Items
 
-### C10-TASK-1: Use tRef in handleLoadSample (C10-F01)
+### C10-TASK-1: Use tRef in handleLoadSample (C10-F01) — COMPLETED
 
-- **File:** `src/app/page.tsx:369-392`
-- **Fix:**
-  1. Replace `addToast(t('app.sampleLoadFailed'), 'error')` with `addToast(tRef.current('app.sampleLoadFailed'), 'error')`
-  2. Remove `t` from `handleLoadSample` dependency array
-- **Verification:** Confirm `handleLoadSample` no longer includes `t` in deps. Confirm locale change does not cause FileUpload re-render.
+- **Commit:** b35dbec
 
-### C10-TASK-2: Extract buildFilteredTrack and deduplicate trim logic (C10-F02)
+### C10-TASK-2: Extract buildFilteredTrack and deduplicate trim logic (C10-F02) — COMPLETED
 
-- **File:** `src/app/page.tsx:298-355`
-- **Fix:**
-  1. Extract `buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number): Track` at module level
-  2. Replace duplicated logic in `handleRangeChange` with `buildFilteredTrack(fullTrack, startIdx, endIdx)`
-  3. Replace duplicated logic in `confirmTrimClear` with `buildFilteredTrack(fullTrack, startIdx, endIdx)`
-- **Verification:** Confirm both paths produce identical filtered tracks. Run `next build`.
+- **Commit:** b35dbec
 
-### C10-TASK-3: Fix degenerate GeoJSON fallback in buildTrackGeometry (C10-F03)
+### C10-TASK-3: Fix degenerate GeoJSON fallback in buildTrackGeometry (C10-F03) — COMPLETED
 
-- **File:** `src/components/MapView.tsx:176-179`
-- **Fix:**
-  Replace:
-  ```ts
-  if (segments.length <= 1) {
-    return {
-      type: 'LineString',
-      coordinates: segments[0] ?? buildWrappedCoordinates(points.slice(0, 1)),
-    }
-  }
-  ```
-  With:
-  ```ts
-  if (segments.length === 0) {
-    return { type: 'LineString', coordinates: [] }
-  }
-  if (segments.length === 1) {
-    return { type: 'LineString', coordinates: segments[0] }
-  }
-  ```
-- **Verification:** Confirm MapLibre no longer logs GeoJSON warnings for empty-segment tracks. Run `next build`.
+- **Commit:** 9a943f3
 
-### C10-TASK-4: Replace absolute-delta export progress throttle with time-based (C10-F04)
+### C10-TASK-4: Replace absolute-delta export progress throttle with time-based (C10-F04) — COMPLETED
 
-- **File:** `src/lib/useExportController.ts:202-204`
-- **Fix:**
-  1. Add `lastProgressUpdateTime` ref
-  2. Replace:
-     ```ts
-     if (exportProgressRef.current === undefined || nextProgress - exportProgressRef.current >= 0.02) {
-       setPlaybackProgress(nextProgress)
-       exportProgressRef.current = nextProgress
-     }
-     ```
-     With time-based throttle:
-     ```ts
-     const now = performance.now()
-     if (exportProgressRef.current === undefined || now - lastProgressUpdateTime.current >= 100) {
-       setPlaybackProgress(nextProgress)
-       exportProgressRef.current = nextProgress
-       lastProgressUpdateTime.current = now
-     }
-     ```
-  3. Initialize `lastProgressUpdateTime` in the export setup
-- **Verification:** Confirm export progress updates at ~10 Hz regardless of export duration. Run `next build`.
+- **Commit:** 037e47e
 
-### C10-TASK-5: Clamp export progress bar aria-valuenow (C10-F05)
+### C10-TASK-5: Clamp export progress bar aria-valuenow (C10-F05) — COMPLETED
 
-- **File:** `src/components/ExportPanel.tsx:295`
-- **Fix:**
-  Replace:
-  ```tsx
-  aria-valuenow={Math.round(exportProgress * 100)}
-  ```
-  With:
-  ```tsx
-  aria-valuenow={Math.min(100, Math.round(exportProgress * 100))}
-  ```
-- **Verification:** Confirm aria-valuenow never exceeds 100. Run `next build`.
+- **Commit:** 7107579
 
 ## Deferred Items
 
