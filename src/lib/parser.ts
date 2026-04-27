@@ -194,7 +194,7 @@ function parseXml(text: string, formatName: string): Document {
   return doc
 }
 
-function parseGPX(text: string): Track {
+export function parseGPX(text: string): Track {
   const doc = parseXml(text, 'GPX')
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
     .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
@@ -235,7 +235,7 @@ function parseGPX(text: string): Track {
   }
 }
 
-function parseKML(text: string): Track {
+export function parseKML(text: string): Track {
   const doc = parseXml(text, 'KML')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)

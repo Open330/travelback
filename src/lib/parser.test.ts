@@ -1,6 +1,9 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import {
   parseGoogleLocationHistory,
+  parseGPX,
+  parseKML,
   checkJsonDepth,
   ParseError,
   MAX_FILE_SIZE,
@@ -406,5 +409,212 @@ describe('parseGoogleLocationHistory — empty/edge cases', () => {
     const track = parseGoogleLocationHistory(multiFormat)
     // Both formats are recognized; dedup removes duplicate lat/lng/time
     expect(track.points.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// --- GPX format fixtures ---
+
+const gpxSingleSegment = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Travelback Test">
+  <trk>
+    <name>Test GPX Track</name>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele>100</ele><time>2024-01-15T10:00:00Z</time></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><ele>110</ele><time>2024-01-15T10:05:00Z</time></trkpt>
+      <trkpt lat="37.42" lon="-122.08"><ele>120</ele><time>2024-01-15T10:10:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+const gpxMultiSegment = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><time>2024-01-15T10:00:00Z</time></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><time>2024-01-15T10:05:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="37.5" lon="-122.0"><time>2024-01-15T11:00:00Z</time></trkpt>
+      <trkpt lat="37.51" lon="-121.99"><time>2024-01-15T11:05:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+const gpxWithElevationAndTime = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"><ele>50</ele><time>2024-01-15T10:00:00Z</time></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><ele>150.5</ele><time>2024-01-15T10:05:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+const gpxInvalidCoords = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1"></trkpt>
+      <trkpt lat="91" lon="-122.09"></trkpt>
+      <trkpt lat="37.42" lon="181"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+const gpxEmptyTrack = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1">
+  <trk>
+    <trkseg></trkseg>
+  </trk>
+</gpx>`
+
+const gpxWithDoctype = `<?xml version="1.0"?>
+<!DOCTYPE gpx SYSTEM "http://evil.com/gpx.dtd">
+<gpx version="1.1">
+  <trk><trkseg>
+    <trkpt lat="37.4" lon="-122.1"></trkpt>
+  </trkseg></trk>
+</gpx>`
+
+describe('parseGPX — single segment', () => {
+  it('parses track points from a single trkseg', () => {
+    const track = parseGPX(gpxSingleSegment)
+    expect(track.points.length).toBe(3)
+    expect(track.points[0].lat).toBeCloseTo(37.4, 5)
+    expect(track.points[0].lng).toBeCloseTo(-122.1, 5)
+  })
+
+  it('extracts elevation', () => {
+    const track = parseGPX(gpxWithElevationAndTime)
+    expect(track.points[0].ele).toBe(50)
+    expect(track.points[1].ele).toBeCloseTo(150.5, 1)
+  })
+
+  it('extracts time', () => {
+    const track = parseGPX(gpxWithElevationAndTime)
+    expect(track.points[0].time).toBeInstanceOf(Date)
+  })
+
+  it('reads track name from trk > name', () => {
+    const track = parseGPX(gpxSingleSegment)
+    expect(track.name).toBe('Test GPX Track')
+  })
+})
+
+describe('parseGPX — multi-segment', () => {
+  it('creates segment start indices for multiple trkseg', () => {
+    const track = parseGPX(gpxMultiSegment)
+    expect(track.points.length).toBe(4)
+    expect(track.segmentStartIndices).toBeDefined()
+    expect(track.segmentStartIndices!.length).toBe(1)
+    expect(track.segmentStartIndices![0]).toBe(2)
+  })
+})
+
+describe('parseGPX — invalid coordinates', () => {
+  it('filters out points with invalid lat/lng', () => {
+    const track = parseGPX(gpxInvalidCoords)
+    expect(track.points.length).toBe(1)
+    expect(track.points[0].lat).toBeCloseTo(37.4, 5)
+  })
+})
+
+describe('parseGPX — empty track', () => {
+  it('returns zero points for empty trkseg', () => {
+    const track = parseGPX(gpxEmptyTrack)
+    expect(track.points.length).toBe(0)
+  })
+})
+
+describe('parseGPX — DOCTYPE rejection', () => {
+  it('throws XML_PARSE_ERROR for DOCTYPE declaration', () => {
+    expect(() => parseGPX(gpxWithDoctype)).toThrowError(ParseError)
+    try {
+      parseGPX(gpxWithDoctype)
+    } catch (err) {
+      expect((err as ParseError).code).toBe('XML_PARSE_ERROR')
+    }
+  })
+})
+
+// --- KML format fixtures ---
+
+const kmlLineString = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Test KML Track</name>
+    <Placemark>
+      <LineString>
+        <coordinates>
+          -122.1,37.4,100
+          -122.09,37.41,110
+          -122.08,37.42,120
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`
+
+const kmlMultiGeometry = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <MultiGeometry>
+        <LineString>
+          <coordinates>-122.1,37.4,50 -122.09,37.41,60</coordinates>
+        </LineString>
+        <LineString>
+          <coordinates>-122.0,37.5,70 -121.99,37.51,80</coordinates>
+        </LineString>
+      </MultiGeometry>
+    </Placemark>
+  </Document>
+</kml>`
+
+const kmlWithDoctype = `<?xml version="1.0"?>
+<!DOCTYPE kml SYSTEM "http://evil.com/kml.dtd">
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document><Placemark>
+    <LineString><coordinates>-122.1,37.4,0</coordinates></LineString>
+  </Placemark></Document>
+</kml>`
+
+describe('parseKML — LineString', () => {
+  it('parses track points from a KML LineString', () => {
+    const track = parseKML(kmlLineString)
+    expect(track.points.length).toBe(3)
+    expect(track.points[0].lat).toBeCloseTo(37.4, 5)
+    expect(track.points[0].lng).toBeCloseTo(-122.1, 5)
+  })
+
+  it('extracts elevation from KML coordinates', () => {
+    const track = parseKML(kmlLineString)
+    expect(track.points[0].ele).toBe(100)
+  })
+
+  it('reads track name from Document > name', () => {
+    const track = parseKML(kmlLineString)
+    expect(track.name).toBe('Test KML Track')
+  })
+})
+
+describe('parseKML — MultiGeometry', () => {
+  it('creates segment start indices for multiple LineStrings', () => {
+    const track = parseKML(kmlMultiGeometry)
+    expect(track.points.length).toBe(4)
+    expect(track.segmentStartIndices).toBeDefined()
+    expect(track.segmentStartIndices!.length).toBe(1)
+    expect(track.segmentStartIndices![0]).toBe(2)
+  })
+})
+
+describe('parseKML — DOCTYPE rejection', () => {
+  it('throws XML_PARSE_ERROR for DOCTYPE declaration', () => {
+    expect(() => parseKML(kmlWithDoctype)).toThrowError(ParseError)
+    try {
+      parseKML(kmlWithDoctype)
+    } catch (err) {
+      expect((err as ParseError).code).toBe('XML_PARSE_ERROR')
+    }
   })
 })
