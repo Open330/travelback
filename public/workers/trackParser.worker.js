@@ -1,3 +1,7 @@
+// Google JSON parsing functions - these are duplicated from
+// src/lib/googleJsonParser.ts (TypeScript version)
+// When updating functions here, ensure they stay in sync.
+
 function parseOptionalNumber(value) {
   if (value == null) return undefined
   if (typeof value === 'string' && value.trim() === '') return undefined
