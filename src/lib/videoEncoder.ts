@@ -202,9 +202,13 @@ export interface DownloadResult {
 
 /** Trigger a download from an existing object URL */
 export async function downloadVideo(url: string, filename: string, blob: Blob): Promise<DownloadResult> {
-  // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
-  const hasUserActivation = typeof navigator.userActivation === 'undefined' || navigator.userActivation.isActive
-  if ('showSaveFilePicker' in window && hasUserActivation) {
+  // Try File System Access API for a user-initiated save dialog.
+  // Do NOT check navigator.userActivation.isActive here — after a long async
+  // export (seconds to minutes), the transient activation is guaranteed to have
+  // expired, which would silently disable the save dialog. Instead, always
+  // attempt showSaveFilePicker; the browser's own activation enforcement will
+  // throw if required and we fall through to the <a> download fallback.
+  if ('showSaveFilePicker' in window) {
     try {
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<unknown> }).showSaveFilePicker({
         suggestedName: filename,
