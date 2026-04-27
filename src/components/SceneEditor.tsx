@@ -61,12 +61,14 @@ function SceneRangeEditor({
   startPercent,
   endPercent,
   onChange,
+  onCommit,
   ariaLabel,
 }: {
   sceneName: string
   startPercent: number
   endPercent: number
   onChange: (startPercent: number, endPercent: number) => void
+  onCommit?: (startPercent: number, endPercent: number) => void
   ariaLabel: string
 }) {
   const { t } = useLocale()
@@ -78,9 +80,12 @@ function SceneRangeEditor({
     originEnd: number
   }>({ type: null, originX: 0, originStart: 0, originEnd: 1 })
   const dragWidthRef = useRef(0)
+  const lastDragValuesRef = useRef<{ start: number; end: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const onChangeRef = useRef(onChange)
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
+  const onCommitRef = useRef(onCommit)
+  useEffect(() => { onCommitRef.current = onCommit }, [onCommit])
 
   const clampRange = useCallback((start: number, end: number): [number, number] => {
     let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
@@ -113,12 +118,14 @@ function SceneRangeEditor({
 
       if (dragState.current.type === 'start') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart + dx, dragState.current.originEnd)
+        lastDragValuesRef.current = { start: nextStart, end: nextEnd }
         onChangeRef.current(nextStart, nextEnd)
         return
       }
 
       if (dragState.current.type === 'end') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart, dragState.current.originEnd + dx)
+        lastDragValuesRef.current = { start: nextStart, end: nextEnd }
         onChangeRef.current(nextStart, nextEnd)
         return
       }
@@ -134,13 +141,22 @@ function SceneRangeEditor({
         nextEnd = 1
         nextStart = 1 - span
       }
+      lastDragValuesRef.current = { start: nextStart, end: nextEnd }
       onChangeRef.current(nextStart, nextEnd)
     }
 
     const onPointerUp = () => {
+      const lastDrag = lastDragValuesRef.current
       dragState.current.type = null
       dragWidthRef.current = 0
+      lastDragValuesRef.current = null
       setDragging(false)
+      // Fire onCommit with the final drag values so the parent can
+      // normalize scenes only once at the end of the drag gesture,
+      // rather than on every pointermove.
+      if (lastDrag && onCommitRef.current) {
+        onCommitRef.current(lastDrag.start, lastDrag.end)
+      }
     }
 
     window.addEventListener('pointermove', onPointerMove)
@@ -392,6 +408,31 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     if (previewTarget && onPreviewScene) onPreviewScene(previewTarget)
   }, [commitScenes, scenes, onPreviewScene])
 
+  /** Apply a scene patch without normalizing — used during active drag so
+   *  the user's gesture is not immediately counteracted by normalization. */
+  const updateSceneRaw = useCallback((id: string, patch: Partial<Scene>) => {
+    const next = scenes.map(s => {
+      if (s.id !== id) return s
+      const updated = { ...s, ...patch }
+      if (patch.startPercent != null || patch.endPercent != null) {
+        let nextStart = Math.max(0, Math.min(updated.startPercent, 1 - MIN_SCENE_SPAN))
+        let nextEnd = Math.max(MIN_SCENE_SPAN, Math.min(updated.endPercent, 1))
+        if (nextEnd - nextStart < MIN_SCENE_SPAN) {
+          if (patch.startPercent != null && patch.endPercent == null) {
+            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
+          } else {
+            nextEnd = Math.min(1, nextStart + MIN_SCENE_SPAN)
+            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
+          }
+        }
+        updated.startPercent = nextStart
+        updated.endPercent = nextEnd
+      }
+      return updated
+    })
+    onChange(next)
+  }, [scenes, onChange])
+
   const clearPreview = useCallback(() => {
     onPreviewScene?.(null)
   }, [onPreviewScene])
@@ -605,7 +646,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
                   startPercent={scene.startPercent}
                   endPercent={scene.endPercent}
                   ariaLabel={`${scene.name} ${t('scenes.startPct')} / ${t('scenes.endPct')}`}
-                  onChange={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
+                  onChange={(startPercent, endPercent) => updateSceneRaw(scene.id, { startPercent, endPercent })}
+                  onCommit={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
                 />
 
                 <div className="flex gap-2">
