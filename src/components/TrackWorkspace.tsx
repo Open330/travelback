@@ -124,7 +124,7 @@ export default function TrackWorkspace({
         className="absolute left-4 right-56 top-4 z-10 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center lg:block"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
-        {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}</span>
+        {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
       </div>
 
       <div
@@ -132,7 +132,7 @@ export default function TrackWorkspace({
         className="absolute left-4 right-4 top-16 z-10 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center lg:hidden"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
-        {track.name} — {track.points.length.toLocaleString()} / {fullTrack.points.length.toLocaleString()} {t('timeline.points')}
+        {track.name} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
       </div>
 
       {fullTrack.points.length > 2 && (
