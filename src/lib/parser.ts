@@ -186,8 +186,11 @@ function preflightXml(text: string, formatName: string): void {
 }
 
 function parseXml(text: string, formatName: string): Document {
-  preflightXml(text, formatName)
+  // Strip entities first so the preflight check validates the sanitized text.
+  // This makes stripXmlEntities the primary XXE defense and preflightXml
+  // the redundant guard (defense-in-depth).
   const safeText = stripXmlEntities(text)
+  preflightXml(safeText, formatName)
   const doc = new DOMParser().parseFromString(safeText, 'application/xml')
   const parseError = doc.querySelector('parsererror')
   if (parseError) throw new ParseError(`Invalid ${formatName}: XML parse error`, 'XML_PARSE_ERROR')
@@ -520,6 +523,7 @@ export function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
       if (depth > maxDepth) throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
     } else if (ch === '}' || ch === ']') {
       depth--
+      if (depth < 0) throw new ParseError('Invalid JSON structure', 'INVALID_GOOGLE_JSON')
     }
   }
 }
