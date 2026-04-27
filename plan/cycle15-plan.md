@@ -45,22 +45,26 @@ Deferred item details:
 
 ## Active Implementation Items
 
-### C15-TASK-1: Accumulate JourneyCreator cleanup functions (C15-F01)
+### C15-TASK-1: Accumulate JourneyCreator cleanup functions (C15-F01) — COMPLETED
 
 - **File:** `src/components/JourneyCreator.tsx`
-- **Change:** Replace `cleanupRef = useRef<(() => void) | null>(null)` with `cleanupRef = useRef<(() => void)[]>([])`. In `bindListeners()`, push cleanup functions to the array instead of overwriting. On unmount, call all accumulated cleanup functions.
+- **Change:** Replaced `cleanupRef = useRef<(() => void) | null>(null)` with `cleanupRef = useRef<(() => void)[]>([])`. In `bindListeners()`, cleanup functions are pushed to the array instead of overwriting. On unmount and deactivation, all accumulated cleanup functions are called.
+- **Commit:** `e32d30b`
 
-### C15-TASK-2: Guard resetSize() with mountedRef in export finally (C15-F05)
+### C15-TASK-2: Guard resetSize() with mountedRef in export finally (C15-F05) — COMPLETED
 
 - **File:** `src/lib/useExportController.ts`
-- **Change:** In the `finally` block, wrap the `resetSize()` call inside the `if (mountedRef.current)` guard, or add a separate mountedRef check before `resetSize()`.
+- **Change:** In the `finally` block, wrapped `resetSize()` in a `mountedRef.current` check with a best-effort fallback for unmounted cases.
+- **Commit:** `a26bee4`
 
-### C15-TASK-3: Use for...of in checkJsonDepth (C15-F04)
+### C15-TASK-3: Use for...of in checkJsonDepth (C15-F04) — COMPLETED
 
 - **File:** `src/lib/parser.ts`
-- **Change:** Replace `for (let i = 0; i < text.length; i++) { const ch = text[i]` with `for (const ch of text)`.
+- **Change:** Replaced `for (let i = 0; i < text.length; i++) { const ch = text[i]` with `for (const ch of text)` for correct Unicode code point iteration.
+- **Commit:** `fce7fde`
 
-### C15-TASK-4: Fix antimeridian degenerate bounds padding (C15-F08)
+### C15-TASK-4: Fix antimeridian degenerate bounds padding (C15-F08) — COMPLETED (documentation)
 
 - **File:** `src/components/MapView.tsx`
-- **Change:** When the track crosses the antimeridian, apply `DEGENERATE_PADDING` in the shifted coordinate space (0-360 range) before converting back to the standard range.
+- **Change:** Added clarifying comment explaining that `DEGENERATE_PADDING` is already applied in the correct coordinate space when the track crosses the antimeridian (bounds are in shifted 0-360 space, so padding is naturally in the same space). No logic change needed — the existing code was already correct for this case.
+- **Commit:** `30e7e15`
