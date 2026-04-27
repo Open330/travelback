@@ -389,6 +389,12 @@ export function computeCameraForProgress(
       const nextScene = normalizedScenes[nextIdx]
       const gapStart = prevScene.endPercent
       const gapEnd = nextScene.startPercent
+      // If globalProgress is before the gap start (can happen when normalization
+      // produces overlapping ranges that were then adjusted), treat as within the
+      // previous scene rather than interpolating with a negative gapT.
+      if (globalProgress < gapStart) {
+        return computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
+      }
       const gapT = gapEnd > gapStart ? (globalProgress - gapStart) / (gapEnd - gapStart) : 0.5
       const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, 0)
