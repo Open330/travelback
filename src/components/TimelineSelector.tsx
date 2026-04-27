@@ -289,7 +289,7 @@ function TimelineSelector({
     requestAnimationFrame(() => handleRef.current?.focus({ preventScroll: true }))
   }, [commitRatios])
 
-  const startDrag = (
+  const startDrag = useCallback((
     type: 'start' | 'end' | 'region',
     clientX: number
   ) => {
@@ -297,12 +297,12 @@ function TimelineSelector({
     dragState.current = {
       dragging: type,
       originX: clientX,
-      originStart: startRatio,
-      originEnd: endRatio,
+      originStart: ratioRef.current.start,
+      originEnd: ratioRef.current.end,
     }
     dragMovedRef.current = false
     lastDragClientXRef.current = clientX
-  }
+  }, [showHint, dismissHint])
 
   const endDrag = useCallback(() => {
     const finalClientX = lastDragClientXRef.current
