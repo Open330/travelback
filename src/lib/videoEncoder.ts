@@ -200,6 +200,9 @@ export interface DownloadResult {
   method: 'picker' | 'fallback'
 }
 
+/** Track the previous fallback anchor to prevent DOM accumulation on rapid clicks */
+let prevFallbackAnchor: HTMLAnchorElement | null = null
+
 /** Trigger a download from an existing object URL */
 export async function downloadVideo(url: string, filename: string, blob: Blob): Promise<DownloadResult> {
   // Try File System Access API for a user-initiated save dialog.
@@ -226,10 +229,13 @@ export async function downloadVideo(url: string, filename: string, blob: Blob): 
   }
 
   // Fallback: programmatic <a> download
+  // Remove any previous fallback anchor to prevent DOM accumulation on rapid clicks
+  if (prevFallbackAnchor) { prevFallbackAnchor.remove() }
   const a = document.createElement('a')
   a.href = url
   a.download = filename
   document.body.appendChild(a)
+  prevFallbackAnchor = a
   let clicked = false
   try {
     a.click()
@@ -240,9 +246,10 @@ export async function downloadVideo(url: string, filename: string, blob: Blob): 
     // certain mobile WebViews) because the download may not initiate within the
     // same microtask. If click throws, remove immediately to avoid leaking DOM.
     if (clicked) {
-      setTimeout(() => { a.remove() }, 100)
+      setTimeout(() => { a.remove(); if (prevFallbackAnchor === a) prevFallbackAnchor = null }, 100)
     } else {
       a.remove()
+      if (prevFallbackAnchor === a) prevFallbackAnchor = null
     }
   }
   return { saved: false, method: 'fallback' }
