@@ -382,13 +382,16 @@ export function computeCameraForProgress(
     }
 
     if (prevIdx >= 0 && nextIdx >= 0) {
+      // Between-scenes gap: use elapsedSec=0 for both boundary cameras so
+      // rotation-dependent modes (orbit, ground) produce a stable lerp start
+      // and end point instead of a moving target that causes bearing wobble.
       const prevScene = normalizedScenes[prevIdx]
       const nextScene = normalizedScenes[nextIdx]
       const gapStart = prevScene.endPercent
       const gapEnd = nextScene.startPercent
       const gapT = gapEnd > gapStart ? (globalProgress - gapStart) / (gapEnd - gapStart) : 0.5
-      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
-      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
+      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
+      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, 0)
       return lerpCamera(prevCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx === -1 && nextIdx >= 0) {
       // Before first scene: interpolate from a stable overview camera (no rotation)
@@ -396,14 +399,16 @@ export function computeCameraForProgress(
       const nextScene = normalizedScenes[nextIdx]
       const gapT = nextScene.startPercent > 0 ? globalProgress / nextScene.startPercent : 1
       const overviewCamera = computeOverviewCamera(track)
-      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
+      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, 0)
       return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {
       // After-last-scene gap: interpolate from the last scene's end state
       // to the default follow camera over the remaining gap duration to
-      // avoid an instant bearing snap.
+      // avoid an instant bearing snap. Use elapsedSec=0 for the previous
+      // scene's camera so rotation-dependent modes produce a stable lerp
+      // start point instead of a moving one that causes bearing wobble.
       const prevScene = normalizedScenes[prevIdx]
-      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
+      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
       const followCamera = computeDefaultFollowCamera(track, cumulDist, globalProgress)
       const gapLength = 1.0 - prevScene.endPercent
       const gapT = gapLength > 0 ? Math.max(0, Math.min(1, (globalProgress - prevScene.endPercent) / gapLength)) : 1
