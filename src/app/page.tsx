@@ -292,6 +292,7 @@ function HomeInner() {
     if (slicedPoints.length < 2) return
     const isFullRange = startIdx === 0 && endIdx === fullTrack.points.length - 1
     if (!isFullRange && scenes.length > 0) {
+      if (!window.confirm(t('scenes.trimClearConfirm'))) return
       setScenes([])
       setShowSceneEditor(false)
     }
