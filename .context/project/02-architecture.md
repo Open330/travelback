@@ -55,9 +55,9 @@ videoEncoder.ts exportVideo()
     ↓
 For each frame:
     1. camera.ts computeCameraForProgress() → CameraState
-    2. MapView.applyCameraState()           → Update map view
-    3. waitForIdle()                        → Wait for tiles/render
-    4. mediabunny CanvasSource.add()        → Capture frame
+    2. MapView.renderFrameAndWait()          → Update map view + wait for render event
+    3. map.once('render') + rAF              → Ensure WebGL canvas is painted
+    4. mediabunny CanvasSource.add()         → Capture frame
     ↓
 mediabunny Output.finalize() → ArrayBuffer (MP4)
     ↓
@@ -65,6 +65,8 @@ downloadVideo() → Browser download
     ↓
 MapView.resetSize() → Restore original dimensions
 ```
+
+Note: `waitForIdle()` is still used for initial map settling after resize (before the frame loop starts). The per-frame capture uses `renderFrameAndWait()` instead, which waits for MapLibre's `render` event with a 5-second timeout fallback.
 
 ## Camera System
 
