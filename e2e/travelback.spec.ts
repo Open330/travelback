@@ -1308,6 +1308,30 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
+  // Real export smoke test — exercises the actual WebCodecs/mediabunny pipeline
+  // instead of the 26-byte stub. Gate behind TRAVELBACK_REAL_EXPORT=1 so it
+  // only runs when explicitly requested (the real path is slow and codec-dependent).
+  test('real export produces a valid MP4 via WebCodecs', async ({ page }) => {
+    if (process.env.TRAVELBACK_REAL_EXPORT !== '1') return
+
+    await uploadGpx(page)
+    // Set a very short duration for fast export
+    await page.getByLabel('Animation duration').selectOption('3')
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await expect(exportPanel).toBeVisible()
+
+    // Select lowest resolution for speed
+    const resSelect = exportPanel.getByRole('combobox').first()
+    await resSelect.selectOption({ index: 4 }) // HD (lowest)
+
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    // Real export takes longer — allow up to 60 seconds
+    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 60_000 })
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
+  })
+
   test('export panel clamps playback duration to the supported export limit', async ({ page }) => {
     await uploadGpx(page)
     await page.getByLabel('Animation duration').selectOption('300')
