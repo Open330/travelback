@@ -62,12 +62,19 @@ export function useExportController({
   const exportProgressRef = useRef<number | undefined>(undefined)
   const playbackProgressRef = useRef(playbackProgress)
   const mountedRef = useRef(true)
+  const tRef = useRef(t)
 
   // Keep the ref in sync with the prop so exportTrack can read the latest
   // value without closing over the rapidly-changing state variable.
   useEffect(() => {
     playbackProgressRef.current = playbackProgress
   }, [playbackProgress])
+
+  // Keep t in sync so exportTrack can read the latest locale without
+  // closing over the t callback (which changes on every locale change).
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
 
   useEffect(() => {
     return () => {
@@ -118,7 +125,7 @@ export function useExportController({
     const mapHandle = mapViewRef.current
     const canvas = mapHandle?.getCanvas()
     if (!canvas || !track || !mapHandle) {
-      addToast(`${t('app.exportFailed')} ${t('app.mapLoadFailed')}`, 'error')
+      addToast(`${tRef.current('app.exportFailed')} ${tRef.current('app.mapLoadFailed')}`, 'error')
       return
     }
 
@@ -216,7 +223,7 @@ export function useExportController({
       exportedVideoUrlRef.current = pendingVideoUrl
       pendingVideoUrlStored = true
       setExportState('done')
-      addToast(t('app.exportSuccess'), 'success')
+      addToast(tRef.current('app.exportSuccess'), 'success')
       // Restore playback progress to final position after export
       setPlaybackProgress(1)
       exportProgressRef.current = undefined
@@ -226,7 +233,7 @@ export function useExportController({
       }
       if (mountedRef.current) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          addToast(t('app.exportCancelled'), 'info')
+          addToast(tRef.current('app.exportCancelled'), 'info')
         } else {
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
           const detailKey: TranslationKey = isMapRenderExportError(error)
@@ -234,7 +241,7 @@ export function useExportController({
             : error instanceof ExportError && EXPORT_ERROR_I18N[error.code]
               ? EXPORT_ERROR_I18N[error.code]
               : 'app.exportFailedSuffix'
-          addToast(`${t('app.exportFailed')} ${t(detailKey)}`, 'error')
+          addToast(`${tRef.current('app.exportFailed')} ${tRef.current(detailKey)}`, 'error')
         }
         setExportState('idle')
       }
@@ -272,7 +279,6 @@ export function useExportController({
     revokeExportedVideoUrl,
     scenes,
     setPlaybackProgress,
-    t,
     track,
     transitionDuration,
     cumulativeDistancesProp,
