@@ -11,6 +11,7 @@ interface TimelineSelectorProps {
   track: Track
   cumulativeDistances: number[]
   onRangeChange: (startIdx: number, endIdx: number) => void
+  onSeek?: (progress: number) => void
   className?: string
 }
 
@@ -65,6 +66,7 @@ function TimelineSelector({
   track,
   cumulativeDistances,
   onRangeChange,
+  onSeek,
   className = '',
 }: TimelineSelectorProps) {
   const { t, locale } = useLocale()
@@ -310,16 +312,25 @@ function TimelineSelector({
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    const wasRegion = dragState.current.dragging === 'region'
+    const originX = dragState.current.originX
     const flushedFinalDrag = finalClientX != null && applyDragNow(finalClientX)
     dragState.current.dragging = null
     if ((flushedFinalDrag || dragMovedRef.current) && points.length > 0) {
       const { start, end } = ratioRef.current
       const { startIdx, endIdx } = resolveIndexesForRatios(start, end)
       onRangeChangeRef.current(startIdx, endIdx)
+    } else if (wasRegion && !dragMovedRef.current && onSeek && points.length > 0) {
+      // Click (not drag) on the selected region — seek to click position
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect && rect.width > 0) {
+        const clickRatio = Math.max(0, Math.min(1, (originX - rect.left) / rect.width))
+        onSeek(clickRatio)
+      }
     }
     dragMovedRef.current = false
     lastDragClientXRef.current = null
-  }, [applyDragNow, resolveIndexesForRatios, points.length])
+  }, [applyDragNow, resolveIndexesForRatios, points.length, onSeek])
 
   // Global mouse/touch listeners for drag
   useEffect(() => {
@@ -400,9 +411,8 @@ function TimelineSelector({
           </button>
         )}
 
-        {/* Selected region overlay - draggable; click without drag could seek
-            playback in a future enhancement (C13-F05, deferred: requires new
-            onSeek prop and design decision about click-on-region behavior). */}
+        {/* Selected region overlay — drag to move, click without drag to seek
+            playback to click position (C13-F05). */}
         <div
           data-testid="timeline-selected-region"
           className="absolute top-0 bottom-0 cursor-grab active:cursor-grabbing"

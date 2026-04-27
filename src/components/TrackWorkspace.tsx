@@ -142,6 +142,7 @@ export default function TrackWorkspace({
             track={fullTrack}
             cumulativeDistances={fullTrackCumulativeDistances}
             onRangeChange={onRangeChange}
+            onSeek={onSeek}
           />
         </div>
       )}
