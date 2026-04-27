@@ -78,6 +78,16 @@ function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string, color: 
 }
 
 function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Feature {
+  if (waypoints.length < 2) {
+    return {
+      type: 'Feature',
+      properties: { color },
+      geometry: {
+        type: 'LineString',
+        coordinates: [],
+      },
+    }
+  }
   const wrapLngNear = (referenceLng: number, nextLng: number) => {
     let adjusted = nextLng
     while (adjusted - referenceLng > 180) adjusted -= 360
@@ -197,7 +207,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const lineSrc = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
 
     if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current, selectedIconColorRef.current))
-    if (lineSrc) lineSrc.setData(buildLineGeoJSON(waypointsRef.current, selectedIconColorRef.current))
+    if (lineSrc && waypointsRef.current.length >= 2) {
+      lineSrc.setData(buildLineGeoJSON(waypointsRef.current, selectedIconColorRef.current))
+    }
   }, [mapRef])
 
   const addLayers = useCallback((map: maplibregl.Map) => {
