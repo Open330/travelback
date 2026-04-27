@@ -201,7 +201,7 @@ export interface DownloadResult {
 }
 
 /** Trigger a download from an existing object URL */
-export async function downloadVideo(url: string, filename: string, blob?: Blob): Promise<DownloadResult> {
+export async function downloadVideo(url: string, filename: string, blob: Blob): Promise<DownloadResult> {
   // Try File System Access API for a user-initiated save dialog (avoids popup blockers)
   const hasUserActivation = typeof navigator.userActivation === 'undefined' || navigator.userActivation.isActive
   if ('showSaveFilePicker' in window && hasUserActivation) {
@@ -210,7 +210,7 @@ export async function downloadVideo(url: string, filename: string, blob?: Blob):
         suggestedName: filename,
         types: [{ accept: { 'video/mp4': ['.mp4'] } }],
       }) as FileSystemWritableFileStream
-      const writeBlob = blob ?? await (await fetch(url)).blob()
+      const writeBlob = blob
       const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
       await writable.write(writeBlob)
       await writable.close()
