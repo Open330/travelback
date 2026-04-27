@@ -298,6 +298,11 @@ function HomeInner() {
     }
     resetExportSession()
 
+    // Remap segment start indices into the trimmed slice.
+    // A segment boundary at exactly startIdx maps to 0, which normalizeSegmentStarts
+    // then filters out (index > 0) since a boundary at the first point carries no
+    // meaningful break information. This is intentional — the trimmed range always
+    // starts a fresh segment regardless of whether the original did.
     const filteredTrack: Track = {
       name: fullTrack.name,
       points: slicedPoints,
@@ -306,7 +311,7 @@ function HomeInner() {
             segmentStartIndices: fullTrack.segmentStartIndices
               .filter((index) => index >= startIdx && index <= endIdx)
               .map((index) => index - startIdx)
-              .filter((index) => index >= 0),
+              .filter((index) => index > 0),
           }
         : {}),
     }
