@@ -433,14 +433,19 @@ export function computeCameraForProgress(
 
   if (sceneIdx > 0 && sceneDuration > 0 && localProgress < effectiveHalfTrans / sceneDuration) {
     const prevScene = normalizedScenes[sceneIdx - 1]
-    const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
+    // Use elapsedSec=0 for the previous scene's end-state camera so
+    // rotation-dependent modes (orbit, overview) produce a stable lerp
+    // start point instead of a moving target that causes bearing wobble.
+    const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
     const blendT = (localProgress * sceneDuration) / effectiveHalfTrans
     return lerpCamera(prevCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
   }
 
   if (sceneIdx < normalizedScenes.length - 1 && sceneDuration > 0 && localProgress > 1 - effectiveHalfTrans / sceneDuration) {
     const nextScene = normalizedScenes[sceneIdx + 1]
-    const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
+    // Use elapsedSec=0 for the next scene's start-state camera so
+    // rotation-dependent modes produce a stable lerp end point.
+    const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, 0)
     const blendT = ((1 - localProgress) * sceneDuration) / effectiveHalfTrans
     return lerpCamera(mainCamera, nextCamera, 1 - Math.max(0, Math.min(1, blendT)))
   }
