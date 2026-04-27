@@ -293,7 +293,7 @@ export default function ExportPanel({
               {t('export.rendering')} {Math.round(exportProgress * 100)}%
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--div)' }}>
-              <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width .3s linear' }} />
+              <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width .05s linear' }} />
             </div>
             {(() => {
               const clampedDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
