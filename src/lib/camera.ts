@@ -399,7 +399,15 @@ export function computeCameraForProgress(
       const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, elapsedSec)
       return lerpCamera(overviewCamera, nextCamera, Math.max(0, Math.min(1, gapT)))
     } else if (prevIdx >= 0) {
-      return computeDefaultFollowCamera(track, cumulDist, globalProgress)
+      // After-last-scene gap: interpolate from the last scene's end state
+      // to the default follow camera over the remaining gap duration to
+      // avoid an instant bearing snap.
+      const prevScene = normalizedScenes[prevIdx]
+      const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, elapsedSec)
+      const followCamera = computeDefaultFollowCamera(track, cumulDist, globalProgress)
+      const gapLength = 1.0 - prevScene.endPercent
+      const gapT = gapLength > 0 ? Math.max(0, Math.min(1, (globalProgress - prevScene.endPercent) / gapLength)) : 1
+      return lerpCamera(prevCamera, followCamera, gapT)
     } else if (nextIdx >= 0) {
       sceneIdx = nextIdx
     } else {
