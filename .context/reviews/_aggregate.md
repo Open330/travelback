@@ -1,18 +1,18 @@
-# Cycle 20 Aggregate Review — 2026-04-28
+# Cycle 21 Aggregate Review — 2026-04-28
 
 Repository: `/Users/hletrd/flash-shared/Travelback`
 
 ## Review methodology
 
-Comprehensive code review of all 37 source files (~10K lines). Full context from 19 prior aggregate reviews (60+ findings historically). Focus on verifying carried findings and identifying genuinely new issues. All 4 quality gates expected to pass (lint, typecheck, build, test — 112 tests).
+Comprehensive code review of all 37 source files (~12.3K lines). Full context from 20 prior aggregate reviews (60+ findings historically). Focus on verifying carried findings and identifying genuinely new issues. All 4 quality gates pass (lint, typecheck, build, test — 112 tests).
 
 ## Review lanes completed
 
-- `cycle20-comprehensive-review-2026-04-28.md` — 0 new actionable findings (6 examined)
+- `cycle21-comprehensive-review-2026-04-28.md` — 0 new actionable findings (8 examined and dismissed as correct-by-design)
 
 ## Carried findings — resolution verification
 
-All 12 remaining carried findings verified against current source. No new resolutions this cycle.
+All 14 remaining carried findings verified against current source. No new resolutions this cycle.
 
 | ID | Severity | Summary | Status |
 |----|----------|---------|--------|
@@ -33,11 +33,11 @@ All 12 remaining carried findings verified against current source. No new resolu
 
 ## New findings
 
-No new actionable findings this cycle. 6 potential issues were examined and found to be either:
+No new actionable findings this cycle. 8 potential issues were examined and found to be:
 - Correct by design with adequate documentation
-- Already tracked as existing findings (N12 variant)
-- Minor efficiency concerns that don't justify code churn
-- False alarms upon closer inspection
+- Module-level state patterns with documented HMR caveats
+- Intentional eslint-disable suppressions with inline justification
+- Legitimate console logging for error reporting
 
 ## Finding count summary
 
@@ -52,8 +52,8 @@ No new actionable findings this cycle. 6 potential issues were examined and foun
 
 ## Actionable this cycle
 
-No new findings require implementation this cycle. All carried findings remain deferred as architectural/infrastructure improvements pending significant effort investment (unit test framework, E2E infrastructure, state management refactor, worker deduplication, etc.).
+No new findings require implementation this cycle. All carried findings remain deferred as architectural/infrastructure improvements pending significant effort investment.
 
 ## Exit criterion
 
-The codebase is in a mature, stable state following 20 review cycles. All actionable findings from prior reviews have been implemented. The 14 remaining open findings are all architectural improvements that require dedicated sprints (test coverage, state management refactor, worker architecture redesign, real-device testing infrastructure). No further review cycles should produce new findings unless the codebase changes.
+The codebase is in a mature, stable state following 21 review cycles. All actionable findings from prior reviews have been implemented. The 14 remaining open findings are all architectural improvements that require dedicated sprints. No further review cycles should produce new findings unless the codebase changes.
