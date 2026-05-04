@@ -11,6 +11,7 @@ export const shortestLngDelta = (from: number, to: number) => ((to - from + 540)
 /** Adjust a longitude to be within ±180° of a reference longitude.
  *  Used for antimeridian wrapping when building continuous coordinate arrays. */
 export function wrapLngNear(referenceLng: number, nextLng: number): number {
+  if (!Number.isFinite(referenceLng) || !Number.isFinite(nextLng)) return nextLng
   let adjusted = nextLng
   while (adjusted - referenceLng > 180) adjusted -= 360
   while (adjusted - referenceLng < -180) adjusted += 360
