@@ -67,5 +67,5 @@ After each commit:
 
 | Item | Status | Commit | Notes |
 |------|--------|--------|-------|
-| P10 — Fix indentation | TODO | | |
-| P11 — Memoize hasTime | TODO | | |
+| P10 — Fix indentation | DONE | 829daa2 | Re-indented 4 lines from 6-space to 4-space |
+| P11 — Memoize hasTime | DONE | 829daa2 | Wrapped in useMemo keyed on points; moved before early return |
