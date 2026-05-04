@@ -5,7 +5,7 @@ import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter, wrapLngNear } from '@/lib/interpolate'
-import { computeCameraForProgress, normalizeScenes } from '@/lib/camera'
+import { computeCameraForProgress, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 
@@ -63,11 +63,6 @@ const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }>
   bright: { minor: 'rgba(173, 150, 120, 0.22)', major: 'rgba(173, 150, 120, 0.38)' },
 }
 
-function smoothAngle(from: number, to: number, factor: number): number {
-  const diff = shortestLngDelta(from, to)
-  return from + diff * factor
-}
-
 function angleDelta(from: number, to: number): number {
   return Math.abs(((to - from + 540) % 360) - 180)
 }
@@ -80,16 +75,7 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
 }
 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
-  const lngResult = ((previous.center[0] + shortestLngDelta(previous.center[0], target.center[0]) * factor + 180) % 360 + 360) % 360 - 180
-  return {
-    center: [
-      lngResult,
-      previous.center[1] + (target.center[1] - previous.center[1]) * factor,
-    ],
-    zoom: previous.zoom + (target.zoom - previous.zoom) * factor,
-    pitch: previous.pitch + (target.pitch - previous.pitch) * factor,
-    bearing: smoothAngle(previous.bearing, target.bearing, bearingFactor ?? factor),
-  }
+  return lerpCamera(previous, target, factor, linear, bearingFactor)
 }
 
 function normalizeSegmentStarts(pointCount: number, segmentStartIndices: number[] = []): number[] {
@@ -877,7 +863,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (styleHandler) map.off('style.load', styleHandler)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- track is intentionally omitted: the effect reads trackRef.current inside the handler; including track causes unnecessary listener churn on every track change since the styleKeyRef guard short-circuits when the style hasn't changed
-  }, [mapStyleKey])
+  }, [mapStyleKey, referenceGridData])
 
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)

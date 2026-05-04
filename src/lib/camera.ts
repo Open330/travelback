@@ -113,12 +113,27 @@ function computeOverviewCamera(track: Track): CameraState {
   return camera
 }
 
+/** Linear interpolation identity — used when smoothstep is not desired */
+export const linear = (t: number) => t
+
 /**
- * Smoothly interpolate between two camera states with easing.
+ * Smoothly interpolate between two camera states with configurable easing.
  * Uses shortest-path longitude interpolation for antimeridian-crossing routes.
+ *
+ * @param easingFn - Easing function applied to the interpolation factor (default: smoothstep).
+ *   Pass `linear` for frame-to-frame smoothing where smoothstep would cause jerky motion.
+ * @param bearingFactor - Optional separate factor for bearing interpolation. When provided,
+ *   bearing is interpolated at this raw factor (no easing applied), allowing slower bearing
+ *   smoothing than position/zoom/pitch. Used by the playback camera follow path.
  */
-export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraState {
-  const s = smoothstep(t)
+export function lerpCamera(
+  a: CameraState,
+  b: CameraState,
+  t: number,
+  easingFn: (t: number) => number = smoothstep,
+  bearingFactor?: number,
+): CameraState {
+  const s = easingFn(t)
   const lerpAngle = (from: number, to: number, f: number) => {
     const diff = ((to - from + 540) % 360) - 180
     return from + diff * f
@@ -133,7 +148,7 @@ export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraSta
     ],
     zoom: a.zoom + (b.zoom - a.zoom) * s,
     pitch: a.pitch + (b.pitch - a.pitch) * s,
-    bearing: lerpAngle(a.bearing, b.bearing, s),
+    bearing: lerpAngle(a.bearing, b.bearing, bearingFactor ?? s),
   }
 }
 
