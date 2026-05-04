@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScenes, lerpCamera, computeCameraForProgress } from './camera'
+import { normalizeScenes, lerpCamera, computeCameraForProgress, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from './camera'
 import type { Scene, Track } from '@/types'
 
 const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMode'] = 'flyover'): Scene => ({
@@ -227,5 +227,58 @@ describe('computeCameraForProgress', () => {
     // Overview centers on the track bounding box, not the current position
     expect(result.pitch).toBe(45)
     expect(Number.isFinite(result.bearing)).toBe(true)
+  })
+})
+
+describe('scene preset generators', () => {
+  const validateScenes = (scenes: Scene[]) => {
+    expect(scenes.length).toBeGreaterThan(0)
+    // First scene starts at 0
+    expect(scenes[0].startPercent).toBe(0)
+    // Last scene ends at 1
+    expect(scenes[scenes.length - 1].endPercent).toBe(1)
+    // All IDs are unique
+    const ids = scenes.map(s => s.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    // Monotonically increasing, non-overlapping ranges
+    for (let i = 0; i < scenes.length; i++) {
+      expect(scenes[i].startPercent).toBeLessThan(scenes[i].endPercent)
+      if (i > 0) {
+        expect(scenes[i].startPercent).toBeGreaterThanOrEqual(scenes[i - 1].endPercent)
+      }
+    }
+    // All scenes have valid camera modes
+    const validModes = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
+    for (const scene of scenes) {
+      expect(validModes).toContain(scene.cameraMode)
+      expect(Number.isFinite(scene.params.zoom)).toBe(true)
+      expect(Number.isFinite(scene.params.pitch)).toBe(true)
+    }
+  }
+
+  it('generateDefaultScenes produces valid cinematic sequence', () => {
+    const scenes = generateDefaultScenes()
+    validateScenes(scenes)
+    expect(scenes.length).toBe(6)
+  })
+
+  it('generateSimpleFlyover produces a single full-track flyover', () => {
+    const scenes = generateSimpleFlyover()
+    validateScenes(scenes)
+    expect(scenes.length).toBe(1)
+    expect(scenes[0].cameraMode).toBe('flyover')
+  })
+
+  it('generateBirdeyeFlyover produces a single full-track birdeye', () => {
+    const scenes = generateBirdeyeFlyover()
+    validateScenes(scenes)
+    expect(scenes.length).toBe(1)
+    expect(scenes[0].cameraMode).toBe('birdeye')
+  })
+
+  it('generateDynamicScenes produces a multi-scene dynamic sequence', () => {
+    const scenes = generateDynamicScenes()
+    validateScenes(scenes)
+    expect(scenes.length).toBeGreaterThan(1)
   })
 })
