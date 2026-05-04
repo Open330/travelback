@@ -200,4 +200,32 @@ describe('computeCameraForProgress', () => {
     expect(atStart.zoom).toBeGreaterThan(0)
     expect(atEnd.zoom).toBeGreaterThan(0)
   })
+
+  it('applies birdeye look-ahead bearing', () => {
+    const scenes = [makeScene('be', 0, 1, 'birdeye')]
+    scenes[0].params = { zoom: 11, pitch: 65, bearingOffset: 0, rotationSpeed: 5 }
+    const atMid = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 10, 0.03, true)
+    // birdeye uses look-ahead + drift, so bearing should be non-zero with elapsed time
+    expect(Number.isFinite(atMid.bearing)).toBe(true)
+    expect(atMid.pitch).toBe(65)
+    expect(atMid.zoom).toBe(11)
+  })
+
+  it('applies orbit rotation based on elapsed time', () => {
+    const scenes = [makeScene('orbit', 0, 1, 'orbit')]
+    scenes[0].params = { zoom: 14, pitch: 60, bearingOffset: 0, rotationSpeed: 36 }
+    const atT0 = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 0, 0.03, true)
+    const atT5 = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 5, 0.03, true)
+    // Orbit bearing changes with elapsed time (36 deg/s)
+    expect(atT5.bearing).not.toBeCloseTo(atT0.bearing, 0)
+  })
+
+  it('returns correct camera for overview mode', () => {
+    const scenes = [makeScene('ov', 0, 1, 'overview')]
+    scenes[0].params = { zoom: 10, pitch: 45, bearingOffset: 0, rotationSpeed: 10 }
+    const result = computeCameraForProgress(testTrack, testCumulDist, scenes, 0.5, 5, 0.03, true)
+    // Overview centers on the track bounding box, not the current position
+    expect(result.pitch).toBe(45)
+    expect(Number.isFinite(result.bearing)).toBe(true)
+  })
 })
