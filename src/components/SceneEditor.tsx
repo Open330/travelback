@@ -525,9 +525,9 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
             <input type="range" min={0} max={20} step={1}
               value={Math.round(transitionDuration * 100)}
               onChange={e => {
-                    const value = parseInt(e.target.value, 10)
-                    if (Number.isFinite(value)) onTransitionDurationChange(value / 100)
-                  }}
+                const value = parseInt(e.target.value, 10)
+                if (Number.isFinite(value)) onTransitionDurationChange(value / 100)
+              }}
               aria-label={t('scenes.blendAria')}
               className="flex-1 h-2 cursor-pointer"
               style={{ accentColor: 'rgb(var(--gl))' }} />

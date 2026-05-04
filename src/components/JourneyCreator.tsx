@@ -674,13 +674,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 type="text"
                 role="combobox"
                 aria-label={t('journey.searchPlaceholder')}
-                  aria-expanded={searchResults.length > 0}
-                  aria-controls="journey-search-listbox"
-                  aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}
-                  aria-autocomplete="list"
-                  aria-invalid={searchError ? true : undefined}
-                  aria-describedby={searchError ? 'journey-search-error journey-search-privacy' : 'journey-search-privacy'}
-                  value={searchQuery}
+                aria-expanded={searchResults.length > 0}
+                aria-controls="journey-search-listbox"
+                aria-activedescendant={activeSearchIndex >= 0 ? `journey-search-option-${activeSearchIndex}` : undefined}
+                aria-autocomplete="list"
+                aria-invalid={searchError ? true : undefined}
+                aria-describedby={searchError ? 'journey-search-error journey-search-privacy' : 'journey-search-privacy'}
+                value={searchQuery}
                 onChange={e => handleSearchInputChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder={t('journey.searchPlaceholder')}
