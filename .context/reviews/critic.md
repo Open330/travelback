@@ -1,31 +1,25 @@
-# Critic — Cycle 3 (2026-05-04)
+# Critic — Cycle 5 (2026-05-04)
 
 ## Scope
-Multi-perspective critique of the whole change surface.
+Multi-perspective critique of the full change surface and deferred items.
 
 ## Findings
 
-### C3-C1. Deferred items have grown stale — no re-evaluation mechanism
-**Severity**: Medium | **Confidence**: High
-**Files**: `.context/plans/deferred-findings-*.md`
-**Issue**: 14+ deferred findings carried forward across multiple cycles. Some (e.g., N01 "Per-frame trail rebuild during playback") may no longer be accurate. Without re-validation, the deferred list becomes misleading noise.
-**Fix**: Periodically re-validate deferred findings against current code.
-**Effort**: Small
+### C5-C1. Deferred items need re-evaluation (carried from C3-C1)
+**Severity**: Low (process) | **Confidence**: High
+**Files**: `.context/plans/` deferred items
+**Issue**: 14 deferred items carried forward from cycles 1-4. Some (like MapView monolith, test coverage gaps) remain valid. Others may have been implicitly resolved. The deferred list needs pruning.
+**Fix**: Re-evaluate each deferred item against current code state.
 
-### C3-C2. MapView complexity creates review blind spots
-**Severity**: Medium | **Confidence**: High
-**File**: `src/components/MapView.tsx`
-**Issue**: At 1214 lines with 7+ concerns, reviewers tend to skim or focus only on recently-changed regions. Same as C3-F1.
-**Fix**: Extract pure functions from MapView.
-**Effort**: Large
+### C5-C2. Dead code in export error handling
+**Severity**: Low (code quality) | **Confidence**: High
+**File**: `src/lib/useExportController.ts:24-27`
+**Issue**: `isMapRenderExportError` is dead code. The ExportError code path handles all cases. Confirmed by verifier (V6).
+**Fix**: Remove the function and the substring check.
 
-### C3-C3. No regressions from cycle 1-2 fixes
+### C5-C3. No regressions from cycles 1-4 fixes
 **Severity**: N/A | **Confidence**: High
-**Issue**: Reviewed all cycle-1 and cycle-2 commits. The exportSucceeded guard, scene tests, and other fixes are correct. No regressions.
-
-### C3-C4. Quality gates clean
-**Severity**: N/A | **Confidence**: High
-**Issue**: lint=0, typecheck=clean, test=219/219, audit=0 vulns.
+**Status**: All prior fixes verified intact. Quality gates clean.
 
 ## Summary
-Codebase in excellent condition. Main critique: deferred findings need cleanup, MapView needs decomposition. No regressions.
+Codebase in excellent condition. One dead code finding. Deferred items need periodic re-evaluation. No regressions.

@@ -1,42 +1,37 @@
-# Code Reviewer — Cycle 3 (2026-05-04)
+# Code Reviewer — Cycle 5 (2026-05-04)
 
 ## Scope
-Full codebase review. Cycle 2 aggregate findings (C2-F1 through C2-F6) verified as resolved.
+Full codebase review. Focus on deeper analysis of deferred items, recently modified files, and remaining substantive issues.
 
 ## Findings
 
-### C3-F1. MapView.tsx is a 1214-line monolith violating Single Responsibility
-**Severity**: Medium | **Confidence**: High
-**File**: `src/components/MapView.tsx` (all 1214 lines)
-**Issue**: MapView.tsx combines at least 7 distinct concerns: map initialization/cleanup, track geometry building, camera interpolation and smoothing, reference grid computation, marker management, export frame rendering, and debug state exposure. This makes the component hard to test, hard to review, and a high-conflict zone for concurrent changes.
-**Fix**: Extract pure functions (geometry builders, grid computation, camera smoothing) into a `src/lib/mapUtils.ts` module. Consider extracting the imperative handle implementation into a custom hook.
-**Effort**: Large
+### C5-F1. `isMapRenderExportError` uses fragile substring matching instead of error codes
+**Severity**: Low (fragility) | **Confidence**: High
+**File**: `src/lib/useExportController.ts:24-27`
+**Issue**: `isMapRenderExportError` checks `error.message.includes('Map did not finish rendering')` to classify export errors. However, `ExportError` instances at lines 177 and 189 in `waitForStableMap` already carry codes `'EXPORT_MAP_RENDER'` and `'EXPORT_MAP_IDLE'`, which are mapped in `EXPORT_ERROR_I18N` at lines 17-22. The substring check is either dead code (if the ExportError code path always matches first) or a fragile fallback. If someone changes the error message text, classification breaks silently.
+**Fix**: Remove `isMapRenderExportError` and rely solely on `error instanceof ExportError && EXPORT_ERROR_I18N[error.code]` in the catch block.
 
-### C3-F2. Duplicated camera smoothing logic between MapView and camera.ts
-**Severity**: Low | **Confidence**: High
-**File**: `src/components/MapView.tsx:66-93` vs `src/lib/camera.ts:120-138`
-**Issue**: `smoothCameraState()` in MapView duplicates the camera interpolation logic in `lerpCamera()` from camera.ts. Both use `shortestLngDelta` for antimeridian-safe longitude interpolation and linear lerp for zoom/pitch. The MapView version lacks smoothstep easing (uses raw factor), creating inconsistent smoothing between export and playback.
-**Fix**: Replace `smoothCameraState` with a call to a shared interpolation function from camera.ts.
-**Effort**: Small
+### C5-F2. MapView progress effect indentation inconsistency (carried from C4-F1)
+**Severity**: Low (style) | **Confidence**: High
+**File**: `src/components/MapView.tsx:1064-1067`
+**Issue**: Lines inside the progress useEffect use 6-space indentation instead of the surrounding 4-space.
+**Fix**: Re-indent to 4 spaces.
 
-### C3-F3. useEffect missing referenceGridData dependency in style-change effect
-**Severity**: Low | **Confidence**: Medium
-**File**: `src/components/MapView.tsx:857-880`
-**Issue**: The style-change effect reads `referenceGridData` from the closure but its dependency array only contains `[mapStyleKey]`. While `referenceGridData` is memoized on `track`, if it changed while the style was also changing, stale grid data would be rendered.
-**Fix**: Add `referenceGridData` to the dependency array.
-**Effort**: Trivial
+### C5-F3. SceneEditor scenes list indentation inconsistency
+**Severity**: Low (style) | **Confidence**: High
+**File**: `src/components/SceneEditor.tsx:568`
+**Issue**: The scenes list rendering uses 8-space indentation (extra 4 spaces) compared to surrounding JSX at the same nesting level.
+**Fix**: Dedent by 4 spaces.
 
-### C3-F4. exportVideo does not explicitly close Output on abort
-**Severity**: Low | **Confidence**: Medium
-**File**: `src/lib/videoEncoder.ts:130-173`
-**Issue**: When export is aborted, `output.finalize()` is skipped but the Output object may hold WebCodecs encoder resources. If mediabunny doesn't clean up on GC, this could leak.
-**Fix**: Add explicit cleanup in the finally block when !completed, or document the assumption.
-**Effort**: Small
-
-### C3-F5. Verified: C2-F1 export progress restoration is FIXED
+### C5-F4. Verified: C4-F2 `hasTime` memoization is FIXED
 **Severity**: N/A | **Confidence**: High
-**File**: `src/lib/useExportController.ts:148,252,311`
-**Status**: Verified fixed.
+**File**: `src/components/TimelineSelector.tsx:363`
+**Status**: `useMemo` wrapping confirmed. No action needed.
+
+### C5-F5. Verified: C3-F2 camera smoothing consolidation is FIXED
+**Severity**: N/A | **Confidence**: High
+**File**: `src/components/MapView.tsx:77-79`
+**Status**: `smoothCameraState` delegates to `lerpCamera` from camera.ts. No duplication.
 
 ## Summary
-Codebase in excellent shape. Main actionable finding is MapView.tsx monolith (C3-F1). Duplicated camera smoothing (C3-F2) is a small consistency issue.
+Codebase remains in excellent condition. The only actionable finding is removing the fragile substring error classification (C5-F1). Two minor indentation issues carried from prior cycles.

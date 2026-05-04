@@ -1,24 +1,21 @@
-# Tracer — Cycle 3 (2026-05-04)
+# Tracer — Cycle 5 (2026-05-04)
 
 ## Scope
-Causal tracing of suspicious flows.
+Causal tracing of data flows and state management.
 
 ## Traces
 
-### C3-TR1. Export-cancel-restart race condition — DISPROVED
-**Hypothesis**: Cancelling and immediately restarting export could corrupt state.
-**Evidence**: AbortController is per-export-call (line 143). exportSucceeded is closure-scoped. finally block checks exportSucceeded before modifying state. No race.
+### C5-TR1. Export-cancel-restart safety — VERIFIED
+**Evidence**: AbortController is per-export-call (useExportController.ts:143). `exportSucceeded` is closure-scoped (line 148). `pendingVideoUrl` tracks URL lifecycle (lines 146, 259). finally block checks `exportSucceeded` before modifying state (line 311). No race condition.
 
-### C3-TR2. Marker state leak between track sessions — DISPROVED
-**Hypothesis**: Switching tracks could leave stale markers.
-**Evidence**: clearTrackArtifacts removes marker and nulls ref. Track-loading effect also cleans up. Double cleanup is safe.
+### C5-TR2. Playback/export interaction — VERIFIED SAFE
+**Evidence**: `pausePlayback()` called at export start (line 159). MapView progress effect gated by `isExporting` (line 1052). Export exclusively drives visual state via `renderFrameAndWait`. No conflicting state updates.
 
-### C3-TR3. Scene normalization mutation — CORRECTED
-**Hypothesis**: normalizeScenes mutates original scene objects.
-**Evidence**: Creates new objects via spread at each map step. Sort is on new array. Original scenes not mutated. N10 finding should be archived.
+### C5-TR3. Scene normalization does not mutate originals — VERIFIED
+**Evidence**: `normalizeScenes` (camera.ts:25-50) creates new objects via spread at each `.map()` step. Sort operates on new array. Original scene objects untouched.
 
-### C3-TR4. Export memory estimate for 4K — VERIFIED
-**Evidence**: 1.5x multiplier for >1080p, 8x base multiplier. 4K estimate ~397MB+. Conservative.
+### C5-TR4. TimelineSelector ratio-to-index mapping — VERIFIED CORRECT
+**Evidence**: `ratioToIndex` (TimelineSelector.tsx:30-53) uses binary search on cumulative distances, not linear interpolation. This correctly handles non-uniformly-spaced points. `resolveRangeIndexes` (lines 156-171) applies guards for degenerate ranges.
 
 ## Summary
-No new bugs found. Export abort flow is safe. Marker cleanup is correct. Scene normalization does not mutate originals.
+All traced flows are correct. No bugs found in data flow or state management.

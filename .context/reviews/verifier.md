@@ -1,36 +1,34 @@
-# Verifier — Cycle 3 (2026-05-04)
+# Verifier — Cycle 5 (2026-05-04)
 
 ## Scope
-Evidence-based correctness check against stated behavior.
+Evidence-based correctness check. Verify all prior fixes and new findings.
 
 ## Verifications
 
-### V1. Export progress restoration (C2-F1) — VERIFIED FIXED
-**Evidence**: `useExportController.ts:148` declares `exportSucceeded = false`, line 252 sets it to `true` after success, line 311 guards `if (!exportSucceeded)` before restoring pre-export progress. On success, `setPlaybackProgress(1)` at line 256 is preserved.
+### V1. Export progress restoration (C2-DB-01) — VERIFIED FIXED
+**Evidence**: `useExportController.ts:148` declares `exportSucceeded = false`, line 252 sets `true` on success, line 311 guards `if (!exportSucceeded)` before restoring pre-export progress. Line 256 sets `setPlaybackProgress(1)` on success. No regression.
 
-### V2. Scene preset generators produce valid scenes — VERIFIED
-**Evidence**: `camera.test.ts` contains tests for all 4 generators. Each test validates non-empty array, non-overlapping monotonically increasing percent ranges, first scene starts at 0, last scene ends at 1, all IDs unique.
+### V2. `hasTime` memoization (C4-F2) — VERIFIED FIXED
+**Evidence**: `TimelineSelector.tsx:363` wraps `points.some((p) => p.time)` in `useMemo` keyed on `[points]`.
 
-### V3. ExportError class has correct structure — VERIFIED
-**Evidence**: `videoEncoder.test.ts` tests ExportError constructor, name, message, and code properties. `estimateEncodedBytes` tested with known inputs.
+### V3. Camera smoothing consolidation (C3-F2) — VERIFIED FIXED
+**Evidence**: `MapView.tsx:77-79` delegates `smoothCameraState` to `lerpCamera(previous, target, factor, linear, bearingFactor)`.
 
-### V4. prefers-reduced-motion covers all animations — VERIFIED
-**Evidence**: `globals.css:46-56` covers marker-pulse and animate-spin. Lines 67-80 cover export-checkmark and vitro-btn-primary. All CSS animations in the app are covered.
+### V4. Reference grid dependency (C3-F3) — VERIFIED FIXED
+**Evidence**: `MapView.tsx:866` dependency array includes `referenceGridData`.
 
-### V5. Test stub is localhost-gated — VERIFIED
-**Evidence**: `test-stub.ts:13` checks `window.location.hostname === 'localhost' || '127.0.0.1'` before checking localStorage.
+### V5. Fallback timer optimization (C3-P1) — VERIFIED FIXED
+**Evidence**: `usePlaybackController.ts:117` guards with `document.visibilityState === 'hidden'`.
 
-### V6. i18n key parity across all 5 locales — VERIFIED
-**Evidence**: `i18n.ts` uses `satisfies Record<Locale, Record<string, string>>` which enforces structural parity at compile time. All 5 locales (en, ko, ja, zh, es) have identical key sets.
+### V6. `isMapRenderExportError` dead code — CONFIRMED
+**Evidence**: `waitForStableMap` at lines 177 and 189 throws `ExportError` with codes `'EXPORT_MAP_RENDER'` and `'EXPORT_MAP_IDLE'`. The `EXPORT_ERROR_I18N` map at lines 17-22 maps these codes. The catch block at line 267 checks `error instanceof ExportError && EXPORT_ERROR_I18N[error.code]` which would match before the substring check. The `isMapRenderExportError` function at lines 24-27 is dead code.
 
-### V7. Accumulator-based playback timing — VERIFIED
-**Evidence**: `usePlaybackController.ts:108-141` records startTimestamp and startProgressRef on each play/resume, then computes progress from elapsed wall-clock time. This eliminates floating-point drift.
-
-### V8. Quality gates — ALL PASSING
+### V7. Quality gates — ALL PASSING
 - `npm run lint`: 0 errors, 0 warnings
 - `npm run typecheck`: clean
 - `npm run test`: 219/219 passed
 - `npm audit --audit-level=high`: 0 vulnerabilities
+- `npm run build`: clean
 
 ## Summary
-All verified items are correct. No evidence of bugs, regressions, or incorrect behavior. Quality gates are fully clean.
+All prior fixes verified. One dead code finding confirmed. Quality gates fully clean.
