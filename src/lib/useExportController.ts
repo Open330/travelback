@@ -21,11 +21,6 @@ const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
   EXPORT_MAP_IDLE: 'app.exportMapRenderFailed',
 }
 
-function isMapRenderExportError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  return error.message.includes('Map did not finish rendering')
-}
-
 interface UseExportControllerOptions {
   track: Track | null
   scenes: Scene[]
@@ -264,11 +259,9 @@ export function useExportController({
           addToast(tRef.current('app.exportCancelled'), 'info')
         } else {
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
-          const detailKey: TranslationKey = isMapRenderExportError(error)
-            ? 'app.exportMapRenderFailed'
-            : error instanceof ExportError && EXPORT_ERROR_I18N[error.code]
-              ? EXPORT_ERROR_I18N[error.code]
-              : 'app.exportFailedSuffix'
+          const detailKey: TranslationKey = error instanceof ExportError && EXPORT_ERROR_I18N[error.code]
+            ? EXPORT_ERROR_I18N[error.code]
+            : 'app.exportFailedSuffix'
           addToast(`${tRef.current('app.exportFailed')} ${tRef.current(detailKey)}`, 'error')
         }
         setExportState('idle')

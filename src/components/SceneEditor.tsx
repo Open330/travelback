@@ -565,7 +565,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-          {scenes.map((scene) => (
+        {scenes.map((scene) => (
           <div key={scene.id}
             className="gi p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
