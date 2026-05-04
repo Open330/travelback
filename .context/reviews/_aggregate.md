@@ -1,59 +1,154 @@
-# Cycle 21 Aggregate Review — 2026-04-28
+# Aggregate Review — Travelback (2026-05-04, Cycle 2)
 
-Repository: `/Users/hletrd/flash-shared/Travelback`
+## Overview
 
-## Review methodology
+12 review agents completed. No agent failures. Findings are predominantly LOW risk with good cross-agent agreement on the codebase's overall quality.
 
-Comprehensive code review of all 37 source files (~12.3K lines). Full context from 20 prior aggregate reviews (60+ findings historically). Focus on verifying carried findings and identifying genuinely new issues. All 4 quality gates pass (lint, typecheck, build, test — 112 tests).
+## Deduplicated Findings (ordered by severity/confidence)
 
-## Review lanes completed
+### HIGH PRIORITY
 
-- `cycle21-comprehensive-review-2026-04-28.md` — 0 new actionable findings (8 examined and dismissed as correct-by-design)
+#### F1. Export/playback state coupling creates maintenance risk
+**Severity**: Medium | **Confidence**: High
+**Agents**: code-reviewer, tracer, architect
+**Files**: `src/lib/useExportController.ts`, `src/lib/usePlaybackController.ts`, `src/app/page.tsx`
+**Issue**: `useExportController` depends on `pausePlayback` and `setPlaybackProgress` from `usePlaybackController`. This tight coupling means changes to one controller's API can break the other. The progress state lives in `usePlaybackController` but is imperatively driven by `useExportController` during export.
+**Suggestion**: Consider a mediator pattern where page.tsx owns progress state and both controllers receive it via options, or use a state machine for the progress source-of-truth.
 
-## Carried findings — resolution verification
+#### F2. WebGL context loss during export produces blank frames silently
+**Severity**: Medium | **Confidence**: Low
+**Agents**: debugger
+**File**: `src/lib/videoEncoder.ts:162`
+**Issue**: If the WebGL context is lost during export (GPU reset, memory pressure), `videoSource.add()` would capture blank frames. There is no `webglcontextlost` event listener on the canvas during export.
+**Suggestion**: Add a `webglcontextlost` event listener on the canvas during export that triggers abort with a meaningful error message.
 
-All 14 remaining carried findings verified against current source. No new resolutions this cycle.
+#### F3. Default scenes generated only on export, not during preview
+**Severity**: Medium | **Confidence**: High
+**Agents**: critic
+**File**: `src/lib/useExportController.ts:161-163`
+**Issue**: When scenes is empty, default cinematic scenes are auto-generated during export. During playback preview, the user sees a plain follow camera. The exported video will look different from the preview.
+**Suggestion**: Either auto-generate default scenes on track load or clearly indicate in the UI that scenes will be auto-generated on export.
 
-| ID | Severity | Summary | Status |
-|----|----------|---------|--------|
-| N01 | HIGH | Per-frame trail geometry rebuild during playback | PARTIALLY RESOLVED — shared builder extracted |
-| N02 | HIGH | No unit test layer for pure functions | STILL OPEN |
-| N03 | HIGH | E2E export success path exercises only stub | STILL OPEN |
-| N04 | MEDIUM-HIGH | Google JSON parser duplicated in worker vs main | STILL OPEN |
-| N10 | MEDIUM | Scene normalization mutates user intent | PARTIALLY RESOLVED |
-| N11 | MEDIUM | Map layer ownership split across components | STILL OPEN |
-| N12 | MEDIUM | Track session state spread across 15+ atoms | STILL OPEN |
-| N14 | MEDIUM | Export memory guard underestimates 4K peak | STILL OPEN |
-| N17 | MEDIUM | Mobile toolbar dialog not truly modal | PARTIALLY RESOLVED |
-| C13-F03 | LOW | iOS Safari download fallback | STILL OPEN |
-| C13-F05 | LOW | Timeline click-to-seek on selected region | STILL OPEN |
-| C15-F06 | LOW | MapView addTrackLayers called from multiple paths | STILL OPEN |
-| C15-F07 | INFO | ElevationProfile SVG stroke inconsistency | STILL OPEN |
-| C19-F03 | LOW | Single-level undo design limitation in SceneEditor | STILL OPEN |
+### MEDIUM PRIORITY
 
-## New findings
+#### F4. WebWorker depth check may miss deep nesting past 10MB boundary
+**Severity**: Medium | **Confidence**: Medium
+**Agents**: security-reviewer
+**File**: `src/lib/googleJsonParser.ts:283-304`
+**Issue**: `checkJsonDepth` scans only the first 10MB of input. On the worker path, a file with safe nesting in the first 10MB but deeper nesting later would pass the check, and the worker's `JSON.parse` would throw a `RangeError` that crashes the worker (the main thread catches RangeError, but the worker does not).
+**Suggestion**: Add a RangeError catch in the worker's JSON.parse path.
 
-No new actionable findings this cycle. 8 potential issues were examined and found to be:
-- Correct by design with adequate documentation
-- Module-level state patterns with documented HMR caveats
-- Intentional eslint-disable suppressions with inline justification
-- Legitimate console logging for error reporting
+#### F5. MapView.tsx is ~1200 lines — extractable utility functions
+**Severity**: Low | **Confidence**: High
+**Agents**: code-reviewer, test-engineer
+**File**: `src/components/MapView.tsx`
+**Issue**: The file contains pure utility functions (geometry builders, reference grid, camera smoothing) that could be extracted to lib modules and unit-tested independently.
+**Suggestion**: Extract `buildReferenceGridData`, `buildTrackGeometry`, `precomputeWrappedSegments`, `buildTrailGeoJSONFromSegments` to `src/lib/mapGeometry.ts`.
 
-## Finding count summary
+#### F6. No unit tests for camera scene blending logic
+**Severity**: Medium | **Confidence**: High
+**Agents**: test-engineer
+**File**: `src/lib/camera.ts:356-466`
+**Issue**: The complex scene blending logic in `computeCameraForProgress` — gap interpolation, transition blending, boundary handling — has no unit tests.
+**Suggestion**: Add tests for empty scenes, single scene, overlapping scenes, and progress at exact scene boundaries.
 
-| Severity | Count | New this cycle | Carried from prior cycles |
-|----------|-------|----------------|--------------------------|
-| HIGH | 3 | 0 | N01, N02, N03 |
-| MEDIUM-HIGH | 1 | 0 | N04 |
-| MEDIUM | 5 | 0 | N10, N11, N12, N14, N17 |
-| LOW | 4 | 0 | C13-F03, C13-F05, C15-F06, C19-F03 |
-| INFO | 1 | 0 | C15-F07 |
-| **Total open** | **14** | **0** | — |
+#### F7. No unit tests for usePlaybackController and useExportController
+**Severity**: Medium | **Confidence**: High
+**Agents**: test-engineer
+**Files**: `src/lib/usePlaybackController.ts`, `src/lib/useExportController.ts`
+**Issue**: Playback animation loop, speed changes, export lifecycle, and abort handling have no unit tests.
+**Suggestion**: Add React hook tests for state transitions and edge cases.
 
-## Actionable this cycle
+#### F8. No unit tests for videoEncoder pure functions
+**Severity**: Medium | **Confidence**: High
+**Agents**: test-engineer
+**File**: `src/lib/videoEncoder.ts`
+**Issue**: `estimateExportMemoryBytes`, `estimateEncodedBytes`, and filename sanitization are pure functions without tests.
+**Suggestion**: Add unit tests for memory estimation and filename sanitization.
 
-No new findings require implementation this cycle. All carried findings remain deferred as architectural/infrastructure improvements pending significant effort investment.
+#### F9. i18n locale key completeness not verified by tests
+**Severity**: Low | **Confidence**: High
+**Agents**: test-engineer, critic
+**File**: `src/lib/i18n.ts`
+**Issue**: No test verifies that all 5 locales have the same set of translation keys. Adding a key in `en` without adding it to other locales silently falls back to English.
+**Suggestion**: Add a test that verifies key parity across locales.
 
-## Exit criterion
+#### F10. Reduced motion preference not respected
+**Severity**: Low | **Confidence**: Medium
+**Agents**: designer
+**Files**: `src/app/globals.css`
+**Issue**: CSS animations (marker-pulse, hover transitions) don't respect `prefers-reduced-motion`.
+**Suggestion**: Add `@media (prefers-reduced-motion: reduce)` rules.
 
-The codebase is in a mature, stable state following 21 review cycles. All actionable findings from prior reviews have been implemented. The 14 remaining open findings are all architectural improvements that require dedicated sprints. No further review cycles should produce new findings unless the codebase changes.
+### LOW PRIORITY
+
+#### F11. wrapLngNear could infinite-loop on NaN/Infinity input
+**Severity**: Low | **Confidence**: High
+**Agents**: debugger
+**File**: `src/lib/interpolate.ts:14-18`
+**Issue**: While loop depends on finite input. All current callers validate coordinates, but a guard would be defensive.
+**Suggestion**: Add `if (!Number.isFinite(...)) return nextLng` guard.
+
+#### F12. parseTrackFile mixes Promise chains and async/await
+**Severity**: Low | **Confidence**: Medium
+**Agents**: code-reviewer
+**File**: `src/lib/parser.ts:338-397`
+**Issue**: The JSON parsing path uses `.catch().then().catch()` chain while the XML path uses `FileReader.onload` callback wrapped in a Promise.
+**Suggestion**: Refactor to use consistent async/await.
+
+#### F13. FileSystemWritableFileStream type cast is unsafe
+**Severity**: Low | **Confidence**: High
+**Agents**: code-reviewer
+**File**: `src/lib/videoEncoder.ts:219-224`
+**Issue**: Double `as unknown` cast for File System Access API. No compile-time safety.
+**Suggestion**: Add a type declaration file for the File System Access API.
+
+#### F14. Error boundary "Try Again" may re-trigger the same error
+**Severity**: Low | **Confidence**: Medium
+**Agents**: critic
+**File**: `src/components/ErrorBoundary.tsx:36-37`
+**Issue**: Resetting error state without clearing the offending track/state may re-trigger the error.
+**Suggestion**: Clear track state on "Try Again" for a genuine recovery path.
+
+#### F15. Export memory estimation may underestimate for 4K on mobile
+**Severity**: Low | **Confidence**: Medium
+**Agents**: critic
+**File**: `src/lib/videoEncoder.ts:50-66`
+**Issue**: The 8x multiplier may not account for MapLibre's GPU memory. 256MB threshold may be too generous for mobile devices.
+**Suggestion**: Consider device-aware memory limits.
+
+#### F16. Four localStorage keys for theme/style tracking
+**Severity**: Low | **Confidence**: Medium
+**Agents**: critic
+**File**: `src/app/page.tsx:57-60`
+**Issue**: Complex localStorage scheme for tracking explicit vs. system-derived theme/map style choices.
+**Suggestion**: Consider a single JSON object to reduce key count.
+
+#### F17. Overview camera WeakMap cache is module-level global state
+**Severity**: Low | **Confidence**: Medium
+**Agents**: code-reviewer
+**File**: `src/lib/camera.ts:103`
+**Issue**: Module-level WeakMap for caching overview camera computation.
+**Suggestion**: Add a brief comment that WeakMap is intentional for GC behavior.
+
+#### F18. Map style JSONs may reference external resources
+**Severity**: Low | **Confidence**: Low
+**Agents**: verifier
+**Files**: `public/map-styles/*.json`
+**Issue**: If bundled map style JSONs reference external tile/glyph/sprite URLs, the "fully local" claim and offline support would be broken.
+**Suggestion**: Verify that all map style resources are bundled locally.
+
+## AGENT FAILURES
+
+None. All 12 agents completed successfully.
+
+## Cross-Agent Agreement Summary
+
+| Finding | Agents Agreeing | Signal Strength |
+|---------|----------------|-----------------|
+| F1 Export/playback coupling | code-reviewer, tracer, architect | High |
+| F5 MapView size | code-reviewer, test-engineer | High |
+| F6-F8 Missing unit tests | test-engineer (multiple) | High |
+| F9 i18n key parity | test-engineer, critic | Medium |
+| F10 Reduced motion | designer | Medium |
+| F13 Unsafe type cast | code-reviewer | Medium |
