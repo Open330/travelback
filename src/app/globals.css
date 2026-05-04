@@ -68,6 +68,15 @@ body, [lang] {
   .export-checkmark {
     animation: none;
   }
+  .vitro-btn-primary {
+    transition: none;
+  }
+  .vitro-btn-primary:hover {
+    transform: none;
+  }
+  .vitro-btn-primary:active {
+    transform: none;
+  }
 }
 
 /* Darken landing preview in dark mode */
