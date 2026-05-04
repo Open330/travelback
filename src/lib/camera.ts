@@ -16,6 +16,12 @@ function clampUnit(value: number, fallback: number): number {
 
 const normBearing = (b: number) => ((b % 360) + 360) % 360
 
+/** Hermite smoothstep interpolation: 3t^2 - 2t^3 */
+export const smoothstep = (t: number) => t * t * (3 - 2 * t)
+
+/** Fraction of track length used for look-ahead bearing in bird's eye mode */
+export const LOOK_AHEAD_FRACTION = 0.05
+
 export function normalizeScenes(scenes: Scene[]): Scene[] {
   let previousEndPercent = 0
 
@@ -112,7 +118,7 @@ function computeOverviewCamera(track: Track): CameraState {
  * Uses shortest-path longitude interpolation for antimeridian-crossing routes.
  */
 export function lerpCamera(a: CameraState, b: CameraState, t: number): CameraState {
-  const s = t * t * (3 - 2 * t) // smoothstep
+  const s = smoothstep(t)
   const lerpAngle = (from: number, to: number, f: number) => {
     const diff = ((to - from + 540) % 360) - 180
     return from + diff * f
@@ -177,8 +183,8 @@ export function computeCameraForScene(
         bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
       }
     case 'birdeye': {
-      // Look-ahead: interpolate a point ~5% further along the track for bearing
-      const lookAheadProgress = Math.min(1, trackProgress + 0.05)
+      // Look-ahead: interpolate a point further along the track for bearing
+      const lookAheadProgress = Math.min(1, trackProgress + LOOK_AHEAD_FRACTION)
       const ahead = interpolateAlongTrack(track.points, cumulDist, lookAheadProgress)
       const lookBearing =
         ahead.point.lng === point.lng && ahead.point.lat === point.lat
