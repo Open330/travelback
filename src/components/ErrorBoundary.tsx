@@ -11,10 +11,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundaryInner extends React.Component<
-  { children: React.ReactNode; locale: Locale },
+  { children: React.ReactNode; locale: Locale; onReset?: () => void },
   ErrorBoundaryState
 > {
-  constructor(props: { children: React.ReactNode; locale: Locale }) {
+  constructor(props: { children: React.ReactNode; locale: Locale; onReset?: () => void }) {
     super(props)
     this.state = { hasError: false, error: null, componentStack: null, resetKey: 0 }
   }
@@ -34,6 +34,7 @@ class ErrorBoundaryInner extends React.Component<
   }
 
   handleReset = () => {
+    this.props.onReset?.()
     this.setState((prev) => ({ hasError: false, error: null, componentStack: null, resetKey: prev.resetKey + 1 }))
   }
 
@@ -98,11 +99,11 @@ class ErrorBoundaryInner extends React.Component<
   }
 }
 
-export default function ErrorBoundary({ children }: { children: React.ReactNode }) {
+export default function ErrorBoundary({ children, onReset }: { children: React.ReactNode; onReset?: () => void }) {
   const { locale } = useLocale()
 
   return (
-    <ErrorBoundaryInner locale={locale}>
+    <ErrorBoundaryInner locale={locale} onReset={onReset}>
       {children}
     </ErrorBoundaryInner>
   )

@@ -507,8 +507,19 @@ function HomeInner() {
     setUnits(nextUnits)
   }, [])
 
+  const handleErrorReset = useCallback(() => {
+    setFullTrack(null)
+    setTrack(null)
+    setScenes([])
+    setShowExport(false)
+    setShowSceneEditor(false)
+    setIsCreatingJourney(false)
+    resetPlaybackSession()
+    resetExportSession()
+  }, [resetPlaybackSession, resetExportSession])
+
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onReset={handleErrorReset}>
       <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true" data-travelback-exporting={isExporting ? 'true' : undefined} data-has-track={track ? 'true' : undefined}>
         <MapView
           ref={mapViewRef}
