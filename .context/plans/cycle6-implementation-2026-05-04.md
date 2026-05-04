@@ -56,5 +56,5 @@ After each commit:
 
 | Item | Status | Commit | Notes |
 |------|--------|--------|-------|
-| P15 — Fix JourneyCreator JSX indent | TODO | | |
-| P16 — Fix SceneEditor onChange indent | TODO | | |
+| P15 — Fix JourneyCreator JSX indent | DONE | 5ca7fa2 | Dedented aria attrs by 2 spaces |
+| P16 — Fix SceneEditor onChange indent | DONE | 5ca7fa2 | Fixed onChange handler body from 6 to 4 space indent |
