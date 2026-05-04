@@ -98,3 +98,14 @@ After each commit:
 - `npm run build` — must pass
 - `npm run test` — must pass
 - `git commit -S` — GPG-signed with conventional commit + gitmoji
+
+---
+
+## Completion Status (updated after implementation)
+
+| Item | Status | Commit | Notes |
+|------|--------|--------|-------|
+| P01 — Export progress restoration bug | DONE | 8b8a26e | Added exportSucceeded guard |
+| P02 — ExportError/estimateEncodedBytes tests | ALREADY DONE | (pre-existing) | Tests existed in videoEncoder.test.ts |
+| P03 — Scene preset generator tests | DONE | 672e150 | 4 new tests for all generators |
+| P04 — Marker pulse reduced motion | ALREADY DONE | (pre-existing) | globals.css already covers .marker-pulse |
