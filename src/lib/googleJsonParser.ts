@@ -1,4 +1,8 @@
 import type { Track, TrackPoint } from '@/types'
+import { parseOptionalNumber, parseOptionalDate, assertPointBudget, ParseError } from '@/lib/parse-utils'
+
+// Re-export ParseError for backwards compatibility (parser.ts re-exports it too)
+export { ParseError }
 
 /* ------------------------------------------------------------------ */
 /*  Google Location History — all known JSON formats                   */
@@ -16,19 +20,6 @@ function gTime(ts?: string, tsMs?: string): Date | undefined {
   if (ts) return parseOptionalDate(ts)
   if (tsMs) return parseOptionalDate(Number(tsMs))
   return undefined
-}
-
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (value == null) return undefined
-  if (typeof value === 'string' && value.trim() === '') return undefined
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function parseOptionalDate(value: unknown): Date | undefined {
-  if (value == null || value === '') return undefined
-  const parsed = new Date(value as string | number | Date)
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
 function looksLikeGoogleLocationRecord(value: unknown): boolean {
@@ -55,12 +46,6 @@ function pushE7(
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
   assertPointBudget(out)
   out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) })
-}
-
-function assertPointBudget(points: TrackPoint[], nextCount = 1): void {
-  if (points.length + nextCount > 250_000) {
-    throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
-  }
 }
 
 /* ---------- Format 1: Records.json / Location History.json --------- */
@@ -315,15 +300,6 @@ export function checkJsonDepth(text: string, maxDepth = MAX_JSON_DEPTH): void {
       depth--
       if (depth < 0) throw new ParseError('Invalid JSON structure', 'INVALID_GOOGLE_JSON')
     }
-  }
-}
-
-export class ParseError extends Error {
-  readonly code: string
-  constructor(message: string, code: string) {
-    super(message)
-    this.name = 'ParseError'
-    this.code = code
   }
 }
 

@@ -1,37 +1,17 @@
 import { gpx, kml } from '@tmcw/togeojson'
 import type { Track, TrackPoint } from '@/types'
 import { basePath } from '@/lib/env'
+import { parseOptionalNumber, parseOptionalDate, assertPointBudget, ParseError, MAX_TRACK_POINTS } from '@/lib/parse-utils'
 import {
   parseGoogleLocationHistory as parseGoogleLocationHistoryCore,
-  ParseError,
   checkJsonDepth,
 } from '@/lib/googleJsonParser'
 
-const MAX_TRACK_POINTS = 250_000
-const XML_MAX_TAGS = 150_000
-const XML_MAX_NESTING_DEPTH = 128
-
-// Re-export ParseError for backwards compatibility
+// Re-export for backwards compatibility — other files import these from '@/lib/parser'
 export { ParseError, checkJsonDepth }
 
-function assertPointBudget(points: TrackPoint[], nextCount = 1): void {
-  if (points.length + nextCount > MAX_TRACK_POINTS) {
-    throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
-  }
-}
-
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (value == null) return undefined
-  if (typeof value === 'string' && value.trim() === '') return undefined
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function parseOptionalDate(value: unknown): Date | undefined {
-  if (value == null || value === '') return undefined
-  const parsed = new Date(value as string | number | Date)
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed
-}
+const XML_MAX_TAGS = 150_000
+const XML_MAX_NESTING_DEPTH = 128
 
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
   type CoordinateProperties = { times?: string[] | string[][] }
