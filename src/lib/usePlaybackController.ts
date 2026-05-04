@@ -112,7 +112,11 @@ export function usePlaybackController(track: Track | null) {
       cancelAnimationFrame(animFrameRef.current)
       window.clearTimeout(fallbackTimerRef.current)
       animFrameRef.current = requestAnimationFrame(animate)
-      fallbackTimerRef.current = window.setTimeout(() => animate(performance.now()), 250)
+      // Only schedule the fallback timer when the tab is hidden — in the
+      // foreground rAF fires at 60 Hz and the timeout is wasted allocation.
+      if (document.visibilityState === 'hidden') {
+        fallbackTimerRef.current = window.setTimeout(() => animate(performance.now()), 250)
+      }
     }
 
     const animate = (now: number) => {
