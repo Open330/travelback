@@ -145,6 +145,7 @@ export function useExportController({
     const preExportProgress = playbackProgressRef.current
     let pendingVideoUrl: string | null = null
     let pendingVideoUrlStored = false
+    let exportSucceeded = false
 
     setIsExporting(true)
     setExportState('exporting')
@@ -248,6 +249,7 @@ export function useExportController({
       setExportedVideoUrl(pendingVideoUrl)
       exportedVideoUrlRef.current = pendingVideoUrl
       pendingVideoUrlStored = true
+      exportSucceeded = true
       setExportState('done')
       addToast(tRef.current('app.exportSuccess'), 'success')
       // Restore playback progress to final position after export
@@ -304,7 +306,11 @@ export function useExportController({
         }
       }
       if (mountedRef.current) {
-        setPlaybackProgress(preExportProgress)
+        // Only restore pre-export progress on abort/failure — on success,
+        // progress was already set to 1 in the try block above.
+        if (!exportSucceeded) {
+          setPlaybackProgress(preExportProgress)
+        }
         setIsExporting(false)
         setExportProgress(0)
       }
