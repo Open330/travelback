@@ -172,8 +172,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-          tabIndex={-1}
-          className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+        tabIndex={-1}
+        className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
         style={{
           borderRadius: 'var(--r-glass)',
           borderColor: isDragging ? 'rgb(var(--gl))' : undefined,

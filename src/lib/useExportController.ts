@@ -115,7 +115,6 @@ export function useExportController({
     setExportedVideoFilename(null)
   }, [])
 
-
   const resetExportSession = useCallback(() => {
     setExportState('idle')
     setExportProgress(0)
