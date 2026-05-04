@@ -189,52 +189,52 @@ export function useExportController({
         }
       }
 
-	      const cumulDist = cumulativeDistancesProp?.length
-	        ? cumulativeDistancesProp
-	        : computeCumulativeDistances(track.points, track.segmentStartIndices)
+      const cumulDist = cumulativeDistancesProp?.length
+        ? cumulativeDistancesProp
+        : computeCumulativeDistances(track.points, track.segmentStartIndices)
 
-	      const result = isLocalExportTestStubEnabled()
-	        ? await new Promise<{ buffer: ArrayBuffer; filename: string; mimeType: string }>((resolve) => {
-	            setPlaybackProgress(1)
-	            setExportProgress(1)
-	            requestAnimationFrame(() => {
-	              resolve({
-	                buffer: new TextEncoder().encode('travelback-test-export').buffer,
-	                filename: `Travelback - ${track.name}.mp4`,
-	                mimeType: 'video/mp4',
-	              })
-	            })
-	          })
-	        : await exportVideo(
-	            canvas,
-	            track,
-	            exportConfig,
-	            async (nextProgress, cameraState) => {
-	              await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)
-	              // Throttle visible playback state updates to ~10 Hz using
-	              // a time-based interval so UI refresh rate is consistent
-	              // regardless of export duration or frame rate.
-	              const now = performance.now()
-	              if (exportProgressRef.current === undefined || now - lastProgressUpdateTimeRef.current >= 100) {
-	                setPlaybackProgress(nextProgress)
-	                exportProgressRef.current = nextProgress
-	                lastProgressUpdateTimeRef.current = now
-	              }
-	            },
-	            waitForStableMap,
-	            (nextProgress) => {
-	              // Throttle export progress display updates to ~10 Hz so the
-	              // progress bar does not re-render on every frame (same pattern
-	              // as the playback progress throttle above).
-	              const now = performance.now()
-	              if (now - lastExportProgressUpdateTimeRef.current >= 100) {
-	                setExportProgress(nextProgress)
-	                lastExportProgressUpdateTimeRef.current = now
-	              }
-	            },
-	            abortController.signal,
-	            cumulDist,
-	          )
+      const result = isLocalExportTestStubEnabled()
+        ? await new Promise<{ buffer: ArrayBuffer; filename: string; mimeType: string }>((resolve) => {
+            setPlaybackProgress(1)
+            setExportProgress(1)
+            requestAnimationFrame(() => {
+              resolve({
+                buffer: new TextEncoder().encode('travelback-test-export').buffer,
+                filename: `Travelback - ${track.name}.mp4`,
+                mimeType: 'video/mp4',
+              })
+            })
+          })
+        : await exportVideo(
+            canvas,
+            track,
+            exportConfig,
+            async (nextProgress, cameraState) => {
+              await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)
+              // Throttle visible playback state updates to ~10 Hz using
+              // a time-based interval so UI refresh rate is consistent
+              // regardless of export duration or frame rate.
+              const now = performance.now()
+              if (exportProgressRef.current === undefined || now - lastProgressUpdateTimeRef.current >= 100) {
+                setPlaybackProgress(nextProgress)
+                exportProgressRef.current = nextProgress
+                lastProgressUpdateTimeRef.current = now
+              }
+            },
+            waitForStableMap,
+            (nextProgress) => {
+              // Throttle export progress display updates to ~10 Hz so the
+              // progress bar does not re-render on every frame (same pattern
+              // as the playback progress throttle above).
+              const now = performance.now()
+              if (now - lastExportProgressUpdateTimeRef.current >= 100) {
+                setExportProgress(nextProgress)
+                lastExportProgressUpdateTimeRef.current = now
+              }
+            },
+            abortController.signal,
+            cumulDist,
+          )
 
       const blob = new Blob([result.buffer], { type: result.mimeType })
       pendingVideoUrl = URL.createObjectURL(blob)
