@@ -1,17 +1,31 @@
-# Architect Review — Travelback (2026-05-04, Cycle 2)
+# Architect — Cycle 3 (2026-05-04)
 
-## Summary
-
-Architecture remains sound. The main new finding is the export/playback state coupling bug. Large refactoring items (page.tsx decomposition, scene normalization) remain deferred.
+## Scope
+Architectural/design risks, coupling, layering.
 
 ## Findings
 
-### C2-AR-01. Export/playback coupling creates progress restoration bug — MEDIUM risk, HIGH confidence
-**Files**: `src/lib/useExportController.ts`, `src/lib/usePlaybackController.ts`
-**Issue**: `useExportController` directly calls `setPlaybackProgress` from `usePlaybackController`, creating tight coupling. The progress restoration bug (finally block overwriting success value) is a direct consequence of this coupling. A state machine pattern where page.tsx owns progress state and both controllers receive it would prevent this class of bug.
-**Suggestion**: This was already identified in cycle 1 (F1). The bug confirms the architectural concern.
+### C3-A1. MapView.tsx violates separation of concerns
+**Severity**: Medium | **Confidence**: High
+**File**: `src/components/MapView.tsx`
+**Issue**: 1214 lines mixing 7+ concerns. Top extraction targets: geometry functions (pure, no React), grid functions (data + MapLibre API), camera smoothing (duplicates camera.ts).
+**Effort**: Large
 
-### C2-AR-02. Scene editor dual-path normalization — LOW risk, HIGH confidence
-**File**: `src/components/SceneEditor.tsx:289,412-433`
-**Issue**: `commitScenes` normalizes scenes, but `updateSceneRaw` bypasses normalization for drag gestures. The parent receives both normalized and unnormalized state depending on interaction mode. This is intentional for UX but adds complexity.
-**Suggestion**: Acceptable — the `onCommit` callback in `SceneRangeEditor` normalizes after drag completes.
+### C3-A2. Layer boundaries are well-maintained
+**Severity**: N/A | **Confidence**: High
+**Issue**: src/lib/ has no React component imports. Components import from lib. page.tsx orchestrates. Clean layering despite MapView size.
+
+### C3-A3. Hook composition in page.tsx is appropriate
+**Severity**: N/A | **Confidence**: High
+**Issue**: usePlaybackController, useExportController, usePlaybackHotkeys compose cleanly. Shared state passed as props.
+
+### C3-A4. Export pipeline callback architecture is sound
+**Severity**: N/A | **Confidence**: High
+**Issue**: exportVideo takes renderFrame/waitForIdle callbacks, keeping encoding decoupled from map implementation.
+
+### C3-A5. Parser module extraction is well-structured
+**Severity**: N/A | **Confidence**: High
+**Issue**: Google JSON parser extracted to shared module. Worker and main-thread paths share parsing logic.
+
+## Summary
+Architecture is sound. Main concern is MapView.tsx size (same as C3-A1/C3-F1). No new architectural risks.

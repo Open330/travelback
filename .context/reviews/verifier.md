@@ -1,39 +1,36 @@
-# Verifier — Travelback (2026-05-04, Cycle 2)
+# Verifier — Cycle 3 (2026-05-04)
+
+## Scope
+Evidence-based correctness check against stated behavior.
+
+## Verifications
+
+### V1. Export progress restoration (C2-F1) — VERIFIED FIXED
+**Evidence**: `useExportController.ts:148` declares `exportSucceeded = false`, line 252 sets it to `true` after success, line 311 guards `if (!exportSucceeded)` before restoring pre-export progress. On success, `setPlaybackProgress(1)` at line 256 is preserved.
+
+### V2. Scene preset generators produce valid scenes — VERIFIED
+**Evidence**: `camera.test.ts` contains tests for all 4 generators. Each test validates non-empty array, non-overlapping monotonically increasing percent ranges, first scene starts at 0, last scene ends at 1, all IDs unique.
+
+### V3. ExportError class has correct structure — VERIFIED
+**Evidence**: `videoEncoder.test.ts` tests ExportError constructor, name, message, and code properties. `estimateEncodedBytes` tested with known inputs.
+
+### V4. prefers-reduced-motion covers all animations — VERIFIED
+**Evidence**: `globals.css:46-56` covers marker-pulse and animate-spin. Lines 67-80 cover export-checkmark and vitro-btn-primary. All CSS animations in the app are covered.
+
+### V5. Test stub is localhost-gated — VERIFIED
+**Evidence**: `test-stub.ts:13` checks `window.location.hostname === 'localhost' || '127.0.0.1'` before checking localStorage.
+
+### V6. i18n key parity across all 5 locales — VERIFIED
+**Evidence**: `i18n.ts` uses `satisfies Record<Locale, Record<string, string>>` which enforces structural parity at compile time. All 5 locales (en, ko, ja, zh, es) have identical key sets.
+
+### V7. Accumulator-based playback timing — VERIFIED
+**Evidence**: `usePlaybackController.ts:108-141` records startTimestamp and startProgressRef on each play/resume, then computes progress from elapsed wall-clock time. This eliminates floating-point drift.
+
+### V8. Quality gates — ALL PASSING
+- `npm run lint`: 0 errors, 0 warnings
+- `npm run typecheck`: clean
+- `npm run test`: 219/219 passed
+- `npm audit --audit-level=high`: 0 vulnerabilities
 
 ## Summary
-
-Verified cycle 1 fixes and checked for regressions. Key verification: ErrorBoundary recovery, reduced motion, i18n key parity, camera blending tests.
-
-## Verification Results
-
-### V-01. ErrorBoundary "Try Again" clears track state — VERIFIED
-**File**: `src/app/page.tsx:510-519`, `src/components/ErrorBoundary.tsx:37-38`
-**Result**: `handleErrorReset` clears `fullTrack`, `track`, `scenes`, resets playback and export. `onReset` is called before `setState` in `handleReset`. Correct.
-
-### V-02. `prefers-reduced-motion` for button hover — VERIFIED
-**Commit**: eee3fa4
-**Result**: CSS transitions are disabled for button hover under reduced-motion. Correct.
-
-### V-03. i18n locale key parity — VERIFIED
-**Commit**: 8ccb68a
-**Result**: Test file `src/lib/i18n.test.ts` verifies all 5 locales have the same set of keys. Correct.
-
-### V-04. Camera scene blending tests — VERIFIED
-**Commit**: 975ee4f
-**Result**: Tests for birdeye, orbit, and overview scene blending added in `src/lib/camera.test.ts`. Correct.
-
-### V-05. `wrapLngNear` non-finite guard — VERIFIED
-**Commit**: ce0bc6c
-**Result**: Guard `if (!Number.isFinite(referenceLng) || !Number.isFinite(nextLng)) return nextLng` added at line 14. Correct.
-
-### V-06. Scene editor dynamic ARIA bounds — VERIFIED
-**File**: `src/components/SceneEditor.tsx:213-214`
-**Result**: `aria-valuemin` and `aria-valuemax` are dynamically set based on neighboring scene boundaries. Correct.
-
-### V-07. Trim confirmation dialog — VERIFIED
-**File**: `src/app/page.tsx:325-327`
-**Result**: `handleRangeChange` checks `scenes.length > 0` and shows confirmation dialog before clearing. Correct.
-
-### V-08. Export progress restoration bug — CONFIRMED
-**File**: `src/lib/useExportController.ts:254,306-307`
-**Result**: On successful export, `setPlaybackProgress(1)` at line 254 is overwritten by `setPlaybackProgress(preExportProgress)` at line 307. This is a real bug.
+All verified items are correct. No evidence of bugs, regressions, or incorrect behavior. Quality gates are fully clean.

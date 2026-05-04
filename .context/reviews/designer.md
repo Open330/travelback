@@ -1,17 +1,31 @@
-# Designer Review — Travelback (2026-05-04, Cycle 2)
+# Designer (UI/UX) — Cycle 3 (2026-05-04)
 
-## Summary
-
-UI/UX remains well-implemented. The cycle 1 fixes (reduced motion for hover, ErrorBoundary recovery) are verified. One remaining accessibility item.
+## Scope
+UI/UX, accessibility, responsive design, interaction patterns.
 
 ## Findings
 
-### C2-DS-01. Marker pulse animation not respecting reduced motion — LOW risk, HIGH confidence
-**File**: `src/components/MapView.tsx:974`, `src/app/globals.css`
-**Issue**: The marker-pulse element (created at MapView line 974) has a CSS class `marker-pulse` that likely uses a CSS animation for the pulsing effect. If this animation is not covered by the `@media (prefers-reduced-motion: reduce)` rule added in cycle 1, users with reduced-motion preference will still see the animation.
-**Suggestion**: Verify that the marker-pulse animation is covered by the reduced-motion media query. If not, add it.
+### C3-UI1. All CSS animations respect prefers-reduced-motion — VERIFIED
+**Files**: `globals.css:46-56,67-80`
+**Issue**: marker-pulse (display:none), animate-spin (animation:none), export-checkmark (animation:none), vitro-btn-primary (transition:none, transform:none). C2-F5 verified resolved.
 
-### C2-DS-02. Scene editor dynamic ARIA bounds — VERIFIED
-**File**: `src/components/SceneEditor.tsx:213-214`
-**Issue**: Scene range sliders have dynamic `aria-valuemin`/`aria-valuemax` based on neighboring scene boundaries. This correctly addresses the cycle 1 accessibility finding.
-**Suggestion**: No change needed.
+### C3-UI2. TimelineSelector has proper touch targets and keyboard support
+**File**: `src/components/TimelineSelector.tsx`
+**Issue**: 44px min touch targets. Arrow keys (1% step), Home/End. Full ARIA (role=slider, aria-label, aria-valuenow/text/min/max). Click-to-seek on selected region.
+
+### C3-UI3. Export panel has swipe-to-dismiss on mobile
+**File**: `src/components/ExportPanel.tsx:110-127`
+**Issue**: Vertical swipe detection with horizontal threshold to prevent scroll conflicts.
+
+### C3-UI4. Focus management on track load is correct
+**File**: `src/app/page.tsx:234-243`
+**Issue**: rAF-based focus with preventScroll:true. Cleanup cancels frame.
+
+### C3-UI5. Map controls have 44px touch targets
+**File**: `globals.css:236-241`
+
+### C3-UI6. Dark mode is comprehensive
+**Issue**: CSS custom properties + data-mode attribute. System preference listener handles OS changes.
+
+## Summary
+No UI/UX issues. Excellent accessibility, mobile patterns, and dark mode support.

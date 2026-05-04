@@ -1,22 +1,31 @@
-# Critic — Travelback (2026-05-04, Cycle 2)
+# Critic — Cycle 3 (2026-05-04)
 
-## Summary
-
-The export/playback progress restoration bug is the most significant new finding. Default scene generation on export vs. preview continues to be a UX inconsistency worth noting.
+## Scope
+Multi-perspective critique of the whole change surface.
 
 ## Findings
 
-### C2-CT-01. Export success progress overwritten by finally block — MEDIUM risk, HIGH confidence
-**File**: `src/lib/useExportController.ts:254,306-307`
-**Issue**: Same as C2-CR-01. After successful export, the finally block resets progress to pre-export value. This creates a jarring UX where the progress bar jumps backward after a successful export.
-**Suggestion**: Restructure the try/catch/finally so that the success path's progress is preserved.
+### C3-C1. Deferred items have grown stale — no re-evaluation mechanism
+**Severity**: Medium | **Confidence**: High
+**Files**: `.context/plans/deferred-findings-*.md`
+**Issue**: 14+ deferred findings carried forward across multiple cycles. Some (e.g., N01 "Per-frame trail rebuild during playback") may no longer be accurate. Without re-validation, the deferred list becomes misleading noise.
+**Fix**: Periodically re-validate deferred findings against current code.
+**Effort**: Small
 
-### C2-CT-02. Default scene generation on export vs. preview — MEDIUM risk (unchanged from cycle 1)
-**File**: `src/lib/useExportController.ts:161-163`
-**Issue**: When scenes is empty, default cinematic scenes are auto-generated during export but not during preview. The exported video will look different from the preview. This was finding F3 in cycle 1 aggregate.
-**Suggestion**: Either auto-generate default scenes on track load or indicate in the UI that scenes will be auto-generated on export.
+### C3-C2. MapView complexity creates review blind spots
+**Severity**: Medium | **Confidence**: High
+**File**: `src/components/MapView.tsx`
+**Issue**: At 1214 lines with 7+ concerns, reviewers tend to skim or focus only on recently-changed regions. Same as C3-F1.
+**Fix**: Extract pure functions from MapView.
+**Effort**: Large
 
-### C2-CT-03. Scene editor drag gesture leaves unnormalized state briefly — LOW risk, LOW confidence
-**File**: `src/components/SceneEditor.tsx:412-433`
-**Issue**: During drag, `updateSceneRaw` bypasses normalization and writes directly to parent state via `onChange`. If the component unmounts during drag, the `pointerup` handler won't fire and the parent may hold unnormalized scenes. In practice, unmounting during an active drag gesture is extremely unlikely.
-**Suggestion**: Acceptable — the next `commitScenes` call will normalize.
+### C3-C3. No regressions from cycle 1-2 fixes
+**Severity**: N/A | **Confidence**: High
+**Issue**: Reviewed all cycle-1 and cycle-2 commits. The exportSucceeded guard, scene tests, and other fixes are correct. No regressions.
+
+### C3-C4. Quality gates clean
+**Severity**: N/A | **Confidence**: High
+**Issue**: lint=0, typecheck=clean, test=219/219, audit=0 vulns.
+
+## Summary
+Codebase in excellent condition. Main critique: deferred findings need cleanup, MapView needs decomposition. No regressions.

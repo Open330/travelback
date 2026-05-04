@@ -1,22 +1,33 @@
-# Performance Review — Travelback (2026-05-04, Cycle 2)
+# Performance Reviewer — Cycle 3 (2026-05-04)
 
-## Summary
-
-No new performance findings beyond cycle 1. The precomputed segment approach, accumulator-based playback, and throttled progress updates remain well-implemented.
+## Scope
+Full codebase performance review.
 
 ## Findings
 
-### C2-PR-01. Export frame loop allocates per-frame — LOW risk (unchanged)
-**File**: `src/lib/videoEncoder.ts:134-166`
-**Issue**: Each export frame allocates a new TrackPoint and potentially a Date object. For a 3-min export at 30fps, that is 5400+ allocations. Modern GC handles this easily.
-**Suggestion**: No change needed.
+### C3-P1. Playback animation fallback timer wastes allocation during normal playback
+**Severity**: Low | **Confidence**: Medium
+**File**: `src/lib/usePlaybackController.ts:115`
+**Issue**: The fallback setTimeout(animate, 250) runs alongside every requestAnimationFrame. In foreground, rAF always wins, making the setTimeout wasted allocation (~60/sec). Only needed for background tabs.
+**Fix**: Only schedule fallback when document.visibilityState === 'hidden'.
+**Effort**: Small
 
-### C2-PR-02. `normalizeScenes` called on every `commitScenes` — LOW risk, HIGH confidence
-**File**: `src/components/SceneEditor.tsx:289-328`
-**Issue**: `commitScenes` calls `normalizeScenes` on every scene edit. With typical scene counts (1-8), this is negligible. The normalization also runs `scenesWereAdjusted` comparison.
-**Suggestion**: No change needed.
+### C3-P2. Export progress callbacks allocate closures every frame (not worth fixing)
+**Severity**: Low | **Confidence**: Medium
+**File**: `src/lib/useExportController.ts:213-237`
+**Issue**: Arrow function closures allocated per-frame during export. Standard React pattern, negligible impact.
 
-### C2-PR-03. Reference grid cached via useMemo — PASS
-**File**: `src/components/MapView.tsx:515`
-**Issue**: `buildReferenceGridData(track)` is memoized via `useMemo` keyed on `[track]`. Grid is only recomputed when track changes. Correctly implemented.
-**Suggestion**: No change needed.
+### C3-P3. buildReferenceGridData iterates track points twice
+**Severity**: Low | **Confidence**: High
+**File**: `src/components/MapView.tsx:303-412`
+**Issue**: Two separate loops over all points for bounds and antimeridian check. Could be one pass. Already memoized.
+**Effort**: Trivial
+
+### C3-P4. Export throttle at ~10Hz verified correct
+**Severity**: N/A | **Confidence**: High
+
+### C3-P5. precomputeWrappedSegments avoids per-frame rebuild verified
+**Severity**: N/A | **Confidence**: High
+
+## Summary
+No significant performance issues. Good characteristics: memoization, throttled updates, precomputed geometry, accumulator-based timing.
