@@ -1061,10 +1061,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress)
     const { point, segmentIndex } = result
 
-      // Update marker position
-      markerRef.current?.setLngLat([point.lng, point.lat])
-      const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
-      markerSource?.setData(markerPointFeature(point))
+    // Update marker position
+    markerRef.current?.setLngLat([point.lng, point.lat])
+    const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+    markerSource?.setData(markerPointFeature(point))
 
     // Update trail — skip expensive GeoJSON rebuild when segment index hasn't
     // changed since the last trail update (marker-only updates are cheap above).

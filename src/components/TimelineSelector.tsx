@@ -359,14 +359,14 @@ function TimelineSelector({
   // Memoize range index resolution to avoid redundant binary searches during drag
   const { startIdx, endIdx } = useMemo(() => resolveRangeIndexes(), [resolveRangeIndexes])
 
+  // Has any time data?
+  const hasTime = useMemo(() => points.some((p) => p.time), [points])
+
   if (points.length === 0) return null
 
   // Dates for display
   const startDate = points[startIdx]?.time
   const endDate = points[endIdx]?.time
-
-  // Has any time data?
-  const hasTime = points.some((p) => p.time)
 
   return (
     <div data-testid="timeline-selector" className={`select-none ${className}`}>
