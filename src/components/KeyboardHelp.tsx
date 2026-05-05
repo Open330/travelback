@@ -22,7 +22,7 @@ export default function KeyboardHelp({ isOpen, hasTrack, onToggle, onClose }: Ke
           onClick={onToggle}
           aria-label={t('shortcuts.title')}
           title={t('shortcuts.title')}
-          className="absolute bottom-24 right-4 z-10 hidden min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
+          className="absolute bottom-36 right-4 z-10 hidden min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
           style={{ color: 'var(--t1)' }}
         >
           <span className="text-lg leading-none">?</span>

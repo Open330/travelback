@@ -121,7 +121,7 @@ export default function TrackWorkspace({
 
       <div
         data-testid="track-title"
-        className="absolute left-4 right-56 top-4 z-10 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
+        className="absolute left-4 right-56 top-4 z-20 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
@@ -129,7 +129,7 @@ export default function TrackWorkspace({
 
       <div
         data-testid="track-title-mobile"
-        className="absolute left-4 right-4 top-16 z-10 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
+        className="absolute left-4 right-4 top-16 z-20 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {track.name} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
