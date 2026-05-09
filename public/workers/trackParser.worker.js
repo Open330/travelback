@@ -275,6 +275,7 @@ function parseGoogleLocationHistory(text) {
 const MAX_MESSAGE_SIZE = 100 * 1024 * 1024 // 100MB
 const MAX_TRACK_POINTS = 250000
 const MAX_JSON_DEPTH = 64
+const MAX_DEPTH_SCAN_CHARS = 10 * 1024 * 1024 // 10MB
 
 // Error codes — must match ParseError codes in src/lib/parser.ts
 const ERROR_CODE = {
@@ -288,6 +289,7 @@ const ERROR_CODE = {
 class WorkerParseError extends Error {
   constructor(message, code) {
     super(message)
+    this.name = 'WorkerParseError'
     this.code = code
   }
 }
@@ -302,7 +304,8 @@ function checkJsonDepth(text) {
   let depth = 0
   let inString = false
   let escape = false
-  for (let i = 0; i < text.length; i++) {
+  const limit = Math.min(text.length, MAX_DEPTH_SCAN_CHARS)
+  for (let i = 0; i < limit; i++) {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\') { escape = true; continue }
