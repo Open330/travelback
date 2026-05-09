@@ -232,6 +232,8 @@ export default function TrackToolbar({
                   <button
                     type="button"
                     aria-pressed={units === 'metric'}
+                    aria-label={t('units.metric')}
+                    title={t('units.metric')}
                     onClick={() => onUnitsChange('metric')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'metric' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
@@ -241,6 +243,8 @@ export default function TrackToolbar({
                   <button
                     type="button"
                     aria-pressed={units === 'imperial'}
+                    aria-label={t('units.imperial')}
+                    title={t('units.imperial')}
                     onClick={() => onUnitsChange('imperial')}
                   className="flex min-h-11 flex-1 items-center justify-center px-2 py-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                   style={units === 'imperial' ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)' } : undefined}
