@@ -94,6 +94,18 @@ No regressions detected.
 
 None.
 
+## Resolution
+
+All 3 cycle 10 findings have been implemented and verified:
+
+| Finding | Commit | Status |
+|---------|--------|--------|
+| NEW-01 Worker scan cap | `d6d3fda` | DONE — `MAX_DEPTH_SCAN_CHARS` added to worker `checkJsonDepth` |
+| NEW-02 Mobile aria-label | `fb8ec5a` | DONE — `aria-label` and `title` added to mobile unit toggle buttons |
+| NEW-03 WorkerParseError name | `d6d3fda` | DONE — `this.name = 'WorkerParseError'` added to worker error class |
+
+Quality gates re-run: lint clean, typecheck clean, build successful, 219 tests passing.
+
 ## Cross-Agent Agreement Summary
 
 3 new findings discovered after 9 cycles of convergence. All are minor quality/consistency issues:

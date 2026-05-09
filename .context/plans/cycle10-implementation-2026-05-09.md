@@ -21,7 +21,8 @@ All prior plan items from cycles 1-9 are DONE or properly deferred. No open plan
   2. Change the `for` loop in `checkJsonDepth` from `for (let i = 0; i < text.length; i++)` to `for (let i = 0; i < Math.min(text.length, MAX_DEPTH_SCAN_CHARS); i++)`.
   3. Verify the worker comment already notes the need to keep functions in sync with `src/lib/googleJsonParser.ts`.
 - **Effort:** Tiny
-- **Status:** PENDING
+- **Status:** DONE
+- **Verified:** `MAX_DEPTH_SCAN_CHARS = 10 * 1024 * 1024` added at line 278; loop capped with `Math.min(text.length, MAX_DEPTH_SCAN_CHARS)` at line 307. Committed in `d6d3fda`.
 
 ---
 
@@ -36,7 +37,8 @@ All prior plan items from cycles 1-9 are DONE or properly deferred. No open plan
   3. Add `aria-label={units === 'imperial' ? t('units.imperial') : t('units.metric')}` to the imperial button (or mirror the pattern used in `GlobalToolbar.tsx`).
   4. Optionally add `title` attributes for tooltip consistency.
 - **Effort:** Tiny
-- **Status:** PENDING
+- **Status:** DONE
+- **Verified:** Both mobile menu unit buttons now have `aria-label` and `title` attributes matching the `GlobalToolbar.tsx` pattern. Committed in `fb8ec5a`.
 
 ---
 
@@ -49,7 +51,8 @@ All prior plan items from cycles 1-9 are DONE or properly deferred. No open plan
   1. In the `WorkerParseError` constructor, add `this.name = 'WorkerParseError'` after `super(message)`.
   2. This aligns with the main-thread `ParseError` class which sets `this.name = 'ParseError'`.
 - **Effort:** Tiny
-- **Status:** PENDING
+- **Status:** DONE
+- **Verified:** `this.name = 'WorkerParseError'` added at line 292 of worker. Committed in `d6d3fda`.
 
 ---
 
@@ -67,17 +70,17 @@ All prior plan items from cycles 1-9 are DONE or properly deferred. No open plan
 
 ## Implementation order
 
-1. **C10P01** — Worker checkJsonDepth scan cap (LOW, tiny)
-2. **C10P02** — Mobile menu unit aria-label (LOW, tiny)
-3. **C10P03** — WorkerParseError name (INFO, tiny)
+1. **C10P01** — Worker checkJsonDepth scan cap (LOW, tiny) — DONE
+2. **C10P02** — Mobile menu unit aria-label (LOW, tiny) — DONE
+3. **C10P03** — WorkerParseError name (INFO, tiny) — DONE
 
-All three fixes are tiny, independent, and can be committed separately.
+All three fixes were implemented in commits `d6d3fda` and `fb8ec5a`.
 
 ## Quality gates
 
-After each commit:
-- `npm run lint` — must pass (0 errors)
-- `npx tsc --noEmit` — must pass
-- `npm run build` — must pass
-- `npx vitest run` — must pass
-- `git commit -S` — GPG-signed with conventional commit + gitmoji
+All gates verified after implementation:
+- `npm run lint` — passed (0 errors)
+- `npx next typegen && npx tsc --noEmit` — passed
+- `npm run build` — passed
+- `npx vitest run` — passed (219 tests)
+- Commits signed with GPG
