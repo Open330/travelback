@@ -1,57 +1,61 @@
-# Test engineer review — cycle 002
+# Test Engineer Review — Cycle 4 (2026-07-16)
 
-Date: 2026-07-16
-Reviewed revision: `cc6f24f`
+Reviewed revision: `4917d39`
+
+## Result
+
+Fresh verification found **two product regressions without coverage** and **one test-harness warning defect**. The current unit suite still passes 352/352, and the previously retry-only timeline-keyboard case passed 10/10 consecutive retries-disabled static runs.
 
 ## Inventory and execution
 
-I mapped all 12 Vitest files, the complete `e2e/travelback.spec.ts`, all 17 committed fixtures, the 7 build/smoke/worker scripts, and package/Vitest/Playwright/workflow configuration back to the 50 runtime/source files. Generated outputs and archived reviews were excluded. The cycle-1 gate record was used only as prior evidence.
+Reviewed all 15 Vitest files, the complete 2,034-line Playwright journey, its fixtures/configuration, all build/smoke/server scripts, package commands, and the runtime surfaces tied to playback hotkeys, timeline trimming, scenes, map recovery, export, and responsive behavior.
 
-Fresh cycle-2 execution:
+Fresh evidence:
 
-- `npm test -- --run`: **12/12 files, 266/266 tests passed**.
-- Targeted Playwright against the already-running dev server: **7/7 passed** for GPX, KML, Google flat JSON, Records, Semantic Location History, Timeline Edits, and Semantic Segments (`e2e/travelback.spec.ts:425-435`, `:1735-1790`). A unique `/tmp` output directory and `PLAYWRIGHT_REUSE_EXISTING_SERVER=1` avoided altering project artifacts or stopping the shared server.
-- The browser review separately exercised wrong-extension recovery, sample load/playback entry, mobile scenes, export completion, dialog/a11y state, theme/media configuration, console/errors, and desktop/mobile DOM geometry.
-- Deployment was not run.
+- `npm run test -- --reporter=dot`: 15/15 files and 352/352 tests passed, but `FileUpload.test.ts` emitted repeated React `act(...)` environment warnings.
+- `npx playwright test -c playwright.static.config.ts -g "timeline keyboard trimming updates the track without scrubbing playback" --retries=0 --repeat-each=10 --reporter=line`: 10/10 passed. The Cycle 3 retry-only follow-up remains closed.
+- Desktop and mobile static journeys loaded a GPX track, exercised playback, Camera, More controls, and Export without page errors or horizontal overflow.
+- Focused browser probes reproduced both product failures below against the rendered app.
 
-## New confirmed test findings
+## New findings
 
-### TE-C2-01 — Scene-editor tests check placement, but not the gesture/control conflict
+### TE4-01 — Map keyboard navigation is unprotected from global playback hotkeys
 
-- Severity: **Medium**
-- Confidence: **High**
-- Status: **Confirmed coverage gap paired with a reproduced product failure**
-- Evidence: `e2e/travelback.spec.ts:947-973` verifies only that the mobile Scene Editor does not overlap the toolbar. There is no Scene Editor `TouchEvent`/touch-drag case. Meanwhile `src/components/SceneEditor.tsx:338-349` accepts any >80px horizontal left swipe, and `:489-492` attaches it above every child control, including the horizontal range inputs at `:537-545` and `:655-735`.
-- Reproduction: a bubbling touch sequence on the Zoom slider from x=181 to x=52 at constant y closed `scene-editor-panel` on iPhone 12 emulation.
-- Failure scenario: all tests remain green while a primary mobile customization gesture closes the editor.
-- Suggested fix: add pointer/touch E2E coverage that opens Customize and drags scene range, Zoom, Tilt, Direction, Orbit, and Blend in both directions. Assert both the value change and continued panel visibility; also keep one positive test for a deliberate handle swipe if dismissal remains.
+Severity: **Medium** | Confidence: **High**
 
-### TE-C2-02 — The null-root parser test codifies an accidental `TypeError`
+Evidence: `src/lib/usePlaybackController.ts:188-218` ignores inputs, buttons, dialogs, and sliders, but not MapLibre's focusable canvas. MapLibre renders that canvas as `canvas.maplibregl-canvas[role="region"][tabindex="0"]` inside `src/components/MapView.tsx:1008-1015`. No E2E assertion focuses the canvas and presses an arrow key.
 
-- Severity: **Low**
-- Confidence: **High**
-- Status: **Confirmed test-oracle defect**
-- Evidence: `src/lib/parser.test.ts:634-637` says a `null` parse “causes a TypeError” and accepts any thrown value. `src/lib/googleJsonParser.ts:321-344` permits the null cast and dereferences `data.locations`; the stable `ParseError('UNSUPPORTED_GOOGLE_FORMAT')` path is later at `:366-368`.
-- Failure scenario: refactors can change the raw exception text/type, worker behavior can diverge, and the test will still pass even though callers no longer receive an intentional parser error code.
-- Suggested fix: first add a non-null root guard, then require `ParseError` and an exact code/message contract. Exercise the same input through direct parsing and worker/fallback dispatch.
+Runtime proof: with a loaded track, focusing `canvas[role="region"]` and pressing ArrowRight changed Playback progress from `0` to `0.02`; the key event target was `CANVAS`, and the application set `defaultPrevented=true`. MapLibre therefore never receives its documented keyboard-pan gesture.
 
-### TE-C2-03 — Export tests miss focus after the form-to-success transition
+Required coverage: focus the live map canvas, press ArrowRight/ArrowLeft, and assert playback does not move while the map retains ownership. Keep a separate assertion that the same global key still seeks when focus is on the page background.
 
-- Severity: **Low**
-- Confidence: **High**
-- Status: **Confirmed coverage gap paired with a reproduced accessibility failure**
-- Evidence: `e2e/travelback.spec.ts:1516-1530` checks focus containment while the initial dialog subtree is stable. `e2e/travelback.spec.ts:1587-1597` completes the stub export and checks only the success heading and download attribute. `src/components/ExportPanel.tsx:241-303` replaces the focused form subtree; `src/components/ModalDialog.tsx:93-167` has no state-transition focus repair.
-- Reproduction: active element was the Start Export button before activation and `BODY` after the success heading appeared. The success live region still announced completion.
-- Failure scenario: a release keeps passing both dialog tests while keyboard/switch users lose their position at the last step.
-- Suggested fix: extend the local-export test to assert `activeElement` is the success heading or first action and remains inside the dialog; then Tab through Download, Export Again, Share (when supported), and Close.
+### TE4-02 — Scene-invalidating trim coverage misses semantic no-op keys
 
-## Existing gates and deliberately clean scopes
+Severity: **Medium** | Confidence: **High**
 
-- Fresh format imports passed 7/7; no new confirmed GPX/KML/known-Google-shape regression was found.
-- Fresh unit tests passed 266/266; the findings above concern weak or missing assertions, not a broad unit failure.
-- Cycle-1 already records the CI unit-test omission/permissions question, legal file question, and `preserveDrawingBuffer` hardware profiling as carried-forward authorization/manual-validation work. They are not recounted here.
-- I searched tests for the suspected stale manual-journey name and checked the component mount boundary; it did not reproduce and is not a finding.
+Evidence: current E2E covers real scene-invalidating trims and cancellation (`e2e/travelback.spec.ts:1438-1489`) plus mouse no-op clicks when no scenes exist (`:1856-1874`). It does not exercise an unchanged keyboard boundary after a track is already trimmed and scenes exist. `TimelineSelector` always publishes clamped ratios at `src/components/TimelineSelector.tsx:350-367,576-593`, while `src/app/page.tsx:344-362` opens the discard transaction before checking whether the accepted indices actually changed.
+
+Runtime proof: trim the sample track end to 79%, add Scene 1, focus the start handle at 0%, then press ArrowLeft. The handle stays `0` before and after, yet the “Trimming the timeline” discard dialog becomes visible.
+
+Required coverage: add an E2E case that repeats this sequence and asserts the dialog stays absent, the scene remains, and the accepted point count is unchanged. The application boundary should ignore equivalent accepted index pairs, not rely only on control-level ratio equality.
+
+### TE4-03 — FileUpload tests emit React act-environment warnings on a green run
+
+Severity: **Low** | Confidence: **High**
+
+Evidence: `src/components/FileUpload.test.ts:1-99` uses `createRoot()` and `act()` but does not set `globalThis.IS_REACT_ACT_ENVIRONMENT`. Every other createRoot-based component test establishes that flag (`ExportPanel.test.ts:20`, `JourneyCreator.test.ts:16`, `SceneEditor.test.ts:14`, `TimelineSelector.test.ts:15`). The fresh unit command printed repeated “The current testing environment is not configured to support act(...)” warnings from both FileUpload lifecycle cases.
+
+Failure scenario: persistent expected noise makes a future real unwrapped state-update warning easy to overlook and leaves the gate non-clean despite passing assertions.
+
+Required fix: establish the React act environment in the FileUpload test harness and require a warning-free focused run.
+
+## Clean and bounded scopes
+
+- The timeline keyboard-trimming propagation case is stable across 10 retries-disabled repetitions, so prior W01 is not reopened.
+- The 352 unit assertions passed; there is no broad parser, camera, export, or component-test failure.
+- Desktop 1440×1000 and mobile 390×844 checks found no new confirmed fit, target-size, dialog-focus, console, or network regression.
+- Deployment was not attempted.
 
 ## Final missed-issue sweep
 
-After drafting, I remapped every new runtime finding to unit/E2E coverage, searched the full spec for touch gestures, post-export `activeElement`, parser error codes, all supported format fixtures, mobile layout, theme, language, errors, playback, scenes, and export. No additional confirmed test defect was found. New confirmed count: **3** (1 Medium, 2 Low). Fresh checks: **266 unit + 7 Playwright = 273 passed assertions/tests at command level**, with no deployment.
+After reproducing both failures, I remapped every current E2E case around map focus, global keys, accepted trim revisions, scene invalidation, no-op pointer actions, and export preservation. I also rechecked test stderr across all 15 unit files. No additional confirmed test defect remained.

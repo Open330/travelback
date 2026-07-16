@@ -1,102 +1,55 @@
-# Tracer — Causal Flow Review (Cycle 2, 2026-07-16)
+# Tracer — Causal Flow Review (Cycle 4, 2026-07-16)
 
-## Inventory and coverage
+## Result
 
-Traced producer → ownership boundary → consumer across all 110 current nonhistorical tracked paths at cc6f24f, with focus on the 53 paths changed in df8f08a..cc6f24f. Covered import/sample/journey session replacement, full-track distance and point-index domains, scene inverse operations, MapLibre trail publication, export rendering/finalization, and static CSP emission. Local lint, typecheck, 266 unit tests, audit, build, worker check, and static smoke passed.
+**New causal findings: 0.** Three unresolved historical defects reproduce from current control flow. The traces below confirm those carryovers without assigning new Cycle 4 finding IDs.
 
-## Traces
+## Coverage
 
-### TR2-01 — Sample request → newer journey → stale session commit
+Traced producer → owner → mutation → consumer/cleanup across import parsing, session replacement, segmented distance/camera interpolation, Journey Creator gestures, timeline cancellation, playback, scene preview, export encoding/finalization, map reset, and static-output gates on `4917d39`. Lint and all 352 unit tests passed; typecheck evidence was unavailable because another active process concurrently regenerated Next's `.next/dev/types/routes.d.ts`.
 
-Severity: Medium | Confidence: High | Status: Confirmed
+## Carryover traces
 
-Flow:
+### TRACE4-CARRY-01 — Reentrant export → controller overwrite → cross-session cleanup
 
-1. page.tsx:374-387 starts fetch, text conversion, and parseTrackFile without a generation or signal.
-2. FileUpload.tsx:215-240 does not mark that parent operation loading.
-3. FileUpload.tsx:288-299 permits Draw Route; page.tsx:407-409 enters the newer journey.
-4. The old continuation reaches page.tsx:388 and calls loadTrackIntoSession.
+Related finding: `CR4-CARRY-01`
+Evidence: `src/lib/useExportController.ts:131-146`, `src/lib/useExportController.ts:279-318`
 
-Failure: the old sample becomes the winning session.
+1. Activation A enters `exportTrack()` while `exportAbortRef.current` is null.
+2. A stores controller A and schedules `setIsExporting(true)`, but React has not yet committed disabled UI.
+3. Activation B enters in the same window because there is no ref guard; it stores controller B over controller A.
+4. Both invocations resize and render through the same MapLibre canvas and publish to shared progress/playback state.
+5. Cancel aborts only controller B. A remains live but is no longer externally addressable.
+6. The first invocation to reach `finally` unconditionally clears the shared ref, resets the map, and updates shared state even if the other invocation still owns work.
 
-Fix boundary: a page-owned operation generation shared by sample, upload, and manual journey transitions.
+Trace result: deterministic ownership violation under same-tick re-entry. Fix at the acquisition boundary and release by controller/session identity.
 
-### TR2-02 — Point-count invariant → distance ratio → point indexes
+### TRACE4-CARRY-02 — Empty preferred Google representation → skipped fallbacks → lost activity
 
-Severity: Medium | Confidence: High | Status: Confirmed domain crossing
+Related finding: `CR4-CARRY-02`
+Evidence: `src/lib/googleJsonParser.ts:97-123`
 
-Flow:
+1. The parser recognizes an `activitySegment`.
+2. `simplifiedRawPath.points` exists and is an array, so the preferred branch is selected.
+3. The array is empty, or every entry is invalid, so zero points are accepted.
+4. Because selection was based on property existence, the `else` branch containing `waypointPath` and start/end fallbacks is never entered.
+5. `currentSegment.length` remains zero and the activity is omitted.
 
-1. TimelineSelector.tsx:27-31 defines UI ratios in cumulative-distance space.
-2. TimelineSelector.tsx:95-105 converts pointCount into a minimum ratio as if point spacing were uniform.
-3. TimelineSelector.tsx:261-275 maps the clamped ratios back through cumulative distances.
-4. The index postcondition only prevents a one-point range; it cannot recover a valid pair excluded by the oversized ratio gap.
+Trace result: deterministic data loss for a valid fallback-bearing shape. Choose fallback based on decoder result, not merely property presence.
 
-Failure: [0,1,1000] cannot select points 0..1 because 0.001 is clamped to 0.5.
+### TRACE4-CARRY-03 — Active waypoint drag → destructive toolbar action → stale gesture owner
 
-Fix boundary: enforce adjacency in index space, then project exact index distances back to handles.
+Related finding: `CR4-CARRY-03`
+Evidence: `src/components/JourneyCreator.tsx:360-399`, `src/components/JourneyCreator.tsx:519-531`
 
-### TR2-03 — Cancel click → AbortSignal → unobservable finalize
+1. Drag start sets a waypoint index and `activeDragInput`, attaches transient map/window listeners, changes the cursor, and disables `dragPan`.
+2. While the pointer remains held, keyboard activation invokes Undo or Clear from the Journey Creator panel.
+3. Undo nulls only the index; Clear leaves both drag markers untouched. Neither calls `settleDrag()` because it is scoped inside the setup effect.
+4. After Undo, listeners and disabled panning remain until a later terminal event. After Clear, the next move clones the empty array and writes the dragged waypoint at the stale index, recreating data after a destructive clear.
+5. Only a subsequent mouse/touch terminal, blur, visibility change, or effect cleanup restores the full interaction state.
 
-Severity: Medium | Confidence: High | Status: Confirmed missing propagation
+Trace result: deterministic state-machine split under overlapping pointer and keyboard inputs. All mutations that invalidate a drag must first call the single idempotent settlement path.
 
-Flow:
+## Closed-path traces checked
 
-1. ExportPanel.tsx:322-330 invokes cancelExport.
-2. useExportController.ts:125-127 aborts the controller.
-3. videoEncoder.ts:232 is already awaiting output.finalize, which receives no signal.
-4. videoEncoder.ts:65-69 refuses cancel after finalizing begins.
-5. useExportController.ts:268-309 cleanup cannot run until the promise settles.
-
-Failure: a stalled finalizer keeps UI and map cleanup pending indefinitely.
-
-Fix boundary: a deadline/termination boundary around the encoder, not another signal check in the frame loop.
-
-### TR2-04 — Delete inverse → current scenes → global normalization
-
-Severity: Medium | Confidence: High | Status: Confirmed lost update
-
-Flow:
-
-1. SceneEditor.tsx:376-380 stores deleted scene/index.
-2. A later range edit commits into current scenes.
-3. Undo at lines 382-388 reinserts only the deleted object, which is locally correct.
-4. commitScenes invokes normalizeScenes; camera.ts:25-49 shifts later starts after the restored scene.
-
-Failure: the inverse operation indirectly rewrites a newer overlapping range edit.
-
-Fix boundary: conflict-aware inverse application before global normalization, or invalidation of the undo token when its range is no longer free.
-
-### TR2-05 — Route progress → completed prefix → GeoJSON parse
-
-Severity: High | Confidence: High | Status: Confirmed amplification
-
-Flow:
-
-1. progress interpolation advances segmentIndex.
-2. MapView.tsx:416-423 rebuilds completed geometry on each new vertex.
-3. map-geometry.ts:84-90 slices the complete active prefix.
-4. GeoJSONSource.setData reparses/serializes the growing result.
-
-Failure: total work grows with the sum of all published prefixes rather than only new coordinates.
-
-Fix boundary: publish progress against immutable geometry or bounded chunks.
-
-### TR2-06 — Layout order → in-place hardening → partial CSP window
-
-Severity: Medium | Confidence: High | Status: Confirmed emitted order
-
-Flow:
-
-1. layout.tsx:60-70 declares beforeInteractive script before the CSP meta.
-2. Next emits multiple script tags before the placeholder.
-3. harden-static-export.mjs:125-173 changes CSP content in place.
-4. Fresh out/index.html contains seven scripts before CSP; smoke-static.mjs:135-195 checks directives but not order.
-
-Failure: policy-controlled content before the meta is outside enforcement.
-
-Fix boundary: emitted-document ordering assertion and relocation/header delivery.
-
-## Summary and final sweep
-
-Six causal defects are retained: one High amplification path and five Medium state/domain/security paths. Rechecked aborts, generations, coordinate transforms, inverse operations, source publication, and postbuild transformations; no additional cross-boundary defect met the evidence threshold.
+Segment endpoints now resolve within their segment, camera bearing lookup honors segment boundaries, outside-map release reaches the centralized terminal path, timeline cancel/blur clears pending frames and refs, codec support re-evaluates selected dimensions/bitrate, failed export recovery resets copied state, and global hotkey listeners retain stable callback identities. No broken link was found in those Cycle 3 flows.

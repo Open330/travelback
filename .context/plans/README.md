@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle4-implementation-2026-07-16.md` — Planned fixes for all 6 actionable cycle-4 findings and 3 unresolved correctness carryovers; four authority/legal/evidence items and three measured performance items retain explicit exit criteria; no deployment
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle

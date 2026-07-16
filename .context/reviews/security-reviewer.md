@@ -1,47 +1,40 @@
-# Security Reviewer — Cycle 2 (2026-07-16)
+# Security Reviewer — Cycle 4 (2026-07-16)
+
+## Result
+
+**New security findings: 0.** No new confidentiality, integrity, privilege, or code-execution defect met the reporting threshold on revision 4917d39. No deployment or production mutation was performed.
 
 ## Inventory and coverage
 
-Reviewed the 110 current nonhistorical tracked paths at cc6f24f: all application/worker source and tests, parsers and fixtures, public static assets, build/serve/hardening scripts, dependency manifest/lock, Pages workflow, configs, README, and active architecture/context. Examined untrusted GPX/KML/JSON handling, point/depth/file limits, worker lifecycle, DOM insertion, filenames/download/share, CSP, frame handling, static path normalization/cache headers, local-only privacy claims, dependency advisories, and workflow privilege.
+Reviewed the current application and release surface: all 53 tracked src files (including 15 unit-test files), the Playwright specification and 18 fixtures, all 7 scripts, 19 public assets including the generated parser worker and local map styles, package/build/test configuration, the Pages workflow, README, and active project/development/plan context. Historical reviews and plans were searched to distinguish new issues from fixed findings and the four explicit Cycle 3 carryovers.
 
-Validation: npm audit --audit-level=high reports zero vulnerabilities; lint, typecheck, 266 unit tests, production build, generated-worker check, and static smoke pass.
+The security pass traced untrusted GPX/KML/Google JSON from File/FileReader through direct and worker parsers into React, MapLibre, and export filename sinks. It also checked XML declarations and depth/size/point budgets, worker origin/lifecycle/schema validation, DOM injection, localStorage, object URLs, File System Access and Web Share calls, external links, runtime fetch destinations, CSP/static hardening, frame handling, static-server path normalization, dependency advisories, and workflow authority.
 
-## Findings
+Fresh local evidence:
 
-### SEC2-01 — The emitted CSP starts after executable scripts
+- npm audit --audit-level=high: passed, zero vulnerabilities.
+- npm test: passed, 15 files and 352/352 tests.
+- Production build and deployment were not run in this role pass.
 
-Severity: Medium | Confidence: High | Status: Confirmed emitted-artifact defect
+## Verified controls
 
-Evidence: layout.tsx:60-70 places the beforeInteractive bootstrap before the CSP declaration. harden-static-export.mjs:125-173 replaces the meta tag in place and asserts its contents, but never moves it before executable content or asserts ordering. A fresh build produced out/index.html with the first script at byte 492, CSP at byte 1159, and seven scripts before the policy; out/404.html and out/_not-found.html each had five scripts before CSP. The W3C CSP specification states that meta-delivered policies are not applied to content that precedes them: https://www.w3.org/TR/CSP/latest/#meta-element
+- Uploaded route data remains browser-local. The only application fetch is the bundled sample trip; local map styles and coordinate jumps add no third-party runtime request. Web Share is an explicit user action over the generated video file.
+- GPX/KML rejects DOCTYPE and ENTITY declarations before DOM parsing, caps XML input, and enforces structural limits. Google JSON has file and parse-wide point budgets plus non-null runtime record validation in both direct and generated-worker paths.
+- Worker messages are origin-local, transferred buffers are validated on return, abort/timeout cleanup terminates the worker, and the checked-in worker is generated from shared TypeScript parser code.
+- User-derived names are rendered through React text nodes and normalized before download. Reserved path characters and ASCII controls cannot escape the browser download boundary; no unsafe user-derived HTML, eval, or dynamic script sink was found.
+- The static hardener places a hash-based CSP before active head content and retains object-src 'none', base-uri 'none', and self-only connect/style policies. The client frame-buster and documented host-header limitation remain accurately described.
+- Preferences, UI hints, and the localhost-only export-test toggle are the only localStorage data. Raw tracks, authentication material, and secrets are not persisted.
 
-Failure scenario: the seven early script fetch/execution decisions are outside the hash-based policy. This weakens the documented injection mitigation and means the static smoke can pass while part of the document is not protected.
+## Existing blocked boundaries, not new findings
 
-Fix: postprocess the CSP meta to the earliest valid head position before every script/link execution boundary, or deliver CSP as an HTTP response header on capable hosts. Add a build/smoke invariant that the CSP offset precedes the first script and other policy-controlled active content in every emitted HTML file.
+| Carryover | Severity / confidence | Current status |
+| --- | --- | --- |
+| B01 — Pages CI omits npm test | High / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:26-32. The passing local unit corpus does not replace a CI gate. |
+| B02 — Build inherits Pages/OIDC writes | Medium / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:8-45. Writes should be scoped to deploy only after explicit CI/CD approval. |
+| B03 — README says MIT without a root LICENSE | Medium / High | Still blocked on the owner's exact legal grant, holder, and year/range; no legal text should be invented. |
 
-### SEC2-02 — Build/test retains Pages and OIDC write permissions
-
-Severity: Medium | Confidence: High | Status: Confirmed, carried from AG-05; change remains authorization-blocked
-
-Evidence: .github/workflows/deploy-pages.yml:8-11 grants pages:write and id-token:write at workflow scope; the build job at lines 17-35 therefore inherits them while installing and executing repository dependencies and tests. The deploy job at lines 37-45 is the only job that needs those permissions.
-
-Failure scenario: a compromised install/build/test dependency executes with a GitHub OIDC token minting surface and Pages write authority rather than read-only build authority.
-
-Fix: after explicit CI/CD authorization, set top-level permissions to contents:read and grant pages:write/id-token:write only to deploy. Do not deploy or dispatch while validating.
-
-### SEC2-03 — CI still omits the unit security/correctness corpus
-
-Severity: High | Confidence: High | Status: Confirmed, carried from AG-04; change remains authorization-blocked
-
-Evidence: package.json:14-21 defines npm test, while deploy-pages.yml:26-32 runs install, browser install, lint, typecheck, audit, build, and static E2E without npm test. The current unit suite contains parser entity/depth/budget tests, worker validation/lifecycle tests, abort cleanup, and encoder cleanup checks.
-
-Failure scenario: a parser/worker/encoder safety regression can merge and deploy while the exact unit guard that catches it is never run in CI.
-
-Fix: after explicit CI/CD authorization, add npm test before build and retain audit/build/static E2E. Validate the workflow without dispatching or deploying.
-
-## Verified controls / no finding
-
-XML DOCTYPE/entity rejection, 4 MB XML and 100 MB JSON limits, 250k parse-wide point budget, complete depth validation in a generated worker, worker abort/timeout/schema validation, local-only map styles, path traversal rejection in the static server, filename sanitization, object/base restrictions, hashed inline scripts after the CSP point, and zero current npm advisories were all verified. No secret, network exfiltration path, unsafe HTML derived from user track data, or external map/geocoder runtime dependency was found.
+The representative-device preserveDrawingBuffer measurement remains Cycle 3 evidence carryover B04, not a security defect.
 
 ## Missed-issue sweep
 
-Rechecked untrusted input to DOM/map/export sinks, all fetch/worker URLs, CSP directives and ordering, server request normalization, storage use, external links, package advisories, and workflow authority. No additional new confirmed security finding met the threshold.
+Rechecked every network-capable API, untrusted-input property access, user-derived rendering/download sink, worker boundary, CSP directive/order assertion, package advisory, workflow permission, and privacy claim after drafting. The two actionable lifecycle defects documented by the critic/verifier/debugger affect map correctness and export consistency, but do not create a new data disclosure or privilege boundary. New security count remains **0**.

@@ -1,37 +1,53 @@
-# Performance Reviewer — Cycle 2 (2026-07-16)
+# Performance Reviewer — Cycle 4 (2026-07-16)
 
-## Inventory and coverage
+## Result
 
-Reviewed all 110 current nonhistorical tracked paths at cc6f24f, including all 50 src files, 18 E2E files/fixtures, 19 public assets, 7 scripts, workflow/config/package files, README, and active context. Focused on parser ceilings, React render frequency, MapLibre source updates, trail geometry, camera work, worker generation, capture canvases, codec loops, static asset locality, and the cycle-1 performance deferral.
+**New performance findings: 0.** The current head introduces no new confirmed performance regression. The items below remain explicitly deferred or evidence-blocked carryovers and are not counted as Cycle 4 findings.
 
-Validation: lint, typecheck, 266 unit tests, clean high-severity audit, production build, worker drift check, and static smoke passed.
+## Coverage and validation
 
-## Findings
+Reviewed parsing limits and worker boundaries, React render ownership, playback and export frame loops, MapLibre source publication and camera work, manual-route gestures, elevation/timeline construction, codec probing, capture surfaces, static assets, and build/test scripts across the current 53-file `src/` surface and supporting configuration.
 
-### PERF2-01 — Completed-trail updates recopy and reserialize the full prefix
+- `npm run lint`: passed.
+- `npm test`: passed, 352 tests in 15 files.
+- Independent typecheck evidence was unavailable because another active `next dev` process was concurrently writing `.next/dev/types/routes.d.ts`; this generated-artifact race is not treated as a product performance finding.
 
-Severity: High | Confidence: High | Status: Confirmed algorithmic hot path
+## Confirmed carryover register
 
-Evidence: map-geometry.ts:78-93 calls segment.coordinates.slice(0, lastOffset + 1) for every segment reached. MapView.tsx:410-423 invokes it whenever segmentIndex changes and immediately passes the result to GeoJSONSource.setData. parse-utils.ts:6-7 permits 250,000 points; types.ts:77-80 permits 10,800 export frames. The architecture claim at .context/project/02-architecture.md:75-77 says fully traversed segments are pushed as O(1) references and only the partial segment is copied, which is not what this implementation does for the active segment prefix.
+### PERF4-CARRY-01 — Playback progress still commits root-owned React state every frame
 
-Failure scenario: on a dense single-segment route, each new vertex rebuilds an ever-larger prefix. A 180-second/60-fps export can perform up to 10,800 source updates, each copying and serializing an average large fraction of a 250k-point route. The frame-rematerialization fix does not reduce this CPU/GC/MapLibre parsing load.
+Original severity/confidence: High / High
+Current evidence: `src/lib/usePlaybackController.ts:98-155`; root consumers in `src/app/page.tsx`
+Provenance: `.context/plans/deferred-findings-cycle2-2026-04-19.md:15-23` (`DF-C2-002`)
 
-Fix: benchmark representative 10k/100k/250k tracks and redesign the progress representation so the full coordinate array is immutable (for example line-progress styling/feature-state, chunked immutable segments, or a bounded append strategy). Do not label the path O(1) until measurements and implementation support it. Add an operation/allocation budget regression.
+The rAF loop calls `setPlaybackProgress()` on essentially every visible frame. Progress is owned by the page-level controller, so playback continues to schedule broad React work instead of keeping map animation on an imperative/external-store boundary. This is an existing architecture deferral, not a Cycle 4 regression.
 
-### PERF2-02 — Interactive MapLibre always pays preserveDrawingBuffer cost without the deferred measurements
+Exit criterion remains a dedicated performance cycle that profiles and restructures playback/map ownership without changing seek, scenes, camera follow, or export behavior.
 
-Severity: Medium | Confidence: Medium | Status: Manual validation required; known cycle-1 deferral remains open
+### PERF4-CARRY-02 — Elevation SVG path size scales with the full track
 
-Evidence: MapView.tsx:586-591 enables preserveDrawingBuffer on the single interactive map and calls its cost “negligible.” .context/plans/cycle1-implementation-2026-07-16.md:286-288 explicitly defers P13 because representative low-end/mobile hardware was unavailable.
+Original severity/confidence: Medium / High
+Current evidence: `src/components/ElevationProfile.tsx:20-60`
+Provenance: `.context/plans/deferred-findings-cycle1-2026-04-25.md:105-109` (`DF-C1-20250425-016`)
 
-Failure scenario: mobile GPUs may incur extra synchronization/memory cost throughout ordinary map interaction even when export is never used.
+Both line and area paths include every elevation sample. At the supported large-track ceiling this creates very large path strings and browser tessellation work. It remains intentionally deferred until large-track visual performance is profiled and a distance-aware downsampling strategy can be regression-tested.
 
-Fix: collect p50/p95 frame time, GPU/process memory, and interaction responsiveness on representative low-end mobile and desktop devices with/without preservation. If material, isolate export capture in a dedicated map/canvas. Until measured, remove the unsupported “negligible” assertion.
+### PERF4-CARRY-03 — Manual waypoint dragging recomputes total route distance per move
 
-## Clean performance areas
+Original severity/confidence: Medium / High
+Current evidence: `src/components/JourneyCreator.tsx:192-196`, `src/components/JourneyCreator.tsx:360-369`
+Provenance: `.context/plans/deferred-findings-cycle2-2026-04-19.md:35-43` (`DF-C2-004`)
 
-The shared parser budget is enforced before retained allocation, JSON work runs in the generated worker, codec probes run in parallel, visible export progress is throttled, completed and active trail sources are separated, and static map styles are local. No new confirmed parser amplification, React render storm, network waterfall, or asset-cache regression was found.
+Every accepted drag move calls `syncUI()`, which scans all waypoints through `totalDistance()`. The established exit criterion is the next Journey Creator performance pass; an incremental adjacent-segment update or throttled preview plus exact terminal commit remains appropriate.
 
-## Missed-issue sweep
+### PERF4-CARRY-04 — Always-on preserved WebGL buffers still require hardware evidence
 
-Revisited all loops over points/frames/scenes, setData sites, memo/effect dependencies, timers, generated assets, and maximum input/export constants. Beyond PERF2-01 and the explicitly open measurement item PERF2-02, no additional performance issue met the confidence threshold.
+Original severity/confidence: Medium / Medium
+Current evidence: `src/components/MapView.tsx:582-592`
+Provenance: `.context/plans/cycle3-implementation-2026-07-16.md:133-139` (`B04`)
+
+`preserveDrawingBuffer` is required by the current export capture design and can impose interactive GPU cost, but representative mobile/low-end hardware measurements are still absent. This stays evidence-blocked; desktop emulation or code inspection cannot justify an architecture change.
+
+## Positive checks
+
+Cycle 3's terminal-only waypoint listener ownership and idle timeline early-return remove unnecessary global interaction work. Segmented camera-bound lookups are logarithmic at the lookup boundary, trail chunks remain bounded, and export progress remains throttled before React publication. No new unbounded loop, allocation multiplier, or network/bundle regression was found.

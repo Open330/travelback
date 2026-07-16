@@ -1,62 +1,63 @@
-# Aggregate Review — Travelback (2026-07-16, Cycle 3)
+# Aggregate Review — Travelback (Cycle 4, 2026-07-16)
 
 ## Outcome
 
-All twelve required role reviews completed against `3b6750f`, were read independently, and passed artifact validation. After cross-report deduplication, this aggregate retains **11 new confirmed findings**: 7 Medium and 4 Low, all with High confidence. The security reviewer found zero new security issues. Four unresolved cycle-1/2 items remain explicitly separated as authority-, legal-input-, or representative-evidence-gated carryovers. No deployment was attempted.
+All twelve required role reviews completed against `4917d39`, were read independently, and passed artifact validation. After cross-report deduplication, this aggregate retains **6 new or newly confirmed actionable findings**: 4 Medium and 2 Low, all with High confidence. It also confirms **3 unresolved Medium/High correctness carryovers** that must be implemented in this cycle rather than deferred. The security review found zero new security issues. No deployment was attempted.
 
 Fresh review evidence:
 
-- `npm run lint`, `npm run typecheck`, `npm run test` (295/295), `npm audit --audit-level=high` (zero vulnerabilities), `npm run build`, the generated-worker drift check, and `npm run smoke:static` passed.
-- Targeted Playwright journeys passed 7/7 for GPX, KML, and the five documented Google JSON families, with no page or console errors.
-- A 390×844 touch-browser trace reproduced stale timeline cancellation and export-sheet swipe transactions. The timeline trace moved from 20/20 points to 5/20 after an unrelated post-cancel gesture.
-- Installed Mediabunny 1.40.1 source/types confirmed that generic `canEncode(codec)` probes 1280×720 at 1 Mbps while `canEncodeVideo(codec, { width, height, bitrate })` accepts the actual configuration.
-- Focused parser/interpolation traces confirmed null-member dereferences, scalar numeric coercion, all-zero playback pinning, and an unreachable final singleton segment.
+- `npm run lint` passed in the code/performance pass.
+- `npm run test` passed 15/15 files and 352/352 tests, while exposing repeated React act-environment warnings isolated to `FileUpload.test.ts`.
+- `npm audit --audit-level=high` reported zero vulnerabilities.
+- The previously retry-only timeline keyboard test passed 10/10 consecutive static runs with retries disabled; Cycle 3 watch item W01 remains closed.
+- Desktop 1440×1000 and mobile 390×844 browser journeys covered landing, loaded track, playback, timeline, Camera, More controls, Export, light/dark, reduced motion, focus, geometry, console/page errors, and local requests.
+- Focused runtime traces reproduced map-arrow playback hijacking (`0` → `0.02`), an unchanged 0% trim handle opening the scene-discard dialog, loaded-map retry losing its marker, Journey Creator becoming inert after retry, and a system appearance change replacing map style during an active export.
+- Independent Prompt 1 typecheck evidence was inconclusive because an already-running Next dev process concurrently regenerated `.next/dev/types/routes.d.ts`; this is a shared generated-artifact limitation, not a source finding. The final gate matrix will run from an isolated exact-HEAD copy.
 
-## Deduplicated new findings
-
-### Runtime correctness, lifecycle, and camera semantics
-
-| ID | Severity / confidence | Evidence | Finding and required outcome |
-| --- | --- | --- | --- |
-| AG3-01 | Medium / High | `src/components/JourneyCreator.tsx:358-395,408-416,444-460` | **Waypoint drag does not settle after an outside-map mouse release.** The live index and disabled `dragPan` survive because settlement listens only for MapLibre's public map `mouseup`. Use an explicit window/document terminal event or pointer capture, route all exits through idempotent cleanup, and regression-test outside-canvas release. |
-| AG3-02 | Medium / High | `src/components/TimelineSelector.tsx:291-347,368-435`; fresh mobile trace | **A cancelled timeline drag remains armed and can commit a later unrelated gesture.** Add a true cancellation path for `touchcancel` and blur that restores the origin/accepted ratios, cancels pending rAF work, clears transient refs, and never calls `onRangeChange`. Prove the next gesture is isolated. |
-| AG3-03 | Medium / High | `src/lib/camera.ts:274-288`, `src/components/MapView.tsx:945-958`, `src/lib/map-geometry.ts:23-57` | **Camera look-ahead crosses deliberate segment breaks.** Default follow and bird's-eye can turn toward a disconnected later city even though route/trail geometry does not connect it. Derive current segment bounds, clamp anticipation within them, and use an in-segment fallback bearing at the endpoint. |
-| AG3-04 | Medium / High | `src/lib/googleJsonParser.ts:60-170,347-367`, `src/lib/parse-utils.ts:32-38` | **Google JSON walkers dereference null array members and coerce malformed scalars into coordinates.** Validate every outer/nested record before access and accept only finite numbers or supported numeric strings. Preserve valid observations while skipping malformed entries; cover direct and worker/generated paths. |
-| AG3-05 | Medium / High | `src/lib/interpolate.ts:90-154`, `src/components/MapView.tsx:452-470,925-933` | **Distance interpolation cannot reach zero-length final segments.** Progress 1 returns the previous point for `[0,d,d]`, and all-zero segmented tracks stay at point 0 forever. Guarantee the final endpoint and define deterministic index-space fallback semantics without drawing cross-segment edges. |
-| AG3-06 | Low / High | `src/components/TimelineSelector.tsx:291-347,413-435` | **Idle global mouse/touch movement schedules timeline animation frames.** Reject movement before writing refs or scheduling rAF when no drag is active, ideally as part of the AG3-02 transaction cleanup. Add an idle-listener regression. |
-| AG3-07 | Low / High | `src/app/page.tsx:230-244`, `src/lib/usePlaybackController.ts:177-251` | **Playback rerenders reinstall the global hotkey listener.** Memoize the three page-owned inline callbacks (or use callback refs) so progress-only renders do not tear down and recreate the window listener. |
-
-### Export capability and completion truth
+## Deduplicated actionable findings
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG3-08 | Medium / High | `src/components/ExportPanel.tsx:94-173`, `src/lib/videoEncoder.ts:162-217,363-368`, installed `mediabunny/src/encode.ts:654-775` | **Codec-only support probing does not match the selected encoder configuration.** Probe `canEncodeVideo` with the selected width, height, and clamped bitrate, key support state by that configuration, and keep runtime failure defensive. |
-| AG3-09 | Medium / High | `src/lib/videoEncoder.ts:319-333`, `src/lib/useExportController.ts:244-255`, `src/components/ExportPanel.tsx:253-288`, `src/lib/i18n.ts:131-136` | **Picker-cancelled completion gives false save guidance.** The ready screen offers Download MP4 but tells users to export again and may claim the file is already in Downloads. State that the video is ready but unsaved, point to Download/Share, and suppress post-download platform tips until a save/download starts. |
-| AG3-10 | Low / High | `src/components/ExportPanel.tsx:116-133,235`; fresh mobile trace | **A cancelled export-sheet swipe contaminates a later touch.** Clear the swipe origin on `touchcancel`, close, and unmount; regression-test cancel followed by a cross-boundary end. |
+| AG4-01 | Medium / High | `src/components/MapView.tsx:577-671,841-1006`; `src/components/JourneyCreator.tsx:284-517`; two browser reproductions | **In-app Retry Map replaces the MapLibre object without rehydrating all consumers.** A loaded route loses its HTML marker/camera, and an active Journey Creator remains bound to the destroyed map. Make map generation/readiness observable, hydrate current track/progress/marker state for every generation, rebind creator listeners without losing waypoints, and cover both retry paths through the actual button. |
+| AG4-02 | Medium / High | `src/app/page.tsx:265-291`; `src/components/MapView.tsx:452-478,673-697`; `src/lib/useExportController.ts:205-234` | **A system appearance event can call `map.setStyle()` during export.** Modal inertness blocks controls but not `MediaQueryList`; the shared render surface can lose sources or time out mid-frame. Freeze/defer theme-derived map-style changes for the export lease, then apply the latest system preference after cleanup, with deterministic concurrent E2E coverage. |
+| AG4-03 | Medium / High | `src/lib/usePlaybackController.ts:188-218`; rendered MapLibre canvas | **Global playback arrows hijack MapLibre keyboard navigation.** When the focusable map canvas receives ArrowRight, playback advances 2% and the default map gesture is prevented. Exclude the interactive map canvas from playback hotkeys while preserving neutral-context seek behavior; add E2E coverage for both owners. |
+| AG4-04 | Medium / High | `src/components/TimelineSelector.tsx:350-367,576-593`; `src/app/page.tsx:344-362`; focused runtime trace | **A semantic no-op trim asks to discard camera scenes.** At an already-accepted 0% boundary, ArrowLeft leaves the handle unchanged but still starts the destructive scene-invalidating transaction. Ignore accepted index pairs equal to the current accepted range before resetting export or prompting; preserve scenes, focus, playback/export state, and point count. |
+| AG4-05 | Low / High | `src/components/FileUpload.test.ts:1-99`; fresh unit stderr | **FileUpload tests omit the React act-environment flag.** Green runs emit repeated act-configuration warnings, obscuring future real state-update warnings. Align this createRoot harness with the other component tests and require a warning-free focused run. |
+| AG4-06 | Low / High | `README.md:155-184`; `.context/project/01-overview.md:15-28`; `package.json:16-20`; `scripts/run-dev-e2e.mjs:35-62` | **Contributor test instructions omit Vitest and recommend the low-level dev E2E command.** Document Vitest plus Playwright, list `npm test` and the canonical `npm run test:e2e` wrapper, and align the project overview. |
 
-### Product copy
+AG4-01 is a confirmed reopen of a historical map-readiness risk whose prior exit criterion required a failing active-panel path; the new Journey Creator reproduction meets it. AG4-02 is the still-live system-event variant of an older direct-control concern; direct controls are now inert during export, but media-query events bypass that boundary.
 
-| ID | Severity / confidence | Evidence | Finding and required outcome |
+## Unresolved correctness carryovers to implement now
+
+These are not counted as Cycle 4 discoveries, but current source tracing confirms them and no authority/evidence boundary prevents repair.
+
+| ID | Original severity / confidence | Current evidence | Required outcome |
 | --- | --- | --- | --- |
-| AG3-11 | Low / High | `src/lib/i18n.ts:119,843,1567`, `src/lib/i18n.test.ts:33-36` | **English, Japanese, and Spanish repeat the approximation in the estimated-time label.** Use `Estimated time:`, `所要時間の目安:`, and `Tiempo estimado:` and extend reviewed-copy assertions. |
+| CR4-CARRY-01 | Medium / High | `src/lib/useExportController.ts:131-146,279-318` | Acquire an export lease synchronously, reject same-tick re-entry, cancel the owner, and release only by controller identity. Add a concurrent controller test. |
+| CR4-CARRY-02 | Medium / High | `src/lib/googleJsonParser.ts:97-123` | Choose semantic activity-path fallbacks by accepted-point result, not array presence. Cover empty/all-invalid preferred paths, regenerate the worker, and verify parity. |
+| CR4-CARRY-03 | Medium / High | `src/components/JourneyCreator.tsx:360-399,519-531` | Expose one idempotent drag settlement to effect listeners and component actions. Settle before Undo, Clear, Cancel, completion, teardown, and unmount; test active mouse/touch mutations. |
 
-## Carried-forward authority, input, and evidence boundaries
-
-These remain current but are not counted as new cycle-3 findings:
+## Explicit blocked and evidence-gated carryovers
 
 | ID | Original severity / confidence | Exact scope | Reason and exit criterion |
 | --- | --- | --- | --- |
-| CARRY-01 | High / High | `.github/workflows/deploy-pages.yml:26-32` | CI omits `npm test`. User-level destructive-action policy requires explicit confirmation before CI/CD modification. Exit: user authorizes the workflow edit; add the unit gate and validate without dispatch/deploy. |
-| CARRY-02 | Medium / High | `.github/workflows/deploy-pages.yml:8-45` | Build inherits Pages/OIDC write permissions. Same CI/CD authority block. Exit: explicit authorization; narrow top-level/build permissions and grant writes only to deploy. |
-| CARRY-03 | Medium / High | `README.md:224-226`, absent root `LICENSE` | Intended license, holder, and year/range are unknown. Exit: user supplies exact legal intent/attribution, then add the grant or explicitly correct the README claim. |
-| CARRY-04 | Medium / Medium | `src/components/MapView.tsx:586-591` | `preserveDrawingBuffer` impact needs representative low-end/mobile hardware evidence; emulation cannot establish GPU, battery, or thermal cost. Exit: record comparative p50/p95 frame time and memory, then isolate export capture if material. |
+| B01 | High / High | `.github/workflows/deploy-pages.yml:26-32` | CI omits `npm test`. User-level destructive-action policy requires explicit confirmation before CI/CD modification. Exit: user authorizes the workflow edit; add the unit gate and validate without dispatch/deploy. |
+| B02 | Medium / High | `.github/workflows/deploy-pages.yml:8-45` | Build inherits Pages/OIDC writes. Same CI/CD authority block. Exit: explicit authorization; narrow build permissions and grant writes only to deploy. |
+| B03 | Medium / High | `README.md:224-226`, absent root `LICENSE` | Intended license, holder, and year/range are unknown. Exit: user supplies exact legal intent/attribution, then add the grant or correct the README claim. |
+| B04 | Medium / Medium | `src/components/MapView.tsx:582-592` | `preserveDrawingBuffer` cost needs representative low-end/mobile hardware evidence. Exit: record comparative p50/p95 frame time, memory, battery/thermal observations, then isolate export capture if material. |
 
-No correctness, accessibility, product-truth, or data-loss item is deferred for convenience. The four carryovers remain separated only because repository authority, legal input, or representative-device evidence prevents responsible implementation.
+## Existing performance deferrals
+
+These non-correctness items were rechecked and not worsened by current code. They remain deferred only to their documented measurement or architecture boundaries:
+
+- **PERF4-CARRY-01 — High/High:** root-owned playback progress commits broad React state per animation frame (`src/lib/usePlaybackController.ts:98-155`). Exit: a dedicated profiled ownership redesign preserving seek, scenes, camera, and export behavior.
+- **PERF4-CARRY-02 — Medium/High:** elevation SVG paths scale with every point (`src/components/ElevationProfile.tsx:20-60`). Exit: large-track profiling plus distance-aware downsampling and visual regression coverage.
+- **PERF4-CARRY-03 — Medium/High:** manual waypoint dragging recomputes total distance on every move (`src/components/JourneyCreator.tsx:192-196,360-369`). Exit: a Journey Creator performance pass with incremental/throttled preview and exact terminal commit.
 
 ## Cross-review agreement
 
-The strongest agreement was on the two stale gesture transactions, segment-crossing anticipation, configuration-blind codec discovery, and picker-cancelled recovery text. Focused follow-up traces added corroborated parser-shape and zero-distance endpoint findings. The security review explicitly found the current local-only trust boundary, CSP, worker limits, static path handling, object URLs, and filename handling sound.
+Critic, verifier, and debugger independently converged on the two resource-ownership failures: map identity changes without consumer dependencies, and export ownership does not cover the independent system-theme map mutator. Test, design, and traveler reviews independently converged on map-arrow ownership and destructive no-op trimming. Code, architecture, and tracer reports agreed on the three unresolved correctness carryovers. Security found the client-only trust boundary, parser limits, CSP/static hardening, object URLs, downloads, worker isolation, and dependency state sound.
 
 ## Agent failures
 
-None. All twelve required role artifacts were produced at their exact paths. One optional bounded validator was interrupted after the required reports independently confirmed the same parser/interpolation cases; it produced no required artifact and does not affect review completeness.
+None. All twelve required role artifacts were produced at their exact paths. Each assigned subagent completed successfully; the main cycle agent produced the remaining four roles and performed the final missed-issue sweep.

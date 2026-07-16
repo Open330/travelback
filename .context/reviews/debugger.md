@@ -1,89 +1,74 @@
-# Debugger — Root-Cause Report (Cycle 2, 2026-07-16)
+# Debugger — Root-Cause Report (Cycle 4, 2026-07-16)
 
-## Inventory and diagnostic coverage
+## Result and diagnostic coverage
 
-Inspected all 110 current nonhistorical tracked paths at cc6f24f and the fresh emitted out HTML. Traced the 25 cycle-1 implementation commits plus current tests. Ran lint, typecheck, 266 unit tests, high audit (zero vulnerabilities), build, generated-worker check, and static smoke; all passed. Diagnostics below isolate defects not exercised by those green gates.
+**Actionable root causes: 2 Medium / High-confidence.** DB4-01 confirms and reopens an older split-ownership risk that lacked a failing path; DB4-02 isolates a system-event variant that remains after direct export-time controls became inert. Inspected all current source, tests, fixtures, static assets/worker, scripts, workflow/config/package files, README, and active context at revision 4917d39. npm test passed 352/352 and npm audit reported zero vulnerabilities. No build, deployment, or production mutation was performed.
 
 ## Findings
 
-### DB2-01 — Three-point uneven tracks reproduce the trim over-clamp arithmetically
+### DB4-01 — Recovery changes map identity, but React dependencies model only data identity
 
-Severity: Medium | Confidence: High | Status: Deterministically reproduced from exported helpers
+Severity: **Medium** | Confidence: **High** | Status: **Deterministically reproduced**
 
-Reproduction:
+Reproduction 1 — loaded trip:
 
-1. Use cumulativeDistances [0,1,1000] for three points.
-2. The desired inclusive range 0..1 has ratios [0,0.001].
-3. clampTimelineRatios at TimelineSelector.tsx:95-105 returns an end ratio of at least 0.5.
-4. ratioToIndex at lines 32-61 resolves distance 500 to end index 2.
+1. Load a track and observe one HTML map marker.
+2. Force a style load error, unblock it, and use the in-app Retry Map button.
+3. Wait for the recovered style.
 
-Root cause: the minimum index interval was expressed as a uniform ratio interval.
+Result: the new canvas exists and route layers are recreated, but the HTML marker count is zero and the camera remains at the new Map constructor default until another progress mutation.
 
-Fix: enforce endIdx >= startIdx + 1 after conversion and return handle positions derived from the accepted indexes. Add this exact fixture to TimelineSelector.test.ts.
+Reproduction 2 — manual route editor:
 
-### DB2-02 — Fresh build proves CSP ordering is not covered by smoke
+1. Fail the initial style and activate Journey Creator while the failed MapLibre object exists.
+2. Unblock the style and use Retry Map.
+3. After the replacement canvas settles, click its center.
 
-Severity: Medium | Confidence: High | Status: Reproduced
+Result: the creator stays at zero points and Undo remains disabled. A no-retry control with the same delayed click accepts one location.
 
-Reproduction: run npm run build, then compare the first script and CSP offsets. out/index.html reports firstScript=492, csp=1159, scriptsBefore=7; both error pages report five scripts before CSP. npm run smoke:static still prints OK.
+Root-cause chain:
 
-Root cause: layout.tsx:60-70 places bootstrap before CSP, harden-static-export.mjs:125-173 replaces the tag in place, and smoke-static.mjs:135-195 checks content only.
+1. src/components/MapView.tsx:1027-1032 increments mapRetryNonce.
+2. The initialization effect at src/components/MapView.tsx:577-671 cleans up map A and creates map B.
+3. map B's global style-load callback at lines 632-639 restores only reference and track layers.
+4. The complete attachment transaction at lines 841-903 is keyed to track/cumulative-distance identity. Those props did not change, so fitBounds and ensureMarker do not run for map B.
+5. The progress/camera transaction at lines 911-1006 is also not keyed to map identity, so unchanged progress does not reapply camera or recreate the HTML marker.
+6. Journey Creator's setup effect at src/components/JourneyCreator.tsx:284-517 captured map A. The retry counter is only advanced when no map existed at entry; map A existed, so replacing the ref with map B creates no React dependency change. All creator layers and click/drag listeners remain owned by the destroyed map.
+7. The current E2E recovery at e2e/travelback.spec.ts:392-427 uses page.reload, which remounts all owners and therefore cannot expose the identity gap.
 
-Fix: relocate CSP before active content and make the offset/order assertion part of both postbuild and smoke.
+Why the bug persists behind green tests: data state is correct and map B is visibly alive. Existing assertions focus on error visibility, full reload, and ordinary style reload where map identity stays constant. No test observes the in-app replacement generation.
 
-### DB2-03 — Sample CTA bypasses the import cancellation repair
+Historical provenance: cycle2-code-reviewer-2026-04-26.md:74-82 predicted map-retry staleness as a Risk; cycle-c2-aggregate-2026-04-24.md:89-94 deferred readiness work pending a reproduced active panel without layers. The manual-route reproduction above triggers that reopen criterion.
 
-Severity: Medium | Confidence: High | Status: Confirmed control-flow reproduction; browser test absent
+Fix boundary: introduce an explicit monotonically increasing map generation or onReady(map, generation) event. Make one idempotent hydration transaction consume current track, cumulative distances, progress, camera, marker, and overlay state for every generation. Journey Creator must rebind to the generation without clearing existing waypoints. Test both initial-load and later-style failures through the actual Retry Map button.
 
-Reproduction:
+### DB4-02 — Theme preference owns map.setStyle outside the export transaction
 
-1. Delay sample-trip.gpx or parseTrackFile.
-2. Click the sample preview at FileUpload.tsx:215-240.
-3. Click Draw Route at lines 288-299.
-4. Resolve the delayed operation.
-5. page.tsx:388 loads the sample and exits the manual journey.
-
-Root cause: FileUpload’s request lifecycle test covers only its locally created parser controller; handleLoadSample at page.tsx:374-397 has no signal/generation.
-
-Fix: shared page operation generation plus deferred sample regression.
-
-### DB2-04 — Finalization is the only unbounded export await
-
-Severity: Medium | Confidence: High | Status: Confirmed root cause; new hardware stall not reproduced
-
-Reproduction harness: mock Output.finalize with a never-settling promise, start export, then call cancelExport. videoEncoder.ts:232 stays pending because the signal is not observed and lines 65-69 skip Output.cancel. useExportController.ts:268-309 never reaches cleanup.
-
-Root cause: cancellation is cooperative during frame work but finalization is an opaque in-process await.
-
-Fix: watchdog plus terminable worker boundary; add a never-resolving-finalize unit test with fake timers.
-
-### DB2-05 — Scene undo range loss is hidden by the name-only E2E
-
-Severity: Medium | Confidence: High | Status: Deterministically reproduced from normalization
+Severity: **Medium** | Confidence: **High** | Status: **Concurrent mutation confirmed**
 
 Reproduction:
 
-1. Create A [0,0.15], B [0.15,0.30], C [0.30,0.45].
-2. Delete B.
-3. Change C start to 0.25.
-4. Undo B.
+1. Start in light mode with no explicit theme or map-style override.
+2. Load a track and hold an export in data-travelback-exporting=true.
+3. Change prefers-color-scheme to dark.
 
-SceneEditor.tsx:382-388 reinserts B, then camera.ts:39-47 normalizes C start to max(0.25,0.30)=0.30. e2e/travelback.spec.ts:1232-1247 checks only a name edit, so it stays green.
+Result: data-mapstyle changes to dark while exporting remains true. When dark.json is intercepted, map-error becomes visible during the same export state.
 
-Root cause: the inverse object is narrow, but the mandatory global normalizer has broad side effects.
+Root-cause chain:
 
-Fix: conflict-aware undo semantics and a range-focused E2E.
+1. src/app/page.tsx:265-291 installs a MediaQueryList change listener whenever theme choice is implicit.
+2. applySystemMode updates mapStyleKey at lines 277-285 with no export lease check.
+3. The export modal makes the app root inert, but a media-query callback bypasses DOM interaction restrictions.
+4. src/components/MapView.tsx:673-697 receives the new key and calls map.setStyle on the same instance held by useExportController.
+5. MapLibre removes style-owned sources/layers while it reloads. Meanwhile src/components/MapView.tsx:452-478 can render/capture a frame; missing sources are optional-chained, so a frame can complete without route/trail/marker data rather than necessarily failing fast.
+6. src/lib/useExportController.ts:205-234 then waits/captures under an invariant that the map style was stable. Depending on timing, output gets partial frames or the render/idle path times out.
 
-### DB2-06 — Keyboard suppression leaks to the next focused control
+Why the bug persists behind green tests: e2e/travelback.spec.ts:1577-1604 correctly proves live system-theme synchronization, while export tests correctly prove modal interaction and frame sequencing. Neither composes the two independently correct features.
 
-Severity: Medium | Confidence: High | Status: Confirmed event-path defect
+Historical distinction: tracer-2026-04-27.md:20-30 covered direct style-control interaction. Modal inertness now blocks that action; the MediaQueryList callback does not use the control path and remains live.
 
-Reproduction: focus a timeline handle, press ArrowRight, Tab to another range/select control, then press an Arrow key within three seconds. TimelineSelector.tsx:141-153 captures the key before the target and blocks it because TimelineSelector.tsx:345-354 armed the guard.
-
-Root cause: a time-based global capture guard is broader than the originating timeline event.
-
-Fix: stop the originating handle event only; remove the three-second global interception.
+Fix boundary: treat map style as part of the export lease. Snapshot it at acquisition, defer theme-derived style mutations, and apply the newest queued preference only after map-size/render cleanup completes. A deterministic test should hold the frame renderer between mutation and capture, deliver a media change, and assert that no setStyle/style request occurs until release.
 
 ## Diagnostic conclusion and final sweep
 
-The green gates validate the repaired primary paths but lack adversarial fixtures for uneven distance, CSP placement, parent-owned sample cancellation, never-settling finalize, conflicting scene undo, and cross-control keyboard flow. Rechecked all failed-await cleanup, timer/listener teardown, generated outputs, and current test gaps; no additional reproducible root cause met the threshold.
+Both defects are ownership problems across independently keyed effects: retry changes the resource without changing consumer dependencies, and export changes state without acquiring ownership over all map mutators. Rechecked map/style listener cleanup, marker/source recreation, creator polling, export abort/finally, theme explicit-choice logic, and current browser/unit coverage. No third new root cause met the reproduction and confidence threshold.
