@@ -290,6 +290,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }, 100)
       return () => window.clearTimeout(retryId)
     }
+    const activeMap = map
 
     if (!isActive) {
       // Clean up when deactivated
@@ -356,13 +357,6 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
 
       // --- Drag waypoints ---
-      const startDrag = (index: number) => {
-        draggingIndexRef.current = index
-        dragMovedRef.current = false
-        map.getCanvas().style.cursor = 'grabbing'
-        map.dragPan.disable()
-      }
-
       const updateDraggedPoint = (lng: number, lat: number) => {
         if (draggingIndexRef.current === null) return
         const waypoint = normalizeWaypoint(lng, lat)
@@ -375,55 +369,94 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         syncUI()
       }
 
-      const stopDrag = () => {
-        if (dragMovedRef.current) {
+      let activeDragInput: 'mouse' | 'touch' | null = null
+
+      function removeTransientDragListeners() {
+        activeMap.off('mousemove', onMouseMove)
+        activeMap.off('mouseup', onMouseTerminal)
+        activeMap.off('touchmove', onTouchMove)
+        activeMap.off('touchend', onTouchTerminal)
+        activeMap.off('touchcancel', onTouchTerminal)
+        window.removeEventListener('mouseup', onMouseTerminal, true)
+        window.removeEventListener('touchend', onTouchTerminal, true)
+        window.removeEventListener('touchcancel', onTouchTerminal, true)
+        window.removeEventListener('blur', onWindowBlur)
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+      }
+
+      function settleDrag(force = false) {
+        const wasDragging = draggingIndexRef.current !== null || activeDragInput !== null
+        removeTransientDragListeners()
+        if (!wasDragging && !force) return
+
+        if (wasDragging && dragMovedRef.current) {
           suppressMapClickUntilRef.current = performance.now() + 250
         }
+        activeDragInput = null
         draggingIndexRef.current = null
-        map.getCanvas().style.cursor = ''
-        map.dragPan.enable()
+        activeMap.getCanvas().style.cursor = ''
+        activeMap.dragPan.enable()
       }
 
-      const onMouseMove = (ev: maplibregl.MapMouseEvent) => {
+      function onMouseMove(ev: maplibregl.MapMouseEvent) {
         updateDraggedPoint(ev.lngLat.lng, ev.lngLat.lat)
       }
 
-      const onMouseUp = () => {
-        stopDrag()
-        map.off('mousemove', onMouseMove)
-        map.off('mouseup', onMouseUp)
+      function onMouseTerminal() {
+        settleDrag()
       }
 
-      const onTouchMove = (ev: maplibregl.MapTouchEvent) => {
+      function onTouchMove(ev: maplibregl.MapTouchEvent) {
         updateDraggedPoint(ev.lngLat.lng, ev.lngLat.lat)
       }
 
-      const onTouchEnd = () => {
-        stopDrag()
-        map.off('touchmove', onTouchMove)
-        map.off('touchend', onTouchEnd)
-        map.off('touchcancel', onTouchEnd)
+      function onTouchTerminal() {
+        settleDrag()
+      }
+
+      function onWindowBlur() {
+        settleDrag()
+      }
+
+      function onVisibilityChange() {
+        if (document.visibilityState === 'hidden') settleDrag()
+      }
+
+      const startDrag = (index: number, input: 'mouse' | 'touch') => {
+        settleDrag()
+        draggingIndexRef.current = index
+        activeDragInput = input
+        dragMovedRef.current = false
+        map.getCanvas().style.cursor = 'grabbing'
+        map.dragPan.disable()
+
+        window.addEventListener('blur', onWindowBlur)
+        document.addEventListener('visibilitychange', onVisibilityChange)
+        if (input === 'mouse') {
+          map.on('mousemove', onMouseMove)
+          map.on('mouseup', onMouseTerminal)
+          window.addEventListener('mouseup', onMouseTerminal, true)
+        } else {
+          map.on('touchmove', onTouchMove)
+          map.on('touchend', onTouchTerminal)
+          map.on('touchcancel', onTouchTerminal)
+          window.addEventListener('touchend', onTouchTerminal, true)
+          window.addEventListener('touchcancel', onTouchTerminal, true)
+        }
       }
 
       const onMouseDownPoint = (e: maplibregl.MapLayerMouseEvent) => {
         e.preventDefault()
         const feature = e.features?.[0]
         if (feature == null) return
-        startDrag(feature.properties?.index as number)
-
-        map.on('mousemove', onMouseMove)
-        map.on('mouseup', onMouseUp)
+        startDrag(feature.properties?.index as number, 'mouse')
       }
 
       const onTouchStartPoint = (e: maplibregl.MapLayerTouchEvent) => {
         e.preventDefault()
         const feature = e.features?.[0]
         if (feature == null) return
-        startDrag(feature.properties?.index as number)
-
-        map.on('touchmove', onTouchMove)
-        map.on('touchend', onTouchEnd)
-        map.on('touchcancel', onTouchEnd)
+        startDrag(feature.properties?.index as number, 'touch')
       }
 
       const onMouseEnterPoint = () => {
@@ -442,20 +475,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       map.on('mouseleave', LAYER_POINTS, onMouseLeavePoint)
 
       cleanupRef.current.push(() => {
+        settleDrag(true)
         map.off('click', onClick)
         map.off('click', LAYER_POINTS, onPointClick)
         map.off('mousedown', LAYER_POINTS, onMouseDownPoint)
         map.off('touchstart', LAYER_POINTS, onTouchStartPoint)
         map.off('mouseenter', LAYER_POINTS, onMouseEnterPoint)
         map.off('mouseleave', LAYER_POINTS, onMouseLeavePoint)
-        map.off('mousemove', onMouseMove)
-        map.off('mouseup', onMouseUp)
-        map.off('touchmove', onTouchMove)
-        map.off('touchend', onTouchEnd)
-        map.off('touchcancel', onTouchEnd)
-        map.getCanvas().style.cursor = ''
-        map.dragPan.enable()
-        draggingIndexRef.current = null
         dragMovedRef.current = false
         suppressMapClickUntilRef.current = 0
       })
