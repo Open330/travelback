@@ -217,6 +217,7 @@ test.describe('Travelback App', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('travelback-debug', '1')
+      window.localStorage.setItem('travelback-timeline-hint-dismissed', '1')
     })
     await page.goto('/')
     await waitForApp(page)
@@ -847,6 +848,51 @@ test.describe('Travelback App', () => {
     }, { timeout: 10_000, intervals: [120, 200, 300] }).toBeGreaterThan(trimmedCount)
   })
 
+  test('first-use timeline hint remains visible and dismissible', async ({ page }) => {
+    await page.evaluate(() => window.localStorage.removeItem('travelback-timeline-hint-dismissed'))
+    await uploadGpx(page)
+
+    const hint = page.getByRole('button', { name: 'Drag the handles to select a date range' })
+    await expect(hint).toBeVisible()
+    await hint.click()
+    await expect(hint).toBeHidden()
+    await expect.poll(() => page.evaluate(() => (
+      window.localStorage.getItem('travelback-timeline-hint-dismissed')
+    ))).toBe('1')
+  })
+
+  test('clicking a trimmed timeline seeks within the active range', async ({ page }) => {
+    await uploadGpx(page)
+    const timeline = page.getByTestId('timeline-selector')
+    const timelineBox = await timeline.boundingBox()
+    const startHandle = page.getByTestId('timeline-start-handle')
+    const endHandle = page.getByTestId('timeline-end-handle')
+    if (!timelineBox) throw new Error('Missing timeline geometry for local seek test')
+
+    const endBox = await endHandle.boundingBox()
+    if (!endBox) throw new Error('Missing end handle for local seek test')
+    await page.mouse.move(endBox.x + endBox.width / 2, endBox.y + endBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.75, endBox.y + endBox.height / 2, { steps: 8 })
+    await page.mouse.up()
+
+    const startBox = await startHandle.boundingBox()
+    if (!startBox) throw new Error('Missing start handle for local seek test')
+    await page.mouse.move(startBox.x + startBox.width / 2, startBox.y + startBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.25, startBox.y + startBox.height / 2, { steps: 8 })
+    await page.mouse.up()
+
+    const selectedBox = await page.getByTestId('timeline-selected-region').boundingBox()
+    if (!selectedBox) throw new Error('Missing selected timeline region')
+    await page.mouse.click(selectedBox.x + selectedBox.width / 2, selectedBox.y + selectedBox.height / 2)
+
+    await expect.poll(async () => Number(await page.getByLabel('Playback progress').inputValue()), {
+      timeout: 5_000,
+      intervals: [120, 200, 300],
+    }).toBeCloseTo(0.5, 1)
+  })
+
   test('timeline keyboard trimming updates the track without scrubbing playback', async ({ page }) => {
     await uploadGpx(page)
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
@@ -1165,7 +1211,31 @@ test.describe('Travelback App', () => {
     }), { timeout: 10_000, intervals: [120, 200, 300] }).toBeLessThan(Math.max(18, baselineZoom + 3))
   })
 
-  test('timeline trimming clears scenes authored against the previous full track', async ({ page }) => {
+  test('cancelling a scene-invalidating trim restores the accepted range', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await page.getByRole('button', { name: '+ Add' }).click({ force: true })
+
+    const timeline = page.getByTestId('timeline-selector')
+    const endHandle = page.getByTestId('timeline-end-handle')
+    const [timelineBox, endHandleBox] = await Promise.all([timeline.boundingBox(), endHandle.boundingBox()])
+    if (!timelineBox || !endHandleBox) throw new Error('Missing timeline geometry')
+
+    await page.mouse.move(endHandleBox.x + endHandleBox.width / 2, endHandleBox.y + endHandleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(timelineBox.x + timelineBox.width * 0.8, endHandleBox.y + endHandleBox.height / 2, { steps: 8 })
+    await page.mouse.up()
+
+    const confirmDialog = page.getByRole('dialog', { name: /Trimming the timeline/ })
+    await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
+    await expect(endHandle).not.toHaveAttribute('aria-valuenow', '100')
+    await confirmDialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(confirmDialog).toBeHidden()
+    await expect(endHandle).toHaveAttribute('aria-valuenow', '100')
+    await expect.poll(async () => (await loadedTrackPointCounts(page)).visible).toBe(20)
+  })
+
+  test('timeline trimming clears scenes authored against the previous full track after confirmation', async ({ page }) => {
     await uploadGpx(page)
 
     await page.getByText('Camera', { exact: true }).click({ force: true })
@@ -1184,6 +1254,9 @@ test.describe('Travelback App', () => {
     await page.mouse.move(timelineBox.x + timelineBox.width * 0.8, endHandleBox.y + endHandleBox.height / 2, { steps: 8 })
     await page.mouse.up()
 
+    const confirmDialog = page.getByRole('dialog', { name: /Trimming the timeline/ })
+    await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
+    await confirmDialog.getByRole('button', { name: 'Discard' }).click()
     await expect(page.getByTestId('scene-editor-panel')).toBeHidden({ timeout: 10_000 })
     await page.getByText('Camera', { exact: true }).click({ force: true })
     await expect(page.getByText('No scenes yet')).toBeVisible({ timeout: 10_000 })
