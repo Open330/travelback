@@ -244,15 +244,7 @@ function pointKey(point: TrackPoint): string {
 function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoint[]; segmentStartIndices: number[] } {
   const segments = rawSegments
     .map((segment, order) => {
-      const seen = new Set<string>()
-      const points: TrackPoint[] = []
-      for (const point of sortPointsWithinSegment(segment)) {
-        const key = pointKey(point)
-        if (seen.has(key)) continue
-        seen.add(key)
-        points.push(point)
-      }
-      return { points, order }
+      return { points: sortPointsWithinSegment(segment), order }
     })
     .filter((segment): segment is { points: TrackPoint[]; order: number } => segment.points.length > 0)
 

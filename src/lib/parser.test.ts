@@ -545,6 +545,32 @@ describe('parseGoogleLocationHistory — deduplication', () => {
     const track = parseGoogleLocationHistory(duplicateJson)
     expect(track.points.length).toBe(2)
   })
+
+  it('preserves a same-segment untimed return to an earlier coordinate', () => {
+    const revisitJson = JSON.stringify({
+      timelineObjects: [
+        {
+          activitySegment: {
+            waypointPath: {
+              waypoints: [
+                { latE7: 375665000, lngE7: 1269780000 },
+                { latE7: 351796000, lngE7: 1290756000 },
+                { latE7: 375665000, lngE7: 1269780000 },
+              ],
+            },
+          },
+        },
+      ],
+    })
+
+    const track = parseGoogleLocationHistory(revisitJson)
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+      [37.5665, 126.978],
+      [35.1796, 129.0756],
+      [37.5665, 126.978],
+    ])
+  })
 })
 
 describe('parseGoogleLocationHistory — sorting', () => {

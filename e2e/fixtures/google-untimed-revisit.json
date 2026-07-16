@@ -1,0 +1,24 @@
+{
+  "timelineObjects": [
+    {
+      "activitySegment": {
+        "waypointPath": {
+          "waypoints": [
+            {
+              "latE7": 375665000,
+              "lngE7": 1269780000
+            },
+            {
+              "latE7": 351796000,
+              "lngE7": 1290756000
+            },
+            {
+              "latE7": 375665000,
+              "lngE7": 1269780000
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

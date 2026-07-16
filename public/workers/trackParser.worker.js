@@ -179,14 +179,7 @@
     return `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time?.getTime() ?? ""}`;
   }
   function flattenGoogleSegments(rawSegments) {
-    let segments = rawSegments.map((segment, order) => {
-      let seen = /* @__PURE__ */ new Set(), points2 = [];
-      for (let point of sortPointsWithinSegment(segment)) {
-        let key = pointKey(point);
-        seen.has(key) || (seen.add(key), points2.push(point));
-      }
-      return { points: points2, order };
-    }).filter((segment) => segment.points.length > 0);
+    let segments = rawSegments.map((segment, order) => ({ points: sortPointsWithinSegment(segment), order })).filter((segment) => segment.points.length > 0);
     segments.every((segment) => segment.points.every((point) => point.time)) && segments.sort((a, b) => a.points[0].time.getTime() - b.points[0].time.getTime() || a.order - b.order);
     let points = [], segmentStartIndices = [], seenTimedObservations = /* @__PURE__ */ new Set();
     for (let segment of segments) {

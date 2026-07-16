@@ -10,6 +10,7 @@ const JSON_SEMANTIC_LOC_FIXTURE = path.resolve(__dirname, 'fixtures/google-seman
 const JSON_TIMELINE_EDITS_FIXTURE = path.resolve(__dirname, 'fixtures/google-timeline-edits.json')
 const JSON_SEMANTIC_SEG_FIXTURE = path.resolve(__dirname, 'fixtures/google-semantic-segments.json')
 const JSON_REVISIT_SEGMENTS_FIXTURE = path.resolve(__dirname, 'fixtures/google-revisit-segments.json')
+const JSON_UNTIMED_REVISIT_FIXTURE = path.resolve(__dirname, 'fixtures/google-untimed-revisit.json')
 const JSON_MIXED_DUPLICATE_BRANCHES_FIXTURE = path.resolve(__dirname, 'fixtures/google-mixed-duplicate-branches.json')
 const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
 const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
@@ -2696,6 +2697,11 @@ test.describe('Travelback App', () => {
 
   test('preserves repeated untimed Google visits across semantic segments', async ({ page }) => {
     await uploadJson(page, JSON_REVISIT_SEGMENTS_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Google Location History')).toContainText('3 / 3 locations', { timeout: 20_000 })
+  })
+
+  test('preserves an untimed Google return within one waypoint segment', async ({ page }) => {
+    await uploadJson(page, JSON_UNTIMED_REVISIT_FIXTURE)
     await expect(visibleTrackTitle(page, 'Google Location History')).toContainText('3 / 3 locations', { timeout: 20_000 })
   })
 

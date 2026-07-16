@@ -174,6 +174,35 @@ describe('track parser worker entry', () => {
     })
   })
 
+  it('preserves a same-segment untimed return through the worker', () => {
+    const json = JSON.stringify({
+      timelineObjects: [
+        {
+          activitySegment: {
+            waypointPath: {
+              waypoints: [
+                { latE7: 375665000, lngE7: 1269780000 },
+                { latE7: 351796000, lngE7: 1290756000 },
+                { latE7: 375665000, lngE7: 1269780000 },
+              ],
+            },
+          },
+        },
+      ],
+    })
+
+    const result = parseTrackParserRequest(requestFor(json))
+
+    expect(result).toEqual({ track: parseGoogleLocationHistory(json) })
+    if ('track' in result) {
+      expect(result.track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+        [37.5665, 126.978],
+        [35.1796, 129.0756],
+        [37.5665, 126.978],
+      ])
+    }
+  })
+
   it.each([
     ['missing', undefined],
     ['empty', ''],
