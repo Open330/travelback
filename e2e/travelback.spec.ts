@@ -263,6 +263,17 @@ test.describe('Travelback App', () => {
     expect(active?.insideDialog).toBe(true)
   })
 
+  test('Google phone guidance links preserve locale and platform context', async ({ page }) => {
+    await page.getByRole('combobox', { name: 'Language' }).selectOption('ko')
+    await page.getByRole('button', { name: '파일을 찾는 데 도움이 필요하세요?' }).click()
+
+    const dialog = page.getByRole('dialog', { name: '여행 데이터 가져오기' })
+    const iosLink = dialog.getByRole('link', { name: /Google 안내 열기: iPhone/ })
+    const androidLink = dialog.getByRole('link', { name: /Google 안내 열기: Android/ })
+    await expect(iosLink).toHaveAttribute('href', /GENIE\.Platform%3DiOS&hl=ko$/)
+    await expect(androidLink).toHaveAttribute('href', /GENIE\.Platform%3DAndroid&hl=ko$/)
+  })
+
 
   test('language picker can switch the landing UI away from English', async ({ page }) => {
     await page.getByRole('combobox', { name: 'Language' }).selectOption('ko')
