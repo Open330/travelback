@@ -1444,12 +1444,17 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Quality')).toBeVisible()
 
     // Should have resolution select (options inside <select> are "hidden" per Playwright)
-    const resolutionSelect = page.getByRole('dialog', { name: 'Export Video' }).getByRole('combobox').first()
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    const resolutionSelect = exportPanel.getByRole('combobox', { name: 'Resolution' })
     await expect(resolutionSelect).toBeVisible()
+    await expect(exportPanel.getByRole('spinbutton', { name: 'Duration' })).toBeVisible()
+    await expect(exportPanel.getByRole('combobox', { name: 'Quality' })).toBeVisible()
 
     // Codec is now behind the Advanced toggle — click to expand
     await page.getByText('Advanced').click({ force: true })
-    await expect(page.getByText('Codec', { exact: true })).toBeVisible()
+    await expect(exportPanel.getByRole('combobox', { name: 'Codec' })).toBeVisible()
+    await expect(exportPanel.getByRole('combobox', { name: 'FPS' })).toBeVisible()
+    await expect(exportPanel.getByRole('spinbutton', { name: 'Mbps' })).toBeVisible()
 
     await expect(page.getByRole('dialog', { name: 'Export Video' }).getByText('This browser cannot export')).toHaveCount(0)
 
@@ -1462,7 +1467,7 @@ test.describe('Travelback App', () => {
     await page.getByText('Export', { exact: true }).click({ force: true })
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
-    await expect(exportPanel.getByRole('combobox').first()).toHaveValue('1')
+    await expect(exportPanel.getByRole('combobox', { name: 'Resolution' })).toHaveValue('1')
     await expect(exportPanel.locator('p').filter({ hasText: '1080×1920' })).toBeVisible()
   })
 
@@ -1473,7 +1478,7 @@ test.describe('Travelback App', () => {
 
     // Find the resolution combobox inside the export panel (it contains "YouTube" as selected text)
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
-    const resSelect = exportPanel.getByRole('combobox').first()
+    const resSelect = exportPanel.getByRole('combobox', { name: 'Resolution' })
     await resSelect.selectOption({ index: 1 }) // TikTok is second option
 
     // Output description should update - the × is a Unicode multiply sign
@@ -1496,24 +1501,34 @@ test.describe('Travelback App', () => {
   // instead of the 26-byte stub. Gate behind TRAVELBACK_REAL_EXPORT=1 so it
   // only runs when explicitly requested (the real path is slow and codec-dependent).
   test('real export produces a valid MP4 via WebCodecs', async ({ page }) => {
-    if (process.env.TRAVELBACK_REAL_EXPORT !== '1') return
+    test.skip(process.env.TRAVELBACK_REAL_EXPORT !== '1', 'Set TRAVELBACK_REAL_EXPORT=1 on a WebCodecs-capable runner')
 
     await uploadGpx(page)
-    // Set a very short duration for fast export
-    await page.getByLabel('Animation duration').selectOption('3')
     await page.getByText('Export', { exact: true }).click({ force: true })
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     await expect(exportPanel).toBeVisible()
 
-    // Select lowest resolution for speed
-    const resSelect = exportPanel.getByRole('combobox').first()
+    // Select the minimum supported duration and lowest resolution for speed.
+    await exportPanel.getByRole('spinbutton', { name: 'Duration' }).fill('5')
+    const resSelect = exportPanel.getByRole('combobox', { name: 'Resolution' })
     await resSelect.selectOption({ index: 4 }) // HD (lowest)
+    await exportPanel.getByText('Advanced').click({ force: true })
+    await exportPanel.getByRole('combobox', { name: 'FPS' }).selectOption('24')
+    await exportPanel.getByRole('combobox', { name: 'Quality' }).selectOption('low')
 
     await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
-    // Real export takes longer — allow up to 60 seconds
-    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 60_000 })
-    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
+    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 120_000 })
+    const downloadLink = exportPanel.getByRole('link', { name: /Download MP4/i })
+    await expect(downloadLink).toHaveAttribute('download', /Travelback.*\.mp4/)
+    const downloadPromise = page.waitForEvent('download')
+    await downloadLink.click()
+    const download = await downloadPromise
+    const downloadedPath = await download.path()
+    if (!downloadedPath) throw new Error('Export download did not produce a local file')
+    const mp4 = fs.readFileSync(downloadedPath)
+    expect(mp4.byteLength).toBeGreaterThan(1024)
+    expect(mp4.subarray(4, 8).toString('ascii')).toBe('ftyp')
   })
 
   test('export panel clamps playback duration to the supported export limit', async ({ page }) => {
@@ -1522,7 +1537,7 @@ test.describe('Travelback App', () => {
     await page.getByText('Export', { exact: true }).click({ force: true })
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
-    await expect(exportPanel.locator('input[type="number"]').first()).toHaveValue('180')
+    await expect(exportPanel.getByRole('spinbutton', { name: 'Duration' })).toHaveValue('180')
   })
 
   test('track edits clear completed export results before the next export', async ({ page }) => {
