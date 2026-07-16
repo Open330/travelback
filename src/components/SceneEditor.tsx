@@ -56,7 +56,7 @@ function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }
   }
 }
 
-function SceneRangeEditor({
+export function SceneRangeEditor({
   sceneName,
   startPercent,
   endPercent,
@@ -75,10 +75,12 @@ function SceneRangeEditor({
   const containerRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{
     type: 'start' | 'end' | 'region' | null
+    pointerId: number | null
+    captureTarget: HTMLElement | null
     originX: number
     originStart: number
     originEnd: number
-  }>({ type: null, originX: 0, originStart: 0, originEnd: 1 })
+  }>({ type: null, pointerId: null, captureTarget: null, originX: 0, originStart: 0, originEnd: 1 })
   const dragWidthRef = useRef(0)
   const lastDragValuesRef = useRef<{ start: number; end: number } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -109,22 +111,72 @@ function SceneRangeEditor({
     return [nextStart, nextEnd]
   }, [])
 
-  const startDrag = useCallback((type: 'start' | 'end' | 'region', clientX: number) => {
+  const startDrag = useCallback((type: 'start' | 'end' | 'region', event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Capture can fail if the pointer already ended between dispatch and handler.
+    }
     dragState.current = {
       type,
-      originX: clientX,
+      pointerId: event.pointerId,
+      captureTarget: event.currentTarget,
+      originX: event.clientX,
       originStart: startPercentRef.current,
       originEnd: endPercentRef.current,
     }
+    lastDragValuesRef.current = null
     dragWidthRef.current = containerRef.current?.getBoundingClientRect().width || 1
     setDragging(true)
+  }, [])
+
+  const settleDrag = useCallback((
+    outcome: 'commit' | 'cancel',
+    pointerId?: number,
+    updateDraggingState = true,
+  ) => {
+    const current = dragState.current
+    if (!current.type) return
+    if (pointerId != null && current.pointerId !== pointerId) return
+
+    const lastDrag = lastDragValuesRef.current
+    const captureTarget = current.captureTarget
+    const capturedPointerId = current.pointerId
+    dragState.current = {
+      type: null,
+      pointerId: null,
+      captureTarget: null,
+      originX: 0,
+      originStart: current.originStart,
+      originEnd: current.originEnd,
+    }
+    dragWidthRef.current = 0
+    lastDragValuesRef.current = null
+    if (updateDraggingState) setDragging(false)
+
+    if (outcome === 'cancel') {
+      onChangeRef.current(current.originStart, current.originEnd)
+    } else if (lastDrag && onCommitRef.current) {
+      onCommitRef.current(lastDrag.start, lastDrag.end)
+    }
+
+    if (captureTarget && capturedPointerId != null) {
+      try {
+        if (!captureTarget.hasPointerCapture || captureTarget.hasPointerCapture(capturedPointerId)) {
+          captureTarget.releasePointerCapture(capturedPointerId)
+        }
+      } catch {
+        // Capture may already have been released by the browser.
+      }
+    }
   }, [])
 
   useEffect(() => {
     if (!dragging) return
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!dragState.current.type) return
+      if (!dragState.current.type || dragState.current.pointerId !== event.pointerId) return
       const width = dragWidthRef.current || 1
       const dx = (event.clientX - dragState.current.originX) / width
 
@@ -157,27 +209,26 @@ function SceneRangeEditor({
       onChangeRef.current(nextStart, nextEnd)
     }
 
-    const onPointerUp = () => {
-      const lastDrag = lastDragValuesRef.current
-      dragState.current.type = null
-      dragWidthRef.current = 0
-      lastDragValuesRef.current = null
-      setDragging(false)
-      // Fire onCommit with the final drag values so the parent can
-      // normalize scenes only once at the end of the drag gesture,
-      // rather than on every pointermove.
-      if (lastDrag && onCommitRef.current) {
-        onCommitRef.current(lastDrag.start, lastDrag.end)
-      }
-    }
+    const onPointerUp = (event: PointerEvent) => settleDrag('commit', event.pointerId)
+    const onPointerCancel = (event: PointerEvent) => settleDrag('cancel', event.pointerId)
+    const onLostPointerCapture = (event: PointerEvent) => settleDrag('cancel', event.pointerId)
+    const onWindowBlur = () => settleDrag('cancel')
+    const captureTarget = dragState.current.captureTarget
 
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
+    window.addEventListener('blur', onWindowBlur)
+    captureTarget?.addEventListener('lostpointercapture', onLostPointerCapture)
     return () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
+      window.removeEventListener('blur', onWindowBlur)
+      captureTarget?.removeEventListener('lostpointercapture', onLostPointerCapture)
+      if (dragState.current.type) settleDrag('cancel', undefined, false)
     }
-  }, [clampRange, dragging])
+  }, [clampRange, dragging, settleDrag])
 
   return (
     <div>
@@ -198,7 +249,7 @@ function SceneRangeEditor({
           }}
           onPointerDown={(event) => {
             event.stopPropagation()
-            startDrag('region', event.clientX)
+            startDrag('region', event)
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold" style={{ color: 'var(--t2)' }}>
@@ -223,7 +274,7 @@ function SceneRangeEditor({
             style={{ left: `${value * 100}%`, touchAction: 'none' }}
             onPointerDown={(event) => {
               event.stopPropagation()
-              startDrag(type, event.clientX)
+              startDrag(type, event)
             }}
             onKeyDown={(e) => {
               const step = 0.01
