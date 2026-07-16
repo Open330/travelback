@@ -1101,6 +1101,28 @@ test.describe('Travelback App', () => {
     await uploadCustomFile(page, ANTIMERIDIAN_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Antimeridian Hop')).toBeVisible({ timeout: 15_000 })
 
+    await expect.poll(async () => page.evaluate(() => {
+      type DebugWindow = Window & {
+        __travelbackDebug?: {
+          getMapState: () => {
+            hasRouteSource: boolean
+            hasTrailSource: boolean
+            hasRouteLayer: boolean
+            hasTrailLayer: boolean
+            hasMarker: boolean
+          } | null
+        }
+      }
+
+      return (window as DebugWindow).__travelbackDebug?.getMapState() ?? null
+    }), { timeout: 20_000, intervals: [150, 250, 400, 600] }).toMatchObject({
+      hasRouteSource: true,
+      hasTrailSource: true,
+      hasRouteLayer: true,
+      hasTrailLayer: true,
+      hasMarker: true,
+    })
+
     await page.getByText('Camera', { exact: true }).click({ force: true })
     await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Cinematic' }).click({ force: true })
