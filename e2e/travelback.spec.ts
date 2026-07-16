@@ -426,6 +426,68 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
   })
 
+  test('in-app map retry restores a loaded track marker', async ({ page }) => {
+    await uploadGpx(page)
+    await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
+
+    await page.route('**/map-styles/positron.json', route => route.abort('failed'))
+    await page.getByTestId('map-style-button').click({ force: true })
+    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    await page.unroute('**/map-styles/positron.json')
+
+    await page.getByTestId('map-error').getByRole('button', { name: /retry map/i }).click()
+    await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toHaveCount(1)
+    await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
+  })
+
+  test('in-app map retry rebinds an active journey creator', async ({ page }) => {
+    const runtimeErrors: string[] = []
+    page.on('pageerror', error => runtimeErrors.push(error.stack ?? error.message))
+    page.on('console', message => {
+      if (message.type() === 'error') runtimeErrors.push(message.text())
+    })
+
+    await page.getByRole('button', { name: 'Draw a route on the map' }).click({ force: true })
+    const undoButton = page.getByRole('button', { name: 'Undo' })
+    await expect(undoButton).toBeDisabled()
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(500)
+
+    let canvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    let canvasBox = await canvas.boundingBox()
+    if (!canvasBox) throw new Error('Missing initial map canvas geometry')
+    await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2)
+    await expect(page.getByText('1 location', { exact: true })).toBeVisible({ timeout: 10_000 })
+
+    await page.route('**/map-styles/dark.json', route => route.abort('failed'))
+    await page.getByRole('button', { name: /switch to dark mode/i }).click({ force: true })
+    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    await page.unroute('**/map-styles/dark.json')
+    runtimeErrors.length = 0
+
+    const styleResponse = page.waitForResponse(response => (
+      response.url().endsWith('/map-styles/dark.json') && response.ok()
+    ))
+    await page.getByTestId('map-error').getByRole('button', { name: /retry map/i }).click()
+    await styleResponse
+    await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(500)
+    if (await page.getByRole('heading', { name: 'Something went wrong' }).isVisible()) {
+      throw new Error(`Map retry caused an application error:\n${runtimeErrors.join('\n')}`)
+    }
+    await expect(page.getByText('1 location', { exact: true })).toBeVisible()
+
+    canvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    canvasBox = await canvas.boundingBox()
+    if (!canvasBox) throw new Error('Missing recovered map canvas geometry')
+    await page.mouse.click(canvasBox.x + canvasBox.width * 0.65, canvasBox.y + canvasBox.height / 2)
+
+    await expect(page.getByText(/2 locations/)).toBeVisible({ timeout: 10_000 })
+    expect(runtimeErrors).toEqual([])
+  })
+
   test('loads sample trip from landing CTA', async ({ page }) => {
     const sampleBtn = page.getByRole('button', { name: 'Try with a sample trip' })
     await expect(sampleBtn).toBeVisible({ timeout: 10_000 })

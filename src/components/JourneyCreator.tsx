@@ -14,6 +14,7 @@ interface JourneyCreatorProps {
   onComplete: (track: Track) => void
   onCancel: () => void
   mapRef: React.RefObject<MapViewHandle | null>
+  mapGeneration?: number
   units: UnitSystem
 }
 
@@ -156,7 +157,7 @@ function parseCoordinateQuery(query: string): ParsedLocationResult | null {
   return null
 }
 
-export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef, units }: JourneyCreatorProps) {
+export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef, mapGeneration = 0, units }: JourneyCreatorProps) {
   const { t } = useLocale()
   // Use refs for waypoints to avoid stale closure issues in map event handlers
   const waypointsRef = useRef<TrackPoint[]>([])
@@ -282,7 +283,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [])
 
   useEffect(() => {
-    const map = mapRef.current?.getMap()
+    const mapHandle = mapRef.current
+    const map = mapHandle?.getMap()
     if (!map) {
       if (!isActive || mapReadyRetry >= 120) return
       const retryId = window.setTimeout(() => {
@@ -508,13 +510,16 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       cleanupRef.current = []
       map.off('style.load', handleInitialStyleLoad)
       map.off('style.load', handleStyleReload)
-      removeLayers(map)
-      waypointsRef.current = []
-      setPointCount(0)
-      setDistanceMeters(0)
+      if (mapHandle?.getMap() === map) {
+        removeLayers(map)
+      } else {
+        // MapView already destroyed this generation during an in-app retry.
+        // Its removed style no longer accepts getLayer/getSource calls.
+        layersAddedRef.current = false
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; only re-run when active state changes or the bounded map-ready retry advances
-  }, [isActive, mapReadyRetry])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; re-run only when active state, bounded readiness polling, or the explicit map generation changes
+  }, [isActive, mapReadyRetry, mapGeneration])
 
   const handleUndo = useCallback(() => {
     if (waypointsRef.current.length === 0) return

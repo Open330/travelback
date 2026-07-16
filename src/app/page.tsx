@@ -136,6 +136,7 @@ function HomeInner() {
   const [workspaceAnnouncement, setWorkspaceAnnouncement] = useState('')
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
+  const [mapGeneration, setMapGeneration] = useState(0)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const tRef = useRef(t)
   const sampleLoadGenerationRef = useRef(0)
@@ -166,6 +167,9 @@ function HomeInner() {
   }, [])
 
   const mapViewRef = useRef<MapViewHandle>(null)
+  const handleMapInstanceChange = useCallback(() => {
+    setMapGeneration((generation) => generation + 1)
+  }, [])
   const playback = usePlaybackController(track)
   const {
     isPlaying,
@@ -578,6 +582,7 @@ function HomeInner() {
           cumulativeDistances={cumulativeDistances}
           allowInteractionWithoutTrack={isCreatingJourney}
           isExporting={isExporting}
+          onMapInstanceChange={handleMapInstanceChange}
         />
 
         {!isCreatingJourney && (
@@ -614,6 +619,7 @@ function HomeInner() {
             onComplete={handleJourneyComplete}
             onCancel={handleCancelJourney}
             mapRef={mapViewRef}
+            mapGeneration={mapGeneration}
             units={units}
           />
         )}

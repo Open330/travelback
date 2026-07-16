@@ -31,6 +31,7 @@ interface MapViewProps {
   cumulativeDistances?: number[]
   allowInteractionWithoutTrack?: boolean
   isExporting?: boolean
+  onMapInstanceChange?: () => void
 }
 
 export interface MapViewHandle {
@@ -354,6 +355,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     cumulativeDistances: cumulativeDistancesProp,
     allowInteractionWithoutTrack = false,
     isExporting = false,
+    onMapInstanceChange,
   },
   ref,
 ) {
@@ -596,6 +598,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       mapRef.current = map
       styleKeyRef.current = initialStyleKey
+      onMapInstanceChange?.()
 
       const canExposeDebugCamera =
         process.env.NODE_ENV === 'development'
@@ -668,7 +671,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       setMapError(err instanceof Error ? err.message : 'Failed to initialize WebGL map')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map creation is controlled by mount and explicit retry; mutable refs provide the latest style/track state without re-creating the MapLibre instance on every prop change
-  }, [mapRetryNonce])
+  }, [mapRetryNonce, onMapInstanceChange])
 
   // Change map style
   useEffect(() => {
@@ -900,7 +903,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.off('idle', onStyleReady)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of unnecessary re-execution if their deps ever change. The effect calls them directly and they are idempotent.
-  }, [track, cumulativeDistancesProp])
+  }, [track, cumulativeDistancesProp, mapRetryNonce])
 
   useEffect(() => {
     if (!followCamera || suspendAutoCamera) {
@@ -1003,7 +1006,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting, ensureMarker, updateTrailSources])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting, mapRetryNonce, ensureMarker, updateTrailSources])
 
   return (
     <div
