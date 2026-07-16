@@ -9,11 +9,12 @@ import { computeCameraForProgress, normalizeScenes, lerpCamera, linear } from '@
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
-  buildActiveTrailHeadGeometry,
-  buildCompletedTrailGeometry,
   buildTrackGeometry,
+  buildTrailChunkFeatureCollection,
+  buildTrailChunks,
+  buildTrailFrameGeometry,
   precomputeWrappedSegments,
-  type PrecomputedSegment,
+  type TrailChunk,
 } from '@/lib/map-geometry'
 import { mutateMapAndWaitForRender } from '@/lib/map-render'
 
@@ -66,6 +67,10 @@ const TRAIL_SOURCE = 'trail'
 const TRAIL_LAYER = 'trail-line'
 const TRAIL_HEAD_SOURCE = 'trail-head'
 const TRAIL_HEAD_LAYER = 'trail-head-line'
+
+function completedTrailFilter(chunkIndex: number): maplibregl.FilterSpecification {
+  return ['<=', ['get', 'chunkIndex'], chunkIndex]
+}
 
 const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }> = {
   voyager: { minor: 'rgba(120, 130, 120, 0.22)', major: 'rgba(120, 130, 120, 0.38)' },
@@ -358,14 +363,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerEl = useRef<HTMLDivElement | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const cumulDistRef = useRef<number[]>([])
-  const precomputedSegmentsRef = useRef<PrecomputedSegment[]>([])
+  const trailChunksRef = useRef<TrailChunk[]>([])
   const trackRef = useRef<Track | null>(track)
   const progressRef = useRef(progress)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
-  const lastTrailSegmentIndexRef = useRef(-1)
+  const lastCompletedTrailChunkIndexRef = useRef(-1)
   const scenesRef = useRef(scenes)
   const normalizedScenesRef = useRef<Scene[]>([])
   const durationRef = useRef(duration)
@@ -412,17 +417,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     segmentIndex: number,
     point: TrackPoint,
   ) => {
-    const completedSource = map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource | undefined
-    if (segmentIndex !== lastTrailSegmentIndexRef.current) {
-      if (completedSource) {
-        completedSource.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: buildCompletedTrailGeometry(precomputedSegmentsRef.current, segmentIndex),
-        })
-        lastTrailSegmentIndexRef.current = segmentIndex
+    const frame = buildTrailFrameGeometry(trailChunksRef.current, segmentIndex, point)
+    if (frame.completedChunkIndex !== lastCompletedTrailChunkIndexRef.current) {
+      if (map.getLayer(TRAIL_LAYER)) {
+        map.setFilter(TRAIL_LAYER, completedTrailFilter(frame.completedChunkIndex))
+        lastCompletedTrailChunkIndexRef.current = frame.completedChunkIndex
       } else {
-        lastTrailSegmentIndexRef.current = -1
+        lastCompletedTrailChunkIndexRef.current = -1
       }
     }
 
@@ -430,7 +431,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     activeHeadSource?.setData({
       type: 'Feature',
       properties: {},
-      geometry: buildActiveTrailHeadGeometry(precomputedSegmentsRef.current, segmentIndex, point),
+      geometry: frame.activeGeometry,
     })
   }, [])
 
@@ -484,8 +485,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
-      precomputedSegmentsRef.current = []
-      lastTrailSegmentIndexRef.current = -1
+      trailChunksRef.current = []
+      lastCompletedTrailChunkIndexRef.current = -1
     },
     resize: (width: number, height: number) => {
       const map = mapRef.current
@@ -697,6 +698,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
+    const trailChunkCollection = buildTrailChunkFeatureCollection(trailChunksRef.current)
     const emptyLineGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
 
     // Full route line
@@ -730,24 +732,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     // Trail (traveled portion)
     if (map.getSource(TRAIL_SOURCE)) {
-      (map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource).setData({
-        type: 'Feature',
-        properties: {},
-        geometry: emptyLineGeometry,
-      })
+      (map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource).setData(trailChunkCollection)
     } else {
       map.addSource(TRAIL_SOURCE, {
         type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: emptyLineGeometry,
-        },
+        data: trailChunkCollection,
       })
       map.addLayer({
         id: TRAIL_LAYER,
         type: 'line',
         source: TRAIL_SOURCE,
+        filter: completedTrailFilter(-1),
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': TRAIL_COLOR,
@@ -756,9 +751,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       })
     }
+    if (map.getLayer(TRAIL_LAYER)) {
+      map.setFilter(TRAIL_LAYER, completedTrailFilter(-1))
+    }
 
-    // The completed source changes only when playback crosses a vertex. The
-    // active-head source stays at two coordinates and follows every frame.
+    // Immutable completed chunks are published once per track/style load and
+    // revealed by filter. Only the bounded current chunk changes each frame.
     if (map.getSource(TRAIL_HEAD_SOURCE)) {
       (map.getSource(TRAIL_HEAD_SOURCE) as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
@@ -808,7 +806,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     }
 
-    lastTrailSegmentIndexRef.current = -1
+    lastCompletedTrailChunkIndexRef.current = -1
     const cumulDist = cumulDistRef.current
     if (cumulDist.length === track.points.length && cumulDist.length > 0) {
       const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progressRef.current)
@@ -852,14 +850,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
-      precomputedSegmentsRef.current = []
-      lastTrailSegmentIndexRef.current = -1
+      trailChunksRef.current = []
+      lastCompletedTrailChunkIndexRef.current = -1
       return
     }
 
     cumulDistRef.current = cumulativeDistancesProp ?? []
-    precomputedSegmentsRef.current = precomputeWrappedSegments(track.points, track.segmentStartIndices)
-    lastTrailSegmentIndexRef.current = -1
+    trailChunksRef.current = buildTrailChunks(precomputeWrappedSegments(track.points, track.segmentStartIndices))
+    lastCompletedTrailChunkIndexRef.current = -1
 
     const attachTrackToReadyStyle = () => {
       if (!map.isStyleLoaded()) {

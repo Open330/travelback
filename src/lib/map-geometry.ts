@@ -6,6 +6,19 @@ export interface PrecomputedSegment {
   range: { start: number; end: number }
 }
 
+export const TRAIL_CHUNK_COORDINATE_BUDGET = 512
+
+export interface TrailChunkPart {
+  coordinates: [number, number][]
+  range: { start: number; end: number }
+}
+
+export interface TrailChunk {
+  parts: TrailChunkPart[]
+  endIndex: number
+  coordinateCount: number
+}
+
 function normalizeSegmentStarts(pointCount: number, segmentStartIndices: number[] = []): number[] {
   return [...new Set(
     segmentStartIndices
@@ -71,48 +84,129 @@ export function buildTrackGeometry(
   return lineGeometry(segments)
 }
 
-/**
- * Build only the completed part of the trail. Callers can cache this geometry
- * until the interpolator advances to a new vertex.
- */
-export function buildCompletedTrailGeometry(
+export function buildTrailChunks(
   precomputedSegments: PrecomputedSegment[],
-  segmentIndex: number,
-): GeoJSON.LineString | GeoJSON.MultiLineString {
-  if (segmentIndex < 0) return lineGeometry([])
-
-  const completedSegments: [number, number][][] = []
-  for (const segment of precomputedSegments) {
-    if (segment.range.start > segmentIndex) break
-
-    const lastOffset = Math.min(segment.range.end, segmentIndex) - segment.range.start
-    const coordinates = validLineCoordinates(segment.coordinates.slice(0, lastOffset + 1))
-    if (coordinates.length >= 2) completedSegments.push(coordinates)
+  coordinateBudget = TRAIL_CHUNK_COORDINATE_BUDGET,
+): TrailChunk[] {
+  if (!Number.isInteger(coordinateBudget) || coordinateBudget < 2) {
+    throw new RangeError('Trail chunk coordinate budget must be an integer of at least 2')
   }
 
-  return lineGeometry(completedSegments)
+  const chunks: TrailChunk[] = []
+  let currentChunk: TrailChunk | null = null
+
+  const ensureChunk = (requiredCoordinates: number): TrailChunk => {
+    if (!currentChunk || currentChunk.coordinateCount + requiredCoordinates > coordinateBudget) {
+      currentChunk = { parts: [], endIndex: -1, coordinateCount: 0 }
+      chunks.push(currentChunk)
+    }
+    return currentChunk
+  }
+
+  for (const segment of precomputedSegments) {
+    if (segment.coordinates.length === 0) continue
+
+    if (segment.coordinates.length === 1) {
+      const chunk = ensureChunk(2)
+      const coordinate = segment.coordinates[0]
+      chunk.parts.push({
+        coordinates: [coordinate, [...coordinate] as [number, number]],
+        range: { ...segment.range },
+      })
+      chunk.coordinateCount += 2
+      chunk.endIndex = segment.range.end
+      continue
+    }
+
+    let offset = 0
+    while (offset < segment.coordinates.length - 1) {
+      let chunk = ensureChunk(2)
+      let availableCoordinates = coordinateBudget - chunk.coordinateCount
+      if (availableCoordinates < 2) {
+        currentChunk = null
+        chunk = ensureChunk(2)
+        availableCoordinates = coordinateBudget
+      }
+
+      const coordinateCount = Math.min(segment.coordinates.length - offset, availableCoordinates)
+      const endOffset = offset + coordinateCount - 1
+      chunk.parts.push({
+        coordinates: segment.coordinates.slice(offset, endOffset + 1),
+        range: {
+          start: segment.range.start + offset,
+          end: segment.range.start + endOffset,
+        },
+      })
+      chunk.coordinateCount += coordinateCount
+      chunk.endIndex = segment.range.start + endOffset
+
+      if (endOffset === segment.coordinates.length - 1) break
+      offset = endOffset
+      currentChunk = null
+    }
+  }
+
+  return chunks
 }
 
-/** Build the small line from the active vertex to the interpolated position. */
-export function buildActiveTrailHeadGeometry(
-  precomputedSegments: PrecomputedSegment[],
+export function buildTrailChunkFeatureCollection(
+  chunks: TrailChunk[],
+): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.MultiLineString, { chunkIndex: number }> {
+  return {
+    type: 'FeatureCollection',
+    features: chunks.map((chunk, chunkIndex) => ({
+      type: 'Feature',
+      properties: { chunkIndex },
+      geometry: lineGeometry(chunk.parts.map((part) => part.coordinates)),
+    })),
+  }
+}
+
+function lastCompletedTrailChunkIndex(chunks: TrailChunk[], segmentIndex: number): number {
+  let low = 0
+  let high = chunks.length
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (chunks[middle].endIndex <= segmentIndex) low = middle + 1
+    else high = middle
+  }
+  return low - 1
+}
+
+export function buildTrailFrameGeometry(
+  chunks: TrailChunk[],
   segmentIndex: number,
   point: TrackPoint,
-): GeoJSON.LineString {
-  const activeSegment = precomputedSegments.find(({ range }) => (
-    range.start <= segmentIndex && segmentIndex < range.end
-  ))
-  if (!activeSegment) return { type: 'LineString', coordinates: [] }
+): {
+  completedChunkIndex: number
+  activeGeometry: GeoJSON.LineString | GeoJSON.MultiLineString
+} {
+  const completedChunkIndex = lastCompletedTrailChunkIndex(chunks, segmentIndex)
+  const activeChunk = chunks[completedChunkIndex + 1]
+  if (!activeChunk) {
+    return { completedChunkIndex, activeGeometry: lineGeometry([]) }
+  }
 
-  const offset = segmentIndex - activeSegment.range.start
-  const start = activeSegment.coordinates[offset]
-  if (!start) return { type: 'LineString', coordinates: [] }
+  const activeParts: [number, number][][] = []
+  for (const part of activeChunk.parts) {
+    if (part.range.end <= segmentIndex) {
+      activeParts.push(part.coordinates)
+      continue
+    }
+    if (part.range.start > segmentIndex) break
+
+    const offset = segmentIndex - part.range.start
+    const completedCoordinates = part.coordinates.slice(0, offset + 1)
+    const activeStart = completedCoordinates.at(-1)
+    if (activeStart) {
+      completedCoordinates.push([wrapLngNear(activeStart[0], point.lng), point.lat])
+      activeParts.push(completedCoordinates)
+    }
+    break
+  }
 
   return {
-    type: 'LineString',
-    coordinates: [
-      start,
-      [wrapLngNear(start[0], point.lng), point.lat],
-    ],
+    completedChunkIndex,
+    activeGeometry: lineGeometry(activeParts),
   }
 }
