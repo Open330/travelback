@@ -13,6 +13,75 @@ interface ElevationProfileProps {
   units: UnitSystem
 }
 
+interface ElevationGeometry {
+  minEle: number
+  maxEle: number
+  pathD: string
+  areaD: string
+}
+
+export function buildElevationGeometry(
+  elevations: Array<number | null | undefined>,
+  cumulativeDistances: number[],
+): ElevationGeometry | null {
+  let minEle = Infinity
+  let maxEle = -Infinity
+  for (const elevation of elevations) {
+    if (typeof elevation !== 'number' || !Number.isFinite(elevation)) continue
+    if (elevation < minEle) minEle = elevation
+    if (elevation > maxEle) maxEle = elevation
+  }
+  if (!Number.isFinite(minEle) || !Number.isFinite(maxEle)) return null
+
+  const range = maxEle - minEle || 1
+  const width = 100
+  const height = 100
+  const pointCount = elevations.length
+  const totalDistance = cumulativeDistances[pointCount - 1]
+  const useDistanceScale = pointCount > 1
+    && cumulativeDistances.length >= pointCount
+    && typeof totalDistance === 'number'
+    && Number.isFinite(totalDistance)
+    && totalDistance > 0
+    && cumulativeDistances.slice(0, pointCount).every((distance) => Number.isFinite(distance))
+
+  const runs: Array<Array<{ x: number; y: number }>> = []
+  let currentRun: Array<{ x: number; y: number }> = []
+  for (let index = 0; index < pointCount; index++) {
+    const elevation = elevations[index]
+    if (typeof elevation !== 'number' || !Number.isFinite(elevation)) {
+      if (currentRun.length > 0) runs.push(currentRun)
+      currentRun = []
+      continue
+    }
+
+    const x = useDistanceScale
+      ? (cumulativeDistances[index] / totalDistance) * width
+      : pointCount === 1
+        ? width / 2
+        : (index / (pointCount - 1)) * width
+    const y = height - ((elevation - minEle) / range) * height
+    currentRun.push({ x, y })
+  }
+  if (currentRun.length > 0) runs.push(currentRun)
+
+  const pointText = (run: Array<{ x: number; y: number }>) => (
+    run.map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`)
+  )
+  const pathD = runs
+    .map((run) => `M${pointText(run).join(' L')}`)
+    .join(' ')
+  const areaD = runs
+    .filter((run) => run.length >= 2)
+    .map((run) => {
+      const points = pointText(run)
+      return `M${run[0].x.toFixed(2)},${height} L${points.join(' L')} L${run[run.length - 1].x.toFixed(2)},${height} Z`
+    })
+    .join(' ')
+
+  return { minEle, maxEle, pathD, areaD }
+}
+
 export default function ElevationProfile({ track, cumulativeDistances, progress, onSeek, units }: ElevationProfileProps) {
   const { t } = useLocale()
   const gradientId = useId()
@@ -23,43 +92,13 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
 
   const cumulDist = cumulativeDistances
 
-  const hasElevation = useMemo(() => {
-    return elevations.some(e => e !== null)
-  }, [elevations])
+  const geometry = useMemo(
+    () => buildElevationGeometry(elevations, cumulDist),
+    [elevations, cumulDist],
+  )
 
-  const { minEle, maxEle, pathD, areaD } = useMemo(() => {
-    if (!hasElevation || elevations.length < 2) return { minEle: 0, maxEle: 0, pathD: '', areaD: '' }
-
-    let min = Infinity
-    let max = -Infinity
-    for (const e of elevations) {
-      if (e !== null) {
-        if (e < min) min = e
-        if (e > max) max = e
-      }
-    }
-    const range = max - min || 1
-
-    const w = 100
-    const h = 100
-
-    const points: string[] = []
-    const n = elevations.length
-    const totalDist = cumulDist[cumulDist.length - 1] ?? 0
-    for (let i = 0; i < n; i++) {
-      const x = totalDist > 0 ? (cumulDist[i] / totalDist) * w : (i / (n - 1)) * w
-      const ele = elevations[i] ?? min
-      const y = h - ((ele - min) / range) * h
-      points.push(`${x.toFixed(2)},${y.toFixed(2)}`)
-    }
-
-    const pathD = `M${points.join(' L')}`
-    const areaD = `M0,${h} L${points.join(' L')} L${w},${h} Z`
-
-    return { minEle: min, maxEle: max, pathD, areaD }
-  }, [elevations, hasElevation, cumulDist])
-
-  if (!hasElevation) return null
+  if (!geometry) return null
+  const { minEle, maxEle, pathD, areaD } = geometry
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
