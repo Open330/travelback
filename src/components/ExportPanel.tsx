@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useId, useRef, useMemo } from 'react'
 import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react'
 import type { VideoCodec, ExportRequest } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
@@ -23,8 +23,6 @@ const RESOLUTION_KEYS = [
   'resolution.instagramSquare',
   'resolution.instagramPost',
   'resolution.hd',
-  'resolution.4k',
-  'resolution.4kPortrait',
 ] as const
 
 function clampExportDuration(value: number): number {
@@ -67,6 +65,13 @@ export default function ExportPanel({
   playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
+  const formId = useId()
+  const resolutionId = `${formId}-resolution`
+  const durationId = `${formId}-duration`
+  const qualityId = `${formId}-quality`
+  const codecId = `${formId}-codec`
+  const fpsId = `${formId}-fps`
+  const bitrateId = `${formId}-bitrate`
   const [resolutionIdx, setResolutionIdx] = useState(1)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
@@ -328,8 +333,8 @@ export default function ExportPanel({
           <>
             <div className="mb-6 space-y-4">
               <div>
-                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.resolution')}</label>
-                <select value={resolutionIdx} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setResolutionIdx(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                <label htmlFor={resolutionId} className="vitro-label mb-1 block text-sm font-medium">{t('export.resolution')}</label>
+                <select id={resolutionId} value={resolutionIdx} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setResolutionIdx(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                   {RESOLUTION_PRESETS.map((_r, i) => (
                     <option key={i} value={i}>{t(RESOLUTION_KEYS[i] as 'resolution.youtube')}</option>
                   ))}
@@ -337,8 +342,9 @@ export default function ExportPanel({
               </div>
 
               <div>
-                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.duration')}</label>
+                <label htmlFor={durationId} className="vitro-label mb-1 block text-sm font-medium">{t('export.duration')}</label>
                 <input
+                  id={durationId}
                   type="number"
                   min={EXPORT_LIMITS.duration.min}
                   max={EXPORT_LIMITS.duration.max}
@@ -354,8 +360,8 @@ export default function ExportPanel({
               </div>
 
               <div>
-                <label className="vitro-label mb-1 block text-sm font-medium">{t('export.quality')}</label>
-                <select value={quality} onChange={e => setQuality(e.target.value)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                <label htmlFor={qualityId} className="vitro-label mb-1 block text-sm font-medium">{t('export.quality')}</label>
+                <select id={qualityId} value={quality} onChange={e => setQuality(e.target.value)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                   <option value="low">{t('export.qualityLow')}</option>
                   <option value="medium">{t('export.qualityMedium')}</option>
                   <option value="high">{t('export.qualityHigh')}</option>
@@ -377,8 +383,8 @@ export default function ExportPanel({
               {showAdvanced && (
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="vitro-label mb-1 block text-sm font-medium">{t('export.codec')}</label>
-                    <select value={codec} onChange={e => setCodec(e.target.value as VideoCodec)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                    <label htmlFor={codecId} className="vitro-label mb-1 block text-sm font-medium">{t('export.codec')}</label>
+                    <select id={codecId} value={codec} onChange={e => setCodec(e.target.value as VideoCodec)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                       {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k]) => (
                         <option key={k} value={k} disabled={codecSupport[k] === false}>
                           {t(`codec.${k}Desc` as 'codec.h264Desc' | 'codec.h265Desc' | 'codec.av1Desc')}{codecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
@@ -389,16 +395,16 @@ export default function ExportPanel({
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="vitro-label mb-1 block text-sm font-medium">{t('export.fps')}</label>
-                      <select value={fps} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setFps(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
+                      <label htmlFor={fpsId} className="vitro-label mb-1 block text-sm font-medium">{t('export.fps')}</label>
+                      <select id={fpsId} value={fps} onChange={e => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) setFps(v) }} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                         <option value={24}>24</option>
                         <option value={30}>30</option>
                         <option value={60}>60</option>
                       </select>
                     </div>
                     <div>
-                      <label className="vitro-label mb-1 block text-sm font-medium">{t('export.mbps')}</label>
-                      <input type="number" value={bitrate} className="vitro-input min-h-11 w-full px-3 py-2 text-sm opacity-60 cursor-not-allowed" readOnly />
+                      <label htmlFor={bitrateId} className="vitro-label mb-1 block text-sm font-medium">{t('export.mbps')}</label>
+                      <input id={bitrateId} type="number" value={bitrate} className="vitro-input min-h-11 w-full px-3 py-2 text-sm opacity-60 cursor-not-allowed" readOnly />
                     </div>
                   </div>
                 </div>

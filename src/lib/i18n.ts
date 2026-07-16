@@ -473,7 +473,7 @@ export const translations = {
     'export.fps': 'FPS',
     'export.mbps': 'Mbps',
     'export.output': '출력:',
-    'export.at': 'at',
+    'export.at': '·',
     'export.estimatedTime': '약 예상 소요 시간:',
     'export.seconds': '~{n}초',
     'export.minutes': '~{n}분',

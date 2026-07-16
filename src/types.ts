@@ -99,8 +99,6 @@ export const RESOLUTION_PRESETS: ResolutionPreset[] = [
   { label: 'Instagram Square (1080×1080)', width: 1080, height: 1080, aspect: '1:1' },
   { label: 'Instagram Post (1080×1350)', width: 1080, height: 1350, aspect: '4:5' },
   { label: 'HD Landscape (1280×720)', width: 1280, height: 720, aspect: '16:9' },
-  { label: '4K Landscape (3840×2160)', width: 3840, height: 2160, aspect: '16:9' },
-  { label: '4K Portrait (2160×3840)', width: 2160, height: 3840, aspect: '9:16' },
 ]
 
 export interface ExportConfig {
