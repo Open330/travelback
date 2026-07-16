@@ -94,7 +94,8 @@ function computeScriptHashes(html) {
  * in a stable, parseable location — the `__next_s.push` wrapper is not a direct <script> body
  * and would not be picked up by the SHA-256 extraction loop above.
  *
- * The regex matches the exact output shape produced by Next.js 15's static export:
+ * The regex matches the repository's current static-export output shape, guarded by
+ * the fail-closed build check below and the static smoke assertions:
  *   <script>(self.__next_s=self.__next_s||[]).push([0,{"children":"...","id":"travelback-bootstrap"}])</script>
  *
  * If Next.js changes how it serializes inline scripts (e.g., adding whitespace around the
