@@ -78,18 +78,23 @@ describe('FileUpload request lifecycle', () => {
   })
 
   it('announces an import before parsing starts', async () => {
+    let resolveParse!: (track: Track) => void
     const onImportStart = vi.fn()
-    parseTrackFile.mockResolvedValue({
+    const onTrackLoaded = vi.fn()
+    parseTrackFile.mockReturnValue(new Promise<Track>((resolve) => {
+      resolveParse = resolve
+    }))
+    const importedTrack: Track = {
       name: 'Imported track',
       points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
-    })
+    }
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
 
     await act(() => root?.render(createElement(FileUpload, {
       hasTrack: false,
-      onTrackLoaded: vi.fn(),
+      onTrackLoaded,
       onImportStart,
     })))
 
@@ -101,5 +106,12 @@ describe('FileUpload request lifecycle', () => {
     expect(onImportStart).toHaveBeenCalledOnce()
     expect(parseTrackFile).toHaveBeenCalledOnce()
     expect(onImportStart.mock.invocationCallOrder[0]).toBeLessThan(parseTrackFile.mock.invocationCallOrder[0])
+
+    await act(async () => {
+      resolveParse(importedTrack)
+      await Promise.resolve()
+    })
+    expect(onTrackLoaded).toHaveBeenCalledOnce()
+    expect(onTrackLoaded).toHaveBeenCalledWith(importedTrack)
   })
 })
