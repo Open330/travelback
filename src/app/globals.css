@@ -244,11 +244,29 @@ input[type="range"]:focus-visible {
   outline-offset: -2px;
 }
 
-.map-has-track-controls .maplibregl-ctrl-group button,
-.map-has-track-controls .maplibregl-ctrl-attrib-button,
-.map-has-track-controls .maplibregl-ctrl-attrib summary {
+.map-has-track-controls .maplibregl-ctrl-group button {
   min-width: 44px;
   min-height: 44px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib.maplibregl-compact {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 44px 0 0;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  padding: 12px 52px 12px 8px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib.maplibregl-compact summary,
+.map-has-track-controls .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
 }
 
 .map-has-track-controls .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
@@ -258,13 +276,6 @@ input[type="range"]:focus-visible {
 
 .map-has-track-controls .maplibregl-ctrl-attrib {
   font-size: 12px;
-}
-
-.map-has-track-controls .maplibregl-ctrl-attrib summary,
-.map-has-track-controls .maplibregl-ctrl-attrib-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Respect user preference for reduced motion */
