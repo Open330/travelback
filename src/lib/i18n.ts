@@ -1666,7 +1666,7 @@ export const translations = {
     'google.other1Item1': 'La mayoría de apps GPS y fitness pueden exportar archivos GPX',
     'google.other1Item2': 'Busca "Exportar", "Compartir como GPX" o "Descargar GPX" en los ajustes de tu app',
     'google.tips': 'Consejos',
-    'google.tip1': 'Desde 2024, Google almacena los datos del cronología en el dispositivo — la exportación del móvil suele tener los datos más completos',
+    'google.tip1': 'Desde 2024, Google almacena los datos de la cronología en el dispositivo — la exportación del móvil suele tener los datos más completos',
     'google.tip2': 'Se aceptan archivos JSON de hasta {jsonMax} MB y archivos GPX/KML de hasta {xmlMax} MB; los archivos cercanos a esos límites pueden tardar más',
     'google.tip3': 'Usa el selector de línea de tiempo para acercar viajes específicos',
 
@@ -1696,7 +1696,7 @@ export const translations = {
     // TimelineSelector
     'timeline.points': 'ubicaciones',
     'timeline.histogramHint': 'Barras más altas = más datos GPS',
-    'timeline.reset': 'Restablecer rango del timeline',
+    'timeline.reset': 'Restablecer intervalo de la línea de tiempo',
     'timeline.dragHint': 'Arrastra los controles para seleccionar fechas',
     'timeline.startHandle': 'Inicio del rango',
     'timeline.endHandle': 'Fin del rango',

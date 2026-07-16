@@ -55,10 +55,12 @@ describe('i18n locale key parity', () => {
     expect(guide).not.toMatch(/Select Location History|Find Records\.json|upload Records\.json/)
   })
 
-  it('keeps reviewed Korean, Japanese, and Chinese phrases grammatical', () => {
+  it('keeps reviewed Korean, Japanese, Chinese, and Spanish phrases grammatical', () => {
     expect(translations.ko['export.estimatedTime']).toBe('예상 소요 시간:')
     expect(translations.ja['journey.addOneMore']).toBe('ルートを作成するには、もう1ポイント追加してください')
     expect(translations.zh['export.estimatedTime']).toBe('预计时间:')
+    expect(translations.es['google.tip1']).toBe('Desde 2024, Google almacena los datos de la cronología en el dispositivo — la exportación del móvil suele tener los datos más completos')
+    expect(translations.es['timeline.reset']).toBe('Restablecer intervalo de la línea de tiempo')
   })
 
   it('uses concise estimated-time labels in every locale', () => {
