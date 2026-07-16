@@ -227,20 +227,28 @@ function HomeInner() {
     cumulativeDistances,
   })
 
+  const toggleExportPanel = useCallback(() => {
+    setShowExport((open) => !open)
+  }, [])
+  const toggleKeyboardHelp = useCallback(() => {
+    setShowKeyboardHelp((open) => !open)
+  }, [])
+  const closeOpenPanels = useCallback(() => {
+    setShowExport(false)
+    setShowSceneEditor(false)
+    setShowGoogleGuide(false)
+    setShowKeyboardHelp(false)
+  }, [])
+
   usePlaybackHotkeys({
     track,
     isExporting,
     onTogglePlay: togglePlay,
     onStepSeek: stepSeek,
     onToggleFollowCamera: toggleFollowCamera,
-    onToggleExport: () => setShowExport((open) => !open),
-    onToggleKeyboardHelp: () => setShowKeyboardHelp((open) => !open),
-    onClosePanels: () => {
-      setShowExport(false)
-      setShowSceneEditor(false)
-      setShowGoogleGuide(false)
-      setShowKeyboardHelp(false)
-    },
+    onToggleExport: toggleExportPanel,
+    onToggleKeyboardHelp: toggleKeyboardHelp,
+    onClosePanels: closeOpenPanels,
   })
 
   useEffect(() => {
