@@ -189,7 +189,7 @@ export function usePlaybackHotkeys({
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName
       const isInteractiveTarget = Boolean(
-        target?.closest('button, a, summary, [role="dialog"], [role="slider"], [role="spinbutton"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
+        target?.closest('button, a, summary, canvas.maplibregl-canvas, [role="dialog"], [role="slider"], [role="spinbutton"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
       )
 
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || isInteractiveTarget) {

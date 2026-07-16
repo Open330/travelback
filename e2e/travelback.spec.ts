@@ -1065,6 +1065,26 @@ test.describe('Travelback App', () => {
     await expect(playbackProgress).toHaveValue('0.001')
   })
 
+  test('map arrow keys do not scrub playback while the map canvas is focused', async ({ page }) => {
+    await uploadGpx(page)
+
+    const playbackProgress = page.getByLabel('Playback progress')
+    const mapCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    await expect(playbackProgress).toHaveValue('0')
+    await mapCanvas.focus()
+    await page.keyboard.press('ArrowRight')
+
+    await expect(mapCanvas).toBeFocused()
+    await expect(playbackProgress).toHaveValue('0')
+
+    await page.locator('main#app').evaluate((element) => {
+      element.setAttribute('tabindex', '-1')
+      ;(element as HTMLElement).focus()
+    })
+    await page.keyboard.press('ArrowRight')
+    await expect(playbackProgress).toHaveValue('0.02')
+  })
+
   test('mobile scene editor panel stays below the stacked header controls', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
