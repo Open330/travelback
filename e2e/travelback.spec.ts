@@ -1601,6 +1601,22 @@ test.describe('Travelback App', () => {
   // only runs when explicitly requested (the real path is slow and codec-dependent).
   test('real export produces a valid MP4 via WebCodecs', async ({ page }) => {
     test.skip(process.env.TRAVELBACK_REAL_EXPORT !== '1', 'Set TRAVELBACK_REAL_EXPORT=1 on a WebCodecs-capable runner')
+    test.setTimeout(360_000)
+
+    // Native save pickers cannot be automated and can block a headless run
+    // after encoding has completed. Reject that optional path so the export
+    // uses its normal anchor-download fallback; the video pipeline remains real.
+    await page.evaluate(() => {
+      const debugWindow = window as Window & { __travelbackSavePickerCalls?: number }
+      debugWindow.__travelbackSavePickerCalls = 0
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: async () => {
+          debugWindow.__travelbackSavePickerCalls = (debugWindow.__travelbackSavePickerCalls ?? 0) + 1
+          throw new DOMException('Use the automated download fallback', 'NotAllowedError')
+        },
+      })
+    })
 
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
@@ -1616,8 +1632,22 @@ test.describe('Travelback App', () => {
     await exportPanel.getByRole('combobox', { name: 'FPS' }).selectOption('24')
     await exportPanel.getByRole('combobox', { name: 'Quality' }).selectOption('low')
 
-    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
-    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 120_000 })
+    const startExportButton = exportPanel.getByRole('button', { name: 'Start Export' })
+    await expect(startExportButton).toBeEnabled({ timeout: 30_000 })
+    await startExportButton.click()
+    const completedHeading = exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })
+    await expect.poll(async () => {
+      if (await completedHeading.isVisible()) return 'done'
+      const progress = await exportPanel.getByRole('progressbar').getAttribute('aria-valuenow').catch(() => null)
+      const savePickerCalls = await page.evaluate(() => {
+        return (window as Window & { __travelbackSavePickerCalls?: number }).__travelbackSavePickerCalls ?? 0
+      })
+      return `progress=${progress}; savePickerCalls=${savePickerCalls}`
+    }, { timeout: 330_000, intervals: [1_000] }).toBe('done')
+    await expect(completedHeading).toBeVisible()
+    expect(await page.evaluate(() => {
+      return (window as Window & { __travelbackSavePickerCalls?: number }).__travelbackSavePickerCalls ?? 0
+    })).toBe(1)
     const downloadLink = exportPanel.getByRole('link', { name: /Download MP4/i })
     await expect(downloadLink).toHaveAttribute('download', /Travelback.*\.mp4/)
     const downloadPromise = page.waitForEvent('download')
