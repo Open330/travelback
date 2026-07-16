@@ -6,37 +6,20 @@ import ModalDialog from '@/components/ModalDialog'
 
 interface KeyboardHelpProps {
   isOpen: boolean
-  hasTrack: boolean
-  onToggle: () => void
   onClose: () => void
 }
 
-export default function KeyboardHelp({ isOpen, hasTrack, onToggle, onClose }: KeyboardHelpProps) {
+export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
   const { t } = useLocale()
 
   return (
-    <>
-      {hasTrack && (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={t('shortcuts.title')}
-          title={t('shortcuts.title')}
-          className="absolute bottom-36 right-4 z-10 hidden min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
-          style={{ color: 'var(--t1)' }}
-        >
-          <span className="text-lg leading-none">?</span>
-          <span>{t('app.help')}</span>
-        </button>
-      )}
-
-      <ModalDialog
-        open={isOpen}
-        onClose={onClose}
-        labelledBy="keyboard-help-title"
-        overlayClassName="z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
-        panelClassName="go mx-4 w-full max-w-sm p-6"
-      >
+    <ModalDialog
+      open={isOpen}
+      onClose={onClose}
+      labelledBy="keyboard-help-title"
+      overlayClassName="z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
+      panelClassName="go mx-4 w-full max-w-sm p-6"
+    >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 id="keyboard-help-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>
@@ -77,7 +60,6 @@ export default function KeyboardHelp({ isOpen, hasTrack, onToggle, onClose }: Ke
             </div>
           ))}
         </div>
-      </ModalDialog>
-    </>
+    </ModalDialog>
   )
 }

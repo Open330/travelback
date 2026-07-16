@@ -1269,6 +1269,45 @@ test.describe('Travelback App', () => {
     }
   })
 
+  test('desktop and mobile Help actions open shortcuts outside the bottom controls', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/')
+    await waitForApp(page)
+    await uploadGpx(page)
+
+    const help = page.getByTestId('desktop-keyboard-help')
+    const bottomStack = page.getByTestId('track-bottom-stack')
+    const progress = page.getByLabel('Playback progress')
+    await expect(help).toBeVisible()
+    await expect(bottomStack).toBeVisible()
+
+    const [helpBox, stackBox] = await Promise.all([help.boundingBox(), bottomStack.boundingBox()])
+    if (!helpBox || !stackBox) throw new Error('Missing Help or bottom-stack geometry')
+    expect(boxesOverlap(helpBox, stackBox)).toBe(false)
+
+    const helpOwnsCenterHit = await page.evaluate(({ x, y }) => {
+      return document.elementFromPoint(x, y)?.closest('[data-testid="desktop-keyboard-help"]') != null
+    }, {
+      x: helpBox.x + helpBox.width / 2,
+      y: helpBox.y + helpBox.height / 2,
+    })
+    expect(helpOwnsCenterHit).toBe(true)
+
+    const progressBeforeHelp = await progress.inputValue()
+    await page.mouse.click(helpBox.x + helpBox.width / 2, helpBox.y + helpBox.height / 2)
+    await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeVisible()
+    await expect(progress).toHaveValue(progressBeforeHelp)
+    await page.keyboard.press('Escape')
+    await expect(help).toBeFocused()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const moreControls = page.getByRole('button', { name: 'More controls' })
+    await moreControls.click()
+    const mobileMenu = page.getByTestId('track-toolbar-mobile-menu')
+    await mobileMenu.getByRole('button', { name: 'Help', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeVisible()
+  })
+
   test('mobile journey creator panel stays below the top toolbar', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')

@@ -152,6 +152,18 @@ export default function TrackToolbar({
 
       <button
         type="button"
+        data-testid="desktop-keyboard-help"
+        onClick={onOpenHelp}
+        aria-label={t('shortcuts.title')}
+        title={t('shortcuts.title')}
+        className="gi hidden shrink-0 min-h-11 items-center px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
+        style={{ color: 'var(--t1)' }}
+      >
+        {t('app.help')}
+      </button>
+
+      <button
+        type="button"
         onClick={onOpenExport}
         title={t('app.exportVideoKey')}
         className="vitro-btn-primary shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-4"

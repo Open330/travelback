@@ -617,8 +617,6 @@ function HomeInner() {
 
         <KeyboardHelp
           isOpen={showKeyboardHelp}
-          hasTrack={Boolean(track)}
-          onToggle={() => setShowKeyboardHelp((open) => !open)}
           onClose={() => setShowKeyboardHelp(false)}
         />
 

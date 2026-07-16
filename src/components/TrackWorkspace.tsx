@@ -139,7 +139,7 @@ export default function TrackWorkspace({
         {track.name} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 z-10">
+      <div data-testid="track-bottom-stack" className="absolute bottom-0 left-0 right-0 z-10">
         {fullTrack.points.length > 2 && (
           <div className="mb-2 px-4">
             <TimelineSelector
