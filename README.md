@@ -157,7 +157,7 @@ travelback/
 | Map        | [MapLibre GL JS](https://maplibre.org/) v5 — WebGL vector map rendering   |
 | Video      | [mediabunny](https://www.npmjs.com/package/mediabunny) — WebCodecs MP4    |
 | Icons      | [Lucide React](https://lucide.dev/)                                        |
-| Testing    | [Playwright](https://playwright.dev/) — E2E with headless Chromium        |
+| Testing    | [Vitest](https://vitest.dev/) — unit/component; [Playwright](https://playwright.dev/) — E2E |
 
 ## Quick Start
 
@@ -179,7 +179,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
 npx playwright install --with-deps chromium
-npm run test:e2e:dev
+npm test
+npm run test:e2e
 npm run test:e2e:static
 ```
 

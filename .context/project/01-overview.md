@@ -12,7 +12,7 @@ Web application to animate GPX, KML, and Google Maps Location History into trave
 - **Track Parsing**: @tmcw/togeojson (GPX/KML), custom parser (Google Location History JSON)
 - **Video Export**: mediabunny (WebCodecs-based MP4 encoding with H.264, H.265, AV1)
 - **Map Assets**: Fully local bundled map themes with no runtime dependency on external tiles, glyphs, or sprites once the static bundle is built
-- **Testing**: Playwright (E2E)
+- **Testing**: Vitest (unit/component), Playwright (E2E)
 
 ## Build, Run & Verify
 
@@ -23,6 +23,7 @@ npm run build    # Static production build into ./out
 npm run start    # Static preview server for ./out at /travelback
 npm run lint     # ESLint
 npm run typecheck
+npm test
 npm run test:e2e
 npm run test:e2e:static
 ```
