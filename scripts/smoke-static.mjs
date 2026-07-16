@@ -266,16 +266,20 @@ async function assertWorkerParserOwnership() {
   const workerSource = await readFile(path.resolve(cwd, 'public/workers/trackParser.worker.js'), 'utf8')
 
   const trackLimit = parseUtilsSource.match(/export const MAX_TRACK_POINTS = ([\d_]+)/)
-  const jsonLimit = parseUtilsSource.match(/export const JSON_MAX_FILE_SIZE = (\d+) \* 1024 \* 1024/)
-  const xmlLimit = parseUtilsSource.match(/export const XML_MAX_FILE_SIZE = (\d+) \* 1024 \* 1024/)
+  const jsonPolicy = parseUtilsSource.match(/json:\s*\{\s*maxBytes:\s*(\d+)\s*\*\s*MEBIBYTE,\s*warningBytes:\s*(\d+)\s*\*\s*MEBIBYTE/)
+  const xmlPolicy = parseUtilsSource.match(/xml:\s*\{\s*maxBytes:\s*(\d+)\s*\*\s*MEBIBYTE,\s*warningBytes:\s*(\d+)\s*\*\s*MEBIBYTE/)
   if (!trackLimit || trackLimit[1].replace(/_/g, '') !== '250000') {
     throw new Error('MAX_TRACK_POINTS must be owned by src/lib/parse-utils.ts and remain 250,000')
   }
-  if (!jsonLimit || jsonLimit[1] !== '100') {
-    throw new Error('JSON_MAX_FILE_SIZE must be owned by src/lib/parse-utils.ts and remain 100MB')
+  if (!jsonPolicy || jsonPolicy[1] !== '100' || Number(jsonPolicy[2]) <= 0 || Number(jsonPolicy[2]) >= Number(jsonPolicy[1])) {
+    throw new Error('JSON import policy must remain at 100MB with a below-limit warning threshold')
   }
-  if (!xmlLimit || Number(xmlLimit[1]) > 4) {
-    throw new Error('XML_MAX_FILE_SIZE must stay at or below 4MB for main-thread XML parsing')
+  if (!xmlPolicy || xmlPolicy[1] !== '4' || Number(xmlPolicy[2]) <= 0 || Number(xmlPolicy[2]) >= Number(xmlPolicy[1])) {
+    throw new Error('XML import policy must remain at 4MB with a below-limit warning threshold')
+  }
+  if (!parseUtilsSource.includes('JSON_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.json.maxBytes')
+    || !parseUtilsSource.includes('XML_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.xml.maxBytes')) {
+    throw new Error('Legacy file-size exports must derive from IMPORT_SIZE_POLICY')
   }
   if (!workerEntrySource.includes("from '@/lib/googleJsonParser'") || !workerEntrySource.includes("from '@/lib/parse-utils'")) {
     throw new Error('Worker entry must import the shared parser and parsing constants')

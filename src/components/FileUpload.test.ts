@@ -114,4 +114,43 @@ describe('FileUpload request lifecycle', () => {
     expect(onTrackLoaded).toHaveBeenCalledOnce()
     expect(onTrackLoaded).toHaveBeenCalledWith(importedTrack)
   })
+
+  it('warns only for accepted files near their format-specific limit', async () => {
+    const importedTrack: Track = {
+      name: 'Imported track',
+      points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
+    }
+    parseTrackFile.mockResolvedValue(importedTrack)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded: vi.fn(),
+    })))
+
+    const dropZone = container.querySelector<HTMLElement>('[role="group"]')
+    const dropFile = async (file: File) => {
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } })
+      await act(async () => {
+        dropZone?.dispatchEvent(drop)
+        await Promise.resolve()
+      })
+    }
+
+    const nearXmlLimit = new File(['x'], 'near-limit.gpx', { type: 'application/gpx+xml' })
+    Object.defineProperty(nearXmlLimit, 'size', { value: 3 * 1024 * 1024 })
+    await dropFile(nearXmlLimit)
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('3 MB'))
+
+    const rejectedXml = new File(['x'], 'too-large.gpx', { type: 'application/gpx+xml' })
+    Object.defineProperty(rejectedXml, 'size', { value: 4 * 1024 * 1024 + 1 })
+    await dropFile(rejectedXml)
+    expect(warn).toHaveBeenCalledOnce()
+    warn.mockRestore()
+  })
 })

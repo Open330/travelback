@@ -9,6 +9,8 @@ import {
   MAX_FILE_SIZE,
   XML_MAX_FILE_SIZE,
   JSON_MAX_FILE_SIZE,
+  IMPORT_SIZE_POLICY,
+  getImportSizePolicy,
   parseGoogleLocationHistoryInWorkerBuffer,
   parseTrackFile,
 } from './parser'
@@ -701,8 +703,10 @@ describe('ParseError', () => {
 })
 
 describe('File size constants', () => {
-  it('MAX_FILE_SIZE is 200MB', () => {
-    expect(MAX_FILE_SIZE).toBe(200 * 1024 * 1024)
+  it('derives legacy limits from the canonical policy', () => {
+    expect(MAX_FILE_SIZE).toBe(IMPORT_SIZE_POLICY.json.maxBytes)
+    expect(JSON_MAX_FILE_SIZE).toBe(IMPORT_SIZE_POLICY.json.maxBytes)
+    expect(XML_MAX_FILE_SIZE).toBe(IMPORT_SIZE_POLICY.xml.maxBytes)
   })
 
   it('XML_MAX_FILE_SIZE is 4MB', () => {
@@ -711,6 +715,21 @@ describe('File size constants', () => {
 
   it('JSON_MAX_FILE_SIZE is 100MB', () => {
     expect(JSON_MAX_FILE_SIZE).toBe(100 * 1024 * 1024)
+  })
+
+  it('warns below each enforced maximum', () => {
+    for (const policy of Object.values(IMPORT_SIZE_POLICY)) {
+      expect(policy.warningBytes).toBeGreaterThan(0)
+      expect(policy.warningBytes).toBeLessThan(policy.maxBytes)
+    }
+  })
+
+  it.each([
+    ['json', 'json'],
+    ['gpx', 'xml'],
+    ['.KML', 'xml'],
+  ] as const)('maps %s imports to the %s policy', (extension, kind) => {
+    expect(getImportSizePolicy(extension)).toBe(IMPORT_SIZE_POLICY[kind])
   })
 })
 

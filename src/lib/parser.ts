@@ -10,6 +10,8 @@ import {
   MAX_FILE_SIZE,
   XML_MAX_FILE_SIZE,
   JSON_MAX_FILE_SIZE,
+  IMPORT_SIZE_POLICY,
+  getImportSizePolicy,
 } from '@/lib/parse-utils'
 import {
   parseGoogleLocationHistory as parseGoogleLocationHistoryCore,
@@ -23,6 +25,8 @@ export {
   MAX_FILE_SIZE,
   XML_MAX_FILE_SIZE,
   JSON_MAX_FILE_SIZE,
+  IMPORT_SIZE_POLICY,
+  getImportSizePolicy,
 }
 
 const XML_MAX_TAGS = 150_000
@@ -484,7 +488,8 @@ export async function parseTrackFile(file: File, options: ParseTrackFileOptions 
     throw new ParseError(ext ? `Unsupported file format: .${ext}` : 'Unsupported file format', 'UNSUPPORTED_FORMAT')
   }
 
-  const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : XML_MAX_FILE_SIZE
+  const sizePolicy = getImportSizePolicy(ext)
+  const maxForType = sizePolicy?.maxBytes ?? MAX_FILE_SIZE
   if (file.size > maxForType) {
     throw new ParseError(
       `File is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Maximum size is ${(maxForType / 1024 / 1024).toFixed(0)}MB.`,

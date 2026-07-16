@@ -6,10 +6,41 @@
 /** Maximum number of track points allowed in a single track */
 export const MAX_TRACK_POINTS = 250_000
 
-/** Browser-side file limits shared by the main parser and generated worker. */
-export const MAX_FILE_SIZE = 200 * 1024 * 1024
-export const XML_MAX_FILE_SIZE = 4 * 1024 * 1024
-export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024
+const MEBIBYTE = 1024 * 1024
+
+export type ImportSizeKind = 'json' | 'xml'
+
+export interface ImportSizeLimit {
+  readonly maxBytes: number
+  readonly warningBytes: number
+}
+
+/** Enforced and advisory browser-side import limits for every supported format family. */
+export const IMPORT_SIZE_POLICY = {
+  json: { maxBytes: 100 * MEBIBYTE, warningBytes: 75 * MEBIBYTE },
+  xml: { maxBytes: 4 * MEBIBYTE, warningBytes: 3 * MEBIBYTE },
+} as const satisfies Record<ImportSizeKind, ImportSizeLimit>
+
+/** Legacy exports derived from the canonical import-size policy. */
+export const JSON_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.json.maxBytes
+export const XML_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.xml.maxBytes
+export const MAX_FILE_SIZE = Math.max(JSON_MAX_FILE_SIZE, XML_MAX_FILE_SIZE)
+
+export function getImportSizePolicy(extension: string): ImportSizeLimit | undefined {
+  const normalized = extension.trim().toLowerCase().replace(/^\./, '')
+  if (normalized === 'json') return IMPORT_SIZE_POLICY.json
+  if (normalized === 'gpx' || normalized === 'kml') return IMPORT_SIZE_POLICY.xml
+  return undefined
+}
+
+/** Replace user-facing import-limit placeholders with values from the enforced policy. */
+export function formatImportSizePolicyText(template: string): string {
+  const values = {
+    jsonMax: String(JSON_MAX_FILE_SIZE / MEBIBYTE),
+    xmlMax: String(XML_MAX_FILE_SIZE / MEBIBYTE),
+  }
+  return template.replace(/\{(jsonMax|xmlMax)\}/g, (_match, key: keyof typeof values) => values[key])
+}
 
 export interface PointBudget {
   readonly maxPoints: number

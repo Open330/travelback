@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
 import { parseTrackFile, ParseError } from '@/lib/parser'
+import { getImportSizePolicy } from '@/lib/parse-utils'
 import { useLocale } from '@/lib/i18n'
 
 interface FileUploadProps {
@@ -17,7 +18,6 @@ interface FileUploadProps {
   onCreateJourney?: () => void
 }
 
-const WARN_FILE_SIZE = 100 * 1024 * 1024
 const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
@@ -70,7 +70,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     setError(null)
     setLoading(true)
     try {
-      if (file.size > WARN_FILE_SIZE) {
+      const extension = file.name.split('.').pop() ?? ''
+      const sizePolicy = getImportSizePolicy(extension)
+      if (sizePolicy && file.size >= sizePolicy.warningBytes && file.size <= sizePolicy.maxBytes) {
         console.warn(`[Travelback] Large file (${(file.size / 1024 / 1024).toFixed(0)} MB) — parsing may take a moment`)
       }
       const track = await parseTrackFile(file, { signal: controller.signal })

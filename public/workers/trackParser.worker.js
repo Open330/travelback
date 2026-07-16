@@ -2,6 +2,10 @@
 "use strict";
 (() => {
   // src/lib/parse-utils.ts
+  var IMPORT_SIZE_POLICY = {
+    json: { maxBytes: 104857600, warningBytes: 78643200 },
+    xml: { maxBytes: 4194304, warningBytes: 3145728 }
+  }, JSON_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.json.maxBytes, XML_MAX_FILE_SIZE = IMPORT_SIZE_POLICY.xml.maxBytes, MAX_FILE_SIZE = Math.max(JSON_MAX_FILE_SIZE, XML_MAX_FILE_SIZE);
   function createPointBudget(maxPoints = 25e4) {
     return { maxPoints, used: 0 };
   }
@@ -260,7 +264,7 @@
       throw new ParseError(`Unsupported worker format: ${String(request.ext)}`, "INVALID_GOOGLE_JSON");
     if (!(request.buffer instanceof ArrayBuffer))
       throw new ParseError("Invalid worker message: missing or invalid buffer field", "INVALID_GOOGLE_JSON");
-    if (request.buffer.byteLength > 104857600)
+    if (request.buffer.byteLength > JSON_MAX_FILE_SIZE)
       throw new ParseError("Input too large: exceeds 100MB limit", "FILE_TOO_LARGE");
     let text = new TextDecoder("utf-8", { fatal: !1 }).decode(request.buffer), track = parseGoogleLocationHistory(text);
     if (track.points.length > 25e4)

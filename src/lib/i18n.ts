@@ -211,7 +211,7 @@ export const translations = {
     'google.other1Item2': 'Look for "Export", "Share as GPX", or "Download GPX" in your app\'s settings',
     'google.tips': 'Tips',
     'google.tip1': 'Since 2024, Google stores Timeline data on-device — phone export usually has the most complete data',
-    'google.tip2': 'Large files (100MB+) may take a moment to parse',
+    'google.tip2': 'JSON files up to {jsonMax} MB and GPX/KML files up to {xmlMax} MB are accepted; files near those limits may take longer',
     'google.tip3': 'Use the timeline selector to zoom into specific trips',
 
     // Camera mode labels
@@ -575,7 +575,7 @@ export const translations = {
     'google.other1Item2': '앱 설정에서 "내보내기", "GPX로 공유", "GPX 다운로드" 등을 찾아보세요',
     'google.tips': '팁',
     'google.tip1': '2024년부터 Google은 타임라인 데이터를 기기에 저장합니다 — 휴대폰 내보내기가 가장 완전한 데이터를 제공합니다',
-    'google.tip2': '대용량 파일(100MB+)은 분석에 시간이 걸릴 수 있습니다',
+    'google.tip2': 'JSON 파일은 최대 {jsonMax}MB, GPX/KML 파일은 최대 {xmlMax}MB까지 가져올 수 있으며 제한에 가까운 파일은 처리 시간이 더 걸릴 수 있습니다',
     'google.tip3': '타임라인 선택기로 특정 여행을 확대하세요',
 
     // Camera mode labels
@@ -939,7 +939,7 @@ export const translations = {
     'google.other1Item2': 'アプリの設定で「エクスポート」「GPXで共有」「GPXをダウンロード」を探してください',
     'google.tips': 'ヒント',
     'google.tip1': '2024年以降、Googleはタイムラインデータを端末に保存 — スマホからのエクスポートが最も完全なデータです',
-    'google.tip2': '大きなファイル（100MB以上）の解析には時間がかかる場合があります',
+    'google.tip2': 'JSONファイルは最大{jsonMax}MB、GPX/KMLファイルは最大{xmlMax}MBまで読み込めます。上限に近いファイルは処理に時間がかかる場合があります',
     'google.tip3': 'タイムラインセレクターで特定の旅行にズームイン',
 
     // Camera mode labels
@@ -1303,7 +1303,7 @@ export const translations = {
     'google.other1Item2': '在应用设置中找"导出"、"分享GPX"或"下载GPX"',
     'google.tips': '提示',
     'google.tip1': '2024年起，Google将时间轴数据存储在设备上 — 手机导出通常包含最完整的数据',
-    'google.tip2': '大文件（100MB以上）可能需要一些时间解析',
+    'google.tip2': 'JSON 文件最大支持 {jsonMax}MB，GPX/KML 文件最大支持 {xmlMax}MB；接近上限的文件可能需要更长处理时间',
     'google.tip3': '使用时间轴选择器缩放到特定旅程',
 
     // Camera mode labels
@@ -1667,7 +1667,7 @@ export const translations = {
     'google.other1Item2': 'Busca "Exportar", "Compartir como GPX" o "Descargar GPX" en los ajustes de tu app',
     'google.tips': 'Consejos',
     'google.tip1': 'Desde 2024, Google almacena los datos del cronología en el dispositivo — la exportación del móvil suele tener los datos más completos',
-    'google.tip2': 'Los archivos grandes (100MB+) pueden tardar un momento en analizarse',
+    'google.tip2': 'Se aceptan archivos JSON de hasta {jsonMax} MB y archivos GPX/KML de hasta {xmlMax} MB; los archivos cercanos a esos límites pueden tardar más',
     'google.tip3': 'Usa el selector de línea de tiempo para acercar viajes específicos',
 
     // Camera mode labels

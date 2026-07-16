@@ -461,6 +461,7 @@ test.describe('Travelback App', () => {
     const panel = dialog.getByRole('tabpanel')
     await expect(panel.locator('svg')).toContainText('내 타임라인')
     await expect(panel.locator('img')).toHaveCount(0)
+    await expect(dialog).toContainText('JSON 파일은 최대 100MB, GPX/KML 파일은 최대 4MB')
 
     await dialog.getByRole('tab', { name: 'Google Takeout' }).click()
     await expect(panel.locator('svg')).toContainText('업로드')

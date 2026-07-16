@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { translations, detectLocale, t, type Locale } from './i18n'
+import { formatImportSizePolicyText } from './parse-utils'
 
 const locales = Object.keys(translations) as Locale[]
 
@@ -28,6 +29,17 @@ describe('i18n locale key parity', () => {
   it('does not promise a Google Takeout processing duration', () => {
     for (const locale of locales) {
       expect(translations[locale]['google.step2TakeoutItem1']).not.toMatch(/\d/)
+    }
+  })
+
+  it('renders the enforced JSON and XML limits in every locale', () => {
+    for (const locale of locales) {
+      const rendered = formatImportSizePolicyText(translations[locale]['google.tip2'])
+      expect(rendered).toContain('100')
+      expect(rendered).toContain('4')
+      expect(rendered).toContain('JSON')
+      expect(rendered).toContain('GPX/KML')
+      expect(rendered).not.toMatch(/\{(?:jsonMax|xmlMax)\}/)
     }
   })
 

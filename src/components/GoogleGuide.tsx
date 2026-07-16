@@ -4,6 +4,7 @@ import { useState, useEffect, useId } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 import { useLocale, type Locale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
+import { formatImportSizePolicyText } from '@/lib/parse-utils'
 
 const GOOGLE_HELP_LOCALES: Record<Locale, string> = {
   en: 'en',
@@ -260,7 +261,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
     },
   ]
 
-  const tips = [t('google.tip1'), t('google.tip2'), t('google.tip3')]
+  const tips = [t('google.tip1'), formatImportSizePolicyText(t('google.tip2')), t('google.tip3')]
 
   if (!isOpen) return null
 
