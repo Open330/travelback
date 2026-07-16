@@ -7,6 +7,7 @@ const htmlFiles = []
 // Match the CSP <meta> tag injected by Next.js so we can replace it with a
 // hardened version containing SHA-256 hashes of all inline scripts.
 const CSP_META_REGEX = /<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i
+const ACTIVE_HEAD_CONTENT_REGEX = /<(?:script|style)\b|<link\b[^>]*\brel\s*=\s*(?:"[^"]*\b(?:stylesheet|modulepreload|preload)\b[^"]*"|'[^']*\b(?:stylesheet|modulepreload|preload)\b[^']*')/i
 
 // `frame-ancestors` intentionally omitted from the meta CSP: the directive is
 // header-only per the CSP spec (https://www.w3.org/TR/CSP3/#frame-ancestors)
@@ -122,15 +123,23 @@ function inlineTravelbackBootstrap(html) {
   return result
 }
 
-/** Replace the placeholder CSP <meta> tag with the hardened CSP containing script hashes. */
+/** Replace and relocate the placeholder CSP to the first position in <head>. */
 function replaceCspMeta(html, csp) {
   const contentAttribute = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-  const match = html.match(CSP_META_REGEX)
-  if (!match) return html
-  return html.replace(
-    CSP_META_REGEX,
-    `<meta http-equiv="Content-Security-Policy" data-travelback-csp="static-export" content="${contentAttribute}"/>`,
-  )
+  const globalCspMetaRegex = new RegExp(CSP_META_REGEX.source, 'gi')
+  const matches = html.match(globalCspMetaRegex) ?? []
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one CSP meta tag, found ${matches.length}`)
+  }
+
+  const headMatch = html.match(/<head(?:\s[^>]*)?>/i)
+  if (!headMatch) {
+    throw new Error('Static HTML is missing a <head> element')
+  }
+
+  const cspMeta = `<meta http-equiv="Content-Security-Policy" data-travelback-csp="static-export" content="${contentAttribute}"/>`
+  const withoutCsp = html.replace(globalCspMetaRegex, '')
+  return withoutCsp.replace(headMatch[0], `${headMatch[0]}${cspMeta}`)
 }
 
 /**
@@ -139,14 +148,25 @@ function replaceCspMeta(html, csp) {
  * hardening did not take effect, preventing deployment of weak CSP.
  */
 function assertStaticCspMeta(html, htmlFile) {
-  const match = html.match(CSP_META_REGEX)
-  if (!match) {
-    throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
+  const matches = html.match(new RegExp(CSP_META_REGEX.source, 'gi')) ?? []
+  if (matches.length !== 1) {
+    throw new Error(`Expected one hardened CSP meta tag in ${htmlFile}, found ${matches.length}`)
   }
 
-  const cspMeta = decodeHtmlEntities(match[0])
+  const cspMeta = decodeHtmlEntities(matches[0])
   if (cspMeta.includes('data-travelback-csp="placeholder"') || cspMeta.includes("script-src 'self' 'unsafe-inline'")) {
     throw new Error(`Refusing to publish HTML with placeholder script CSP in ${htmlFile}`)
+  }
+
+  const head = html.match(/<head(?:\s[^>]*)?>([\s\S]*?)<\/head>/i)
+  if (!head) {
+    throw new Error(`Static HTML is missing a complete <head> element in ${htmlFile}`)
+  }
+
+  const cspIndex = head[1].search(CSP_META_REGEX)
+  const activeContentIndex = head[1].search(ACTIVE_HEAD_CONTENT_REGEX)
+  if (cspIndex < 0 || (activeContentIndex >= 0 && cspIndex > activeContentIndex)) {
+    throw new Error(`CSP meta must precede active head content in ${htmlFile}`)
   }
 }
 

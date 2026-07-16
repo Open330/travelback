@@ -132,11 +132,29 @@ async function findChunkAssetUrl() {
   return appUrl(`/_next/static/chunks/${chunkFiles[0]}`)
 }
 
-async function assertStaticCspWasHardened() {
-  const html = await readFile(path.resolve(cwd, 'out', 'index.html'), 'utf8')
+async function findHtmlFiles(directory) {
+  const files = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const absolutePath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...await findHtmlFiles(absolutePath))
+    } else if (entry.isFile() && entry.name.endsWith('.html')) {
+      files.push(absolutePath)
+    }
+  }
+  return files
+}
+
+function assertStaticCspWasHardenedInHtml(html, htmlFile) {
+  const relativeFile = path.relative(cwd, htmlFile)
+  const cspTags = html.match(/<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/gi) ?? []
+  if (cspTags.length !== 1) {
+    throw new Error(`Expected one Content-Security-Policy meta tag in ${relativeFile}, found ${cspTags.length}`)
+  }
+
   const cspMatch = html.match(/<meta\s+http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/i)
   if (!cspMatch) {
-    throw new Error('Missing Content-Security-Policy meta tag in out/index.html')
+    throw new Error(`Missing hardened Content-Security-Policy meta tag in ${relativeFile}`)
   }
 
   const csp = cspMatch[1]
@@ -191,6 +209,27 @@ async function assertStaticCspWasHardened() {
   }
   if (!csp.includes("base-uri 'none'")) {
     throw new Error("Static CSP must declare base-uri 'none'")
+  }
+
+  const head = html.match(/<head(?:\s[^>]*)?>([\s\S]*?)<\/head>/i)
+  if (!head) {
+    throw new Error(`Missing complete head element in ${relativeFile}`)
+  }
+  const cspIndex = head[1].indexOf(cspTags[0])
+  const activeContentIndex = head[1].search(/<(?:script|style)\b|<link\b[^>]*\brel\s*=\s*(?:"[^"]*\b(?:stylesheet|modulepreload|preload)\b[^"]*"|'[^']*\b(?:stylesheet|modulepreload|preload)\b[^']*')/i)
+  if (cspIndex < 0 || (activeContentIndex >= 0 && cspIndex > activeContentIndex)) {
+    throw new Error(`Static CSP must precede active head content in ${relativeFile}`)
+  }
+}
+
+async function assertStaticCspWasHardened() {
+  const htmlFiles = await findHtmlFiles(path.resolve(cwd, 'out'))
+  if (htmlFiles.length === 0) {
+    throw new Error('No generated HTML files found for CSP validation')
+  }
+
+  for (const htmlFile of htmlFiles) {
+    assertStaticCspWasHardenedInHtml(await readFile(htmlFile, 'utf8'), htmlFile)
   }
 }
 
