@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle6-implementation-2026-07-17.md` — Active plan for 5 actionable findings covering Retry camera handoff, non-overlapping timeline controls, localized scene corrections, warning-free FileUpload test settlement, and accurate legacy Takeout guidance; no deployment is authorized
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle

@@ -17,6 +17,9 @@ archived into their respective cycle implementation plans once addressed.
 - User wording (verbatim): “지금 많은 tree 만들어져있는데 모두 잘 정리하고 마무리해 끝날때.”
 - Routing: ingest in the next cycle plan and retain as an end-of-run cleanup
   requirement. Do not interrupt the active implementation cycle.
+- Cycle 6 status: ingested into `cycle6-implementation-2026-07-17.md` and
+  retained for the loop's final stop condition. This item is not complete and
+  must remain durable across later cycles.
 - Scope: identify and remove only temporary worktrees, validation mirrors, and
   copied trees created by this review-plan-fix run. Preserve pre-existing/user
   worktrees and repository data. Perform cleanup only when the loop reaches its
@@ -28,5 +31,11 @@ archived into their respective cycle implementation plans once addressed.
   - `/tmp/travelback-cycle5-recovery.x0nOJV` (remove only if it still exists;
     the operating system may already have cleaned it automatically)
   - `/Users/hletrd/flash-shared/Travelback-cycle5-recovery.3ZvbIj`
+- Run-created validation mirrors/artifacts recorded during cycle 6:
+  - `/tmp/travelback-cycle6-browser.tMtY4J`
+  - `/tmp/travelback-cycle6-static.10O3N4`
+  - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-77834f04e42c1f49ba6c236505512ebd.log`
 - These paths are run-created only. Do not infer that similarly named or
   pre-existing trees are safe to remove.
+- No listed path is deleted during Cycle 6. Remove only at the loop's final
+  stop condition, after re-verifying provenance and primary-worktree health.
