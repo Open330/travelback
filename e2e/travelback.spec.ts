@@ -457,6 +457,14 @@ test.describe('Travelback App', () => {
     const androidLink = dialog.getByRole('link', { name: /Google 안내 열기: Android/ })
     await expect(iosLink).toHaveAttribute('href', /GENIE\.Platform%3DiOS&hl=ko$/)
     await expect(androidLink).toHaveAttribute('href', /GENIE\.Platform%3DAndroid&hl=ko$/)
+
+    const panel = dialog.getByRole('tabpanel')
+    await expect(panel.locator('svg')).toContainText('내 타임라인')
+    await expect(panel.locator('img')).toHaveCount(0)
+
+    await dialog.getByRole('tab', { name: 'Google Takeout' }).click()
+    await expect(panel.locator('svg')).toContainText('업로드')
+    await expect(panel.locator('img')).toHaveCount(0)
   })
 
 
