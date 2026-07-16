@@ -77,6 +77,7 @@ export default function ExportPanel({
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
   const panelOpenedRef = useRef(false)
+  const successHeadingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
@@ -204,6 +205,15 @@ export default function ExportPanel({
     }
   }, [])
 
+  useEffect(() => {
+    if (!isOpen || exportState !== 'done') return
+
+    const frame = requestAnimationFrame(() => {
+      successHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [isOpen, exportState])
+
   if (!isOpen) return null
 
   const platformTip = (() => {
@@ -245,7 +255,7 @@ export default function ExportPanel({
             <div className="export-checkmark mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'rgba(var(--gl),.15)' }}>
               <Check size={32} strokeWidth={2.5} style={{ color: 'rgb(var(--gl))' }} />
             </div>
-            <h4 className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>
+            <h4 ref={successHeadingRef} tabIndex={-1} className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>
               {downloadMethod === 'ready' ? t('export.ready') : t('export.success')}
             </h4>
             <p className="mb-4 text-sm" style={{ color: 'var(--t3)' }}>

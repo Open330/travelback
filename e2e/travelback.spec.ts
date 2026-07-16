@@ -1692,7 +1692,9 @@ test.describe('Travelback App', () => {
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     await expect(exportPanel).toBeVisible()
     await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
-    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
+    const successHeading = exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })
+    await expect(successHeading).toBeVisible({ timeout: 15_000 })
+    await expect(successHeading).toBeFocused()
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
