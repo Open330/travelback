@@ -475,20 +475,65 @@ test.describe('Travelback App', () => {
       .not.toContain('NaN')
   })
 
-  test('journey creator shows multiple travel icon options', async ({ page }) => {
-    const drawRouteBtn = page.getByRole('button', { name: /draw a route/i })
-    await expect(drawRouteBtn).toBeVisible({ timeout: 10_000 })
-    await drawRouteBtn.click({ force: true })
+  test('journey creator exposes 44px toggle icons at supported mobile widths', async ({ page }) => {
+    for (const width of [320, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('/')
+      await waitForApp(page)
+      const drawRouteBtn = page.getByRole('button', { name: /draw a route/i })
+      await expect(drawRouteBtn).toBeVisible({ timeout: 10_000 })
+      await drawRouteBtn.click({ force: true })
 
-    // Cycle r5 promoted the journey creator panel to role="region" with
-    // aria-labelledby; cycle r6 codifies that as a regression guard.
-    await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId('journey-icon-walk')).toHaveAttribute('aria-pressed', 'true')
 
-    await expect(page.getByTestId('journey-icon-walk')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByTestId('journey-icon-car')).toBeVisible()
-    await expect(page.getByTestId('journey-icon-plane')).toBeVisible()
-    await expect(page.getByTestId('journey-icon-bus')).toBeVisible()
-    await expect(page.getByTestId('journey-icon-train')).toBeVisible()
+      for (const id of ['walk', 'car', 'plane', 'bus', 'train', 'bike']) {
+        const icon = page.getByTestId(`journey-icon-${id}`)
+        await expect(icon).toBeVisible()
+        const box = await icon.boundingBox()
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+      }
+
+      await page.getByTestId('journey-icon-car').click()
+      await expect(page.getByTestId('journey-icon-car')).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByTestId('journey-icon-walk')).toHaveAttribute('aria-pressed', 'false')
+    }
+  })
+
+  test('journey creator uses an editable route name', async ({ page }) => {
+    await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    const panel = page.getByTestId('journey-creator-panel')
+    await page.getByTestId('journey-icon-car').click()
+    await page.getByTestId('journey-enable-search').click({ force: true })
+    const searchInput = panel.getByRole('combobox')
+
+    for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
+      await searchInput.fill(coordinates)
+      await searchInput.press('Enter')
+      await searchInput.press('ArrowDown')
+      await searchInput.press('Enter')
+    }
+
+    await panel.getByRole('button', { name: 'Done' }).click()
+    const nameInput = panel.getByRole('textbox', { name: 'Route name' })
+    await expect(nameInput).toHaveValue('Custom Journey')
+    await nameInput.fill('Bali 2026')
+    await panel.getByRole('button', { name: 'Create Route' }).click()
+    await expect(visibleTrackTitle(page, '🚗 Bali 2026')).toBeVisible({ timeout: 15_000 })
+
+    await page.getByTestId('track-toolbar').getByRole('button', { name: 'New Route', exact: true }).click()
+    await page.getByTestId('journey-enable-search').click({ force: true })
+    for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
+      await searchInput.fill(coordinates)
+      await searchInput.press('Enter')
+      await searchInput.press('ArrowDown')
+      await searchInput.press('Enter')
+    }
+    await panel.getByRole('button', { name: 'Done' }).click()
+    await panel.getByRole('textbox', { name: 'Route name' }).fill('   ')
+    await panel.getByRole('button', { name: 'Create Route' }).click()
+    await expect(visibleTrackTitle(page, '🚶 Custom Journey')).toBeVisible({ timeout: 15_000 })
   })
 
   test('journey creator coordinate jump stays local and accepts pasted coordinates', async ({ page }) => {
