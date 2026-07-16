@@ -1698,6 +1698,30 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
+  test('picker cancellation explains that the ready video is not saved yet', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: async () => {
+          throw new DOMException('Save cancelled', 'AbortError')
+        },
+      })
+    })
+    await page.reload()
+    await waitForApp(page)
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+
+    await expect(exportPanel.getByRole('heading', { name: 'Video ready' })).toBeVisible({ timeout: 15_000 })
+    await expect(exportPanel.getByText(/has not been saved yet/i)).toBeVisible()
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible()
+    await expect(exportPanel.getByText(/find the MP4 in (Downloads|Files)/i)).toHaveCount(0)
+  })
+
   test('share reports when the actual exported MP4 is unsupported', async ({ page }) => {
     await page.addInitScript(() => {
       const shareWindow = window as Window & { __travelbackShareCalls?: number }

@@ -35,6 +35,27 @@ describe('i18n locale key parity', () => {
     expect(translations.ja['journey.addOneMore']).toBe('ルートを作成するには、もう1ポイント追加してください')
     expect(translations.zh['export.estimatedTime']).toBe('预计时间:')
   })
+
+  it('uses concise estimated-time labels in every locale', () => {
+    expect(locales.map((locale) => translations[locale]['export.estimatedTime'])).toEqual([
+      'Estimated time:',
+      '예상 소요 시간:',
+      '所要時間の目安:',
+      '预计时间:',
+      'Tiempo estimado:',
+    ])
+  })
+
+  it('tells users when a ready video still needs to be saved', () => {
+    for (const locale of locales) {
+      expect(translations[locale]['export.readyDescription']).not.toMatch(/export again|다시 내보|もう一度エクスポート|再次导出|exporta de nuevo/i)
+    }
+    expect(translations.en['export.readyDescription']).toContain('not been saved')
+    expect(translations.ko['export.readyDescription']).toContain('아직 저장되지 않았습니다')
+    expect(translations.ja['export.readyDescription']).toContain('まだ保存されていません')
+    expect(translations.zh['export.readyDescription']).toContain('尚未保存')
+    expect(translations.es['export.readyDescription']).toContain('aún no se ha guardado')
+  })
 })
 
 describe('t()', () => {

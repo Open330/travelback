@@ -360,13 +360,26 @@ export async function downloadVideo(url: string, filename: string, blob: Blob): 
   return { saved: false, method: 'fallback' }
 }
 
-/** Check if a codec is supported in the current browser */
-export async function isCodecSupported(codec: AppVideoCodec): Promise<boolean> {
+export interface CodecProbeConfig {
+  width: number
+  height: number
+  bitrateMbps: number
+}
+
+/** Check whether the browser can encode the selected export configuration. */
+export async function isCodecSupported(
+  codec: AppVideoCodec,
+  config: CodecProbeConfig,
+): Promise<boolean> {
   try {
-    const { canEncode } = await import('mediabunny')
-    return canEncode(toMediabunnyCodec(codec))
+    const { canEncodeVideo } = await import('mediabunny')
+    return canEncodeVideo(toMediabunnyCodec(codec), {
+      width: config.width,
+      height: config.height,
+      bitrate: config.bitrateMbps * 1_000_000,
+    })
   } catch (err) {
-    // Surface dynamic-import / canEncode failures to devtools so a CSP or network
+    // Surface dynamic-import / canEncodeVideo failures to devtools so a CSP or network
     // block on the mediabunny module can be distinguished from an unsupported codec.
     console.debug('[Travelback] codec probe failed:', err instanceof Error ? err.message : String(err))
     return false

@@ -33,6 +33,11 @@ function clampExportDuration(value: number): number {
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
 
+interface CodecSupportState {
+  configKey: string | null
+  results: Record<VideoCodec, boolean | null>
+}
+
 interface ExportPanelProps {
   isOpen: boolean
   onClose: () => void
@@ -91,12 +96,19 @@ export default function ExportPanel({
   }, [isOpen, playbackDuration])
   const [quality, setQuality] = useState<string>('high')
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [codecSupport, setCodecSupport] = useState<Record<VideoCodec, boolean | null>>(initialCodecSupport)
+  const [codecSupport, setCodecSupport] = useState<CodecSupportState>({
+    configKey: null,
+    results: initialCodecSupport,
+  })
 
   const selectedResolution = RESOLUTION_PRESETS[resolutionIdx] ?? RESOLUTION_PRESETS[0]
   const bitrate = QUALITY_MAP[quality] ?? 8
   const safeDuration = clampExportDuration(duration)
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
+  const codecConfigKey = `${selectedResolution.width}x${selectedResolution.height}@${safeBitrate}`
+  const currentCodecSupport = codecSupport.configKey === codecConfigKey
+    ? codecSupport.results
+    : initialCodecSupport
   const estimatedOutputBytes = estimateEncodedBytes(safeDuration, safeBitrate)
   const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
   const estimatedMemoryBytes = estimateExportMemoryBytes({
@@ -108,29 +120,47 @@ export default function ExportPanel({
   const estimatedMemoryMb = estimatedMemoryBytes / 1024 / 1024
   const localExportTestStubEnabled = isLocalExportTestStubEnabled()
   const exportTooLarge = estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES || estimatedMemoryBytes > MAX_IN_MEMORY_EXPORT_BYTES
-  const codecStatus = codecSupport[codec]
+  const codecStatus = currentCodecSupport[codec]
   const codecPending = codecStatus == null && !localExportTestStubEnabled
   const codecUnavailable = codecStatus === false && !localExportTestStubEnabled
   const canStartExport = !codecPending && !codecUnavailable && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const clearTouchStart = useCallback(() => {
+    touchStartRef.current = null
+  }, [])
+  const handleClose = useCallback(() => {
+    clearTouchStart()
+    onClose()
+  }, [clearTouchStart, onClose])
+  useEffect(() => {
+    if (!isOpen) clearTouchStart()
+    return clearTouchStart
+  }, [clearTouchStart, isOpen])
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!(e.target as HTMLElement | null)?.closest('[data-export-swipe-handle="true"]')) {
-      touchStartRef.current = null
+    const touch = e.touches[0]
+    if (
+      isExporting
+      || !touch
+      || !(e.target as HTMLElement | null)?.closest('[data-export-swipe-handle="true"]')
+    ) {
+      clearTouchStart()
       return
     }
-    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }, [])
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }, [clearTouchStart, isExporting])
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current || isExporting) return
-    const dy = e.changedTouches[0].clientY - touchStartRef.current.y
-    const dx = e.changedTouches[0].clientX - touchStartRef.current.x
-    touchStartRef.current = null
+    const touchStart = touchStartRef.current
+    const touch = e.changedTouches[0]
+    clearTouchStart()
+    if (!touchStart || !touch || isExporting) return
+    const dy = touch.clientY - touchStart.y
+    const dx = touch.clientX - touchStart.x
     // Require vertical-dominant swipe to dismiss: horizontal component must be
     // less than 30% of vertical component. This prevents accidental dismissal
     // when the user is scrolling the panel content on small viewports.
-    if (dy > 80 && Math.abs(dx) < Math.abs(dy) * 0.3) onClose()
-  }, [onClose, isExporting])
+    if (dy > 80 && Math.abs(dx) < Math.abs(dy) * 0.3) handleClose()
+  }, [clearTouchStart, handleClose, isExporting])
 
   const resScale = (() => {
     const px = selectedResolution.width * selectedResolution.height
@@ -151,7 +181,11 @@ export default function ExportPanel({
       const entries = await Promise.all(
         codecs.map(async (c) => {
           try {
-            return [c, await isCodecSupported(c)] as const
+            return [c, await isCodecSupported(c, {
+              width: selectedResolution.width,
+              height: selectedResolution.height,
+              bitrateMbps: safeBitrate,
+            })] as const
           } catch {
             return [c, false] as const
           }
@@ -159,12 +193,12 @@ export default function ExportPanel({
       )
       const results = Object.fromEntries(entries) as Record<VideoCodec, boolean>
       if (!cancelled) {
-        setCodecSupport(results)
+        setCodecSupport({ configKey: codecConfigKey, results })
       }
     }
     checkAll()
     return () => { cancelled = true }
-  }, [isOpen])
+  }, [codecConfigKey, isOpen, safeBitrate, selectedResolution.height, selectedResolution.width])
 
   const handleExport = useCallback(() => {
     if (!canStartExport) return
@@ -226,13 +260,13 @@ export default function ExportPanel({
   return (
     <ModalDialog
       open={isOpen}
-      onClose={isExporting ? () => undefined : onClose}
+      onClose={isExporting ? clearTouchStart : handleClose}
       labelledBy="export-panel-title"
       overlayClassName="z-30 flex items-center justify-center bg-black/35 backdrop-blur-md"
       panelClassName="go mx-4 w-full max-w-md max-h-[min(90vh,42rem)] overflow-y-auto p-6"
       closeOnBackdrop={!isExporting}
     >
-      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} data-disable-playback-hotkeys="true">
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={clearTouchStart} data-disable-playback-hotkeys="true">
         <div className="mb-6 flex items-center justify-between gap-4" data-export-swipe-handle="true">
           <h3 id="export-panel-title" className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
             {t('export.title')}
@@ -240,7 +274,7 @@ export default function ExportPanel({
           {!isExporting && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label={t('app.closePanel')}
               className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t4)' }}
@@ -272,9 +306,11 @@ export default function ExportPanel({
               </div>
             )}
 
-            <div className="gi mb-4 p-3 text-left text-xs" style={{ borderRadius: '10px', color: 'var(--t3)' }}>
-              💡 {platformTip}
-            </div>
+            {downloadMethod !== 'ready' && (
+              <div className="gi mb-4 p-3 text-left text-xs" style={{ borderRadius: '10px', color: 'var(--t3)' }}>
+                💡 {platformTip}
+              </div>
+            )}
 
             <div className="flex flex-col gap-2 sm:flex-row">
               {exportedVideoUrl && (
@@ -398,8 +434,8 @@ export default function ExportPanel({
                     <label htmlFor={codecId} className="vitro-label mb-1 block text-sm font-medium">{t('export.codec')}</label>
                     <select id={codecId} value={codec} onChange={e => setCodec(e.target.value as VideoCodec)} className="vitro-select min-h-11 w-full px-3 py-2 text-sm">
                       {(Object.entries(CODEC_LABELS) as [VideoCodec, string][]).map(([k]) => (
-                        <option key={k} value={k} disabled={codecSupport[k] === false}>
-                          {t(`codec.${k}Desc` as 'codec.h264Desc' | 'codec.h265Desc' | 'codec.av1Desc')}{codecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
+                        <option key={k} value={k} disabled={currentCodecSupport[k] === false}>
+                          {t(`codec.${k}Desc` as 'codec.h264Desc' | 'codec.h265Desc' | 'codec.av1Desc')}{currentCodecSupport[k] === false ? ` ${t('export.unsupported')}` : ''}
                         </option>
                       ))}
                     </select>

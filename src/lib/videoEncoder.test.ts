@@ -8,6 +8,7 @@ import {
   estimateEncodedBytes,
   estimateExportMemoryBytes,
   exportVideo,
+  isCodecSupported,
 } from './videoEncoder'
 
 const mediabunny = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const mediabunny = vi.hoisted(() => ({
   finalize: vi.fn<() => Promise<void>>(),
   cancel: vi.fn<() => Promise<void>>(),
   addFrame: vi.fn<() => Promise<void>>(),
+  canEncodeVideo: vi.fn<() => Promise<boolean>>(),
   targetBuffer: new ArrayBuffer(8) as ArrayBuffer | null,
   sourceConfigs: [] as unknown[],
   samples: [] as Array<{
@@ -26,6 +28,7 @@ const mediabunny = vi.hoisted(() => ({
 }))
 
 vi.mock('mediabunny', () => ({
+  canEncodeVideo: mediabunny.canEncodeVideo,
   BufferTarget: class BufferTarget {
     buffer = mediabunny.targetBuffer
   },
@@ -119,6 +122,7 @@ beforeEach(() => {
   mediabunny.finalize.mockReset().mockResolvedValue()
   mediabunny.cancel.mockReset().mockResolvedValue()
   mediabunny.addFrame.mockReset().mockResolvedValue()
+  mediabunny.canEncodeVideo.mockReset().mockResolvedValue(true)
   mediabunny.targetBuffer = new ArrayBuffer(8)
   mediabunny.sourceConfigs.length = 0
   mediabunny.samples.length = 0
@@ -142,6 +146,22 @@ describe('ExportError', () => {
     expect(err.message).toBe('test message')
     expect(err).toBeInstanceOf(Error)
     expect(err).toBeInstanceOf(ExportError)
+  })
+})
+
+describe('isCodecSupported', () => {
+  it('checks the selected codec, dimensions, and bitrate', async () => {
+    await expect(isCodecSupported('h264', {
+      width: 1080,
+      height: 1920,
+      bitrateMbps: 8,
+    })).resolves.toBe(true)
+
+    expect(mediabunny.canEncodeVideo).toHaveBeenCalledWith('avc', {
+      width: 1080,
+      height: 1920,
+      bitrate: 8_000_000,
+    })
   })
 })
 
