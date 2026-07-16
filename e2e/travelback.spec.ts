@@ -459,12 +459,13 @@ test.describe('Travelback App', () => {
     await expect(androidLink).toHaveAttribute('href', /GENIE\.Platform%3DAndroid&hl=ko$/)
 
     const panel = dialog.getByRole('tabpanel')
-    await expect(panel.locator('svg')).toContainText('내 타임라인')
+    const illustration = panel.locator('svg').first()
+    await expect(illustration).toContainText('내 타임라인')
     await expect(panel.locator('img')).toHaveCount(0)
     await expect(dialog).toContainText('JSON 파일은 최대 100MB, GPX/KML 파일은 최대 4MB')
 
     await dialog.getByRole('tab', { name: 'Google Takeout' }).click()
-    await expect(panel.locator('svg')).toContainText('업로드')
+    await expect(illustration).toContainText('업로드')
     await expect(panel.locator('img')).toHaveCount(0)
   })
 
@@ -570,6 +571,8 @@ test.describe('Travelback App', () => {
 
     const expectInternalFocus = async (button: Locator) => {
       await button.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Tab')
       await expect(button).toBeFocused()
       const focusState = await button.evaluate((element) => ({
         boxShadow: getComputedStyle(element).boxShadow,
