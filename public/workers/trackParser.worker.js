@@ -11,12 +11,19 @@
     budget.used += nextCount;
   }
   function parseOptionalNumber(value) {
-    if (value == null || typeof value == "string" && value.trim() === "") return;
-    let parsed = typeof value == "number" ? value : Number(value);
+    if (typeof value == "number")
+      return Number.isFinite(value) ? value : void 0;
+    if (typeof value != "string" || value.trim() === "") return;
+    let parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : void 0;
   }
   function parseOptionalDate(value) {
-    if (value == null || value === "") return;
+    if (typeof value == "number") {
+      if (!Number.isFinite(value)) return;
+    } else if (typeof value == "string") {
+      if (value.trim() === "") return;
+    } else
+      return;
     let parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? void 0 : parsed;
   }
@@ -35,14 +42,19 @@
   function e7(v) {
     return v / 1e7;
   }
+  function asRecord(value) {
+    if (!(typeof value != "object" || value === null || Array.isArray(value)))
+      return value;
+  }
   function gTime(ts, tsMs) {
-    if (ts) return parseOptionalDate(ts);
-    if (tsMs) return parseOptionalDate(Number(tsMs));
+    let timestamp = parseOptionalDate(ts);
+    if (timestamp) return timestamp;
+    let timestampMs = parseOptionalNumber(tsMs);
+    return timestampMs == null ? void 0 : parseOptionalDate(timestampMs);
   }
   function looksLikeGoogleLocationRecord(value) {
-    if (typeof value != "object" || value === null) return !1;
-    let candidate = value;
-    return "latitude" in candidate || "longitude" in candidate || "latitudeE7" in candidate || "longitudeE7" in candidate;
+    let candidate = asRecord(value);
+    return candidate ? "latitude" in candidate || "longitude" in candidate || "latitudeE7" in candidate || "longitudeE7" in candidate : !1;
   }
   function pushE7(out, budget, latE7, lngE7, ts, tsMs, alt) {
     let parsedLatE7 = parseOptionalNumber(latE7), parsedLngE7 = parseOptionalNumber(lngE7);
@@ -52,7 +64,9 @@
   }
   function parseRecords(locations, budget) {
     let out = [];
-    for (let loc of locations) {
+    for (let value of locations) {
+      let loc = asRecord(value);
+      if (!loc) continue;
       let latE7 = parseOptionalNumber(loc.latitudeE7), lngE7 = parseOptionalNumber(loc.longitudeE7), lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : void 0), lng = parseOptionalNumber(loc.longitude) ?? (lngE7 != null ? e7(lngE7) : void 0);
       lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (consumePointBudget(budget), out.push({
         lat,
@@ -65,27 +79,33 @@
   }
   function parseTimelineObjects(objects, budget) {
     let segments = [];
-    for (let obj of objects) {
-      let seg = obj.activitySegment, visit = obj.placeVisit, currentSegment = [];
+    for (let value of objects) {
+      let obj = asRecord(value);
+      if (!obj) continue;
+      let seg = asRecord(obj.activitySegment), visit = asRecord(obj.placeVisit), currentSegment = [];
       if (seg) {
-        let rawPath = seg.simplifiedRawPath;
+        let rawPath = asRecord(seg.simplifiedRawPath);
         if (rawPath && Array.isArray(rawPath.points))
-          for (let pt of rawPath.points)
-            pushE7(currentSegment, budget, pt.latE7, pt.lngE7, pt.timestamp);
+          for (let value2 of rawPath.points) {
+            let point = asRecord(value2);
+            point && pushE7(currentSegment, budget, point.latE7, point.lngE7, point.timestamp);
+          }
         else {
-          let wpPath = seg.waypointPath;
+          let wpPath = asRecord(seg.waypointPath);
           if (wpPath && Array.isArray(wpPath.waypoints))
-            for (let wp of wpPath.waypoints)
-              pushE7(currentSegment, budget, wp.latE7, wp.lngE7);
+            for (let value2 of wpPath.waypoints) {
+              let waypoint = asRecord(value2);
+              waypoint && pushE7(currentSegment, budget, waypoint.latE7, waypoint.lngE7);
+            }
           else {
-            let dur = seg.duration, start = seg.startLocation, end = seg.endLocation;
-            start && pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, dur?.startTimestamp), end && pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, dur?.endTimestamp);
+            let duration = asRecord(seg.duration), start = asRecord(seg.startLocation), end = asRecord(seg.endLocation);
+            start && pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp), end && pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp);
           }
         }
       }
       if (visit) {
-        let dur = visit.duration, loc = visit.location;
-        loc ? pushE7(currentSegment, budget, loc.latitudeE7, loc.longitudeE7, dur?.startTimestamp) : visit.centerLatE7 != null && visit.centerLngE7 != null && pushE7(currentSegment, budget, visit.centerLatE7, visit.centerLngE7, dur?.startTimestamp);
+        let duration = asRecord(visit.duration), loc = asRecord(visit.location);
+        loc ? pushE7(currentSegment, budget, loc.latitudeE7, loc.longitudeE7, duration?.startTimestamp) : visit.centerLatE7 != null && visit.centerLngE7 != null && pushE7(currentSegment, budget, visit.centerLatE7, visit.centerLngE7, duration?.startTimestamp);
       }
       currentSegment.length > 0 && segments.push(currentSegment);
     }
@@ -93,14 +113,16 @@
   }
   function parseTimelineEdits(edits, budget) {
     let out = [];
-    for (let edit of edits) {
-      let raw = edit.rawSignal;
+    for (let value of edits) {
+      let edit = asRecord(value);
+      if (!edit) continue;
+      let raw = asRecord(edit.rawSignal);
       if (!raw) continue;
-      let signal = raw.signal;
+      let signal = asRecord(raw.signal);
       if (!signal) continue;
-      let pos = signal.position;
+      let pos = asRecord(signal.position);
       if (!pos) continue;
-      let pt = pos.point;
+      let pt = asRecord(pos.point);
       pt && pushE7(out, budget, pt.latE7, pt.lngE7, pos.timestamp, void 0, pos.altitudeMeters);
     }
     return out;
@@ -114,26 +136,30 @@
   }
   function parseSemanticSegments(segments, budget) {
     let outSegments = [];
-    for (let seg of segments) {
+    for (let value of segments) {
+      let seg = asRecord(value);
+      if (!seg) continue;
       let pathSegment = [];
       if (Array.isArray(seg.timelinePath))
-        for (let pt of seg.timelinePath) {
-          let point = parseSemanticPoint(pt.point);
+        for (let value2 of seg.timelinePath) {
+          let pathPoint = asRecord(value2);
+          if (!pathPoint) continue;
+          let point = parseSemanticPoint(pathPoint.point);
           point && (consumePointBudget(budget), pathSegment.push({
             ...point,
-            time: gTime(pt.timestamp)
+            time: gTime(pathPoint.timestamp)
           }));
         }
       pathSegment.length > 0 && outSegments.push(pathSegment);
-      let visitSegment = [], visit = seg.visit;
+      let visitSegment = [], visit = asRecord(seg.visit);
       if (visit) {
-        let placeLoc = visit.topCandidate?.placeLocation;
-        if (placeLoc?.latLng) {
-          let m = placeLoc.latLng.match(/([-\d.]+)[°]?,\s*([-\d.]+)/);
+        let top = asRecord(visit.topCandidate), latLng = asRecord(top?.placeLocation)?.latLng;
+        if (typeof latLng == "string") {
+          let m = latLng.match(/([-\d.]+)[°]?,\s*([-\d.]+)/);
           if (m) {
-            let dur = seg.startTime, lat = parseOptionalNumber(m[1]), lng = parseOptionalNumber(m[2]);
+            let lat = parseOptionalNumber(m[1]), lng = parseOptionalNumber(m[2]);
             if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
-            consumePointBudget(budget), visitSegment.push({ lat, lng, time: gTime(dur) });
+            consumePointBudget(budget), visitSegment.push({ lat, lng, time: gTime(seg.startTime) });
           }
         }
       }
@@ -206,23 +232,23 @@
     }
     if (parsed === null || typeof parsed != "object")
       throw new ParseError("Unsupported Google Location History format", "UNSUPPORTED_GOOGLE_FORMAT");
-    let data = parsed, segments = [], budget = createPointBudget(maxPoints), recognizedFormat = !1;
+    let data = parsed, root = asRecord(data), segments = [], budget = createPointBudget(maxPoints), recognizedFormat = !1;
     if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
       recognizedFormat = !0;
       let records = parseRecords(data, budget);
       records.length > 0 && segments.push(records);
     }
-    if (!Array.isArray(data) && Array.isArray(data.locations)) {
+    if (root && Array.isArray(root.locations)) {
       recognizedFormat = !0;
-      let records = parseRecords(data.locations, budget);
+      let records = parseRecords(root.locations, budget);
       records.length > 0 && segments.push(records);
     }
-    if (!Array.isArray(data) && Array.isArray(data.timelineObjects) && (recognizedFormat = !0, segments.push(...parseTimelineObjects(data.timelineObjects, budget))), !Array.isArray(data) && Array.isArray(data.timelineEdits)) {
+    if (root && Array.isArray(root.timelineObjects) && (recognizedFormat = !0, segments.push(...parseTimelineObjects(root.timelineObjects, budget))), root && Array.isArray(root.timelineEdits)) {
       recognizedFormat = !0;
-      let edits = parseTimelineEdits(data.timelineEdits, budget);
+      let edits = parseTimelineEdits(root.timelineEdits, budget);
       edits.length > 0 && segments.push(edits);
     }
-    if (!Array.isArray(data) && Array.isArray(data.semanticSegments) && (recognizedFormat = !0, segments.push(...parseSemanticSegments(data.semanticSegments, budget))), !recognizedFormat)
+    if (root && Array.isArray(root.semanticSegments) && (recognizedFormat = !0, segments.push(...parseSemanticSegments(root.semanticSegments, budget))), !recognizedFormat)
       throw new ParseError("Unsupported Google Location History format", "UNSUPPORTED_GOOGLE_FORMAT");
     let { points, segmentStartIndices } = flattenGoogleSegments(segments);
     return {

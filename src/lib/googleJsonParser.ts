@@ -21,16 +21,22 @@ export { ParseError }
 // Helper: E7 coordinate → decimal degrees
 function e7(v: number): number { return v / 1e7 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
 // Helper: parse timestamp from various Google formats
-function gTime(ts?: string, tsMs?: string): Date | undefined {
-  if (ts) return parseOptionalDate(ts)
-  if (tsMs) return parseOptionalDate(Number(tsMs))
-  return undefined
+function gTime(ts?: unknown, tsMs?: unknown): Date | undefined {
+  const timestamp = parseOptionalDate(ts)
+  if (timestamp) return timestamp
+  const timestampMs = parseOptionalNumber(tsMs)
+  return timestampMs == null ? undefined : parseOptionalDate(timestampMs)
 }
 
 function looksLikeGoogleLocationRecord(value: unknown): boolean {
-  if (typeof value !== 'object' || value === null) return false
-  const candidate = value as Record<string, unknown>
+  const candidate = asRecord(value)
+  if (!candidate) return false
   return (
     'latitude' in candidate
     || 'longitude' in candidate
@@ -41,8 +47,8 @@ function looksLikeGoogleLocationRecord(value: unknown): boolean {
 
 // Helper: push a point only when lat/lng are valid
 function pushE7(
-  out: TrackPoint[], budget: PointBudget, latE7?: number, lngE7?: number,
-  ts?: string, tsMs?: string, alt?: number,
+  out: TrackPoint[], budget: PointBudget, latE7?: unknown, lngE7?: unknown,
+  ts?: unknown, tsMs?: unknown, alt?: unknown,
 ) {
   const parsedLatE7 = parseOptionalNumber(latE7)
   const parsedLngE7 = parseOptionalNumber(lngE7)
@@ -57,9 +63,11 @@ function pushE7(
 /* ---------- Format 1: Records.json / Location History.json --------- */
 type TrackSegment = TrackPoint[]
 
-function parseRecords(locations: Record<string, unknown>[], budget: PointBudget): TrackSegment {
+function parseRecords(locations: unknown[], budget: PointBudget): TrackSegment {
   const out: TrackPoint[] = []
-  for (const loc of locations) {
+  for (const value of locations) {
+    const loc = asRecord(value)
+    if (!loc) continue
     const latE7 = parseOptionalNumber(loc.latitudeE7)
     const lngE7 = parseOptionalNumber(loc.longitudeE7)
     const lat = parseOptionalNumber(loc.latitude) ?? (latE7 != null ? e7(latE7) : undefined)
@@ -69,7 +77,7 @@ function parseRecords(locations: Record<string, unknown>[], budget: PointBudget)
     out.push({
       lat, lng,
       ele: parseOptionalNumber(loc.altitude),
-      time: gTime(loc.timestamp as string | undefined, loc.timestampMs as string | undefined),
+      time: gTime(loc.timestamp, loc.timestampMs),
     })
   }
   return out
@@ -77,45 +85,51 @@ function parseRecords(locations: Record<string, unknown>[], budget: PointBudget)
 
 /* ---------- Format 2: Semantic Location History (monthly) ---------- */
 // { timelineObjects: [{ activitySegment | placeVisit }] }
-function parseTimelineObjects(objects: Record<string, unknown>[], budget: PointBudget): TrackSegment[] {
+function parseTimelineObjects(objects: unknown[], budget: PointBudget): TrackSegment[] {
   const segments: TrackSegment[] = []
-  for (const obj of objects) {
-    const seg = obj.activitySegment as Record<string, unknown> | undefined
-    const visit = obj.placeVisit as Record<string, unknown> | undefined
+  for (const value of objects) {
+    const obj = asRecord(value)
+    if (!obj) continue
+    const seg = asRecord(obj.activitySegment)
+    const visit = asRecord(obj.placeVisit)
     const currentSegment: TrackPoint[] = []
 
     if (seg) {
       // Best data: simplifiedRawPath.points[]
-      const rawPath = seg.simplifiedRawPath as Record<string, unknown> | undefined
+      const rawPath = asRecord(seg.simplifiedRawPath)
       if (rawPath && Array.isArray(rawPath.points)) {
-        for (const pt of rawPath.points as Record<string, unknown>[]) {
-          pushE7(currentSegment, budget, pt.latE7 as number, pt.lngE7 as number, pt.timestamp as string)
+        for (const value of rawPath.points) {
+          const point = asRecord(value)
+          if (!point) continue
+          pushE7(currentSegment, budget, point.latE7, point.lngE7, point.timestamp)
         }
       } else {
         // Fallback: waypointPath.waypoints[]
-        const wpPath = seg.waypointPath as Record<string, unknown> | undefined
+        const wpPath = asRecord(seg.waypointPath)
         if (wpPath && Array.isArray(wpPath.waypoints)) {
-          for (const wp of wpPath.waypoints as Record<string, unknown>[]) {
-            pushE7(currentSegment, budget, wp.latE7 as number, wp.lngE7 as number)
+          for (const value of wpPath.waypoints) {
+            const waypoint = asRecord(value)
+            if (!waypoint) continue
+            pushE7(currentSegment, budget, waypoint.latE7, waypoint.lngE7)
           }
         } else {
           // Last resort: startLocation + endLocation
-          const dur = seg.duration as Record<string, unknown> | undefined
-          const start = seg.startLocation as Record<string, unknown> | undefined
-          const end = seg.endLocation as Record<string, unknown> | undefined
-          if (start) pushE7(currentSegment, budget, start.latitudeE7 as number, start.longitudeE7 as number, dur?.startTimestamp as string)
-          if (end) pushE7(currentSegment, budget, end.latitudeE7 as number, end.longitudeE7 as number, dur?.endTimestamp as string)
+          const duration = asRecord(seg.duration)
+          const start = asRecord(seg.startLocation)
+          const end = asRecord(seg.endLocation)
+          if (start) pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp)
+          if (end) pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp)
         }
       }
     }
 
     if (visit) {
-      const dur = visit.duration as Record<string, unknown> | undefined
-      const loc = visit.location as Record<string, unknown> | undefined
+      const duration = asRecord(visit.duration)
+      const loc = asRecord(visit.location)
       if (loc) {
-        pushE7(currentSegment, budget, loc.latitudeE7 as number, loc.longitudeE7 as number, dur?.startTimestamp as string)
+        pushE7(currentSegment, budget, loc.latitudeE7, loc.longitudeE7, duration?.startTimestamp)
       } else if (visit.centerLatE7 != null && visit.centerLngE7 != null) {
-        pushE7(currentSegment, budget, visit.centerLatE7 as number, visit.centerLngE7 as number, dur?.startTimestamp as string)
+        pushE7(currentSegment, budget, visit.centerLatE7, visit.centerLngE7, duration?.startTimestamp)
       }
     }
     if (currentSegment.length > 0) segments.push(currentSegment)
@@ -125,18 +139,20 @@ function parseTimelineObjects(objects: Record<string, unknown>[], budget: PointB
 
 /* ---------- Format 3: Timeline Edits.json -------------------------- */
 // { timelineEdits: [{ rawSignal: { signal: { position: { point, timestamp } } } }] }
-function parseTimelineEdits(edits: Record<string, unknown>[], budget: PointBudget): TrackSegment {
+function parseTimelineEdits(edits: unknown[], budget: PointBudget): TrackSegment {
   const out: TrackPoint[] = []
-  for (const edit of edits) {
-    const raw = edit.rawSignal as Record<string, unknown> | undefined
+  for (const value of edits) {
+    const edit = asRecord(value)
+    if (!edit) continue
+    const raw = asRecord(edit.rawSignal)
     if (!raw) continue
-    const signal = raw.signal as Record<string, unknown> | undefined
+    const signal = asRecord(raw.signal)
     if (!signal) continue
-    const pos = signal.position as Record<string, unknown> | undefined
+    const pos = asRecord(signal.position)
     if (!pos) continue
-    const pt = pos.point as Record<string, unknown> | undefined
+    const pt = asRecord(pos.point)
     if (!pt) continue
-    pushE7(out, budget, pt.latE7 as number, pt.lngE7 as number, pos.timestamp as string, undefined, pos.altitudeMeters as number)
+    pushE7(out, budget, pt.latE7, pt.lngE7, pos.timestamp, undefined, pos.altitudeMeters)
   }
   return out
 }
@@ -153,20 +169,24 @@ function parseSemanticPoint(value: unknown): TrackPoint | null {
 
 /* ---------- Format 4: semanticSegments (phone export) -------------- */
 // { semanticSegments: [{ timelinePath | visit }] }
-function parseSemanticSegments(segments: Record<string, unknown>[], budget: PointBudget): TrackSegment[] {
+function parseSemanticSegments(segments: unknown[], budget: PointBudget): TrackSegment[] {
   const outSegments: TrackSegment[] = []
-  for (const seg of segments) {
+  for (const value of segments) {
+    const seg = asRecord(value)
+    if (!seg) continue
     const pathSegment: TrackPoint[] = []
 
     // timelinePath: [{ point: "geo:lat,lng", timestamp }]
     if (Array.isArray(seg.timelinePath)) {
-      for (const pt of seg.timelinePath as Record<string, unknown>[]) {
-        const point = parseSemanticPoint(pt.point)
+      for (const value of seg.timelinePath) {
+        const pathPoint = asRecord(value)
+        if (!pathPoint) continue
+        const point = parseSemanticPoint(pathPoint.point)
         if (!point) continue
         consumePointBudget(budget)
         pathSegment.push({
           ...point,
-          time: gTime(pt.timestamp as string),
+          time: gTime(pathPoint.timestamp),
         })
       }
     }
@@ -177,34 +197,25 @@ function parseSemanticSegments(segments: Record<string, unknown>[], budget: Poin
 
     // visit: { topCandidate: { placeLocation: { latLng: "lat°, lng°" } } }
     const visitSegment: TrackPoint[] = []
-    const visit = seg.visit as Record<string, unknown> | undefined
+    const visit = asRecord(seg.visit)
     if (visit) {
-      const top = visit.topCandidate as Record<string, unknown> | undefined
-      const placeLoc = top?.placeLocation as Record<string, unknown> | undefined
-      if (placeLoc?.latLng) {
-        const m = (placeLoc.latLng as string).match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
+      const top = asRecord(visit.topCandidate)
+      const placeLoc = asRecord(top?.placeLocation)
+      const latLng = placeLoc?.latLng
+      if (typeof latLng === 'string') {
+        const m = latLng.match(/([-\d.]+)[°]?,\s*([-\d.]+)/)
         if (m) {
-          const dur = seg.startTime as string | undefined
           const lat = parseOptionalNumber(m[1])
           const lng = parseOptionalNumber(m[2])
           if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue
           consumePointBudget(budget)
-          visitSegment.push({ lat, lng, time: gTime(dur) })
+          visitSegment.push({ lat, lng, time: gTime(seg.startTime) })
         }
       }
     }
     if (visitSegment.length > 0) outSegments.push(visitSegment)
   }
   return outSegments
-}
-
-/* ---------- Google JSON shape -------------------------------------- */
-interface GoogleLocationData {
-  locations?: Record<string, unknown>[]
-  timelineObjects?: Record<string, unknown>[]
-  timelineEdits?: Record<string, unknown>[]
-  semanticSegments?: Record<string, unknown>[]
-  [key: string]: unknown
 }
 
 /* ---------- Main dispatcher ---------------------------------------- */
@@ -330,7 +341,8 @@ export function parseGoogleLocationHistory(text: string, maxPoints?: number): Tr
   if (parsed === null || typeof parsed !== 'object') {
     throw new ParseError('Unsupported Google Location History format', 'UNSUPPORTED_GOOGLE_FORMAT')
   }
-  const data = parsed as GoogleLocationData | Record<string, unknown>[]
+  const data = parsed
+  const root = asRecord(data)
   const segments: TrackSegment[] = []
   const budget = createPointBudget(maxPoints)
   let recognizedFormat = false
@@ -345,26 +357,26 @@ export function parseGoogleLocationHistory(text: string, maxPoints?: number): Tr
     if (records.length > 0) segments.push(records)
   }
   // Records.json / Location History.json: { locations: [...] }
-  if (!Array.isArray(data) && Array.isArray(data.locations)) {
+  if (root && Array.isArray(root.locations)) {
     recognizedFormat = true
-    const records = parseRecords(data.locations, budget)
+    const records = parseRecords(root.locations, budget)
     if (records.length > 0) segments.push(records)
   }
   // Semantic Location History (monthly): { timelineObjects: [...] }
-  if (!Array.isArray(data) && Array.isArray(data.timelineObjects)) {
+  if (root && Array.isArray(root.timelineObjects)) {
     recognizedFormat = true
-    segments.push(...parseTimelineObjects(data.timelineObjects, budget))
+    segments.push(...parseTimelineObjects(root.timelineObjects, budget))
   }
   // Timeline Edits.json: { timelineEdits: [...] }
-  if (!Array.isArray(data) && Array.isArray(data.timelineEdits)) {
+  if (root && Array.isArray(root.timelineEdits)) {
     recognizedFormat = true
-    const edits = parseTimelineEdits(data.timelineEdits, budget)
+    const edits = parseTimelineEdits(root.timelineEdits, budget)
     if (edits.length > 0) segments.push(edits)
   }
   // Phone export / new format: { semanticSegments: [...] }
-  if (!Array.isArray(data) && Array.isArray(data.semanticSegments)) {
+  if (root && Array.isArray(root.semanticSegments)) {
     recognizedFormat = true
-    segments.push(...parseSemanticSegments(data.semanticSegments, budget))
+    segments.push(...parseSemanticSegments(root.semanticSegments, budget))
   }
 
   if (!recognizedFormat) {

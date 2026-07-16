@@ -29,18 +29,26 @@ export function consumePointBudget(budget: PointBudget, nextCount = 1): void {
   budget.used += nextCount
 }
 
-/** Parse a value into a finite number, or return undefined for null/empty/non-finite values */
+/** Parse a supported numeric scalar, or return undefined for other/non-finite values */
 export function parseOptionalNumber(value: unknown): number | undefined {
-  if (value == null) return undefined
-  if (typeof value === 'string' && value.trim() === '') return undefined
-  const parsed = typeof value === 'number' ? value : Number(value)
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined
+  }
+  if (typeof value !== 'string' || value.trim() === '') return undefined
+  const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-/** Parse a value into a Date, or return undefined for null/empty/invalid values */
+/** Parse a supported date scalar, or return undefined for other/invalid values */
 export function parseOptionalDate(value: unknown): Date | undefined {
-  if (value == null || value === '') return undefined
-  const parsed = new Date(value as string | number | Date)
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return undefined
+  } else if (typeof value === 'string') {
+    if (value.trim() === '') return undefined
+  } else {
+    return undefined
+  }
+  const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 

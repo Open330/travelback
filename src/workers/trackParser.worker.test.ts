@@ -9,6 +9,92 @@ function requestFor(value: unknown) {
   }
 }
 
+const malformedMembers: unknown[] = [null, true, 42, 'invalid', [], {}]
+
+const guardedGoogleCases: [string, unknown, number][] = [
+  [
+    'flat records',
+    [...malformedMembers, { latitudeE7: 374000000, longitudeE7: -1221000000 }],
+    1,
+  ],
+  [
+    'locations',
+    { locations: [...malformedMembers, { latitudeE7: 374000000, longitudeE7: -1221000000 }] },
+    1,
+  ],
+  [
+    'timelineObjects',
+    {
+      timelineObjects: [
+        ...malformedMembers,
+        {
+          activitySegment: {
+            simplifiedRawPath: {
+              points: [...malformedMembers, { latE7: 374000000, lngE7: -1221000000 }],
+            },
+          },
+        },
+      ],
+    },
+    1,
+  ],
+  [
+    'timelineObjects waypoint fallback',
+    {
+      timelineObjects: [{
+        activitySegment: {
+          waypointPath: {
+            waypoints: [...malformedMembers, { latE7: 374000000, lngE7: -1221000000 }],
+          },
+        },
+      }],
+    },
+    1,
+  ],
+  [
+    'timelineEdits',
+    {
+      timelineEdits: [
+        ...malformedMembers,
+        { rawSignal: null },
+        { rawSignal: { signal: [] } },
+        { rawSignal: { signal: { position: { point: null } } } },
+        {
+          rawSignal: {
+            signal: {
+              position: { point: { latE7: 374000000, lngE7: -1221000000 } },
+            },
+          },
+        },
+      ],
+    },
+    1,
+  ],
+  [
+    'semanticSegments',
+    {
+      semanticSegments: [
+        ...malformedMembers,
+        { timelinePath: [...malformedMembers, { point: 'geo:37.4,-122.1' }] },
+        { visit: { topCandidate: { placeLocation: { latLng: [] } } } },
+      ],
+    },
+    1,
+  ],
+  [
+    'coercible scalar containers',
+    {
+      locations: [
+        { latitudeE7: true, longitudeE7: [] },
+        { latitude: false, longitude: [127] },
+        { latitudeE7: '374000000', longitudeE7: '-1221000000', timestampMs: '1705312800000' },
+        { latitudeE7: 375000000, longitudeE7: -1220000000, altitude: {}, timestamp: [] },
+      ],
+    },
+    2,
+  ],
+]
+
 describe('track parser worker entry', () => {
   it('returns the same track as the shared main-thread parser', () => {
     const json = JSON.stringify({
@@ -22,6 +108,17 @@ describe('track parser worker entry', () => {
       track: parseGoogleLocationHistory(json),
     })
   })
+
+  it.each(guardedGoogleCases)(
+    'keeps source/worker parity while guarding malformed %s data',
+    (_name, value, expectedPoints) => {
+      const json = JSON.stringify(value)
+      const directTrack = parseGoogleLocationHistory(json)
+
+      expect(directTrack.points).toHaveLength(expectedPoints)
+      expect(parseTrackParserRequest(requestFor(json))).toEqual({ track: directTrack })
+    },
+  )
 
   it('preserves shared parser error codes', () => {
     expect(parseTrackParserRequest(requestFor({ unknown: true }))).toMatchObject({

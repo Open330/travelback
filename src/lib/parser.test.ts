@@ -12,6 +12,7 @@ import {
   parseGoogleLocationHistoryInWorkerBuffer,
   parseTrackFile,
 } from './parser'
+import { parseOptionalDate, parseOptionalNumber } from './parse-utils'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -137,6 +138,52 @@ const recordsWithAltitude = JSON.stringify({
   ],
 })
 
+const malformedArrayMembers: unknown[] = [null, true, 42, 'invalid', [], {}]
+
+const malformedOuterArrayCases: [string, unknown][] = [
+  [
+    'flat records',
+    [...malformedArrayMembers, { latitudeE7: 374000000, longitudeE7: -1221000000 }],
+  ],
+  [
+    'locations',
+    { locations: [...malformedArrayMembers, { latitudeE7: 374000000, longitudeE7: -1221000000 }] },
+  ],
+  [
+    'timelineObjects',
+    {
+      timelineObjects: [
+        ...malformedArrayMembers,
+        { placeVisit: { location: { latitudeE7: 374000000, longitudeE7: -1221000000 } } },
+      ],
+    },
+  ],
+  [
+    'timelineEdits',
+    {
+      timelineEdits: [
+        ...malformedArrayMembers,
+        {
+          rawSignal: {
+            signal: {
+              position: { point: { latE7: 374000000, lngE7: -1221000000 } },
+            },
+          },
+        },
+      ],
+    },
+  ],
+  [
+    'semanticSegments',
+    {
+      semanticSegments: [
+        ...malformedArrayMembers,
+        { timelinePath: [{ point: 'geo:37.4,-122.1' }] },
+      ],
+    },
+  ],
+]
+
 describe('parseGoogleLocationHistory — Format 1: Records', () => {
   it('parses locations array with E7 coordinates', () => {
     const track = parseGoogleLocationHistory(recordsJson)
@@ -214,6 +261,156 @@ describe('parseGoogleLocationHistory — Format 4: semanticSegments', () => {
     const firstTimelinePoint = track.points.find(p => Math.abs(p.lat - 37.4) < 0.01)
     expect(firstTimelinePoint).toBeDefined()
   })
+})
+
+describe('parseGoogleLocationHistory — runtime shape validation', () => {
+  it.each(malformedOuterArrayCases)('skips malformed %s array members and keeps valid siblings', (_name, value) => {
+    const track = parseGoogleLocationHistory(JSON.stringify(value))
+
+    expect(track.points).toHaveLength(1)
+    expect(track.points[0]).toMatchObject({ lat: 37.4, lng: -122.1 })
+  })
+
+  it.each([
+    [
+      'simplifiedRawPath points',
+      {
+        timelineObjects: [{
+          activitySegment: {
+            simplifiedRawPath: {
+              points: [
+                ...malformedArrayMembers,
+                { latE7: 374000000, lngE7: -1221000000 },
+              ],
+            },
+          },
+        }],
+      },
+    ],
+    [
+      'waypointPath waypoints',
+      {
+        timelineObjects: [{
+          activitySegment: {
+            waypointPath: {
+              waypoints: [
+                ...malformedArrayMembers,
+                { latE7: 374000000, lngE7: -1221000000 },
+              ],
+            },
+          },
+        }],
+      },
+    ],
+    [
+      'semantic timelinePath points',
+      {
+        semanticSegments: [{
+          timelinePath: [
+            ...malformedArrayMembers,
+            { point: 'geo:37.4,-122.1' },
+          ],
+        }],
+      },
+    ],
+  ])('skips malformed nested %s', (_name, value) => {
+    const track = parseGoogleLocationHistory(JSON.stringify(value))
+
+    expect(track.points).toHaveLength(1)
+    expect(track.points[0]).toMatchObject({ lat: 37.4, lng: -122.1 })
+  })
+
+  it('guards every nested record chain and retains later valid observations', () => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      timelineObjects: [
+        { activitySegment: null },
+        { activitySegment: { simplifiedRawPath: true, waypointPath: [] } },
+        { activitySegment: { startLocation: [], endLocation: null, duration: true } },
+        { placeVisit: { location: [], duration: false, centerLatE7: 374000000, centerLngE7: -1221000000 } },
+      ],
+      timelineEdits: [
+        { rawSignal: null },
+        { rawSignal: { signal: true } },
+        { rawSignal: { signal: { position: [] } } },
+        { rawSignal: { signal: { position: { point: null } } } },
+        {
+          rawSignal: {
+            signal: {
+              position: { point: { latE7: 375000000, lngE7: -1220000000 } },
+            },
+          },
+        },
+      ],
+      semanticSegments: [
+        { visit: null },
+        { visit: { topCandidate: [] } },
+        { visit: { topCandidate: { placeLocation: { latLng: {} } } } },
+        { visit: { topCandidate: { placeLocation: { latLng: '37.6°, -121.9°' } } } },
+      ],
+    }))
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+      [37.4, -122.1],
+      [37.5, -122],
+      [37.6, -121.9],
+    ])
+  })
+
+  it('rejects coercible coordinate, altitude, and timestamp containers without dropping valid records', () => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      locations: [
+        { latitudeE7: true, longitudeE7: [] },
+        { latitude: false, longitude: [127] },
+        { latitudeE7: {}, longitudeE7: -1221000000 },
+        {
+          latitudeE7: '374000000',
+          longitudeE7: '-1221000000',
+          altitude: '125.5',
+          timestampMs: '1705312800000',
+        },
+        {
+          latitudeE7: 375000000,
+          longitudeE7: -1220000000,
+          altitude: [],
+          timestamp: { value: '2024-01-15T10:05:00Z' },
+          timestampMs: true,
+        },
+      ],
+    }))
+
+    expect(track.points).toHaveLength(2)
+    expect(track.points[0]).toMatchObject({ lat: 37.4, lng: -122.1, ele: 125.5 })
+    expect(track.points[0].time?.getTime()).toBe(1705312800000)
+    expect(track.points[1]).toMatchObject({ lat: 37.5, lng: -122 })
+    expect(track.points[1].ele).toBeUndefined()
+    expect(track.points[1].time).toBeUndefined()
+  })
+})
+
+describe('optional parser scalar validation', () => {
+  it('accepts finite numbers and non-empty numeric strings', () => {
+    expect(parseOptionalNumber(0)).toBe(0)
+    expect(parseOptionalNumber(' 12.5 ')).toBe(12.5)
+  })
+
+  it.each([true, false, [], [1], {}, new Date(0), null, undefined])(
+    'rejects non-numeric scalar or container %j',
+    (value) => {
+      expect(parseOptionalNumber(value)).toBeUndefined()
+    },
+  )
+
+  it('accepts finite epoch numbers and non-empty date strings', () => {
+    expect(parseOptionalDate(0)?.getTime()).toBe(0)
+    expect(parseOptionalDate('2024-01-15T10:00:00Z')?.toISOString()).toBe('2024-01-15T10:00:00.000Z')
+  })
+
+  it.each([true, false, [], [0], {}, new Date(0), null, undefined, '   ', Infinity])(
+    'rejects non-date scalar or container %j',
+    (value) => {
+      expect(parseOptionalDate(value)).toBeUndefined()
+    },
+  )
 })
 
 describe('parseGoogleLocationHistory — unsupported format', () => {
