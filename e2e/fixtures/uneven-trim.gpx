@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="travelback-test">
+  <trk>
+    <name>Uneven Trim Track</name>
+    <trkseg>
+      <trkpt lat="37.000000" lon="127.000000"><time>2025-01-01T09:00:00Z</time></trkpt>
+      <trkpt lat="37.000009" lon="127.000000"><time>2025-01-01T09:01:00Z</time></trkpt>
+      <trkpt lat="37.009000" lon="127.000000"><time>2025-01-01T09:02:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

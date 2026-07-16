@@ -19,6 +19,7 @@ interface TimelineSelectorProps {
 
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
+const KEYBOARD_RATIO_STEP = 0.01
 const TIMELINE_KEY_GUARD_MS = 3000
 const TIMELINE_KEYS = new Set(['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'])
 const DRAG_EPSILON_PX = 0.5
@@ -92,10 +93,26 @@ export function indexToRatio(
   return Math.max(0, Math.min(1, distance / totalDistance))
 }
 
-export function clampTimelineRatios(start: number, end: number, pointCount: number): [number, number] {
-  // An inclusive two-point range spans one interval. Using two point slots
-  // here over-constrains short tracks (three points could never trim to two).
-  const minGap = 1 / Math.max(1, pointCount - 1)
+export function minimumTimelineRatioGap(cumulDist: number[], pointCount: number): number {
+  if (pointCount <= 1) return 1
+  const totalDistance = cumulDist[pointCount - 1] ?? 0
+  if (totalDistance > 0) {
+    let minimumPositiveDelta = Number.POSITIVE_INFINITY
+    for (let index = 1; index < pointCount; index++) {
+      const delta = (cumulDist[index] ?? 0) - (cumulDist[index - 1] ?? 0)
+      if (delta > 0 && delta < minimumPositiveDelta) minimumPositiveDelta = delta
+    }
+    if (Number.isFinite(minimumPositiveDelta)) {
+      // Leave room for indexToRatio's tiny plateau nudge while preserving the
+      // smallest real adjacent interval in distance-ratio space.
+      return Math.max(0, minimumPositiveDelta / totalDistance - RATIO_EPSILON)
+    }
+  }
+
+  return 1 / Math.max(1, pointCount - 1)
+}
+
+function clampTimelineRatiosToGap(start: number, end: number, minGap: number): [number, number] {
   let nextStart = Math.max(0, Math.min(start, 1 - minGap))
   let nextEnd = Math.max(minGap, Math.min(end, 1))
   if (nextEnd - nextStart < minGap) {
@@ -103,6 +120,15 @@ export function clampTimelineRatios(start: number, end: number, pointCount: numb
     nextStart = Math.max(0, nextEnd - minGap)
   }
   return [nextStart, nextEnd]
+}
+
+export function clampTimelineRatios(
+  start: number,
+  end: number,
+  cumulDist: number[],
+  pointCount: number,
+): [number, number] {
+  return clampTimelineRatiosToGap(start, end, minimumTimelineRatioGap(cumulDist, pointCount))
 }
 
 function formatDate(date: Date | undefined, locale?: string): string {
@@ -137,6 +163,10 @@ function TimelineSelector({
   useEffect(() => { acceptedRangeRef.current = acceptedRange }, [acceptedRange])
   const points = track.points
   const cumulDist = cumulativeDistances
+  const minimumRatioGap = useMemo(
+    () => minimumTimelineRatioGap(cumulDist, points.length),
+    [cumulDist, points.length],
+  )
 
   useEffect(() => {
     const stopLeakedTimelineKeys = (event: KeyboardEvent) => {
@@ -253,8 +283,8 @@ function TimelineSelector({
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
 
   const clampRatios = useCallback((s: number, e: number): [number, number] => {
-    return clampTimelineRatios(s, e, points.length)
-  }, [points.length])
+    return clampTimelineRatiosToGap(s, e, minimumRatioGap)
+  }, [minimumRatioGap])
 
   // Helper to resolve a ratio pair to point indexes without reading React state.
   // Used during drag to fire onRangeChange with the latest ratios immediately.
@@ -286,12 +316,12 @@ function TimelineSelector({
     let newEndRatio = ds.originEnd
 
     if (ds.dragging === 'start') {
-      const newStart = Math.max(0, Math.min(ds.originStart + dx, ds.originEnd - 0.01))
+      const newStart = Math.max(0, Math.min(ds.originStart + dx, ds.originEnd - minimumRatioGap))
       const [s, e] = clampRatios(newStart, ds.originEnd)
       newStartRatio = s
       newEndRatio = e
     } else if (ds.dragging === 'end') {
-      const newEnd = Math.max(ds.originStart + 0.01, Math.min(1, ds.originEnd + dx))
+      const newEnd = Math.max(ds.originStart + minimumRatioGap, Math.min(1, ds.originEnd + dx))
       const [s, e] = clampRatios(ds.originStart, newEnd)
       newStartRatio = s
       newEndRatio = e
@@ -317,7 +347,7 @@ function TimelineSelector({
     applyRatioState(newStartRatio, newEndRatio)
 
     return true
-  }, [applyRatioState, clampRatios])
+  }, [applyRatioState, clampRatios, minimumRatioGap])
 
   const applyDrag = useCallback(
     (clientX: number) => {
@@ -526,15 +556,14 @@ function TimelineSelector({
             if (e.touches.length > 0) startDrag('start', e.touches[0].clientX)
           }}
           onKeyDownCapture={(e) => {
-            const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(Math.min(startRatio + step, endRatio - 0.01), endRatio, startHandleRef)
+              commitKeyboardRatios(Math.min(startRatio + KEYBOARD_RATIO_STEP, endRatio - minimumRatioGap), endRatio, startHandleRef)
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(Math.max(startRatio - step, 0), endRatio, startHandleRef)
+              commitKeyboardRatios(Math.max(startRatio - KEYBOARD_RATIO_STEP, 0), endRatio, startHandleRef)
             } else if (e.key === 'Home') {
               e.preventDefault()
               e.stopPropagation()
@@ -542,7 +571,7 @@ function TimelineSelector({
             } else if (e.key === 'End') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(endRatio - 0.01, endRatio, startHandleRef)
+              commitKeyboardRatios(endRatio - minimumRatioGap, endRatio, startHandleRef)
             }
           }}
         >
@@ -584,19 +613,18 @@ function TimelineSelector({
             if (e.touches.length > 0) startDrag('end', e.touches[0].clientX)
           }}
           onKeyDownCapture={(e) => {
-            const step = 0.01
             if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(startRatio, Math.min(endRatio + step, 1), endHandleRef)
+              commitKeyboardRatios(startRatio, Math.min(endRatio + KEYBOARD_RATIO_STEP, 1), endHandleRef)
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(startRatio, Math.max(endRatio - step, startRatio + 0.01), endHandleRef)
+              commitKeyboardRatios(startRatio, Math.max(endRatio - KEYBOARD_RATIO_STEP, startRatio + minimumRatioGap), endHandleRef)
             } else if (e.key === 'Home') {
               e.preventDefault()
               e.stopPropagation()
-              commitKeyboardRatios(startRatio, startRatio + 0.01, endHandleRef)
+              commitKeyboardRatios(startRatio, startRatio + minimumRatioGap, endHandleRef)
             } else if (e.key === 'End') {
               e.preventDefault()
               e.stopPropagation()

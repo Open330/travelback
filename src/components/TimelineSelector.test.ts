@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampTimelineRatios, indexToRatio, ratioToIndex } from './TimelineSelector'
+import { clampTimelineRatios, indexToRatio, minimumTimelineRatioGap, ratioToIndex } from './TimelineSelector'
 
 describe('ratioToIndex', () => {
   const cumulativeDistances = [0, 10, 20, 30, 40]
@@ -37,10 +37,27 @@ describe('ratioToIndex', () => {
 
 describe('clampTimelineRatios', () => {
   it('allows a three-point track to select its two-point inclusive minimum', () => {
-    expect(clampTimelineRatios(0, 0.42, 3)).toEqual([0, 0.5])
+    expect(clampTimelineRatios(0, 0.42, [0, 0, 0], 3)).toEqual([0, 0.5])
   })
 
   it('keeps a two-point track on its only valid interval', () => {
-    expect(clampTimelineRatios(0.25, 0.75, 2)).toEqual([0, 1])
+    expect(clampTimelineRatios(0.25, 0.75, [0, 0], 2)).toEqual([0, 1])
+  })
+
+  it('uses the smallest adjacent distance interval for uneven tracks', () => {
+    const cumulativeDistances = [0, 1, 1000]
+    const minimumGap = minimumTimelineRatioGap(cumulativeDistances, 3)
+    const [, end] = clampTimelineRatios(0, 0, cumulativeDistances, 3)
+
+    expect(minimumGap).toBeCloseTo(0.001 - 0.000001, 9)
+    expect(ratioToIndex(end, 'end', cumulativeDistances, 2)).toBe(1)
+  })
+
+  it('ignores zero-distance plateaus when deriving a distance gap', () => {
+    expect(minimumTimelineRatioGap([0, 10, 10, 20], 4)).toBeCloseTo(0.5 - 0.000001, 9)
+  })
+
+  it('falls back to index space for an all-zero-distance track', () => {
+    expect(minimumTimelineRatioGap([0, 0, 0], 3)).toBe(0.5)
   })
 })

@@ -13,6 +13,7 @@ const JSON_REVISIT_SEGMENTS_FIXTURE = path.resolve(__dirname, 'fixtures/google-r
 const JSON_MIXED_DUPLICATE_BRANCHES_FIXTURE = path.resolve(__dirname, 'fixtures/google-mixed-duplicate-branches.json')
 const SEGMENTED_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/segmented-city-hop.gpx')
 const TINY_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/tiny-trim.gpx')
+const UNEVEN_TRIM_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/uneven-trim.gpx')
 const SINGLE_QUOTE_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/single-quote-attrs.gpx')
 const POINT_PLACEMARKS_KML_FIXTURE = path.resolve(__dirname, 'fixtures/point-placemarks.kml')
 const INVALID_ELEVATION_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/invalid-elevation.gpx')
@@ -845,6 +846,17 @@ test.describe('Travelback App', () => {
     await page.mouse.up()
 
     await expect(page.locator('text=/2 \\/ 3 locations/').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('timeline can select the first adjacent pair on an uneven-distance track', async ({ page }) => {
+    await uploadCustomFile(page, UNEVEN_TRIM_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Uneven Trim Track')).toBeVisible({ timeout: 15_000 })
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    await endHandle.focus()
+    await page.keyboard.press('Home')
+
+    await expect(page.locator('text=/2 \/ 3 locations/').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('timeline trimming keeps full-track distance scale after a trim', async ({ page }) => {
