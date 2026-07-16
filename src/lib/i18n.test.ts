@@ -29,6 +29,12 @@ describe('i18n locale key parity', () => {
       expect(translations[locale]['google.step2TakeoutItem1']).not.toMatch(/\d/)
     }
   })
+
+  it('keeps reviewed Korean, Japanese, and Chinese phrases grammatical', () => {
+    expect(translations.ko['export.estimatedTime']).toBe('예상 소요 시간:')
+    expect(translations.ja['journey.addOneMore']).toBe('ルートを作成するには、もう1ポイント追加してください')
+    expect(translations.zh['export.estimatedTime']).toBe('预计时间:')
+  })
 })
 
 describe('t()', () => {
