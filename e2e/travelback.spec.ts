@@ -554,6 +554,41 @@ test.describe('Travelback App', () => {
     await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light')
   })
 
+  test('segmented unit controls keep their keyboard focus treatment inside clipped groups', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/')
+    await waitForApp(page)
+
+    const expectInternalFocus = async (button: Locator) => {
+      await button.focus()
+      await expect(button).toBeFocused()
+      const focusState = await button.evaluate((element) => ({
+        boxShadow: getComputedStyle(element).boxShadow,
+        parentOverflow: getComputedStyle(element.parentElement!).overflow,
+      }))
+      expect(focusState.boxShadow).toContain('inset')
+      expect(focusState.parentOverflow).toBe('hidden')
+    }
+
+    const desktopMetric = page.getByRole('button', { name: 'Metric units' })
+    const desktopImperial = page.getByRole('button', { name: 'Imperial units' })
+    for (const button of [desktopMetric, desktopImperial]) await expectInternalFocus(button)
+
+    await page.getByRole('button', { name: /switch to (dark|light) mode/i }).click()
+    for (const button of [desktopMetric, desktopImperial]) await expectInternalFocus(button)
+
+    await uploadGpx(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: 'More controls' }).click()
+    const mobileMenu = page.getByTestId('track-toolbar-mobile-menu')
+    for (const button of [
+      mobileMenu.getByRole('button', { name: 'Metric units' }),
+      mobileMenu.getByRole('button', { name: 'Imperial units' }),
+    ]) {
+      await expectInternalFocus(button)
+    }
+  })
+
   test('map error UI appears when map style fails to load', async ({ page }) => {
     // Block the map style JSON to simulate a failed map load
     await page.route('**/map-styles/voyager.json', route => route.abort('failed'))

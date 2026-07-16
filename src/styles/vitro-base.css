@@ -622,6 +622,12 @@ textarea:focus-visible,
   box-shadow: var(--focus-ring);
 }
 
+.segmented-unit-button:focus-visible {
+  box-shadow:
+    inset 0 0 0 2px var(--bg),
+    inset 0 0 0 4px var(--t1);
+}
+
 /* ── Badges ── */
 .bg {
   border: 1px solid color-mix(in srgb, var(--div) 55%, transparent);
