@@ -976,6 +976,10 @@ test.describe('Travelback App', () => {
       const testWindow = window as Window & { __timelineBubbledKeys?: string[] }
       return testWindow.__timelineBubbledKeys?.length ?? 0
     })).toBe(0)
+
+    await playbackProgress.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(playbackProgress).toHaveValue('0.001')
   })
 
   test('mobile scene editor panel stays below the stacked header controls', async ({ page }) => {

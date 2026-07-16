@@ -20,8 +20,6 @@ interface TimelineSelectorProps {
 const BUCKET_COUNT = 60
 const HANDLE_RADIUS = 14
 const KEYBOARD_RATIO_STEP = 0.01
-const TIMELINE_KEY_GUARD_MS = 3000
-const TIMELINE_KEYS = new Set(['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End'])
 const DRAG_EPSILON_PX = 0.5
 const RATIO_EPSILON = 0.000001
 
@@ -154,7 +152,6 @@ function TimelineSelector({
   const containerRef = useRef<HTMLDivElement>(null)
   const startHandleRef = useRef<HTMLDivElement>(null)
   const endHandleRef = useRef<HTMLDivElement>(null)
-  const keyboardGuardUntilRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const lastDragClientXRef = useRef<number | null>(null)
   const onRangeChangeRef = useRef(onRangeChange)
@@ -167,20 +164,6 @@ function TimelineSelector({
     () => minimumTimelineRatioGap(cumulDist, points.length),
     [cumulDist, points.length],
   )
-
-  useEffect(() => {
-    const stopLeakedTimelineKeys = (event: KeyboardEvent) => {
-      if (!TIMELINE_KEYS.has(event.key)) return
-      const target = event.target instanceof Node ? event.target : null
-      if (target && containerRef.current?.contains(target)) return
-      if (performance.now() > keyboardGuardUntilRef.current) return
-      event.preventDefault()
-      event.stopPropagation()
-    }
-
-    window.addEventListener('keydown', stopLeakedTimelineKeys, true)
-    return () => window.removeEventListener('keydown', stopLeakedTimelineKeys, true)
-  }, [])
 
   // startRatio and endRatio are [0,1] fractions of the full timeline
   const [startRatio, setStartRatio] = useState(0)
@@ -377,7 +360,6 @@ function TimelineSelector({
     nextEndRatio: number,
     handleRef: RefObject<HTMLDivElement | null>
   ) => {
-    keyboardGuardUntilRef.current = performance.now() + TIMELINE_KEY_GUARD_MS
     commitRatios(nextStartRatio, nextEndRatio)
     handleRef.current?.focus({ preventScroll: true })
     requestAnimationFrame(() => handleRef.current?.focus({ preventScroll: true }))
