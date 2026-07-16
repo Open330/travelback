@@ -8,6 +8,9 @@ const appUrl = new URL(`${siteOrigin}${basePath || ''}/`)
 const placeholderScriptSrc = process.env.NODE_ENV === 'production'
   ? "'self' 'unsafe-inline'"
   : "'self' 'unsafe-inline' 'unsafe-eval'"
+const placeholderStyleSrc = process.env.NODE_ENV === 'production'
+  ? "'self'"
+  : "'self' 'unsafe-inline'"
 
 export const metadata: Metadata = {
   title: {
@@ -63,7 +66,7 @@ export default function RootLayout({
         <meta
           httpEquiv="Content-Security-Policy"
           data-travelback-csp="placeholder"
-          content={`default-src 'self'; script-src ${placeholderScriptSrc}; script-src-attr 'none'; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;`}
+          content={`default-src 'self'; script-src ${placeholderScriptSrc}; script-src-attr 'none'; style-src ${placeholderStyleSrc}; style-src-elem ${placeholderStyleSrc}; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests;`}
         />
         <link
           rel="stylesheet"
