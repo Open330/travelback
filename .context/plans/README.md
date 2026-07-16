@@ -1,8 +1,11 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle1-implementation-2026-07-16.md` — Current 31-finding review-plan-fix cycle; 25 authorized implementation items, 2 authority/legal blockers, and 1 device-evidence follow-up
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
+
+## Completed this cycle
+
+- `cycle1-implementation-2026-07-16.md` — Completed 25 authorized items covering 27 findings; all eight configured gates plus the real-MP4 gate pass; P13 remains evidence-deferred, P27 needs legal input, and P28 needs CI/CD authorization; no deployment occurred
 
 ## Previous active entries retained for traceability
 - `plan/cycle1-current-plan-2026-04-24.md` — Current review-plan-fix cycle 1 implementation plan
