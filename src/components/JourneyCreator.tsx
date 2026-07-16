@@ -173,9 +173,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const [journeyName, setJourneyName] = useState('')
-  const [mapReadyRetry, setMapReadyRetry] = useState(0)
+  const [mapReadyProbe, setMapReadyProbe] = useState({ generation: mapGeneration, attempt: 0 })
+  const [interactionReadyGeneration, setInteractionReadyGeneration] = useState<number | null>(null)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
   const selectedIconColor = TRAVEL_ICON_COLORS[selectedIconId]
+  const mapReadyRetry = mapReadyProbe.generation === mapGeneration ? mapReadyProbe.attempt : 0
+  const isMapInteractionReady = interactionReadyGeneration === mapGeneration
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
   const selectedIconColorRef = useRef(selectedIconColor)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -289,7 +292,10 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     if (!map) {
       if (!isActive || mapReadyRetry >= 120) return
       const retryId = window.setTimeout(() => {
-        setMapReadyRetry((retry) => retry + 1)
+        setMapReadyProbe((current) => ({
+          generation: mapGeneration,
+          attempt: current.generation === mapGeneration ? current.attempt + 1 : 1,
+        }))
       }, 100)
       return () => window.clearTimeout(retryId)
     }
@@ -300,15 +306,18 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       for (const fn of cleanupRef.current) fn()
       cleanupRef.current = []
       removeLayers(map)
+      map.getCanvas().removeAttribute('aria-busy')
       waypointsRef.current = []
-      setPointCount(0)
-      setDistanceMeters(0)
       return
     }
-    setMapReadyRetry(0)
+    map.getCanvas().setAttribute('aria-busy', 'true')
+    let effectIsCurrent = true
+    const ownsActiveMap = () => effectIsCurrent && mapRef.current?.getMap() === activeMap
 
     // Set up layers and event handlers
     const bindListeners = () => {
+      if (!ownsActiveMap()) return
+
       // Run all previous cleanups before adding new listeners
       for (const fn of cleanupRef.current) fn()
       cleanupRef.current = []
@@ -493,15 +502,39 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         dragMovedRef.current = false
         suppressMapClickUntilRef.current = 0
       })
+
+      activeMap.getCanvas().removeAttribute('aria-busy')
+      setInteractionReadyGeneration(mapGeneration)
+    }
+
+    const markInteractionPending = () => {
+      if (!ownsActiveMap()) return
+      const stillOwnsInteractionStyle = Boolean(
+        activeMap.getSource(SOURCE_LINE)
+        && activeMap.getSource(SOURCE_POINTS)
+        && activeMap.getLayer(LAYER_LINE)
+        && activeMap.getLayer(LAYER_POINTS),
+      )
+      if (stillOwnsInteractionStyle) return
+
+      activeMap.getCanvas().setAttribute('aria-busy', 'true')
+      setInteractionReadyGeneration(null)
+      for (const fn of cleanupRef.current) fn()
+      cleanupRef.current = []
+      layersAddedRef.current = false
     }
 
     const handleStyleReload = () => {
+      if (!ownsActiveMap()) return
       layersAddedRef.current = false
       bindListeners()
     }
 
     const handleInitialStyleLoad = () => {
+      if (!ownsActiveMap()) return
       bindListeners()
+      if (!ownsActiveMap()) return
+      map.on('styledataloading', markInteractionPending)
       map.on('style.load', handleStyleReload)
     }
 
@@ -512,11 +545,14 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     }
 
     return () => {
+      effectIsCurrent = false
       for (const fn of cleanupRef.current) fn()
       cleanupRef.current = []
       map.off('style.load', handleInitialStyleLoad)
+      map.off('styledataloading', markInteractionPending)
       map.off('style.load', handleStyleReload)
       if (mapHandle?.getMap() === map) {
+        map.getCanvas().removeAttribute('aria-busy')
         removeLayers(map)
       } else {
         // MapView already destroyed this generation during an in-app retry.
@@ -524,8 +560,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         layersAddedRef.current = false
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- map ref and handlers are stable; re-run only when active state, bounded readiness polling, or the explicit map generation changes
-  }, [isActive, mapReadyRetry, mapGeneration])
+  }, [addLayers, isActive, mapGeneration, mapReadyRetry, mapRef, removeLayers, syncUI, updateMapData])
 
   const handleUndo = useCallback(() => {
     settleDragRef.current()
@@ -637,16 +672,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [activeSearchIndex, handleSearchSubmit, handleSelectPlace, searchResults])
 
   const handleToggleSearch = useCallback(() => {
-    setSearchEnabled((enabled) => !enabled)
-  }, [])
-
-  useEffect(() => {
-    if (!searchEnabled) {
+    if (searchEnabled) {
       setSearchQuery('')
       setSearchResults([])
       setSearchError(null)
       setActiveSearchIndex(-1)
     }
+    setSearchEnabled(!searchEnabled)
   }, [searchEnabled])
 
   const handleDone = useCallback(() => {
@@ -689,7 +721,14 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   if (!isActive) return null
 
   return (
-    <div data-testid="journey-creator-panel" role="region" aria-labelledby="journey-creator-title" className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
+    <div
+      data-testid="journey-creator-panel"
+      data-map-interaction-ready={isMapInteractionReady ? 'true' : 'false'}
+      data-map-generation={mapGeneration}
+      role="region"
+      aria-labelledby="journey-creator-title"
+      aria-busy={!isMapInteractionReady}
+      className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
       style={{ borderRadius: 'var(--r-glass)' }}>
       {/* Header */}
       <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
