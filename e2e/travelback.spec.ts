@@ -644,6 +644,29 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBe(true)
   })
 
+  test('loaded settings toolbar does not overlap track titles at responsive breakpoints', async ({ page }) => {
+    for (const width of [640, 768]) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('/')
+      await waitForApp(page)
+      await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+
+      const globalToolbar = page.getByTestId('global-toolbar')
+      const title = width < 768
+        ? page.getByTestId('track-title-mobile')
+        : page.getByTestId('track-title')
+      await expect(globalToolbar).toBeVisible({ timeout: 15_000 })
+      await expect(title).toBeVisible({ timeout: 15_000 })
+
+      const [toolbarBox, titleBox] = await Promise.all([
+        globalToolbar.boundingBox(),
+        title.boundingBox(),
+      ])
+      if (!toolbarBox || !titleBox) throw new Error(`Missing responsive layout geometry at ${width}px`)
+      expect(boxesOverlap(toolbarBox, titleBox)).toBe(false)
+    }
+  })
+
   test('mobile header layout keeps the action bar compact after a track loads', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
