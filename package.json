@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run build:worker",
     "dev": "next dev",
+    "prebuild": "npm run check:worker",
     "build": "next build",
+    "build:worker": "node scripts/build-worker.mjs",
+    "check:worker": "node scripts/build-worker.mjs --check",
     "start": "node scripts/serve-static.mjs",
     "preview": "npm run start",
     "lint": "eslint",

@@ -18,6 +18,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/workers/trackParser.worker.js",
     "node-compile-cache/**",
     "playwright-transform-cache*/**",
     "playwright-report/**",

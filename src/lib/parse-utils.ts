@@ -6,6 +6,29 @@
 /** Maximum number of track points allowed in a single track */
 export const MAX_TRACK_POINTS = 250_000
 
+/** Browser-side file limits shared by the main parser and generated worker. */
+export const MAX_FILE_SIZE = 200 * 1024 * 1024
+export const XML_MAX_FILE_SIZE = 4 * 1024 * 1024
+export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024
+
+export interface PointBudget {
+  readonly maxPoints: number
+  used: number
+}
+
+/** Create one allocation budget shared by every format branch in a parse. */
+export function createPointBudget(maxPoints = MAX_TRACK_POINTS): PointBudget {
+  return { maxPoints, used: 0 }
+}
+
+/** Reserve retained point objects before allocating them. */
+export function consumePointBudget(budget: PointBudget, nextCount = 1): void {
+  if (nextCount < 0 || budget.used + nextCount > budget.maxPoints) {
+    throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
+  }
+  budget.used += nextCount
+}
+
 /** Parse a value into a finite number, or return undefined for null/empty/non-finite values */
 export function parseOptionalNumber(value: unknown): number | undefined {
   if (value == null) return undefined

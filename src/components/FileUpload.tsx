@@ -25,6 +25,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const parseGenerationRef = useRef(0)
+  const parseControllerRef = useRef<AbortController | null>(null)
 
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   useEffect(() => {
@@ -50,16 +52,30 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   }, [])
   const withRecoveryHint = useCallback((text: string) => `${text.replace(/[.!?]\s*$/, '')}. ${t('fileUpload.recoveryHint')}`, [t])
 
+  const invalidateParse = useCallback(() => {
+    parseGenerationRef.current++
+    parseControllerRef.current?.abort()
+    parseControllerRef.current = null
+  }, [])
+
+  useEffect(() => invalidateParse, [invalidateParse])
+
   const handleFile = useCallback(async (file: File) => {
+    invalidateParse()
+    const requestGeneration = parseGenerationRef.current
+    const controller = new AbortController()
+    parseControllerRef.current = controller
     setError(null)
     setLoading(true)
     try {
       if (file.size > WARN_FILE_SIZE) {
         console.warn(`[Travelback] Large file (${(file.size / 1024 / 1024).toFixed(0)} MB) — parsing may take a moment`)
       }
-      const track = await parseTrackFile(file)
+      const track = await parseTrackFile(file, { signal: controller.signal })
+      if (requestGeneration !== parseGenerationRef.current || controller.signal.aborted) return
       onTrackLoaded(track)
     } catch (err) {
+      if (requestGeneration !== parseGenerationRef.current || controller.signal.aborted) return
       // Map parser error codes to i18n keys (avoids relying on English message text)
       const errorCodeMap: Record<string, string> = {
         UNSUPPORTED_FORMAT: 'fileUpload.unsupportedFormat',
@@ -71,6 +87,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         UNSUPPORTED_GOOGLE_FORMAT: 'fileUpload.parseFailed',
         READ_FAILED: 'fileUpload.readFailed',
         WORKER_FAILED: 'fileUpload.parseFailed',
+        WORKER_TIMEOUT: 'fileUpload.parseFailed',
       }
       const code = err instanceof ParseError ? err.code : ''
       const message = err instanceof Error ? err.message : ''
@@ -87,12 +104,20 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         setError(withRecoveryHint(t('fileUpload.parseFailed')))
       }
     } finally {
+      if (requestGeneration !== parseGenerationRef.current) return
+      parseControllerRef.current = null
       setLoading(false)
       if (inputRef.current) {
         inputRef.current.value = ''
       }
     }
-  }, [onTrackLoaded, t, withRecoveryHint])
+  }, [invalidateParse, onTrackLoaded, t, withRecoveryHint])
+
+  const handleCreateJourney = useCallback(() => {
+    invalidateParse()
+    setLoading(false)
+    onCreateJourney?.()
+  }, [invalidateParse, onCreateJourney])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -264,7 +289,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
           <div className="mt-4 flex w-full justify-center">
             <button
               type="button"
-              onClick={onCreateJourney}
+              onClick={handleCreateJourney}
               className="gi inline-flex min-h-11 w-full max-w-sm items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t2)' }}
             >

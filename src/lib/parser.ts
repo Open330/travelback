@@ -1,14 +1,29 @@
 import { gpx, kml } from '@tmcw/togeojson'
 import type { Track, TrackPoint } from '@/types'
 import { basePath } from '@/lib/env'
-import { parseOptionalNumber, parseOptionalDate, assertPointBudget, ParseError, MAX_TRACK_POINTS } from '@/lib/parse-utils'
+import {
+  parseOptionalNumber,
+  parseOptionalDate,
+  assertPointBudget,
+  ParseError,
+  MAX_TRACK_POINTS,
+  MAX_FILE_SIZE,
+  XML_MAX_FILE_SIZE,
+  JSON_MAX_FILE_SIZE,
+} from '@/lib/parse-utils'
 import {
   parseGoogleLocationHistory as parseGoogleLocationHistoryCore,
   checkJsonDepth,
 } from '@/lib/googleJsonParser'
 
 // Re-export for backwards compatibility — other files import these from '@/lib/parser'
-export { ParseError, checkJsonDepth }
+export {
+  ParseError,
+  checkJsonDepth,
+  MAX_FILE_SIZE,
+  XML_MAX_FILE_SIZE,
+  JSON_MAX_FILE_SIZE,
+}
 
 const XML_MAX_TAGS = 150_000
 const XML_MAX_NESTING_DEPTH = 128
@@ -220,10 +235,14 @@ export function parseKML(text: string): Track {
 // Re-export parseGoogleLocationHistory from shared module
 export { parseGoogleLocationHistoryCore as parseGoogleLocationHistory }
 
-export const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
-export const XML_MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB keeps XML DOM parsing off the browser-hostile path
-export const JSON_MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB keeps JSON imports inside a safer in-browser memory envelope
 const MAIN_THREAD_JSON_FALLBACK_SIZE = 16 * 1024 * 1024
+export const DEFAULT_WORKER_PARSE_TIMEOUT_MS = 30_000
+const SUPPORTED_EXTENSIONS = new Set(['json', 'gpx', 'kml'])
+
+export interface ParseTrackFileOptions {
+  signal?: AbortSignal
+  workerTimeoutMs?: number
+}
 
 function decodeJsonBuffer(buffer: ArrayBuffer): string {
   return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
@@ -236,9 +255,106 @@ function parseSmallGoogleJsonFallback(buffer: ArrayBuffer): Track {
   return parseGoogleLocationHistoryCore(decodeJsonBuffer(buffer))
 }
 
-async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Promise<Track> {
+function parseAbortedError(): ParseError {
+  return new ParseError('File parsing was cancelled', 'PARSE_ABORTED')
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw parseAbortedError()
+}
+
+function isValidWorkerTrack(value: unknown): value is Track {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<Track>
+  if (typeof candidate.name !== 'string' || !Array.isArray(candidate.points)) return false
+
+  const validPoints = candidate.points.every((point) => {
+    if (!point || typeof point !== 'object') return false
+    if (!Number.isFinite(point.lat) || Math.abs(point.lat) > 90) return false
+    if (!Number.isFinite(point.lng) || Math.abs(point.lng) > 180) return false
+    if (point.ele != null && !Number.isFinite(point.ele)) return false
+    if (point.time == null) return true
+    const parsedTime = point.time instanceof Date ? point.time : new Date(point.time as unknown as string | number)
+    return Number.isFinite(parsedTime.getTime())
+  })
+  if (!validPoints) return false
+
+  if (candidate.segmentStartIndices == null) return true
+  if (!Array.isArray(candidate.segmentStartIndices)) return false
+  let previousIndex = 0
+  return candidate.segmentStartIndices.every((index) => {
+    const valid = Number.isInteger(index)
+      && index > previousIndex
+      && index < candidate.points!.length
+    previousIndex = index
+    return valid
+  })
+}
+
+function readFile(file: File, mode: 'text', signal?: AbortSignal): Promise<string>
+function readFile(file: File, mode: 'arrayBuffer', signal?: AbortSignal): Promise<ArrayBuffer>
+function readFile(file: File, mode: 'text' | 'arrayBuffer', signal?: AbortSignal): Promise<string | ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    let settled = false
+
+    const cleanup = () => {
+      reader.onload = null
+      reader.onerror = null
+      reader.onabort = null
+      signal?.removeEventListener('abort', handleAbort)
+    }
+    const settle = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      callback()
+    }
+    const handleAbort = () => {
+      if (reader.readyState === FileReader.LOADING) reader.abort()
+      settle(() => reject(parseAbortedError()))
+    }
+
+    reader.onload = () => settle(() => {
+      const result = reader.result
+      if (mode === 'text' && typeof result === 'string') {
+        resolve(result)
+      } else if (mode === 'arrayBuffer' && result instanceof ArrayBuffer) {
+        resolve(result)
+      } else {
+        reject(new ParseError('Failed to read file', 'READ_FAILED'))
+      }
+    })
+    reader.onerror = () => settle(() => reject(new ParseError('Failed to read file', 'READ_FAILED')))
+    reader.onabort = () => settle(() => reject(parseAbortedError()))
+
+    if (signal?.aborted) {
+      settle(() => reject(parseAbortedError()))
+      return
+    }
+    signal?.addEventListener('abort', handleAbort, { once: true })
+
+    try {
+      if (mode === 'text') reader.readAsText(file)
+      else reader.readAsArrayBuffer(file)
+    } catch {
+      settle(() => reject(new ParseError('Failed to read file', 'READ_FAILED')))
+    }
+  })
+}
+
+export async function parseGoogleLocationHistoryInWorkerBuffer(
+  buffer: ArrayBuffer,
+  options: ParseTrackFileOptions = {},
+): Promise<Track> {
+  const { signal, workerTimeoutMs = DEFAULT_WORKER_PARSE_TIMEOUT_MS } = options
+  throwIfAborted(signal)
   if (typeof Worker === 'undefined') {
     return parseSmallGoogleJsonFallback(buffer)
+  }
+
+  if (!Number.isFinite(workerTimeoutMs) || workerTimeoutMs <= 0) {
+    throw new ParseError('Worker timeout must be a positive number', 'WORKER_FAILED')
   }
 
   return new Promise((resolve, reject) => {
@@ -268,130 +384,130 @@ async function parseGoogleLocationHistoryInWorkerBuffer(buffer: ArrayBuffer): Pr
       return
     }
 
+    let settled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     const cleanup = () => {
       worker.onmessage = null
       worker.onerror = null
+      signal?.removeEventListener('abort', handleAbort)
+      if (timeoutId != null) clearTimeout(timeoutId)
       worker.terminate()
     }
-
-    worker.onmessage = (event: MessageEvent<{ track?: Track; error?: string; code?: string }>) => {
+    const settle = (callback: () => void) => {
+      if (settled) return
+      settled = true
       cleanup()
+      callback()
+    }
+    const handleAbort = () => settle(() => reject(parseAbortedError()))
+
+    worker.onmessage = (event: MessageEvent<unknown>) => {
       // Validate message shape before accessing properties
       if (!event.data || typeof event.data !== 'object') {
-        reject(new ParseError('Worker returned invalid response', 'INVALID_GOOGLE_JSON'))
+        settle(() => reject(new ParseError('Worker returned invalid response', 'INVALID_GOOGLE_JSON')))
         return
       }
-      if (event.data.error) {
+      const response = event.data as { track?: unknown; error?: unknown; code?: unknown }
+      if (response.error) {
         // Worker reported a parse error — the worker already tried and
         // failed, so reject with its error rather than falling back to
         // the main-thread parser (which would likely fail the same way).
-        const errorMsg = typeof event.data.error === 'string' ? event.data.error : String(event.data.error)
-        reject(new ParseError(errorMsg, event.data.code ?? 'INVALID_GOOGLE_JSON'))
+        const errorMsg = typeof response.error === 'string' ? response.error : String(response.error)
+        const errorCode = typeof response.code === 'string' ? response.code : 'INVALID_GOOGLE_JSON'
+        settle(() => reject(new ParseError(errorMsg, errorCode)))
         return
       }
-      if (!event.data.track) {
+      if (response.track == null) {
         // Worker returned no track and no error. Small files retain a bounded
         // fallback buffer; large files avoid main-thread decoding.
         if (!fallbackBuffer) {
-          reject(new ParseError('Worker parser did not return a track', 'INVALID_GOOGLE_JSON'))
+          settle(() => reject(new ParseError('Worker parser did not return a track', 'INVALID_GOOGLE_JSON')))
           return
         }
         try {
-          resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
+          const fallbackTrack = parseSmallGoogleJsonFallback(fallbackBuffer)
+          settle(() => resolve(fallbackTrack))
         } catch {
-          reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON'))
+          settle(() => reject(new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON')))
         }
         return
       }
 
-      const track = event.data.track
+      if (!isValidWorkerTrack(response.track)) {
+        settle(() => reject(new ParseError('Worker returned invalid track data', 'INVALID_GOOGLE_JSON')))
+        return
+      }
+
+      const track = response.track
       for (const p of track.points) {
         if (p.time != null && !(p.time instanceof Date)) {
           p.time = new Date(p.time as unknown as string | number)
         }
       }
-      resolve(track)
+      settle(() => resolve(track))
     }
 
     worker.onerror = (event) => {
-      cleanup()
       // Worker crashed (e.g., memory pressure). Fall back only for small files
       // where the bounded pre-transfer copy is safe to decode on the main thread.
       if (!fallbackBuffer) {
-        reject(new ParseError(
+        settle(() => reject(new ParseError(
           event.message || 'Worker parser failed. This file may be too large for your browser. Try importing a smaller date range or using a different browser.',
           'WORKER_FAILED',
-        ))
+        )))
         return
       }
       try {
-        resolve(parseSmallGoogleJsonFallback(fallbackBuffer))
+        const fallbackTrack = parseSmallGoogleJsonFallback(fallbackBuffer)
+        settle(() => resolve(fallbackTrack))
       } catch {
-        reject(new ParseError(event.message || 'Worker parser failed', 'WORKER_FAILED'))
+        settle(() => reject(new ParseError(event.message || 'Worker parser failed', 'WORKER_FAILED')))
       }
     }
 
-    worker.postMessage({ ext: 'json', buffer }, [buffer])
+    signal?.addEventListener('abort', handleAbort, { once: true })
+    timeoutId = setTimeout(() => {
+      settle(() => reject(new ParseError('Google JSON parsing timed out', 'WORKER_TIMEOUT')))
+    }, workerTimeoutMs)
+
+    try {
+      worker.postMessage({ ext: 'json', buffer }, [buffer])
+    } catch {
+      settle(() => reject(new ParseError('Worker parser failed to start', 'WORKER_FAILED')))
+    }
   })
 }
 
-export function parseTrackFile(file: File): Promise<Track> {
-  return new Promise((resolve, reject) => {
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    const maxForType = ext === 'json'
-      ? JSON_MAX_FILE_SIZE
-      : ext === 'gpx' || ext === 'kml'
-        ? XML_MAX_FILE_SIZE
-        : MAX_FILE_SIZE
-    if (file.size > maxForType) {
-      reject(new ParseError(
-        `File is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Maximum size is ${(maxForType / 1024 / 1024).toFixed(0)}MB.`,
-        'FILE_TOO_LARGE'
-      ))
-      return
-    }
+export async function parseTrackFile(file: File, options: ParseTrackFileOptions = {}): Promise<Track> {
+  const ext = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : undefined
+  if (!ext || !SUPPORTED_EXTENSIONS.has(ext)) {
+    throw new ParseError(ext ? `Unsupported file format: .${ext}` : 'Unsupported file format', 'UNSUPPORTED_FORMAT')
+  }
 
-    const finalizeTrack = (track: Track) => {
-      if (track.points.length < 2) {
-        throw new ParseError('Track must contain at least 2 points', 'TOO_FEW_POINTS')
-      }
-      if (track.points.length > MAX_TRACK_POINTS) {
-        throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
-      }
-      resolve(track)
-    }
+  const maxForType = ext === 'json' ? JSON_MAX_FILE_SIZE : XML_MAX_FILE_SIZE
+  if (file.size > maxForType) {
+    throw new ParseError(
+      `File is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Maximum size is ${(maxForType / 1024 / 1024).toFixed(0)}MB.`,
+      'FILE_TOO_LARGE',
+    )
+  }
 
-    if (ext === 'json') {
-      file.arrayBuffer()
-        .catch(() => {
-          throw new ParseError('Failed to read file', 'READ_FAILED')
-        })
-        .then(parseGoogleLocationHistoryInWorkerBuffer)
-        .then(finalizeTrack)
-        .catch(reject)
-      return
-    }
+  throwIfAborted(options.signal)
+  let track: Track
+  if (ext === 'json') {
+    const buffer = await readFile(file, 'arrayBuffer', options.signal)
+    track = await parseGoogleLocationHistoryInWorkerBuffer(buffer, options)
+  } else {
+    const text = await readFile(file, 'text', options.signal)
+    track = ext === 'gpx' ? parseGPX(text) : parseKML(text)
+  }
+  throwIfAborted(options.signal)
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const text = reader.result as string
-        let track: Track
-
-        if (ext === 'gpx') {
-          track = parseGPX(text)
-        } else if (ext === 'kml') {
-          track = parseKML(text)
-        } else {
-          throw new ParseError(`Unsupported file format: .${ext}`, 'UNSUPPORTED_FORMAT')
-        }
-
-        finalizeTrack(track)
-      } catch (err) {
-        reject(err)
-      }
-    }
-    reader.onerror = () => reject(new ParseError('Failed to read file', 'READ_FAILED'))
-    reader.readAsText(file)
-  })
+  if (track.points.length < 2) {
+    throw new ParseError('Track must contain at least 2 points', 'TOO_FEW_POINTS')
+  }
+  if (track.points.length > MAX_TRACK_POINTS) {
+    throw new ParseError('Track contains too many points', 'TOO_MANY_POINTS')
+  }
+  return track
 }

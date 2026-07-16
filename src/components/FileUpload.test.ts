@@ -1,0 +1,77 @@
+// @vitest-environment jsdom
+
+import { act, createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Track } from '@/types'
+
+const parseTrackFile = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/parser', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/parser')>(),
+  parseTrackFile,
+}))
+
+vi.mock('next/image', () => ({
+  default: (props: Record<string, unknown>) => {
+    const imageProps = { ...props }
+    delete imageProps.priority
+    return createElement('img', imageProps)
+  },
+}))
+
+import FileUpload from './FileUpload'
+
+let root: Root | null = null
+let container: HTMLDivElement | null = null
+
+afterEach(async () => {
+  if (root) await act(() => root?.unmount())
+  container?.remove()
+  root = null
+  container = null
+  parseTrackFile.mockReset()
+})
+
+describe('FileUpload request lifecycle', () => {
+  it('aborts and ignores an import that resolves after starting a journey', async () => {
+    let resolveParse!: (track: Track) => void
+    parseTrackFile.mockReturnValue(new Promise<Track>((resolve) => {
+      resolveParse = resolve
+    }))
+    const onTrackLoaded = vi.fn()
+    const onCreateJourney = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded,
+      onCreateJourney,
+    })))
+
+    const dropZone = container.querySelector<HTMLElement>('[role="group"]')
+    const file = new File(['pending'], 'trip.gpx', { type: 'application/gpx+xml' })
+    const drop = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } })
+    await act(() => dropZone?.dispatchEvent(drop))
+
+    const options = parseTrackFile.mock.calls[0][1] as { signal: AbortSignal }
+    const journeyButton = [...container.querySelectorAll('button')]
+      .find(button => button.textContent?.includes('Draw a route on the map'))
+    await act(() => journeyButton?.click())
+
+    expect(options.signal.aborted).toBe(true)
+    expect(onCreateJourney).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      resolveParse({
+        name: 'Old import',
+        points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
+      })
+      await Promise.resolve()
+    })
+    expect(onTrackLoaded).not.toHaveBeenCalled()
+  })
+})

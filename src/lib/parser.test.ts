@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   parseGoogleLocationHistory,
   parseGPX,
@@ -9,7 +9,14 @@ import {
   MAX_FILE_SIZE,
   XML_MAX_FILE_SIZE,
   JSON_MAX_FILE_SIZE,
+  parseGoogleLocationHistoryInWorkerBuffer,
+  parseTrackFile,
 } from './parser'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 // --- Google JSON format fixtures ---
 
@@ -1021,5 +1028,159 @@ describe('checkJsonDepth — additional edge cases', () => {
   it('handles JSON with nested escaped quotes', () => {
     const nestedEscapes = '{"a": "b \\" c \\" d", "e": {"f": "g \\" h"}}'
     expect(() => checkJsonDepth(nestedEscapes)).not.toThrow()
+  })
+
+  it('rejects an unclosed structure', () => {
+    expect(() => checkJsonDepth('{"open": [1, 2]')).toThrowError(ParseError)
+  })
+})
+
+describe('parse-wide point allocation budget', () => {
+  it('rejects aggregate segment allocations before flattening', () => {
+    const json = JSON.stringify({
+      timelineObjects: [
+        {
+          activitySegment: {
+            simplifiedRawPath: {
+              points: [
+                { latE7: 374000000, lngE7: -1221000000 },
+                { latE7: 374100000, lngE7: -1220900000 },
+              ],
+            },
+          },
+        },
+        {
+          activitySegment: {
+            simplifiedRawPath: {
+              points: [
+                { latE7: 374200000, lngE7: -1220800000 },
+                { latE7: 374300000, lngE7: -1220700000 },
+              ],
+            },
+          },
+        },
+      ],
+    })
+
+    expect(() => parseGoogleLocationHistory(json, 3)).toThrowError(
+      expect.objectContaining({ code: 'TOO_MANY_POINTS' }),
+    )
+  })
+})
+
+describe('parseTrackFile lifecycle', () => {
+  it.each(['track.txt', 'track'])('rejects unsupported %s before reading', async (name) => {
+    const readText = vi.spyOn(FileReader.prototype, 'readAsText')
+    const readBuffer = vi.spyOn(FileReader.prototype, 'readAsArrayBuffer')
+
+    await expect(parseTrackFile(new File(['ignored'], name))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_FORMAT',
+    })
+    expect(readText).not.toHaveBeenCalled()
+    expect(readBuffer).not.toHaveBeenCalled()
+  })
+
+  it('terminates a worker and returns a stable timeout code', async () => {
+    class HangingWorker {
+      static instance: HangingWorker
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage = vi.fn()
+
+      constructor() {
+        HangingWorker.instance = this
+      }
+    }
+    vi.stubGlobal('Worker', HangingWorker)
+
+    const buffer = new TextEncoder().encode(recordsJson).buffer
+    await expect(parseGoogleLocationHistoryInWorkerBuffer(buffer, { workerTimeoutMs: 1 }))
+      .rejects.toMatchObject({ code: 'WORKER_TIMEOUT' })
+    expect(HangingWorker.instance.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('terminates a worker once when parsing is aborted', async () => {
+    class HangingWorker {
+      static instance: HangingWorker
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage = vi.fn()
+
+      constructor() {
+        HangingWorker.instance = this
+      }
+    }
+    vi.stubGlobal('Worker', HangingWorker)
+    const controller = new AbortController()
+    const buffer = new TextEncoder().encode(recordsJson).buffer
+
+    const pending = parseGoogleLocationHistoryInWorkerBuffer(buffer, {
+      signal: controller.signal,
+      workerTimeoutMs: 1_000,
+    })
+    controller.abort()
+
+    await expect(pending).rejects.toMatchObject({ code: 'PARSE_ABORTED' })
+    expect(HangingWorker.instance.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('rejects malformed worker track data immediately', async () => {
+    class MalformedWorker {
+      static instance: MalformedWorker
+      onmessage: ((event: MessageEvent<unknown>) => void) | null = null
+      onerror: ((event: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage = vi.fn(() => {
+        queueMicrotask(() => this.onmessage?.({ data: { track: {} } } as MessageEvent<unknown>))
+      })
+
+      constructor() {
+        MalformedWorker.instance = this
+      }
+    }
+    vi.stubGlobal('Worker', MalformedWorker)
+
+    const buffer = new TextEncoder().encode(recordsJson).buffer
+    await expect(parseGoogleLocationHistoryInWorkerBuffer(buffer, { workerTimeoutMs: 1_000 }))
+      .rejects.toMatchObject({ code: 'INVALID_GOOGLE_JSON' })
+    expect(MalformedWorker.instance.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('aborts a pending FileReader once and removes its callbacks', async () => {
+    class HangingFileReader {
+      static readonly EMPTY = 0
+      static readonly LOADING = 1
+      static readonly DONE = 2
+      static instance: HangingFileReader
+      readyState = HangingFileReader.EMPTY
+      result: string | ArrayBuffer | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      onabort: (() => void) | null = null
+      readAsText = vi.fn(() => { this.readyState = HangingFileReader.LOADING })
+      readAsArrayBuffer = vi.fn(() => { this.readyState = HangingFileReader.LOADING })
+      abort = vi.fn(() => {
+        this.readyState = HangingFileReader.DONE
+        this.onabort?.()
+      })
+
+      constructor() {
+        HangingFileReader.instance = this
+      }
+    }
+    vi.stubGlobal('FileReader', HangingFileReader)
+    const controller = new AbortController()
+    const pending = parseTrackFile(new File(['pending'], 'trip.gpx'), { signal: controller.signal })
+
+    expect(HangingFileReader.instance.readAsText).toHaveBeenCalledOnce()
+    controller.abort()
+
+    await expect(pending).rejects.toMatchObject({ code: 'PARSE_ABORTED' })
+    expect(HangingFileReader.instance.abort).toHaveBeenCalledOnce()
+    expect(HangingFileReader.instance.onload).toBeNull()
+    expect(HangingFileReader.instance.onerror).toBeNull()
+    expect(HangingFileReader.instance.onabort).toBeNull()
   })
 })
