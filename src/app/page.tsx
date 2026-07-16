@@ -130,6 +130,8 @@ function HomeInner() {
   const [transitionDuration, setTransitionDuration] = useState(0.03)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [trackSessionKey, setTrackSessionKey] = useState(0)
+  const [acceptedTrimRange, setAcceptedTrimRange] = useState({ startIdx: 0, endIdx: 0 })
+  const [trimSelectionRevision, setTrimSelectionRevision] = useState(0)
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
   const [workspaceAnnouncement, setWorkspaceAnnouncement] = useState('')
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
@@ -299,6 +301,8 @@ function HomeInner() {
     mapViewRef.current?.clearTrackArtifacts()
     setFullTrack(nextTrack)
     setTrack(nextTrack)
+    setAcceptedTrimRange({ startIdx: 0, endIdx: Math.max(0, nextTrack.points.length - 1) })
+    setTrimSelectionRevision((revision) => revision + 1)
     resetPlaybackSession()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
@@ -311,6 +315,8 @@ function HomeInner() {
     mapViewRef.current?.clearTrackArtifacts()
     setTrack(null)
     setFullTrack(null)
+    setAcceptedTrimRange({ startIdx: 0, endIdx: 0 })
+    setTrimSelectionRevision((revision) => revision + 1)
     resetPlaybackSession()
     setIsCreatingJourney(true)
     setTrackSessionKey((key) => key + 1)
@@ -332,6 +338,7 @@ function HomeInner() {
     if (!filteredTrack) return
 
     setTrack(filteredTrack)
+    setAcceptedTrimRange({ startIdx, endIdx })
     resetPlayback()
   }, [fullTrack, resetExportSession, resetPlayback, scenes.length])
 
@@ -347,11 +354,13 @@ function HomeInner() {
     const filteredTrack = buildFilteredTrack(fullTrack, startIdx, endIdx)
     if (!filteredTrack) return
     setTrack(filteredTrack)
+    setAcceptedTrimRange({ startIdx, endIdx })
     resetPlayback()
   }, [pendingTrimRange, fullTrack, resetExportSession, resetPlayback])
 
   const cancelTrimClear = useCallback(() => {
     setPendingTrimRange(null)
+    setTrimSelectionRevision((revision) => revision + 1)
   }, [])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
@@ -434,6 +443,7 @@ function HomeInner() {
   useEffect(() => {
     if (scenes.length === 0 && pendingTrimRange) {
       setPendingTrimRange(null)
+      setTrimSelectionRevision((revision) => revision + 1)
     }
   }, [scenes.length, pendingTrimRange])
 
@@ -608,6 +618,8 @@ function HomeInner() {
               onCycleStyle={cycleStyle}
               onOpenExport={handleOpenExport}
               onRangeChange={handleRangeChange}
+              acceptedTrimRange={acceptedTrimRange}
+              trimSelectionRevision={trimSelectionRevision}
               progress={progress}
               isPlaying={isPlaying}
               speed={speed}

@@ -37,6 +37,8 @@ interface TrackWorkspaceProps {
   onCycleStyle: () => void
   onOpenExport: () => void
   onRangeChange: (startIdx: number, endIdx: number) => void
+  acceptedTrimRange: { startIdx: number; endIdx: number }
+  trimSelectionRevision: number
   progress: number
   isPlaying: boolean
   speed: number
@@ -76,6 +78,8 @@ export default function TrackWorkspace({
   onCycleStyle,
   onOpenExport,
   onRangeChange,
+  acceptedTrimRange,
+  trimSelectionRevision,
   progress,
   isPlaying,
   speed,
@@ -143,6 +147,8 @@ export default function TrackWorkspace({
             cumulativeDistances={fullTrackCumulativeDistances}
             onRangeChange={onRangeChange}
             onSeek={onSeek}
+            acceptedRange={acceptedTrimRange}
+            selectionRevision={trimSelectionRevision}
           />
         </div>
       )}

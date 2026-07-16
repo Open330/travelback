@@ -12,6 +12,8 @@ interface TimelineSelectorProps {
   cumulativeDistances: number[]
   onRangeChange: (startIdx: number, endIdx: number) => void
   onSeek?: (progress: number) => void
+  acceptedRange?: { startIdx: number; endIdx: number }
+  selectionRevision?: number
   className?: string
 }
 
@@ -27,7 +29,7 @@ const RATIO_EPSILON = 0.000001
  *  handle positions represent fractions of total distance — not fractions of
  *  point count.  A linear interpolation (ratio * lastIndex) would only be
  *  correct when points are evenly spaced by distance. */
-function ratioToIndex(
+export function ratioToIndex(
   ratio: number,
   edge: 'start' | 'end',
   cumulDist: number[],
@@ -43,13 +45,51 @@ function ratioToIndex(
   }
   const targetDist = clamped * totalDist
   let lo = 0
-  let hi = cumulDist.length - 1
-  while (lo < hi - 1) {
+  let hi = cumulDist.length
+  while (lo < hi) {
     const mid = (lo + hi) >> 1
-    if (cumulDist[mid] <= targetDist) lo = mid
+    if (cumulDist[mid] < targetDist) lo = mid + 1
     else hi = mid
   }
-  return edge === 'end' ? hi : lo
+
+  // Exact point distances must round-trip when the parent restores an
+  // accepted range. Otherwise the inclusive end handle advances by one point
+  // every time a rejected trim is cancelled.
+  const distanceEpsilon = Math.max(1, totalDist) * Number.EPSILON * 16
+  if (lo < cumulDist.length && Math.abs(cumulDist[lo] - targetDist) <= distanceEpsilon) return lo
+  if (lo > 0 && Math.abs(cumulDist[lo - 1] - targetDist) <= distanceEpsilon) return lo - 1
+  return edge === 'end' ? Math.min(lo, lastIndex) : Math.max(0, lo - 1)
+}
+
+export function indexToRatio(
+  index: number,
+  edge: 'start' | 'end',
+  cumulDist: number[],
+  lastIndex: number,
+): number {
+  if (lastIndex <= 0) return index <= 0 ? 0 : 1
+  const clampedIndex = Math.max(0, Math.min(index, lastIndex))
+  const totalDistance = cumulDist[cumulDist.length - 1] ?? 0
+  if (totalDistance <= 0) return clampedIndex / lastIndex
+
+  const distance = cumulDist[clampedIndex] ?? 0
+  if (edge === 'start' && clampedIndex > 0 && cumulDist[clampedIndex - 1] === distance) {
+    // A segment boundary creates a zero-width distance plateau. A start edge
+    // accepted at the plateau's final index needs to sit just after that
+    // distance; the exact ratio resolves to the plateau's first index.
+    let plateauEnd = clampedIndex
+    while (plateauEnd < lastIndex && cumulDist[plateauEnd + 1] === distance) plateauEnd++
+    if (clampedIndex === plateauEnd) {
+      if (plateauEnd === lastIndex) return 1
+      const nextDistance = cumulDist[plateauEnd + 1]
+      const gap = nextDistance - distance
+      const minimumNudge = Math.max(1, Math.abs(distance)) * Number.EPSILON * 16
+      const nudge = Math.min(gap / 2, Math.max(gap * 1e-9, minimumNudge))
+      return Math.max(0, Math.min(1, (distance + nudge) / totalDistance))
+    }
+  }
+
+  return Math.max(0, Math.min(1, distance / totalDistance))
 }
 
 function formatDate(date: Date | undefined, locale?: string): string {
@@ -67,6 +107,8 @@ function TimelineSelector({
   cumulativeDistances,
   onRangeChange,
   onSeek,
+  acceptedRange,
+  selectionRevision = 0,
   className = '',
 }: TimelineSelectorProps) {
   const { t, locale } = useLocale()
@@ -78,6 +120,10 @@ function TimelineSelector({
   const lastDragClientXRef = useRef<number | null>(null)
   const onRangeChangeRef = useRef(onRangeChange)
   useEffect(() => { onRangeChangeRef.current = onRangeChange }, [onRangeChange])
+  const acceptedRangeRef = useRef(acceptedRange)
+  useEffect(() => { acceptedRangeRef.current = acceptedRange }, [acceptedRange])
+  const points = track.points
+  const cumulDist = cumulativeDistances
 
   useEffect(() => {
     const stopLeakedTimelineKeys = (event: KeyboardEvent) => {
@@ -104,6 +150,22 @@ function TimelineSelector({
     setEndRatio(e)
   }, [])
 
+  const ratioForIndex = useCallback((index: number, edge: 'start' | 'end') => (
+    indexToRatio(index, edge, cumulDist, points.length - 1)
+  ), [cumulDist, points.length])
+
+  // The parent owns the last accepted trim. A rejected scene-invalidating
+  // proposal stays visible while its confirmation dialog is open, then the
+  // parent increments selectionRevision on cancellation to restore this range.
+  useEffect(() => {
+    const range = acceptedRangeRef.current
+    if (!range || points.length === 0) return
+    applyRatioState(
+      ratioForIndex(range.startIdx, 'start'),
+      ratioForIndex(range.endIdx, 'end'),
+    )
+  }, [applyRatioState, points.length, ratioForIndex, selectionRevision])
+
   // Show drag hint on first appearance, dismiss on interaction or click
   const [showHint, setShowHint] = useState(false)
   useEffect(() => {
@@ -124,10 +186,6 @@ function TimelineSelector({
     originEnd: number
   }>({ dragging: null, originX: 0, originStart: 0, originEnd: 1 })
   const dragMovedRef = useRef(false)
-
-  const points = track.points
-
-  const cumulDist = cumulativeDistances
 
   // Compute bucket densities using distance-based bucketing
   // (consistent with the distance-based paradigm used in ElevationProfile and playback)
@@ -324,8 +382,12 @@ function TimelineSelector({
       // Click (not drag) on the selected region — seek to click position
       const rect = containerRef.current?.getBoundingClientRect()
       if (rect && rect.width > 0) {
-        const clickRatio = Math.max(0, Math.min(1, (originX - rect.left) / rect.width))
-        onSeek(clickRatio)
+        const fullTrackRatio = Math.max(0, Math.min(1, (originX - rect.left) / rect.width))
+        const { start, end } = ratioRef.current
+        const activeTrackProgress = end - start <= RATIO_EPSILON
+          ? 0
+          : Math.max(0, Math.min(1, (fullTrackRatio - start) / (end - start)))
+        onSeek(activeTrackProgress)
       }
     }
     dragMovedRef.current = false
