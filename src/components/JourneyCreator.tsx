@@ -77,7 +77,7 @@ function buildPointsGeoJSON(waypoints: TrackPoint[], iconSymbol: string, color: 
   }
 }
 
-function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Feature {
+export function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Feature {
   if (waypoints.length < 2) {
     return {
       type: 'Feature',
@@ -103,6 +103,18 @@ function buildLineGeoJSON(waypoints: TrackPoint[], color: string): GeoJSON.Featu
       coordinates,
     },
   }
+}
+
+export function syncJourneySources(
+  map: Pick<maplibregl.Map, 'getSource'>,
+  waypoints: TrackPoint[],
+  iconSymbol: string,
+  color: string,
+): void {
+  const pointsSource = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
+  const lineSource = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
+  pointsSource?.setData(buildPointsGeoJSON(waypoints, iconSymbol, color))
+  lineSource?.setData(buildLineGeoJSON(waypoints, color))
 }
 
 function parseCoordinateQuery(query: string): ParsedLocationResult | null {
@@ -159,6 +171,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchError, setSearchError] = useState<string | null>(null)
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
+  const [journeyName, setJourneyName] = useState('')
   const [mapReadyRetry, setMapReadyRetry] = useState(0)
   const selectedIconSymbol = TRAVEL_ICON_OPTIONS.find(option => option.id === selectedIconId)?.symbol ?? TRAVEL_ICON_OPTIONS[0].symbol
   const selectedIconColor = TRAVEL_ICON_COLORS[selectedIconId]
@@ -198,13 +211,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     const map = mapRef.current?.getMap()
     if (!map || !layersAddedRef.current) return
 
-    const pointsSrc = map.getSource(SOURCE_POINTS) as maplibregl.GeoJSONSource | undefined
-    const lineSrc = map.getSource(SOURCE_LINE) as maplibregl.GeoJSONSource | undefined
-
-    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON(waypointsRef.current, selectedIconSymbolRef.current, selectedIconColorRef.current))
-    if (lineSrc && waypointsRef.current.length >= 2) {
-      lineSrc.setData(buildLineGeoJSON(waypointsRef.current, selectedIconColorRef.current))
-    }
+    syncJourneySources(
+      map,
+      waypointsRef.current,
+      selectedIconSymbolRef.current,
+      selectedIconColorRef.current,
+    )
   }, [mapRef])
 
   const addLayers = useCallback((map: maplibregl.Map) => {
@@ -601,17 +613,19 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
   const handleDone = useCallback(() => {
     if (waypointsRef.current.length < 2) return
+    setJourneyName((current) => current || t('journey.defaultName'))
     setShowConfirm(true)
-  }, [])
+  }, [t])
 
   const handleConfirmCreate = useCallback(() => {
+    const resolvedName = journeyName.trim() || t('journey.defaultName')
     const track: Track = {
-      name: `${selectedIconSymbol} ${t('journey.defaultName')}`,
+      name: `${selectedIconSymbol} ${resolvedName}`,
       points: waypointsRef.current as TrackPoint[],
     }
     setShowConfirm(false)
     onComplete(track)
-  }, [onComplete, selectedIconSymbol, t])
+  }, [journeyName, onComplete, selectedIconSymbol, t])
 
   useEffect(() => {
     updateMapData()
@@ -738,7 +752,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         <div className="text-[10px] mb-1" style={{ color: 'var(--t4)' }}>
           {t('journey.travelIconLabel')}
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div role="group" aria-label={t('journey.travelIconLabel')} className="flex flex-wrap gap-1">
           {TRAVEL_ICON_OPTIONS.map((option) => {
             const isSelected = option.id === selectedIconId
             const optionLabel = t(option.labelKey)
@@ -749,8 +763,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 type="button"
                 aria-label={optionLabel}
                 title={optionLabel}
+                aria-pressed={isSelected}
                 onClick={() => setSelectedIconId(option.id)}
-                className="gi px-2 py-1 text-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+                className="gi inline-flex min-h-11 min-w-11 items-center justify-center px-2 py-1 text-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{
                   color: 'var(--t1)',
                   borderColor: isSelected ? 'rgb(var(--gl))' : undefined,
@@ -801,6 +816,20 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
           <p className="text-[10px] mb-3" style={{ color: 'var(--t3)' }}>
             {pointCount} {t('timeline.points')} · {formatDistance(distanceMeters, units)}
           </p>
+          <label htmlFor="journey-name" className="mb-3 block">
+            <span className="mb-1 block text-[10px] font-medium" style={{ color: 'var(--t3)' }}>
+              {t('journey.nameLabel')}
+            </span>
+            <input
+              id="journey-name"
+              type="text"
+              value={journeyName}
+              maxLength={80}
+              onChange={(event) => setJourneyName(event.target.value)}
+              placeholder={t('journey.namePlaceholder')}
+              className="vitro-input min-h-11 w-full px-3 py-2 text-sm"
+            />
+          </label>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setShowConfirm(false)}
               className="gi px-3 py-1.5 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
