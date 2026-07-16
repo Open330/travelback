@@ -21,6 +21,29 @@ const ANTIMERIDIAN_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/antimeridian.
 const MULTILINE_ENTITY_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/multiline-entity.gpx')
 const IS_STATIC_E2E = process.env.TRAVELBACK_E2E_TARGET === 'static'
 
+type DebugCameraState = {
+  center: [number, number]
+  zoom: number
+  pitch: number
+  bearing: number
+}
+
+type DebugMapSnapshot = {
+  camera: DebugCameraState
+  htmlMarkerPosition: [number, number]
+  geoJsonMarkerPosition: [number, number]
+  trailHeadPosition: [number, number]
+  completedTrailChunkIndex: number
+  requestedStyleRevision: number
+  readyStyleRevision: number
+  hasRouteSource: boolean
+  hasTrailSource: boolean
+  hasRouteLayer: boolean
+  hasTrailLayer: boolean
+  hasMarker: boolean
+  hasExportMarkerLayer: boolean
+} | null
+
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
     a.x + a.width <= b.x ||
@@ -187,6 +210,135 @@ async function uploadCustomFile(page: Page, fixture: string) {
   await expect(page.getByTestId('load-new-file-button')).toBeVisible({ timeout: 15_000 })
 }
 
+async function setPlaybackProgress(page: Page, value: number) {
+  const progress = page.getByLabel('Playback progress')
+  await progress.evaluate((element, nextValue) => {
+    const input = element as HTMLInputElement
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    valueSetter?.call(input, String(nextValue))
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  }, value)
+  await expect(progress).toHaveValue(String(value))
+}
+
+async function readDebugMapSnapshot(page: Page): Promise<DebugMapSnapshot> {
+  return page.evaluate(() => {
+    type CameraState = {
+      center: [number, number]
+      zoom: number
+      pitch: number
+      bearing: number
+    }
+    type PoseState = {
+      htmlMarkerPosition: [number, number] | null
+      geoJsonMarkerPosition: [number, number] | null
+      trailHeadPosition: [number, number] | null
+      completedTrailChunkIndex: number
+      requestedStyleRevision: number
+      readyStyleRevision: number
+    }
+    type MapState = {
+      hasRouteSource: boolean
+      hasTrailSource: boolean
+      hasRouteLayer: boolean
+      hasTrailLayer: boolean
+      hasMarker: boolean
+      hasExportMarkerLayer: boolean
+    }
+    type DebugWindow = Window & {
+      __travelbackDebug?: {
+        getCamera: () => CameraState | null
+        getPoseState: () => PoseState | null
+        getMapState: () => MapState | null
+      }
+    }
+
+    const api = (window as DebugWindow).__travelbackDebug
+    const camera = api?.getCamera()
+    const pose = api?.getPoseState()
+    const mapState = api?.getMapState()
+    if (!camera || !pose?.htmlMarkerPosition || !pose.geoJsonMarkerPosition || !pose.trailHeadPosition || !mapState) {
+      return null
+    }
+
+    return {
+      camera,
+      htmlMarkerPosition: pose.htmlMarkerPosition,
+      geoJsonMarkerPosition: pose.geoJsonMarkerPosition,
+      trailHeadPosition: pose.trailHeadPosition,
+      completedTrailChunkIndex: pose.completedTrailChunkIndex,
+      requestedStyleRevision: pose.requestedStyleRevision,
+      readyStyleRevision: pose.readyStyleRevision,
+      ...mapState,
+    }
+  })
+}
+
+function coordinateDistanceMeters(a: [number, number], b: [number, number]) {
+  return haversineDistanceMeters(
+    { lng: a[0], lat: a[1] },
+    { lng: b[0], lat: b[1] },
+  )
+}
+
+function expectPoseToMatch(actual: NonNullable<DebugMapSnapshot>, expected: NonNullable<DebugMapSnapshot>) {
+  expect(coordinateDistanceMeters(actual.htmlMarkerPosition, expected.htmlMarkerPosition)).toBeLessThan(1)
+  expect(coordinateDistanceMeters(actual.geoJsonMarkerPosition, expected.geoJsonMarkerPosition)).toBeLessThan(1)
+  expect(coordinateDistanceMeters(actual.trailHeadPosition, expected.trailHeadPosition)).toBeLessThan(1)
+  expect(coordinateDistanceMeters(actual.htmlMarkerPosition, actual.geoJsonMarkerPosition)).toBeLessThan(0.1)
+  expect(coordinateDistanceMeters(actual.htmlMarkerPosition, actual.trailHeadPosition)).toBeLessThan(0.1)
+  expect(actual.completedTrailChunkIndex).toBe(expected.completedTrailChunkIndex)
+  expect(coordinateDistanceMeters(actual.camera.center, expected.camera.center)).toBeLessThan(2)
+  expect(Math.abs(actual.camera.zoom - expected.camera.zoom)).toBeLessThan(0.02)
+  expect(Math.abs(actual.camera.pitch - expected.camera.pitch)).toBeLessThan(0.1)
+  expect(shortestAngleDelta(actual.camera.bearing, expected.camera.bearing)).toBeLessThan(0.2)
+}
+
+async function waitForDebugPose(page: Page, minimumRevision = 0) {
+  try {
+    await expect.poll(async () => {
+      const snapshot = await readDebugMapSnapshot(page)
+      return Boolean(
+        snapshot
+        && snapshot.readyStyleRevision === snapshot.requestedStyleRevision
+        && snapshot.readyStyleRevision > minimumRevision
+        && snapshot.hasRouteSource
+        && snapshot.hasTrailSource
+        && snapshot.hasRouteLayer
+        && snapshot.hasTrailLayer
+        && snapshot.hasMarker
+        && snapshot.hasExportMarkerLayer
+        && coordinateDistanceMeters(snapshot.htmlMarkerPosition, snapshot.geoJsonMarkerPosition) < 0.1
+        && coordinateDistanceMeters(snapshot.htmlMarkerPosition, snapshot.trailHeadPosition) < 0.1,
+      )
+    }, { timeout: 20_000, intervals: [100, 200, 400] }).toBe(true)
+  } catch (error) {
+    const snapshot = await readDebugMapSnapshot(page)
+    const rawDebugState = await page.evaluate(() => {
+      const api = (window as Window & {
+        __travelbackDebug?: {
+          getCamera: () => unknown
+          getPoseState: () => unknown
+          getMapState: () => unknown
+        }
+      }).__travelbackDebug
+      return api ? {
+        camera: api.getCamera(),
+        pose: api.getPoseState(),
+        map: api.getMapState(),
+      } : null
+    })
+    throw new Error(`Map pose did not become ready after revision ${minimumRevision}: ${JSON.stringify(snapshot ?? rawDebugState)}`, {
+      cause: error,
+    })
+  }
+
+  const snapshot = await readDebugMapSnapshot(page)
+  if (!snapshot) throw new Error('Missing ready MapView debug pose')
+  return snapshot
+}
+
 async function startPlayback(page: Page) {
   const playBtn = page.getByRole('button', { name: 'Play' })
   await expect(playBtn).toBeVisible({ timeout: 10_000 })
@@ -322,6 +474,19 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('カメラ', { exact: true })).toBeVisible()
   })
 
+  test('loaded track status follows the current locale without losing the track name', async ({ page }) => {
+    await page.getByRole('button', { name: 'Try with a sample trip' }).click()
+    await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
+
+    const workspaceStatus = page.getByRole('status')
+    await expect(workspaceStatus).toHaveText('Track loaded: Namsan Tower Walk')
+
+    await page.getByTestId('global-toolbar').getByRole('combobox').selectOption('ko')
+    await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe('ko')
+    await expect(page.getByText('카메라', { exact: true })).toBeVisible({ timeout: 10_000 })
+    await expect(workspaceStatus).toHaveText('트랙이 로드되었습니다: Namsan Tower Walk')
+  })
+
 
   test('language picker applies Chinese landing copy across primary actions', async ({ page }) => {
     await page.getByTestId('global-toolbar').locator('select').selectOption('zh')
@@ -426,19 +591,117 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
   })
 
-  test('in-app map retry restores a loaded track marker', async ({ page }) => {
+  test('ready style replacements preserve a paused nonzero map pose', async ({ page }) => {
     await uploadGpx(page)
     await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
 
-    await page.route('**/map-styles/positron.json', route => route.abort('failed'))
-    await page.getByTestId('map-style-button').click({ force: true })
-    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
-    await page.unroute('**/map-styles/positron.json')
+    let startPose: NonNullable<DebugMapSnapshot> | null = null
+    if (!IS_STATIC_E2E) {
+      startPose = await waitForDebugPose(page)
+    }
 
+    await setPlaybackProgress(page, 0.6)
+    let baselinePose: NonNullable<DebugMapSnapshot> | null = null
+    if (!IS_STATIC_E2E) {
+      await expect.poll(async () => {
+        const snapshot = await readDebugMapSnapshot(page)
+        return snapshot && startPose
+          ? coordinateDistanceMeters(snapshot.htmlMarkerPosition, startPose.htmlMarkerPosition)
+          : 0
+      }, { timeout: 10_000, intervals: [100, 200, 300] }).toBeGreaterThan(100)
+      baselinePose = await waitForDebugPose(page)
+    }
+
+    const styleButton = page.getByTestId('map-style-button')
+    const lightStyleResponse = page.waitForResponse(response => (
+      response.url().endsWith('/map-styles/positron.json') && response.ok()
+    ))
+    await styleButton.click()
+    await lightStyleResponse
+    await expect(styleButton).toHaveText(/Map:\s*Light/, { timeout: 10_000 })
+    await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toHaveCount(1)
+    await expect(page.locator('.maplibregl-marker')).toHaveCount(1)
+
+    let lightPose: NonNullable<DebugMapSnapshot> | null = null
+    if (!IS_STATIC_E2E && baselinePose) {
+      lightPose = await waitForDebugPose(page, baselinePose.readyStyleRevision)
+      expectPoseToMatch(lightPose, baselinePose)
+    }
+
+    let releaseDarkRequest = () => {}
+    let finishDarkHandler = () => {}
+    const darkRequestHeld = new Promise<void>(resolve => { releaseDarkRequest = resolve })
+    const darkHandlerFinished = new Promise<void>(resolve => { finishDarkHandler = resolve })
+    let interceptedDarkRequest = false
+    await page.route('**/map-styles/dark.json', async route => {
+      interceptedDarkRequest = true
+      await darkRequestHeld
+      await route.continue().catch(() => {})
+      finishDarkHandler()
+    })
+
+    await styleButton.click()
+    await expect.poll(() => interceptedDarkRequest).toBe(true)
+    await expect(styleButton).toHaveText(/Map:\s*Dark/)
+
+    const libertyStyleResponse = page.waitForResponse(response => (
+      response.url().endsWith('/map-styles/liberty.json') && response.ok()
+    ))
+    await styleButton.click()
+    await libertyStyleResponse
+    await expect(styleButton).toHaveText(/Map:\s*Liberty/)
+
+    let libertyPose: NonNullable<DebugMapSnapshot> | null = null
+    if (!IS_STATIC_E2E && lightPose) {
+      libertyPose = await waitForDebugPose(page, lightPose.readyStyleRevision)
+      expectPoseToMatch(libertyPose, lightPose)
+    }
+
+    releaseDarkRequest()
+    await darkHandlerFinished
+    await page.unroute('**/map-styles/dark.json')
+    await expect(page.getByTestId('map-error')).toHaveCount(0)
+    await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toHaveCount(1)
+    if (!IS_STATIC_E2E && libertyPose) {
+      const afterSupersededStyle = await waitForDebugPose(page, libertyPose.readyStyleRevision - 1)
+      expect(afterSupersededStyle.readyStyleRevision).toBe(libertyPose.readyStyleRevision)
+      expectPoseToMatch(afterSupersededStyle, libertyPose)
+    }
+
+    await page.route('**/map-styles/bright.json', route => route.abort('failed'))
+    await styleButton.click()
+    await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    await page.unroute('**/map-styles/bright.json')
+
+    let poseBeforeRetry = libertyPose
+    if (!IS_STATIC_E2E && libertyPose) {
+      await setPlaybackProgress(page, 0.72)
+      await expect.poll(async () => {
+        const snapshot = await readDebugMapSnapshot(page)
+        return snapshot
+          ? coordinateDistanceMeters(snapshot.htmlMarkerPosition, libertyPose.htmlMarkerPosition)
+          : 0
+      }, { timeout: 10_000, intervals: [100, 200, 300] }).toBeGreaterThan(100)
+      poseBeforeRetry = await readDebugMapSnapshot(page)
+      if (!poseBeforeRetry) throw new Error('Outgoing style lost its pose after a failed replacement')
+      expect(coordinateDistanceMeters(poseBeforeRetry.htmlMarkerPosition, poseBeforeRetry.geoJsonMarkerPosition)).toBeLessThan(0.1)
+      expect(coordinateDistanceMeters(poseBeforeRetry.htmlMarkerPosition, poseBeforeRetry.trailHeadPosition)).toBeLessThan(0.1)
+    }
+
+    const retryStyleResponse = page.waitForResponse(response => (
+      response.url().endsWith('/map-styles/bright.json') && response.ok()
+    ))
     await page.getByTestId('map-error').getByRole('button', { name: /retry map/i }).click()
+    await retryStyleResponse
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
     await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toHaveCount(1)
     await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
+
+    if (!IS_STATIC_E2E && poseBeforeRetry && libertyPose) {
+      const retryPose = await waitForDebugPose(page, libertyPose.readyStyleRevision)
+      expectPoseToMatch(retryPose, poseBeforeRetry)
+    }
   })
 
   test('in-app map retry rebinds an active journey creator', async ({ page }) => {
@@ -448,23 +711,48 @@ test.describe('Travelback App', () => {
       if (message.type() === 'error') runtimeErrors.push(message.text())
     })
 
-    await page.getByRole('button', { name: 'Draw a route on the map' }).click({ force: true })
+    await page.getByRole('button', { name: 'Draw a route on the map' }).click()
     const undoButton = page.getByRole('button', { name: 'Undo' })
+    const creatorPanel = page.getByTestId('journey-creator-panel')
     await expect(undoButton).toBeDisabled()
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(500)
+    await expect(creatorPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 15_000 })
+    await expect(creatorPanel).toHaveAttribute('aria-busy', 'false')
+    const initialMapGeneration = Number(await creatorPanel.getAttribute('data-map-generation'))
 
     let canvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    await expect(canvas).not.toHaveAttribute('aria-busy', 'true')
     let canvasBox = await canvas.boundingBox()
     if (!canvasBox) throw new Error('Missing initial map canvas geometry')
     await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2)
     await expect(page.getByText('1 location', { exact: true })).toBeVisible({ timeout: 10_000 })
 
     await page.route('**/map-styles/dark.json', route => route.abort('failed'))
-    await page.getByRole('button', { name: /switch to dark mode/i }).click({ force: true })
+    await page.getByRole('button', { name: /switch to dark mode/i }).click()
     await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
+    // The rejected style never replaces the still-interactive outgoing style.
+    await expect(creatorPanel).toHaveAttribute('data-map-interaction-ready', 'true')
+    await expect(creatorPanel).toHaveAttribute('aria-busy', 'false')
     await page.unroute('**/map-styles/dark.json')
     runtimeErrors.length = 0
+
+    await creatorPanel.evaluate((panel) => {
+      const debugWindow = window as Window & {
+        __journeyReadinessTransitions?: Array<{ generation: number; ready: string | null; busy: string | null }>
+      }
+      const record = () => {
+        debugWindow.__journeyReadinessTransitions ??= []
+        debugWindow.__journeyReadinessTransitions.push({
+          generation: Number(panel.getAttribute('data-map-generation')),
+          ready: panel.getAttribute('data-map-interaction-ready'),
+          busy: panel.getAttribute('aria-busy'),
+        })
+      }
+      record()
+      new MutationObserver(record).observe(panel, {
+        attributes: true,
+        attributeFilter: ['data-map-generation', 'data-map-interaction-ready', 'aria-busy'],
+      })
+    })
 
     const styleResponse = page.waitForResponse(response => (
       response.url().endsWith('/map-styles/dark.json') && response.ok()
@@ -472,19 +760,36 @@ test.describe('Travelback App', () => {
     await page.getByTestId('map-error').getByRole('button', { name: /retry map/i }).click()
     await styleResponse
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(500)
+    await expect.poll(async () => Number(await creatorPanel.getAttribute('data-map-generation')), {
+      timeout: 15_000,
+      intervals: [100, 200, 400],
+    }).toBeGreaterThan(initialMapGeneration)
+    await expect(creatorPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 15_000 })
+    await expect(creatorPanel).toHaveAttribute('aria-busy', 'false')
+    const readinessTransitions = await page.evaluate(() => (
+      (window as Window & {
+        __journeyReadinessTransitions?: Array<{ generation: number; ready: string | null; busy: string | null }>
+      }).__journeyReadinessTransitions ?? []
+    ))
+    expect(readinessTransitions.some(transition => (
+      transition.generation > initialMapGeneration
+      && transition.ready === 'false'
+      && transition.busy === 'true'
+    ))).toBe(true)
     if (await page.getByRole('heading', { name: 'Something went wrong' }).isVisible()) {
       throw new Error(`Map retry caused an application error:\n${runtimeErrors.join('\n')}`)
     }
     await expect(page.getByText('1 location', { exact: true })).toBeVisible()
 
     canvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    await expect(canvas).not.toHaveAttribute('aria-busy', 'true')
     canvasBox = await canvas.boundingBox()
     if (!canvasBox) throw new Error('Missing recovered map canvas geometry')
     await page.mouse.click(canvasBox.x + canvasBox.width * 0.65, canvasBox.y + canvasBox.height / 2)
 
     await expect(page.getByText(/2 locations/)).toBeVisible({ timeout: 10_000 })
+    await expect(creatorPanel).toHaveAttribute('data-map-interaction-ready', 'true')
+    await expect(canvas).not.toHaveAttribute('aria-busy', 'true')
     expect(runtimeErrors).toEqual([])
   })
 
@@ -847,6 +1152,111 @@ test.describe('Travelback App', () => {
       return boxesOverlap(primaryRowBox, statsBox)
         || statsBox.y <= primaryRowBox.y + primaryRowBox.height - 4
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
+  })
+
+  test('loaded map attribution remains unobscured, hittable, and keyboard operable', async ({ page }) => {
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/')
+      await waitForApp(page)
+      await uploadGpx(page)
+
+      const attribution = page.locator('.map-has-track-controls .maplibregl-ctrl-attrib')
+      const timeline = page.getByTestId('timeline-selector')
+      const elevation = page.getByRole('slider', { name: 'Elevation profile' })
+      const playbackStats = page.getByTestId('playback-stats')
+      const controlsPanel = page.getByTestId('controls-primary-row')
+        .locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " gc ")][1]')
+
+      await expect(attribution).toBeVisible({ timeout: 15_000 })
+      await expect(timeline).toBeVisible()
+      await expect(elevation).toBeVisible()
+      await expect(playbackStats).toBeVisible()
+      await expect(controlsPanel).toBeVisible()
+
+      await expect.poll(async () => {
+        const [attributionBox, ...protectedBoxes] = await Promise.all([
+          attribution.boundingBox(),
+          timeline.boundingBox(),
+          elevation.boundingBox(),
+          playbackStats.boundingBox(),
+          controlsPanel.boundingBox(),
+        ])
+        if (!attributionBox || protectedBoxes.some(box => !box)) return true
+        return protectedBoxes.some(box => boxesOverlap(attributionBox, box!))
+      }, { timeout: 10_000, intervals: [100, 200, 400] }).toBe(false)
+
+      const attributionBox = await attribution.boundingBox()
+      if (!attributionBox) throw new Error(`Missing attribution geometry at ${viewport.width}px`)
+      const attributionOwnsCenterHit = await page.evaluate(({ x, y }) => {
+        return Boolean(document.elementFromPoint(x, y)?.closest('.maplibregl-ctrl-attrib'))
+      }, {
+        x: attributionBox.x + attributionBox.width / 2,
+        y: attributionBox.y + attributionBox.height / 2,
+      })
+      expect(attributionOwnsCenterHit).toBe(true)
+
+      const toggle = attribution.locator('summary.maplibregl-ctrl-attrib-button')
+      const attributionContent = attribution.locator('.maplibregl-ctrl-attrib-inner')
+      const isCompact = await attribution.evaluate(element => element.classList.contains('maplibregl-compact'))
+      if (isCompact) {
+        await expect(toggle).toBeVisible()
+        await toggle.focus()
+        await expect(toggle).toBeFocused()
+        const focusOutline = await toggle.evaluate(element => {
+          const style = getComputedStyle(element)
+          return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) }
+        })
+        expect(focusOutline.style).not.toBe('none')
+        expect(focusOutline.width).toBeGreaterThanOrEqual(2)
+
+        // MapLibre initially expands compact attribution. Normalize it using
+        // the keyboard, then prove keyboard-only expansion and collapse.
+        if (await attributionContent.isVisible()) {
+          await toggle.press('Space')
+          await expect(attributionContent).toBeHidden()
+        }
+
+        const toggleBox = await toggle.boundingBox()
+        if (!toggleBox) throw new Error(`Missing compact attribution toggle geometry at ${viewport.width}px`)
+        expect(toggleBox.width).toBeGreaterThanOrEqual(44)
+        expect(toggleBox.height).toBeGreaterThanOrEqual(44)
+        const toggleOwnsCenterHit = await page.evaluate(({ x, y }) => {
+          return Boolean(document.elementFromPoint(x, y)?.closest('summary.maplibregl-ctrl-attrib-button'))
+        }, {
+          x: toggleBox.x + toggleBox.width / 2,
+          y: toggleBox.y + toggleBox.height / 2,
+        })
+        expect(toggleOwnsCenterHit).toBe(true)
+
+        await toggle.dispatchEvent('keydown', { key: ' ', code: 'Space', repeat: true, bubbles: true })
+        await expect(attributionContent).toBeHidden()
+        await toggle.press('Enter')
+        await expect(attributionContent).toBeVisible()
+
+        const attributionLink = attributionContent.getByRole('link').first()
+        const linkBox = await attributionLink.boundingBox()
+        if (!linkBox) throw new Error(`Missing expanded attribution link geometry at ${viewport.width}px`)
+        const linkOwnsCenterHit = await page.evaluate(({ x, y }) => {
+          return document.elementFromPoint(x, y)?.closest('a') !== null
+        }, {
+          x: linkBox.x + linkBox.width / 2,
+          y: linkBox.y + linkBox.height / 2,
+        })
+        expect(linkOwnsCenterHit).toBe(true)
+
+        await toggle.press('Space')
+        await expect(attributionContent).toBeHidden()
+      } else {
+        await expect(attributionContent).toBeVisible()
+        const attributionLink = attributionContent.getByRole('link').first()
+        await attributionLink.focus()
+        await expect(attributionLink).toBeFocused()
+      }
+    }
   })
 
   test('mobile journey creator panel stays below the top toolbar', async ({ page }) => {
