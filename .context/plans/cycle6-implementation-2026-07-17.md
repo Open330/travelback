@@ -28,7 +28,7 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
 - Work: capture center, zoom, pitch, and bearing from the outgoing live map when Retry is requested. Carry that snapshot only into the intended replacement generation. During successful hydration, automatic follow/scene camera remains higher priority; when Follow is off and export does not own the camera, replay the manual snapshot. Consume it only after successful hydration and clear it on track removal/replacement. If no valid snapshot exists, retain the new-track fit as the safe fallback.
 - Acceptance: with a paused nonzero track and camera tracking disabled, a failed style followed by actual Retry Map restores the same camera, route, marker, and trail instead of `[0,20]`/zoom 2. Follow remains disabled, exactly one live canvas/marker exists, and automatic-follow hydration continues to pass.
 - Focused verification: lint/typecheck plus a retries-disabled dev E2E exercising the actual error/Retry UI and comparing the pre/post camera pose.
-- Status: Pending.
+- Status: Completed (`62694c1`).
 
 ## Wave 1 — Bottom-surface interaction ownership
 
@@ -39,7 +39,7 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
 - Work: place Timeline, Elevation, and playback controls in one responsive bottom stack rather than independent absolute bands. Give the Reset button a 44×44 minimum target and centered icon while preserving existing focus treatment and accessible name.
 - Acceptance: after trimming an elevation-bearing route at both 390×844 and 1440×1000, Timeline and Elevation do not intersect, Reset is at least 44×44, and its center hit resolves to Reset. A real click restores the full point count, removes Reset, and does not seek playback.
 - Focused verification: retries-disabled static E2E at both viewports plus lint/typecheck.
-- Status: Pending.
+- Status: Completed (`3b29a91`).
 
 ## Wave 2 — Localized and warning-free feedback
 
@@ -50,7 +50,7 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
 - Work: add locale-owned start-adjusted and end-adjusted templates with placeholders for scene name and old/new percentages. Use them for both visible warnings and the shared polite live status; do not concatenate English fragments into translated text.
 - Acceptance: all five locale dictionaries retain key/placeholder parity. A Korean normalization regression produces a Korean start/end correction with the scene name and percentages and contains neither literal `start:` nor `end:`.
 - Focused verification: SceneEditor and i18n unit suites plus lint/typecheck.
-- Status: Pending.
+- Status: Completed (`d8b99ad`).
 
 ### P04 — Settle the FileUpload ordering test inside `act(...)` (AG6-04)
 
@@ -59,7 +59,7 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
 - Work: replace the already-resolved parser mock with a deferred promise. Assert `onImportStart` precedes parser invocation, resolve/flush inside async `act`, and assert the loaded track after settlement.
 - Acceptance: the focused test passes without React lifecycle warnings while preserving its ordering contract and proving settled output.
 - Focused verification: run the FileUpload test with the verbose reporter and assert no `act(...)` warning, then run the full unit suite.
-- Status: Pending.
+- Status: Completed (`77bbb98`).
 
 ## Wave 3 — Import-guide consistency
 
@@ -70,7 +70,7 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
 - Work: label the image as a legacy fallback available only when Takeout offers Location History. Replace the single `Records.json` outcome with compatible JSON wording that covers Records, Timeline Edits, and monthly JSON. Add a source-asset assertion rejecting the obsolete unconditional text.
 - Acceptance: the rendered image no longer promises Location History or `Records.json` as the sole path, matches the adjacent phone-first/known-compatible guide contract, and the asset-content regression passes.
 - Focused verification: i18n/asset unit test plus a static build/smoke pass.
-- Status: Pending.
+- Status: Completed (`c4c9119`).
 
 ## Carried-forward blocked work
 
@@ -150,20 +150,32 @@ Fix all five actionable Cycle 6 findings without deployment. Preserve work that 
   - `/tmp/travelback-cycle6-browser.tMtY4J`
   - `/tmp/travelback-cycle6-static.10O3N4`
   - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-77834f04e42c1f49ba6c236505512ebd.log`
-- Any later Cycle 6 validation mirror must be appended before completion. No listed path is deleted during this cycle.
+  - `/tmp/travelback-cycle6-focused.0jw7ns`
+  - `/tmp/travelback-cycle6-gates.IzOqfp`
+- No listed path was deleted during this cycle.
+
+## Verification-driven repair record
+
+- The first P02 typecheck caught that the new browser test used `selected`/`total` instead of the existing helper's `visible`/`full` fields. The test was corrected before commit; no production change or suppression was needed.
+- P01's actual Retry UI regression passed 1/1 with retries disabled after turning Follow off, advancing the marker on the failed outgoing style, and comparing the recovered camera/pose.
+- P02's two-viewport Reset regression passed 1/1 with retries disabled, and the existing two-viewport attribution geometry/keyboard regression passed 1/1 after the safe-area update.
+- P03's SceneEditor/i18n regressions passed 14/14; P04's focused FileUpload suite passed 2/2 without the former React warning; P05's i18n/asset suite passed 11/11.
+- The exact-HEAD validation mirror initially required its existing local `.bin` directory to be placed explicitly on PATH. No package install or repository change occurred; the exact configured commands then ran successfully.
 
 ## Required final gate matrix
 
-1. `npm run lint`
-2. `npm run typecheck`
-3. `npm run test`
-4. `npm audit --audit-level=high`
-5. `npm run build`
-6. `npm run smoke:static`
-7. `npm run test:e2e`
-8. `npm run test:e2e:static:ci`
-9. Production-static real-MP4 smoke with `TRAVELBACK_REAL_EXPORT=1`, retries disabled, output larger than 1 KiB, and `ftyp` verified
+1. `npm run lint` — passed with zero warnings.
+2. `npm run typecheck` — passed.
+3. `npm run test` — 368 tests passed across 15 files with no React lifecycle warning.
+4. `npm audit --audit-level=high` — passed with zero vulnerabilities.
+5. `npm run build` — passed with Next.js 16.2.10; generated-worker parity, TypeScript, 4 static pages, and CSP hardening across 3 HTML files passed.
+6. `npm run smoke:static` — passed on the isolated production export.
+7. `npm run test:e2e` — 95 passed, 1 expected opt-in real-export skip, zero failures or retries in 15.0 minutes.
+8. `npm run test:e2e:static:ci` — static smoke passed; 95 passed, 1 expected opt-in real-export skip, zero failures or retries in 19.5 minutes.
+9. Production-static real-MP4 smoke — passed 1/1 in 1.4 minutes with `TRAVELBACK_REAL_EXPORT=1` and retries disabled; the executed test required the downloaded MP4 to exceed 1 KiB and contain `ftyp`.
+
+The build and browser matrix ran from the isolated exact-HEAD copy `/tmp/travelback-cycle6-gates.IzOqfp`; focused browser regressions ran from `/tmp/travelback-cycle6-focused.0jw7ns`. The pre-existing local Next process, port 3114, primary build artifacts, and all recorded cleanup paths were left untouched.
 
 ## Completion gate
 
-Pending. P01-P05 must be implemented with focused regressions, every configured gate and the real-MP4 smoke must pass, each coherent change must be signed and pushed, final records must describe actual results, and no deployment or blocked-scope mutation may occur.
+Completed. P01-P05 were implemented in focused signed commits and pushed; every focused regression, the full configured gate matrix, and the retries-disabled real-MP4 smoke passed. B01-B04 and D01-D04 retain their documented authority, legal-input, representative-evidence, or measured-redesign exit criteria. No deployment, CI/CD edit, production mutation, deletion, or pre-existing process/port action occurred.
