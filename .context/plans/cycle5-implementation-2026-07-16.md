@@ -26,7 +26,7 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Work: publish a monotonically changing ready-style revision only after the active map/style owns all route sources and layers. Key the current-pose transaction to that revision, or invoke an equivalent stale-safe idempotent hydrator, so it interpolates from the latest progress, updates the traveled trail plus HTML and GeoJSON markers together, and reapplies follow or authored-scene camera state. Ignore callbacks from replaced maps or superseded style requests.
 - Acceptance: at paused nonzero progress, ordinary style replacement and actual Retry Map each retain route/trail state, matching HTML/GeoJSON current positions, and current automatic camera ownership. There is exactly one live canvas/HTML marker, and a stale style callback cannot mutate the current map.
 - Focused verification: lint/typecheck plus a deterministic E2E that seeks before style replacement and asserts post-ready pose/camera state for both paths.
-- Status: Pending.
+- Status: Completed (`06cee37`; regression coverage in `7e419d3`).
 
 ### P02 — Expose deterministic Journey Creator map readiness (AG5-04)
 
@@ -34,7 +34,7 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Files: `src/components/JourneyCreator.tsx`, `e2e/travelback.spec.ts`
 - Work: derive an observable interaction-ready state from the active map generation only after Journey layers and map listeners bind. Clear or supersede readiness when the generation/style is replaced, without losing waypoints. Update the retry regression to await that condition rather than `networkidle` plus a fixed delay. If interaction is intentionally unavailable while binding, communicate that state instead of accepting a silent early click.
 - Acceptance: the active creator retry path waits on a real readiness signal, keeps existing waypoints, accepts the first post-ready map click, and passes at least 10 consecutive retries-disabled focused repetitions. No sleep increase or forced click is used.
-- Status: Pending.
+- Status: Completed (`818c7c2`; regression coverage in `7e419d3`).
 
 ## Wave 1 — Responsive and localized workspace
 
@@ -44,7 +44,7 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Files: `src/app/globals.css`, `e2e/travelback.spec.ts`
 - Work: position MapLibre attribution in a responsive safe area outside the loaded workspace's bottom timeline/elevation/playback surface and away from top toolbars. Keep attribution visible and preserve pointer/keyboard behavior, focus indication, and MapLibre expansion semantics.
 - Acceptance: at 390×844 and 1440×1000, attribution intersects none of the playback statistics, time text, timeline, elevation, or control panel geometry; center-point hit testing resolves to attribution; keyboard focus and activation remain available; landing-map controls are unchanged.
-- Status: Pending.
+- Status: Completed (`3ec8380`, `0904a2b`; regression coverage in `7e419d3`).
 
 ### P04 — Derive loaded status from the current locale (AG5-03)
 
@@ -52,7 +52,7 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Files: `src/app/page.tsx`, `e2e/travelback.spec.ts`
 - Work: store stable semantic announcement data such as the loaded track name, not a translated sentence captured at load time. Render the live status with the current translator so a locale switch updates both language context and content without replaying unrelated stale messages.
 - Acceptance: load the sample in English, switch to Korean, and observe `document.lang="ko"`, Korean controls, and Korean `role=status` content containing the unchanged track name. Existing load/error announcements remain correct.
-- Status: Pending.
+- Status: Completed (`57dfabc`; regression coverage in `7e419d3`).
 
 ## Wave 2 — Safe reviewer guidance
 
@@ -62,7 +62,7 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Files: `.context/agents/non-tech-traveler-reviewer.md`
 - Work: delete the port-owner `kill -9` recommendation. Make `npm run test:e2e` the ordinary command and explain that the repository wrapper safely reuses the owned Next lock or selects an available port. Document a non-HTML focused diagnostic command only for a server/port explicitly owned by the reviewer. Correct conditional `reuseExistingServer` behavior and describe the current broad fixture/suite coverage without a brittle exact count.
 - Acceptance: the runbook contains no process-killing command, no instruction to bypass port/lock ownership for the ordinary run, and its runner/fixture statements agree with `package.json`, `scripts/run-dev-e2e.mjs`, and `playwright.config.ts`.
-- Status: Pending.
+- Status: Completed (`ec00ad6`).
 
 ## Carried-forward blocked work
 
@@ -132,6 +132,28 @@ Fix all five actionable Cycle 5 findings without deployment. Preserve only work 
 - Exit criterion: profile real exports and demonstrate redundant waiting before altering the capture contract.
 - Status: Deferred to measured performance work.
 
+## Verification-driven repair record
+
+- The first focused P01 regression exposed an initial style-load marker race; the style-ready transaction now attaches before that event can be missed.
+- Five lint warning instances introduced during the readiness work were removed by keying retry/readiness state to the active generation, moving search cleanup into its owning action, declaring complete hook dependencies, and avoiding effect-only state synchronization. No warning suppression was added.
+- Focused P01 style-pose coverage passed 1/1 after exercising ordinary replacement, a delayed superseded request, continued progress while a request fails, and the actual Retry Map path.
+- Focused P02 readiness coverage passed 10/10 consecutive runs with retries disabled and without fixed sleeps or forced clicks.
+- Focused P03 attribution coverage passed at both 390×844 and 1440×1000, including geometry, hit testing, focus, keyboard activation, repeated-key handling, and attribution-link access.
+- Focused P04 locale coverage passed after an English load and Korean switch while preserving the track name.
+
+## Required final gate matrix
+
+1. `npm run lint` — passed with zero warnings.
+2. `npm run typecheck` — passed.
+3. `npm run test` — 366 tests passed across 15 files.
+4. `npm audit --audit-level=high` — passed with zero vulnerabilities.
+5. `npm run build` — passed with Next.js 16.2.10; generated-worker drift checking, TypeScript, static generation, and CSP hardening passed.
+6. `npm run smoke:static` — passed.
+7. `npm run test:e2e` — 94 passed, one expected opt-in real-export skip, zero retries or failures.
+8. `npm run test:e2e:static:ci` — static smoke passed; 94 passed, one expected opt-in real-export skip, zero retries or failures.
+
+The matrix ran from an isolated source copy of `7e419d3` so the pre-existing local Next process and its artifacts were not disturbed. The additional `TRAVELBACK_REAL_EXPORT=1` production-static WebCodecs/Mediabunny smoke passed 1/1 with retries disabled and produced a valid MP4. P01–P05 are complete; B01–B04 and D01–D04 retain their documented authority, legal-input, representative-evidence, or measured-redesign exit criteria. No deployment command, CI/CD edit, process termination, or production mutation occurred.
+
 ## Completion gate
 
-The plan is complete only when P01–P05 are implemented, their focused regressions pass, every configured full gate passes on the final integrated commit, each coherent fix is GPG-signed and pushed, all canonical review/plan artifacts describe the final state, and no deployment or blocked-scope mutation has occurred.
+Completed. P01–P05 were implemented, their focused regressions and every configured full gate passed, each coherent fix was GPG-signed and pushed, canonical review/plan artifacts describe the final state, and no deployment or blocked-scope mutation occurred.

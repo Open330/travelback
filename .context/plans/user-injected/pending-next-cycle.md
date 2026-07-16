@@ -11,5 +11,22 @@ archived into their respective cycle implementation plans once addressed.
 
 ---
 
-(no pending items — U-2026-04-23-01 was ingested and removed in cycle r4;
-see `.context/plans/cycle-r4-implementation-2026-04-23.md` for routing.)
+## U-2026-07-17-01 — Final cleanup of run-created trees
+
+- Injected during: cycle 5 PROMPT 3
+- User wording (verbatim): “지금 많은 tree 만들어져있는데 모두 잘 정리하고 마무리해 끝날때.”
+- Routing: ingest in the next cycle plan and retain as an end-of-run cleanup
+  requirement. Do not interrupt the active implementation cycle.
+- Scope: identify and remove only temporary worktrees, validation mirrors, and
+  copied trees created by this review-plan-fix run. Preserve pre-existing/user
+  worktrees and repository data. Perform cleanup only when the loop reaches its
+  final stop condition, then verify the primary worktree remains clean and
+  usable.
+- Run-created validation mirrors recorded during cycle 5:
+  - `/tmp/travelback-cycle5-recovery.KMkGf7` (remove only if it still exists;
+    the operating system may already have cleaned it automatically)
+  - `/tmp/travelback-cycle5-recovery.x0nOJV` (remove only if it still exists;
+    the operating system may already have cleaned it automatically)
+  - `/Users/hletrd/flash-shared/Travelback-cycle5-recovery.3ZvbIj`
+- These paths are run-created only. Do not infer that similarly named or
+  pre-existing trees are safe to remove.
