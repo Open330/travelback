@@ -37,6 +37,10 @@ archived into their respective cycle implementation plans once addressed.
   - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-77834f04e42c1f49ba6c236505512ebd.log`
   - `/tmp/travelback-cycle6-focused.0jw7ns`
   - `/tmp/travelback-cycle6-gates.IzOqfp`
+- Run-created browser-review artifact recorded during cycle 7:
+  - `/tmp/travelback-cycle7-browser-state.json`
+  - `/tmp/travelback-cycle7-a11y-baseline.txt`
+  - `/tmp/travelback-cycle7-static-server.mjs`
 - These paths are run-created only. Do not infer that similarly named or
   pre-existing trees are safe to remove.
 - No listed path is deleted during Cycle 6. Remove only at the loop's final

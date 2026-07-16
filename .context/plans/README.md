@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle7-implementation-2026-07-17.md` — Plans all 9 Cycle 7 findings: partial-timestamp order, elevation gaps, Help hit ownership, segmented focus, timeline date announcements, opaque scene interpolation, localized guide art, centralized import-size policy, and the stale Next maintenance note; full dev/static/real-MP4 gates required, no deployment or cleanup deletion
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
