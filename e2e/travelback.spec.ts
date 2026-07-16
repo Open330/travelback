@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
 
@@ -208,6 +208,27 @@ async function loadedTrackPointCounts(page: Page) {
   return {
     visible: Number(match[1].replace(/,/g, '')),
     full: Number(match[2].replace(/,/g, '')),
+  }
+}
+
+async function touchDrag(page: Page, target: Locator, deltaX: number, deltaY = 0) {
+  const box = await target.boundingBox()
+  if (!box) throw new Error('Missing touch target geometry')
+  const session = await page.context().newCDPSession(page)
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  try {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y, radiusX: 1, radiusY: 1, force: 1, id: 1 }],
+    })
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: x + deltaX, y: y + deltaY, radiusX: 1, radiusY: 1, force: 1, id: 1 }],
+    })
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  } finally {
+    await session.detach()
   }
 }
 
@@ -1008,6 +1029,35 @@ test.describe('Travelback App', () => {
 
       return boxesOverlap(toolbarBox, panelBox) || panelBox.y < toolbarBox.y + toolbarBox.height + 8
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
+  })
+
+  test('mobile scene controls do not trigger swipe dismissal', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await waitForApp(page)
+    await uploadGpx(page)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    const panel = page.getByTestId('scene-editor-panel')
+    const addButton = page.getByRole('button', { name: '+ Add' })
+    await addButton.click({ force: true })
+    await addButton.click({ force: true })
+    await panel.getByRole('button', { name: 'Customize' }).first().click()
+
+    const controls = [
+      page.getByRole('slider', { name: 'Scene transition blend duration' }),
+      panel.getByRole('slider', { name: /Scene 1.*end/i }),
+      page.getByRole('slider', { name: 'Zoom for Scene 1' }),
+      page.getByRole('slider', { name: 'Tilt for Scene 1' }),
+      page.getByRole('slider', { name: 'Direction for Scene 1' }),
+      page.getByRole('slider', { name: 'Orbit speed for Scene 1' }),
+    ]
+    for (const control of controls) {
+      await touchDrag(page, control, -45)
+      await expect(panel).toBeVisible()
+    }
+
+    await touchDrag(page, page.getByTestId('scene-editor-swipe-handle'), -100)
+    await expect(panel).toBeHidden({ timeout: 10_000 })
   })
 
   test('loaded route map is operational after track load', async ({ page }) => {

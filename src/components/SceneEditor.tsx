@@ -337,6 +337,11 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   // Swipe-left to dismiss
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target instanceof Element ? e.target : null
+    if (!target?.closest('[data-scene-editor-swipe-handle="true"]')) {
+      touchStartRef.current = null
+      return
+    }
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
   }, [])
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -344,8 +349,11 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y
     touchStartRef.current = null
-    if (dx < -80 && Math.abs(dy) < Math.abs(dx)) onClose()
+    if (dx < -80 && Math.abs(dy) < Math.abs(dx) * 0.3) onClose()
   }, [onClose])
+  const handleTouchCancel = useCallback(() => {
+    touchStartRef.current = null
+  }, [])
 
   // Auto-clear undo after 5 seconds
   useEffect(() => {
@@ -490,9 +498,16 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   return (
     <div data-testid="scene-editor-panel" role="region" aria-labelledby="scene-editor-title" className="absolute left-4 right-4 z-20 w-auto gs flex flex-col overflow-hidden bottom-0 max-h-[70vh] rounded-b-none sm:right-auto sm:top-16 sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:bottom-auto sm:rounded-[var(--r-glass)]"
       style={{ borderRadius: 'var(--r-glass)' }}
-      onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
-        <h3 id="scene-editor-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
+        <div
+          data-testid="scene-editor-swipe-handle"
+          data-scene-editor-swipe-handle="true"
+          className="flex min-h-11 flex-1 touch-pan-y items-center gap-2"
+        >
+          <span aria-hidden="true" className="h-1 w-6 rounded-full sm:hidden" style={{ background: 'var(--t4)' }} />
+          <h3 id="scene-editor-title" className="text-sm font-bold" style={{ color: 'var(--t1)' }}>{t('scenes.title')}</h3>
+        </div>
         <div data-testid="scene-editor-status" role="status" aria-live="polite" aria-atomic="true" className="sr-only">
           {statusMessage}
         </div>
