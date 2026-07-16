@@ -1866,7 +1866,7 @@ export const LocaleContext = createContext<LocaleContextValue>({
 const LOCALE_STORAGE_KEY = 'travelback-locale'
 const VALID_LOCALES: Locale[] = ['en', 'ko', 'ja', 'zh', 'es']
 
-function getInitialLocale(): Locale {
+function getPreferredLocale(): Locale {
   if (typeof window === 'undefined') return 'en'
 
   try {
@@ -1881,14 +1881,18 @@ function getInitialLocale(): Locale {
 
 // ── Provider component ──
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => getInitialLocale())
+  const [locale, setLocaleState] = useState<Locale>('en')
 
   useEffect(() => {
-    document.documentElement.setAttribute('lang', locale)
-  }, [locale])
+    const preferredLocale = getPreferredLocale()
+    document.documentElement.setAttribute('lang', preferredLocale)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser preference must resolve after deterministic hydration
+    setLocaleState(preferredLocale)
+  }, [])
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
+    document.documentElement.setAttribute('lang', l)
     try { localStorage.setItem(LOCALE_STORAGE_KEY, l) } catch { /* ignore */ }
   }, [])
 
