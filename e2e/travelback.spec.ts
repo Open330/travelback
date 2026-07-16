@@ -1650,6 +1650,77 @@ test.describe('Travelback App', () => {
     await expect(styleBtn).toHaveText(/Map:\s*Dark/, { timeout: 10_000 })
   })
 
+  test('system theme changes wait for export cleanup before changing map style', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.evaluate(() => {
+      window.localStorage.removeItem('travelback-theme')
+      window.localStorage.removeItem('travelback-theme-explicit')
+      window.localStorage.removeItem('travelback-mapstyle')
+      window.localStorage.removeItem('travelback-mapstyle-explicit')
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+    })
+    await page.reload()
+    await waitForApp(page)
+    await uploadGpx(page)
+
+    let darkStyleRequests = 0
+    await page.route('**/map-styles/dark.json', async (route) => {
+      darkStyleRequests += 1
+      await route.continue()
+    })
+
+    await page.getByText('Export', { exact: true }).click({ force: true })
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await page.evaluate(() => {
+      type ExportFrameWindow = Window & {
+        __releaseTravelbackExportFrames?: () => void
+      }
+      const exportWindow = window as ExportFrameWindow
+      const nativeRequestAnimationFrame = window.requestAnimationFrame.bind(window)
+      const nativeCancelAnimationFrame = window.cancelAnimationFrame.bind(window)
+      const heldFrames = new Map<number, FrameRequestCallback>()
+      let nextFrameId = 1_000_000
+
+      window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+        if (document.querySelector('[data-travelback-exporting="true"]')) {
+          const frameId = nextFrameId++
+          heldFrames.set(frameId, callback)
+          return frameId
+        }
+        return nativeRequestAnimationFrame(callback)
+      }
+      window.cancelAnimationFrame = (frameId: number) => {
+        if (!heldFrames.delete(frameId)) nativeCancelAnimationFrame(frameId)
+      }
+      exportWindow.__releaseTravelbackExportFrames = () => {
+        window.requestAnimationFrame = nativeRequestAnimationFrame
+        window.cancelAnimationFrame = nativeCancelAnimationFrame
+        for (const callback of heldFrames.values()) nativeRequestAnimationFrame(callback)
+        heldFrames.clear()
+      }
+    })
+
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    await expect(page.locator('main#app')).toHaveAttribute('data-travelback-exporting', 'true')
+    await page.waitForTimeout(100)
+
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.waitForTimeout(300)
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('light')
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mapstyle'))).toBe('voyager')
+    expect(darkStyleRequests).toBe(0)
+
+    await page.evaluate(() => {
+      const exportWindow = window as Window & { __releaseTravelbackExportFrames?: () => void }
+      exportWindow.__releaseTravelbackExportFrames?.()
+    })
+    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mode'))).toBe('dark')
+    await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-mapstyle'))).toBe('dark')
+    await expect.poll(() => darkStyleRequests).toBeGreaterThan(0)
+    await expect(page.getByTestId('map-error')).toHaveCount(0)
+  })
+
   test('explicit map style choices survive later system theme changes', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto('/')

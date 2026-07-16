@@ -289,10 +289,18 @@ function HomeInner() {
       }
     }
     // MediaQueryList.addEventListener is supported since Safari 14, Chrome 80, Firefox 65
-    const handler = (event: MediaQueryListEvent) => applySystemMode(event.matches)
+    const handler = (event: MediaQueryListEvent) => {
+      // Export owns the live MapLibre render surface. Defer system-driven
+      // appearance changes so setStyle cannot remove sources between a frame
+      // render and capture; the latest media state is synchronized when the
+      // export lease ends and this effect reruns.
+      if (isExporting) return
+      applySystemMode(event.matches)
+    }
     media.addEventListener('change', handler)
+    if (!isExporting) applySystemMode(media.matches)
     return () => media.removeEventListener('change', handler)
-  }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice, hasExplicitThemeChoice])
+  }, [applyDocumentMapStyle, applyDocumentMode, hasExplicitMapStyleChoice, hasExplicitThemeChoice, isExporting])
 
   // Escape-to-cancel while the export-overlay progress dialog is visible.
   // Matches the repo's modal convention (ModalDialog binds Escape to onClose).
