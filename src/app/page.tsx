@@ -355,6 +355,7 @@ function HomeInner() {
 
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return
+    if (startIdx === acceptedTrimRange.startIdx && endIdx === acceptedTrimRange.endIdx) return
 
     const slicedPoints = fullTrack.points.slice(startIdx, endIdx + 1)
     if (slicedPoints.length < 2) return
@@ -371,7 +372,7 @@ function HomeInner() {
     setTrack(filteredTrack)
     setAcceptedTrimRange({ startIdx, endIdx })
     resetPlayback()
-  }, [fullTrack, resetExportSession, resetPlayback, scenes.length])
+  }, [acceptedTrimRange.endIdx, acceptedTrimRange.startIdx, fullTrack, resetExportSession, resetPlayback, scenes.length])
 
   const confirmTrimClear = useCallback(() => {
     if (!pendingTrimRange || !fullTrack) return

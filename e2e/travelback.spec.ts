@@ -1541,6 +1541,33 @@ test.describe('Travelback App', () => {
     await expect.poll(async () => (await loadedTrackPointCounts(page)).visible).toBe(20)
   })
 
+  test('a clamped timeline key does not discard scenes from an accepted trim', async ({ page }) => {
+    await uploadGpx(page)
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    await endHandle.focus()
+    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowLeft')
+    await expect.poll(async () => (await loadedTrackPointCounts(page)).visible, {
+      timeout: 10_000,
+      intervals: [120, 200, 300],
+    }).toBeLessThan(20)
+    const acceptedPointCount = (await loadedTrackPointCounts(page)).visible
+
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    await page.getByRole('button', { name: '+ Add' }).click({ force: true })
+    await expect(page.getByRole('textbox').first()).toHaveValue('Scene 1')
+
+    const startHandle = page.getByTestId('timeline-start-handle')
+    await expect(startHandle).toHaveAttribute('aria-valuenow', '0')
+    await startHandle.focus()
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(250)
+
+    await expect(page.getByRole('dialog', { name: /Trimming the timeline/ })).toHaveCount(0)
+    await expect(page.getByRole('textbox').first()).toHaveValue('Scene 1')
+    await expect.poll(async () => (await loadedTrackPointCounts(page)).visible).toBe(acceptedPointCount)
+  })
+
   test('timeline trimming clears scenes authored against the previous full track after confirmation', async ({ page }) => {
     await uploadGpx(page)
 
