@@ -188,7 +188,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   // Track dragging state
   const draggingIndexRef = useRef<number | null>(null)
   const dragMovedRef = useRef(false)
-  const suppressMapClickUntilRef = useRef(0)
+  const suppressClickUntilRef = useRef(0)
   const settleDragRef = useRef<() => void>(() => {})
   // Store cleanup functions — accumulated across style reloads so that
   // bindListeners() calls never overwrite a previous cleanup (C15-F01).
@@ -325,13 +325,17 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       addLayers(map)
       updateMapData()
 
+      const shouldSuppressPostDragClick = () => {
+        const deadline = suppressClickUntilRef.current
+        if (deadline === 0) return false
+        if (performance.now() <= deadline) return true
+        suppressClickUntilRef.current = 0
+        return false
+      }
+
       // --- Click to add waypoint ---
       const onClick = (e: maplibregl.MapMouseEvent) => {
-        if (performance.now() <= suppressMapClickUntilRef.current) {
-          suppressMapClickUntilRef.current = 0
-          return
-        }
-        suppressMapClickUntilRef.current = 0
+        if (shouldSuppressPostDragClick()) return
         // Ignore clicks on existing waypoints (handled separately)
         const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_POINTS] })
         if (features.length > 0) return
@@ -354,10 +358,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       const onPointClick = (e: maplibregl.MapLayerMouseEvent) => {
         e.preventDefault()
         if (draggingIndexRef.current !== null) return
-        if (dragMovedRef.current) {
-          dragMovedRef.current = false
-          return
-        }
+        if (shouldSuppressPostDragClick()) return
         const feature = e.features?.[0]
         if (feature == null) return
         const idx = feature.properties?.index as number
@@ -401,9 +402,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         removeTransientDragListeners()
         if (!wasDragging && !force) return
 
-        if (wasDragging && dragMovedRef.current) {
-          suppressMapClickUntilRef.current = performance.now() + 250
+        const moved = wasDragging && dragMovedRef.current
+        if (moved) {
+          suppressClickUntilRef.current = performance.now() + 250
         }
+        dragMovedRef.current = false
         activeDragInput = null
         draggingIndexRef.current = null
         activeMap.getCanvas().style.cursor = ''
@@ -500,7 +503,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         map.off('mouseenter', LAYER_POINTS, onMouseEnterPoint)
         map.off('mouseleave', LAYER_POINTS, onMouseLeavePoint)
         dragMovedRef.current = false
-        suppressMapClickUntilRef.current = 0
+        suppressClickUntilRef.current = 0
       })
 
       activeMap.getCanvas().removeAttribute('aria-busy')

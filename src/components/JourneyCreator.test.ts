@@ -147,6 +147,56 @@ describe('syncJourneySources', () => {
 })
 
 describe('JourneyCreator waypoint drag lifecycle', () => {
+  it.each([
+    ['generic map then point layer', ['map', 'point']],
+    ['point layer then generic map', ['point', 'map']],
+  ] as const)('suppresses both immediate post-drag click handlers in %s order', async (_name, order) => {
+    vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const { map, sources } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('mousedown', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('mousemove', { lngLat: { lng: 127, lat: 37.6 } }))
+    await act(() => map.trigger('mouseup'))
+
+    for (const handler of order) {
+      if (handler === 'map') {
+        await act(() => map.trigger('click', { point: {}, lngLat: { lng: 128, lat: 38 } }))
+      } else {
+        await act(() => map.trigger('click', {
+          preventDefault: vi.fn(),
+          features: [{ properties: { index: 0 } }],
+        }, 'journey-points'))
+      }
+    }
+
+    expect(sources.get('journey-points')?.setData.mock.calls.at(-1)?.[0]).toMatchObject({
+      features: [{ properties: { index: 0 } }],
+    })
+  })
+
+  it('allows the first intentional point click after drag suppression expires', async () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const { map, sources } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('touchstart', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('touchmove', { lngLat: { lng: 127, lat: 37.6 } }))
+    await act(() => map.trigger('touchend'))
+
+    now.mockReturnValue(1251)
+    await act(() => map.trigger('click', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+
+    expect(sources.get('journey-points')?.setData.mock.calls.at(-1)?.[0]).toMatchObject({ features: [] })
+  })
+
   it('settles a mouse drag released outside the map exactly once', async () => {
     const { map, canvas, disable, enable, sources } = await renderJourneyCreator()
     await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
