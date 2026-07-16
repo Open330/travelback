@@ -1153,6 +1153,38 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('scene-editor-status')).toContainText('Deleted Scene 1')
   })
 
+  test('scene delete undo preserves edits made after deletion', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    const addButton = page.getByRole('button', { name: '+ Add' })
+    await addButton.click({ force: true })
+    await addButton.click({ force: true })
+
+    await page.getByRole('button', { name: 'Delete scene Scene 1' }).click({ force: true })
+    const remainingName = page.getByRole('textbox').first()
+    await remainingName.fill('Edited after deletion')
+    await page.getByRole('button', { name: 'Undo' }).click()
+
+    await expect(page.getByRole('textbox')).toHaveCount(2)
+    await expect(page.getByRole('textbox').nth(0)).toHaveValue('Scene 1')
+    await expect(page.getByRole('textbox').nth(1)).toHaveValue('Edited after deletion')
+  })
+
+  test('keyboard scene range edits use committed normalization', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+    const addButton = page.getByRole('button', { name: '+ Add' })
+    await addButton.click({ force: true })
+    await addButton.click({ force: true })
+
+    await page.getByTestId('scene-editor-panel').getByRole('button', { name: 'Customize' }).nth(1).click()
+    const secondStart = page.getByRole('slider', { name: /Scene 2.*start/i })
+    await expect(secondStart).toHaveAttribute('aria-valuenow', '15')
+    await secondStart.focus()
+    for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowLeft')
+    await expect(secondStart).toHaveAttribute('aria-valuenow', '15')
+  })
+
   test('scene parameter preview clear restores the live route camera', async ({ page }) => {
     await uploadGpx(page)
     const playbackProgress = page.getByLabel('Playback progress')
