@@ -23,6 +23,12 @@ describe('i18n locale key parity', () => {
       expect(keys.length).toBe(unique.size)
     }
   })
+
+  it('does not promise a Google Takeout processing duration', () => {
+    for (const locale of locales) {
+      expect(translations[locale]['google.step2TakeoutItem1']).not.toMatch(/\d/)
+    }
+  })
 })
 
 describe('t()', () => {
