@@ -1,11 +1,11 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle4-implementation-2026-07-16.md` — Planned fixes for all 6 actionable cycle-4 findings and 3 unresolved correctness carryovers; four authority/legal/evidence items and three measured performance items retain explicit exit criteria; no deployment
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
 
+- `cycle4-implementation-2026-07-16.md` — Completed all 9 planned items covering 6 actionable findings and 3 correctness carryovers, plus one gate-driven scene Undo repair; all eight configured gates and the real-MP4 smoke passed; four authority/legal/evidence items and three measured performance items retain explicit exit criteria; no deployment occurred
 - `cycle3-implementation-2026-07-16.md` — Completed all 10 plan items covering 11 authorized cycle-3 findings; all eight configured gates and the real-MP4 smoke pass, with one retry-only static keyboard warning retained under an explicit reopen criterion; four carryovers remain blocked; no deployment occurred
 - `cycle2-implementation-2026-07-16.md` — Completed all 19 authorized findings in focused signed commits; all eight configured gates plus the real-MP4 smoke pass; four carryovers remain explicitly authority-, legal-input-, or representative-evidence-blocked; no deployment occurred
 - `cycle1-implementation-2026-07-16.md` — Completed 25 authorized items covering 27 findings; all eight configured gates plus the real-MP4 gate pass; P13 remains evidence-deferred, P27 needs legal input, and P28 needs CI/CD authorization; no deployment occurred

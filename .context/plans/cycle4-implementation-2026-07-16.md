@@ -27,7 +27,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/app/page.tsx`, `src/components/MapView.tsx`, `src/components/JourneyCreator.tsx`, `e2e/travelback.spec.ts`, focused component tests as needed
 - Work: expose a monotonically changing map-ready/generation signal. Key MapView's complete track/progress hydration to map generation so a replacement instance receives route/trail sources, current-position marker, fit/current camera, and current progress. Rebind Journey Creator layers/listeners on the new generation without clearing its existing waypoints. Keep cleanup idempotent across a removed old map, ordinary style reload, retry, deactivation, and unmount.
 - Acceptance: after a loaded-track style failure and in-app Retry Map, there is exactly one live canvas and marker, the route/current-position state is restored, and the camera is no longer the constructor world view. If retry occurs while Journey Creator is active, existing waypoints remain, a post-retry canvas click adds a new point, Undo becomes enabled, and no listener remains on the destroyed map. Both paths use the actual Retry Map button in E2E.
-- Status: Pending.
+- Status: Completed (`0614fa1`).
 
 ### P02 — Freeze theme-derived map style for the export lease (AG4-02)
 
@@ -35,7 +35,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/app/page.tsx`, `e2e/travelback.spec.ts`
 - Work: make the implicit system-theme listener export-aware. While export owns the map, do not apply color-mode or theme-derived map-style mutations that can call `setStyle`; retain the media query's latest state and synchronize it immediately after export cleanup. Preserve explicit theme/map-style precedence and the existing first-render behavior.
 - Acceptance: a deterministic held export stays on its original document/map style after a light→dark media event, makes no dark-style request, and never shows map error. Once export ends, the latest implicit system mode/style applies. Existing explicit-choice and first-render theme tests remain green.
-- Status: Pending.
+- Status: Completed (`fbaedd2`).
 
 ### P03 — Give export startup one synchronous owner (CR4-CARRY-01)
 
@@ -43,7 +43,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/lib/useExportController.ts`, `src/lib/useExportController.test.ts`
 - Work: acquire the abort-controller/export lease before the first asynchronous boundary, ignore same-tick re-entry while a lease exists, and release the shared ref only if it still belongs to that invocation. Keep cancellation, unmount abort, progress restoration, URL cleanup, and map-size cleanup scoped to the owner.
 - Acceptance: two same-tick `exportTrack()` calls invoke the encoder exactly once; cancellation reaches that owner; no non-owner can clear its ref or run competing map cleanup; a later export after completion/cancellation can start normally.
-- Status: Pending.
+- Status: Completed (`9c0027d`).
 
 ## Wave 1 — Parser and interaction transactions
 
@@ -53,7 +53,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/lib/googleJsonParser.ts`, `src/lib/parser.test.ts`, `src/workers/trackParser.worker.test.ts`, `public/workers/trackParser.worker.js`
 - Work: decode semantic activity representations in priority order but select the first one that contributes accepted points. If `simplifiedRawPath.points` is empty or entirely invalid, try `waypointPath.waypoints`; if that also contributes none, use valid start/end locations. Preserve point budgets, segment breaks, timestamps, and valid preferred-path precedence. Regenerate the checked-in worker mechanically.
 - Acceptance: empty and all-invalid preferred arrays no longer suppress valid fallback paths; a partly valid preferred path still wins without mixing representations; direct and worker paths match; `npm run check:worker` passes.
-- Status: Pending.
+- Status: Completed (`ff8ddf6`).
 
 ### P05 — Settle active waypoint drags before toolbar/session mutations (CR4-CARRY-03)
 
@@ -61,7 +61,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/components/JourneyCreator.tsx`, `src/components/JourneyCreator.test.ts`
 - Work: expose the existing idempotent drag settlement through a stable component-owned ref/controller. Invoke it before Undo, Clear, Cancel/discard, Done/create completion, style teardown, and unmount. Settlement must remove transient map/window/document listeners, clear both input/index ownership, restore the cursor, re-enable `dragPan`, and prevent a later move from recreating cleared data.
 - Acceptance: keyboard activation of Undo during a mouse drag and Clear during a touch drag each settles exactly once; later movement cannot update or recreate a waypoint; cursor/pan/listener state is restored; outside-map release and ordinary drag tests stay green.
-- Status: Pending.
+- Status: Completed (`4540714`).
 
 ### P06 — Respect focused map keyboard ownership (AG4-03)
 
@@ -69,7 +69,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/lib/usePlaybackController.ts`, `e2e/travelback.spec.ts`, focused hook tests if practical
 - Work: classify MapLibre's interactive canvas as a playback-hotkey exclusion without broadly disabling neutral page shortcuts. Leave MapLibre's own keyboard handler free to receive arrows and retain global playback seek outside interactive owners.
 - Acceptance: with the map canvas focused, ArrowLeft/ArrowRight do not change playback and focus stays on the map. After focus leaves interactive controls, the same arrows still seek by the documented step. Slider/button/input/dialog behavior remains unchanged.
-- Status: Pending.
+- Status: Completed (`419ec3f`).
 
 ### P07 — Ignore semantically unchanged accepted trim ranges (AG4-04)
 
@@ -77,7 +77,7 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/app/page.tsx`, `e2e/travelback.spec.ts`, `src/components/TimelineSelector.test.ts` if needed
 - Work: at the page transaction boundary, compare proposed start/end indices with the accepted range before scene invalidation, export reset, track rebuilding, or playback reset. Treat equivalent index pairs as no-ops even if a local ratio was clamped or rounded differently.
 - Acceptance: after trimming and authoring a scene, ArrowLeft/Home at an already-0% start leaves the discard dialog absent, scene intact, point count and playback/export state unchanged, and focus on the start handle. Real range changes still prompt and Cancel/Discard retain current behavior.
-- Status: Pending.
+- Status: Completed (`0a30850`).
 
 ## Wave 2 — Verification signal and contributor guidance
 
@@ -87,15 +87,24 @@ Fix all six actionable Cycle 4 findings and all three unblocked correctness carr
 - Files: `src/components/FileUpload.test.ts`
 - Work: set the supported React act-environment flag in the createRoot-based harness, matching the other component suites. Do not suppress `console.error` or weaken assertions.
 - Acceptance: the focused FileUpload suite and full `npm run test` pass without act-environment warnings.
-- Status: Pending.
+- Status: Completed (`b42ab72`).
 
 ### P09 — Document the canonical test matrix (AG4-06)
 
 - Severity/confidence: Low / High
 - Files: `README.md`, `.context/project/01-overview.md`
 - Work: describe testing as Vitest plus Playwright. Add `npm test`, recommend the lock-aware `npm run test:e2e` wrapper, retain `npm run test:e2e:static`, and label the direct dev command only if useful. Keep install/build/static-preview instructions intact.
-- Acceptance: contributor and project-context commands match `package.json`; following the primary path exercises the 352-test unit suite and avoids the direct Next dev-lock pitfall.
-- Status: Pending.
+- Acceptance: contributor and project-context commands match `package.json`; following the primary path exercises the current 366-test unit suite and avoids the direct Next dev-lock pitfall.
+- Status: Completed (`3e4b39f`).
+
+## Gate-driven repair
+
+### G01 — Keep scene deletion Undo stable during continued edits
+
+- Trigger: an early production-static gate run and an exact focused rerun both exhausted the scene editor's five-second Undo deadline while editing the remaining scenes. Under the slowed render, the non-clickable scene form cards also inherited `.gi` hover/active transforms, so ordinary pointer actions waited on a moving target.
+- Work: give the pending deletion a user-owned lifetime until Undo, another deletion, or panel close; mark scene form cards with the existing no-hover convention and suppress `.gi` transforms for those cards. No forced-click test bypass remains.
+- Acceptance: the ordinary-click regression passed 3/3 with retries disabled after a production rebuild, then passed on the first attempt in both full exact-commit E2E suites.
+- Status: Completed (`c6eec45`).
 
 ## Carried-forward blocked work
 
@@ -184,13 +193,13 @@ Each implementation commit is pushed only after focused checks pass and `git pul
 
 ## Required final gate matrix
 
-1. `npm run lint`
-2. `npm run typecheck`
-3. `npm run test`
-4. `npm audit --audit-level=high`
-5. `npm run build`
-6. `npm run smoke:static`
-7. `npm run test:e2e`
-8. `npm run test:e2e:static:ci`
+1. `npm run lint` — passed; ESLint clean.
+2. `npm run typecheck` — passed.
+3. `npm run test` — 366 tests passed across 15 files with no React act-harness warnings.
+4. `npm audit --audit-level=high` — passed with zero vulnerabilities.
+5. `npm run build` — passed with Next.js 16.2.10; generated-worker drift check, TypeScript, static generation, and three-file CSP hardening all passed.
+6. `npm run smoke:static` — passed.
+7. `npm run test:e2e` — 92 passed, one expected opt-in real-export skip, zero retries or failures.
+8. `npm run test:e2e:static:ci` — static smoke passed; 92 passed, one expected opt-in real-export skip, zero retries or failures.
 
-The matrix must pass from an isolated exact-HEAD copy. Any failure, error, or actionable warning is fixed at root cause and rerun before completion. No deployment command is part of the matrix.
+The complete matrix passed from an isolated exact copy of `c6eec45`. The additional `TRAVELBACK_REAL_EXPORT=1` production-static WebCodecs/Mediabunny smoke passed 1/1 with retries disabled and produced a valid MP4. All nine planned items and the one gate-driven repair are complete. Four authority/legal/evidence items and three measured performance items retain their explicit exit criteria. No deployment command was run.
