@@ -35,7 +35,7 @@ Deployment note:
 
 1. **GPX** (.gpx) — Standard GPS Exchange Format with tracks, timestamps, elevation; current browser-side XML parsing is capped at 4 MB to avoid UI freezes
 2. **KML** (.kml) — Keyhole Markup Language from Google Earth and similar tools; browser parsing depends on `DOMParser` plus `@tmcw/togeojson`, so malformed XML, unsupported KML extensions, or files above the 4 MB XML safety cap may be rejected
-3. **Google Location History JSON** (.json) — Google Takeout export formats:
+3. **Google Timeline JSON** (.json) — known compatible shapes from current device exports and legacy Google Takeout archives:
    - Legacy format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestampMs" }] }`
    - New format: `{ "locations": [{ "latitudeE7", "longitudeE7", "timestamp" }] }`
    - Records format: array of location objects
@@ -77,7 +77,7 @@ src/
 
 ## Features
 
-- **Multi-format support**: GPX, KML, Google Maps Location History (all Takeout variants)
+- **Multi-format support**: GPX, KML, and known compatible Google Timeline JSON shapes
 - **Interactive map**: Pan, zoom, rotate with MapLibre GL JS
 - **Route visualization**: Full route line + animated trail showing progress
 - **Animated marker**: Pulsing dot following the track with camera tracking
@@ -91,8 +91,8 @@ src/
 - **Configurable export duration**: 5s to 3min in the export panel
 - **5 local background themes**: Voyager, Light, Dark, Liberty, Bright; these are privacy-preserving route backdrops, not full road/city basemaps
 - **Video export**: MP4 via WebCodecs with H.264, H.265/HEVC, AV1 codecs
-- **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape, 4K Landscape, 4K Portrait
+- **Resolution presets**: YouTube / Landscape 1080p, TikTok / Shorts / Reels 9:16, Instagram Square, Instagram Post, HD Landscape
 - **Configurable bitrate**: 1–20 Mbps
-- **Import guide**: Step-by-step instructions for Google Maps/Takeout plus common GPS and fitness app exports
+- **Import guide**: Current phone-first Google Timeline export steps, a legacy/conditional Takeout fallback, and common GPS/fitness app exports
 - **SEO + Open Graph**: Full metadata for social sharing
 - **Responsive UI**: Floating controls with backdrop blur, mobile-friendly

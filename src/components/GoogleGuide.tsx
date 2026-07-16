@@ -3,9 +3,17 @@
 import { useState, useEffect, useId } from 'react'
 import { X, ExternalLink, Circle } from 'lucide-react'
 import Image from 'next/image'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type Locale } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import { basePath } from '@/lib/env'
+
+const GOOGLE_HELP_LOCALES: Record<Locale, string> = {
+  en: 'en',
+  ko: 'ko',
+  ja: 'ja',
+  zh: 'zh-CN',
+  es: 'es',
+}
 
 function GuideIllustration({ tabIndex }: { tabIndex: number }) {
   const { t } = useLocale()
@@ -133,9 +141,10 @@ interface GoogleGuideProps {
 }
 
 export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [tab, setTab] = useState(0)
   const tabsId = useId()
+  const googleHelpLocale = GOOGLE_HELP_LOCALES[locale]
 
   // Reset tab when modal reopens
   useEffect(() => {
@@ -151,11 +160,19 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           number: 1,
           title: t('google.step1Phone'),
           items: [t('google.step1PhoneItem1'), t('google.step1PhoneItem2')],
+          action: {
+            label: t('google.openPhoneInstructions'),
+            href: `https://support.google.com/maps/answer/6258979?co=GENIE.Platform%3DiOS&hl=${googleHelpLocale}`,
+          },
         },
         {
           number: 2,
           title: t('google.step2Phone'),
           items: [t('google.step2PhoneItem1'), t('google.step2PhoneItem2')],
+          action: {
+            label: t('google.openPhoneInstructions'),
+            href: `https://support.google.com/maps/answer/14169818?co=GENIE.Platform%3DAndroid&hl=${googleHelpLocale}`,
+          },
         },
         {
           number: 3,
@@ -366,6 +383,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
                   {'action' in step && step.action && (
                     <a
                       href={step.action.href}
+                      aria-label={`${step.action.label}: ${step.title}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="gi mt-3 inline-flex min-h-11 items-center gap-1.5 px-4 py-2 text-sm font-medium"

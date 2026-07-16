@@ -39,7 +39,7 @@ map styles, export presets, or improve the scene editor.
 
 ## Features
 
-**Multi-Format Import** — GPX, KML, and all Google Maps Location History JSON variants (Takeout). Drag-and-drop or browse.
+**Multi-Format Import** — GPX, KML, and known compatible Google Timeline JSON shapes from current phone exports or legacy Takeout archives. Drag-and-drop or browse.
 
 **Interactive Map** — Pan, zoom, rotate with MapLibre GL JS using 5 bundled local-only background themes: Voyager, Light, Dark, Liberty, Bright.
 
@@ -57,11 +57,11 @@ map styles, export presets, or improve the scene editor.
 
 **Elevation Profile** — SVG area chart synced to playback. Click anywhere on the chart to seek.
 
-**Video Export** — Browser-side MP4 via WebCodecs. H.264, H.265/HEVC, AV1 codecs. 7 resolution presets from 720p to 4K, including TikTok/Reels 9:16 and Instagram Square.
+**Video Export** — Browser-side MP4 via WebCodecs. H.264, H.265/HEVC, AV1 codecs. Five feasible presets from 720p to 1080p, including TikTok/Reels 9:16 and Instagram Square.
 
 **Liquid Glass UI** — [Vitro](https://github.com/circle-oo/vitro) design system with 4-level glass materials, animated mesh background, and light/dark mode toggle.
 
-**Travel Data Import Guide** — Step-by-step instructions for Google Maps (phone export + Takeout), Strava, Garmin, AllTrails, Komoot, and generic GPX/KML apps, with a direct link to export your Google Location History.
+**Travel Data Import Guide** — Phone-first Google Timeline export instructions, a clearly marked legacy Takeout fallback, and steps for Strava, Garmin, AllTrails, Komoot, and generic GPX/KML apps.
 
 ## Supported Formats
 
@@ -69,7 +69,7 @@ map styles, export presets, or improve the scene editor.
 | ----------------------- | --------- | ------------------------------------- |
 | GPX                     | `.gpx`    | GPS devices, Strava, AllTrails, etc.  |
 | KML                     | `.kml`    | Google Earth, Google Maps             |
-| Google Location History | `.json`   | Google Takeout (all JSON variants)    |
+| Google Timeline         | `.json`   | Current phone export; compatible legacy Takeout JSON |
 
 ## Camera Modes
 
@@ -91,8 +91,6 @@ map styles, export presets, or improve the scene editor.
 | Instagram Square                | 1080 × 1080 | 1:1    |
 | Instagram Post                  | 1080 × 1350 | 4:5    |
 | HD Landscape                    | 1280 × 720  | 16:9   |
-| 4K Landscape                    | 3840 × 2160 | 16:9   |
-| 4K Portrait                     | 2160 × 3840 | 9:16   |
 
 ## Keyboard Shortcuts
 
@@ -124,14 +122,14 @@ travelback/
 │   │   ├── TimelineSelector.tsx     # Time range trimmer with dual drag handles
 │   │   ├── ElevationProfile.tsx     # SVG elevation chart synced to playback
 │   │   ├── JourneyCreator.tsx       # Manual route drawing via map clicks
-│   │   ├── GoogleGuide.tsx          # Google Takeout export instructions
+│   │   ├── GoogleGuide.tsx          # Phone-first Google Timeline and legacy Takeout guidance
 │   │   ├── TrackWorkspace.tsx       # Loaded-track workspace — trim, scenes, playback, export entry points
 │   │   ├── ThemeToggle.tsx          # Light/dark mode toggle
 │   │   ├── Toast.tsx                # Notification toasts (error/success/info)
 │   │   └── ErrorBoundary.tsx        # React error boundary with reload UI
 │   │
 │   ├── lib/
-│   │   ├── parser.ts               # GPX, KML, Google JSON parsing (all Takeout variants)
+│   │   ├── parser.ts               # GPX, KML, and known Google Timeline JSON parsing
 │   │   ├── camera.ts               # Camera state computation — 6 modes, scene blending, bearing smoothing
 │   │   ├── interpolate.ts          # Track interpolation — distance-based point sampling, bearing calc
 │   │   └── videoEncoder.ts         # WebCodecs MP4 encoding via mediabunny
@@ -142,7 +140,7 @@ travelback/
 │   └── types.ts                    # TrackPoint, Scene, CameraMode, ExportConfig, resolution presets
 │
 ├── e2e/
-│   ├── travelback.spec.ts          # 74 Playwright E2E tests
+│   ├── travelback.spec.ts          # Playwright journeys across import, playback, editing, and export
 │   └── fixtures/                   # GPX, KML, JSON test fixtures
 │
 ├── public/                         # Static assets
