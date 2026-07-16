@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { translations, detectLocale, t, type Locale } from './i18n'
 
@@ -28,6 +29,18 @@ describe('i18n locale key parity', () => {
     for (const locale of locales) {
       expect(translations[locale]['google.step2TakeoutItem1']).not.toMatch(/\d/)
     }
+  })
+
+  it('keeps the legacy Takeout illustration conditional and format-neutral', () => {
+    const guide = readFileSync(
+      new URL('../../public/guide/google-takeout-export.svg', import.meta.url),
+      'utf8',
+    )
+    expect(guide).toContain('Legacy fallback')
+    expect(guide).toContain('Only if Takeout offers it')
+    expect(guide).toContain('Find compatible JSON')
+    expect(guide).toContain('Records, Timeline Edits, or monthly JSON')
+    expect(guide).not.toMatch(/Select Location History|Find Records\.json|upload Records\.json/)
   })
 
   it('keeps reviewed Korean, Japanese, and Chinese phrases grammatical', () => {
