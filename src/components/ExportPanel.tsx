@@ -178,9 +178,11 @@ export default function ExportPanel({
     setShareError(false)
     try {
       const file = new File([exportedVideoBlob], exportedVideoFilename ?? 'travelback.mp4', { type: 'video/mp4' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Travelback' })
+      if (!navigator.share || !navigator.canShare?.({ files: [file] })) {
+        setShareError(true)
+        return
       }
+      await navigator.share({ files: [file], title: 'Travelback' })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       console.error('Share failed:', err instanceof Error ? err.message : 'Unknown error')

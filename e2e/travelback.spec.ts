@@ -1696,6 +1696,36 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
+  test('share reports when the actual exported MP4 is unsupported', async ({ page }) => {
+    await page.addInitScript(() => {
+      const shareWindow = window as Window & { __travelbackShareCalls?: number }
+      shareWindow.__travelbackShareCalls = 0
+      Object.defineProperties(navigator, {
+        canShare: {
+          configurable: true,
+          value: ({ files }: ShareData) => files?.[0]?.size === 1,
+        },
+        share: {
+          configurable: true,
+          value: async () => { shareWindow.__travelbackShareCalls = (shareWindow.__travelbackShareCalls ?? 0) + 1 },
+        },
+      })
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+    })
+    await page.reload()
+    await waitForApp(page)
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    await expect(exportPanel.getByRole('button', { name: 'Share' })).toBeVisible({ timeout: 15_000 })
+    await exportPanel.getByRole('button', { name: 'Share' }).click()
+
+    await expect(exportPanel.getByRole('alert')).toContainText('Sharing failed')
+    expect(await page.evaluate(() => (window as Window & { __travelbackShareCalls?: number }).__travelbackShareCalls)).toBe(0)
+  })
+
   // Real export smoke test — exercises the actual WebCodecs/mediabunny pipeline
   // instead of the 26-byte stub. Gate behind TRAVELBACK_REAL_EXPORT=1 so it
   // only runs when explicitly requested (the real path is slow and codec-dependent).
