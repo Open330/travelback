@@ -1,6 +1,6 @@
 # Cycle 8 Implementation Plan — 2026-07-17
 
-Source: `.context/reviews/_aggregate.md` (4 actionable findings against `81342b7`, 4 authority/legal/evidence-gated carryovers, and 4 measured performance deferrals).
+Source: `.context/reviews/_aggregate.md` (5 actionable findings against `81342b7`, including one mandatory-gate discovery, 4 authority/legal/evidence-gated carryovers, and 4 measured performance deferrals).
 
 ## Objective
 
@@ -28,7 +28,7 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 - Work: restrict exact-observation deduplication to points with a valid timestamp. Preserve all supported untimed occurrences, including non-adjacent same-coordinate returns, in producer order. Retain exact timed duplicate removal and regenerate the worker from shared source.
 - Acceptance: one supported same-segment untimed A → B → A route remains exactly three points through direct parser, worker transport, and upload UI; exact duplicate timed observations remain deduplicated; semantic segments and point-budget protection remain unchanged.
 - Focused verification: parser and worker suites, the focused upload regression, `npm run build:worker`, `npm run check:worker`, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `44ddbba`; parser/worker focused suites, generated-worker parity, lint, and typecheck passed. The exact upload regression passed in the development matrix.
 
 ## Wave 1 — Bounded gesture aftermath
 
@@ -39,7 +39,7 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 - Work: replace the indefinite moved latch with bounded post-drag suppression for both generic-map and point-layer click handlers. Establish both deadlines when a real drag settles, retire movement state at the terminal event, and make immediate synthetic-click suppression independent of handler order.
 - Acceptance: immediate post-drag generic and point clicks are ignored; suppression expires even when no synthetic click arrives; the first later intentional point click deletes the waypoint; click-only and cleanup/unmount paths remain correct.
 - Focused verification: JourneyCreator component suite with controlled time and both handler orders, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `3e39ed7`; JourneyCreator passed 8/8 with both immediate handler orders and expiry covered, plus lint and typecheck.
 
 ## Wave 2 — Deterministic localized first load
 
@@ -50,7 +50,7 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 - Work: initialize `LocaleProvider` to deterministic English for both static render and hydration. After mount, resolve storage then browser preference, update provider state and `document.lang`, and keep explicit locale changes persisted and reflected in the document.
 - Acceptance: a Korean navigator and a stored supported locale hydrate the English static provider tree without a mismatch diagnostic, then show the preferred locale and matching `document.lang`; unsupported preferences still fall back to English; explicit switching remains stable.
 - Focused verification: direct `renderToString` → `hydrateRoot` tests using the real provider, existing i18n suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `6dda59f`; real-provider i18n/hydration suites passed 14/14 with zero recoverable hydration errors, plus lint and typecheck.
 
 ### P04 — Correct reviewed Spanish timeline language (AG8-04)
 
@@ -59,7 +59,18 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 - Work: change `datos del cronología` to `datos de la cronología` and the mixed-language reset label to `Restablecer intervalo de la línea de tiempo`.
 - Acceptance: both production strings are publication-quality Spanish and are pinned by reviewed-phrase assertions; all five locale dictionaries remain structurally complete.
 - Focused verification: i18n suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `0aa9760`; i18n passed 12/12 with exact Spanish phrases pinned, plus lint and typecheck.
+
+## Wave 3 — Gate-discovered map lifecycle ownership
+
+### P05 — Retry track hydration when the current style becomes ready (AG8-05)
+
+- Severity/confidence: Medium / High
+- Files: `src/components/MapView.tsx`, `e2e/travelback.spec.ts`
+- Work: when immediate track hydration cannot complete, listen for revision-owned `style.load`, `styledata`, and `idle` events and retry until `hydrateCurrentStyle` succeeds. Remove all listeners on success, stale revision, dependency cleanup, or unmount. Replace the scene-camera fixed delay with `waitForDebugPose` in development/public readiness in static output, and exercise a full-track Simple Flyover scene so load cannot move sampling outside the authored range.
+- Acceptance: uploading while the local style is transiently not ready still attaches route/trail/marker state and initializes the track camera; stale style callbacks cannot hydrate a superseded revision; the scene-camera motion regression passes retries-disabled without weakening movement or smoothness thresholds.
+- Focused verification: retries-disabled scene-camera E2E, related route/map readiness cases, lint, typecheck, and diff check.
+- Status: Root repair complete; the readiness-gated scene case and the 3-case route/map/camera set pass retries-disabled, with lint, typecheck, and diff check green. Pending signed commit and complete final matrix.
 
 ## Carried-forward blocked work
 
@@ -118,4 +129,4 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 
 ## Completion gate
 
-Pending. Complete only after P01-P04, all focused regressions, the full configured gate matrix, and the clean retries-disabled real-MP4 smoke pass on the named review branch. Preserve B01-B04 and D01-D04 with their exact exit criteria; final cleanup remains deliberately incomplete until the loop's final stop condition.
+Pending. Complete only after P01-P05, all focused regressions, the full configured gate matrix, and the clean retries-disabled real-MP4 smoke pass on the named review branch. Preserve B01-B04 and D01-D04 with their exact exit criteria; final cleanup remains deliberately incomplete until the loop's final stop condition.

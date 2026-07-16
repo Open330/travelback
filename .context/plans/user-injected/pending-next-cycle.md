@@ -52,3 +52,7 @@ archived into their respective cycle implementation plans once addressed.
 - Cycle 8 status: ingested into `cycle8-implementation-2026-07-17.md` and
   retained for the loop's final stop condition. Cycle 8 review created no new
   temporary filesystem path. This item remains incomplete.
+- Run-created validation mirror recorded during cycle 8:
+  - `/tmp/travelback-cycle8-gates.6rt2wr`
+  - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-bf60c17b5b8689ba538a03942566ec45.log`
+  - `/tmp/travelback-cycle8-gates-copy.UhGz9D`

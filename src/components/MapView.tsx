@@ -1098,10 +1098,35 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       preparedTrackRef.current = track
     }
 
-    if (isCurrentStyleRevision(map, styleRevision) && map.isStyleLoaded()) {
-      loadedStyleRevisionRef.current = styleRevision
-      hydrateCurrentStyle(map, styleRevision)
+    const removeReadyListeners = () => {
+      map.off('style.load', onStyleReady)
+      map.off('styledata', onStyleReady)
+      map.off('idle', onStyleReady)
     }
+    const tryHydrateCurrentStyle = () => {
+      if (!isCurrentStyleRevision(map, styleRevision) || !map.isStyleLoaded()) {
+        return false
+      }
+      loadedStyleRevisionRef.current = styleRevision
+      return hydrateCurrentStyle(map, styleRevision)
+    }
+    const onStyleReady = () => {
+      if (!isCurrentStyleRevision(map, styleRevision)) {
+        removeReadyListeners()
+        return
+      }
+      if (tryHydrateCurrentStyle()) {
+        removeReadyListeners()
+      }
+    }
+
+    if (!tryHydrateCurrentStyle()) {
+      map.on('style.load', onStyleReady)
+      map.on('styledata', onStyleReady)
+      map.on('idle', onStyleReady)
+    }
+
+    return removeReadyListeners
   }, [
     cumulativeDistancesProp,
     hydrateCurrentStyle,

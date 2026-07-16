@@ -1856,16 +1856,20 @@ test.describe('Travelback App', () => {
   test('scene-based camera movement stays stable during playback', async ({ page }) => {
     await uploadGpx(page)
 
-    // Wait for map layers to fully initialize before configuring scenes
-    await page.waitForTimeout(2000)
+    if (IS_STATIC_E2E) {
+      await expectPublicMapReady(page)
+    } else {
+      await waitForDebugPose(page)
+    }
 
     const scenesBtn = page.getByText('Camera', { exact: true })
     await expect(scenesBtn).toBeVisible({ timeout: 10_000 })
     await scenesBtn.click({ force: true })
     await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
-    const addSceneBtn = page.getByRole('button', { name: '+ Add' })
-    await expect(addSceneBtn).toBeVisible({ timeout: 5_000 })
-    await addSceneBtn.click({ force: true })
+    const simpleSceneBtn = page.getByRole('button', { name: 'Simple' })
+    await expect(simpleSceneBtn).toBeVisible({ timeout: 5_000 })
+    await simpleSceneBtn.click({ force: true })
+    await expect(page.getByTestId('scene-editor-panel')).toContainText('To % 100%')
 
     await startPlayback(page)
     if (IS_STATIC_E2E) {
