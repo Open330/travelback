@@ -434,6 +434,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const readyStyleRevisionRef = useRef(0)
   const fitTrackOnReadyRef = useRef<Track | null>(null)
   const preparedTrackRef = useRef<Track | null>(null)
+  const retryCameraStateRef = useRef<CameraState | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
   const [readyStyleRevision, setReadyStyleRevision] = useState(0)
@@ -555,6 +556,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       cumulDistRef.current = []
       trailChunksRef.current = []
       lastCompletedTrailChunkIndexRef.current = -1
+      retryCameraStateRef.current = null
     },
     resize: (width: number, height: number) => {
       const map = mapRef.current
@@ -876,6 +878,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         })
         lastCameraStateRef.current = targetCamera
         lastSeekNonceRef.current = seekNonceRef.current
+      } else if (
+        !followCameraRef.current
+        && !suspendAutoCameraRef.current
+        && retryCameraStateRef.current
+      ) {
+        const retryCameraState = retryCameraStateRef.current
+        if (map.isMoving()) map.stop()
+        map.jumpTo({
+          center: retryCameraState.center as [number, number],
+          zoom: retryCameraState.zoom,
+          pitch: retryCameraState.pitch,
+          bearing: retryCameraState.bearing,
+        })
       } else if (fitTrackOnReadyRef.current === activeTrack) {
         map.fitBounds(buildFitBounds(activeTrack.points), { padding: 80, duration: 1000 })
       }
@@ -884,6 +899,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         fitTrackOnReadyRef.current = null
       }
     }
+
+    retryCameraStateRef.current = null
 
     readyStyleRevisionRef.current = styleRevision
     setReadyStyleRevision(styleRevision)
@@ -1068,12 +1085,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCompletedTrailChunkIndexRef.current = -1
       fitTrackOnReadyRef.current = null
       preparedTrackRef.current = null
+      retryCameraStateRef.current = null
     } else {
       const isNewTrack = preparedTrackRef.current !== track
       cumulDistRef.current = cumulativeDistancesProp ?? []
       trailChunksRef.current = buildTrailChunks(precomputeWrappedSegments(track.points, track.segmentStartIndices))
       lastCompletedTrailChunkIndexRef.current = -1
-      if (isNewTrack) fitTrackOnReadyRef.current = track
+      if (isNewTrack) {
+        fitTrackOnReadyRef.current = track
+        retryCameraStateRef.current = null
+      }
       preparedTrackRef.current = track
     }
 
@@ -1195,6 +1216,21 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             <button
               type="button"
               onClick={() => {
+                const activeTrack = trackRef.current
+                if (activeTrack && !retryCameraStateRef.current) {
+                  const currentMap = mapRef.current
+                  if (currentMap) {
+                    const center = currentMap.getCenter()
+                    retryCameraStateRef.current = {
+                      center: [center.lng, center.lat],
+                      zoom: currentMap.getZoom(),
+                      pitch: currentMap.getPitch(),
+                      bearing: currentMap.getBearing(),
+                    }
+                  } else {
+                    fitTrackOnReadyRef.current = activeTrack
+                  }
+                }
                 setMapError(null)
                 setMapRetryNonce((nonce) => nonce + 1)
               }}

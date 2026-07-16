@@ -591,7 +591,7 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
   })
 
-  test('ready style replacements preserve a paused nonzero map pose', async ({ page }) => {
+  test('ready style replacements and Retry preserve a paused nonzero map pose', async ({ page }) => {
     await uploadGpx(page)
     await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
 
@@ -669,18 +669,27 @@ test.describe('Travelback App', () => {
       expectPoseToMatch(afterSupersededStyle, libertyPose)
     }
 
+    await page.getByRole('button', { name: 'Disable camera tracking' }).click()
+    await expect(page.getByRole('button', { name: 'Enable camera tracking' })).toBeVisible()
+
+    let manualPose = libertyPose
+    if (!IS_STATIC_E2E) {
+      manualPose = await readDebugMapSnapshot(page)
+      if (!manualPose) throw new Error('Missing manual camera pose before Retry Map')
+    }
+
     await page.route('**/map-styles/bright.json', route => route.abort('failed'))
     await styleButton.click()
     await expect(page.getByTestId('map-error')).toBeVisible({ timeout: 15_000 })
     await page.unroute('**/map-styles/bright.json')
 
-    let poseBeforeRetry = libertyPose
-    if (!IS_STATIC_E2E && libertyPose) {
+    let poseBeforeRetry = manualPose
+    if (!IS_STATIC_E2E && manualPose) {
       await setPlaybackProgress(page, 0.72)
       await expect.poll(async () => {
         const snapshot = await readDebugMapSnapshot(page)
         return snapshot
-          ? coordinateDistanceMeters(snapshot.htmlMarkerPosition, libertyPose.htmlMarkerPosition)
+          ? coordinateDistanceMeters(snapshot.htmlMarkerPosition, manualPose.htmlMarkerPosition)
           : 0
       }, { timeout: 10_000, intervals: [100, 200, 300] }).toBeGreaterThan(100)
       poseBeforeRetry = await readDebugMapSnapshot(page)
@@ -697,9 +706,10 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('map-error')).toHaveCount(0, { timeout: 15_000 })
     await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toHaveCount(1)
     await expect(page.locator('.maplibregl-marker')).toHaveCount(1, { timeout: 15_000 })
+    await expect(page.getByRole('button', { name: 'Enable camera tracking' })).toBeVisible()
 
-    if (!IS_STATIC_E2E && poseBeforeRetry && libertyPose) {
-      const retryPose = await waitForDebugPose(page, libertyPose.readyStyleRevision)
+    if (!IS_STATIC_E2E && poseBeforeRetry && manualPose) {
+      const retryPose = await waitForDebugPose(page, manualPose.readyStyleRevision)
       expectPoseToMatch(retryPose, poseBeforeRetry)
     }
   })
