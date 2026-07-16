@@ -220,6 +220,11 @@ input[type="range"]:focus-visible {
   top: clamp(3.25rem, 8vw, 4.5rem);
 }
 
+/* Keep map attribution above the loaded timeline/elevation/playback stack. */
+.map-has-track-controls .maplibregl-ctrl-bottom-right {
+  right: .5rem;
+  bottom: calc(clamp(15rem, 30vh, 16rem) + env(safe-area-inset-bottom, 0px));
+}
 
 .map-has-track-controls .maplibregl-ctrl-group,
 .map-has-track-controls .maplibregl-ctrl-attrib {
@@ -229,6 +234,12 @@ input[type="range"]:focus-visible {
 }
 
 .map-has-track-controls .maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid rgb(var(--gl));
+  outline-offset: -2px;
+}
+
+.map-has-track-controls .maplibregl-ctrl-attrib summary:focus-visible,
+.map-has-track-controls .maplibregl-ctrl-attrib-button:focus-visible {
   outline: 2px solid rgb(var(--gl));
   outline-offset: -2px;
 }
