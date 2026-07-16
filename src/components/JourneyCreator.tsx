@@ -186,6 +186,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const draggingIndexRef = useRef<number | null>(null)
   const dragMovedRef = useRef(false)
   const suppressMapClickUntilRef = useRef(0)
+  const settleDragRef = useRef<() => void>(() => {})
   // Store cleanup functions — accumulated across style reloads so that
   // bindListeners() calls never overwrite a previous cleanup (C15-F01).
   const cleanupRef = useRef<(() => void)[]>([])
@@ -424,6 +425,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         if (document.visibilityState === 'hidden') settleDrag()
       }
 
+      settleDragRef.current = settleDrag
+
       const startDrag = (index: number, input: 'mouse' | 'touch') => {
         settleDrag()
         draggingIndexRef.current = index
@@ -478,6 +481,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       cleanupRef.current.push(() => {
         settleDrag(true)
+        if (settleDragRef.current === settleDrag) {
+          settleDragRef.current = () => {}
+        }
         map.off('click', onClick)
         map.off('click', LAYER_POINTS, onPointClick)
         map.off('mousedown', LAYER_POINTS, onMouseDownPoint)
@@ -522,14 +528,15 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [isActive, mapReadyRetry, mapGeneration])
 
   const handleUndo = useCallback(() => {
+    settleDragRef.current()
     if (waypointsRef.current.length === 0) return
-    draggingIndexRef.current = null
     waypointsRef.current = waypointsRef.current.slice(0, -1)
     updateMapData()
     syncUI()
   }, [updateMapData, syncUI])
 
   const handleClear = useCallback(() => {
+    settleDragRef.current()
     waypointsRef.current = []
     updateMapData()
     syncUI()
@@ -643,12 +650,14 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [searchEnabled])
 
   const handleDone = useCallback(() => {
+    settleDragRef.current()
     if (waypointsRef.current.length < 2) return
     setJourneyName((current) => current || t('journey.defaultName'))
     setShowConfirm(true)
   }, [t])
 
   const handleConfirmCreate = useCallback(() => {
+    settleDragRef.current()
     const resolvedName = journeyName.trim() || t('journey.defaultName')
     const track: Track = {
       name: `${selectedIconSymbol} ${resolvedName}`,
@@ -657,6 +666,21 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     setShowConfirm(false)
     onComplete(track)
   }, [journeyName, onComplete, selectedIconSymbol, t])
+
+  const handleCancel = useCallback(() => {
+    settleDragRef.current()
+    if (pointCount >= 1) {
+      setShowDiscardConfirm(true)
+      return
+    }
+    onCancel()
+  }, [onCancel, pointCount])
+
+  const handleConfirmDiscard = useCallback(() => {
+    settleDragRef.current()
+    setShowDiscardConfirm(false)
+    onCancel()
+  }, [onCancel])
 
   useEffect(() => {
     updateMapData()
@@ -676,7 +700,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
           <button
             ref={cancelButtonRef}
             type="button"
-            onClick={() => { if (pointCount >= 1) setShowDiscardConfirm(true); else onCancel() }}
+            onClick={handleCancel}
             className="text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t3)' }}
           >
             {t('journey.cancel')}
@@ -930,7 +954,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               className="gi px-4 py-2 text-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t2)' }}>
               {t('app.cancel')}
             </button>
-            <button type="button" onClick={() => { setShowDiscardConfirm(false); onCancel() }}
+            <button type="button" onClick={handleConfirmDiscard}
               className="vitro-btn-primary px-4 py-2 text-sm cursor-pointer">
               {t('app.discard')}
             </button>

@@ -196,4 +196,54 @@ describe('JourneyCreator waypoint drag lifecycle', () => {
     expect(map.listenerCount('touchmove')).toBe(0)
     expect(enable).toHaveBeenCalledOnce()
   })
+
+  it('settles an active mouse drag before undoing', async () => {
+    const { map, canvas, enable, sources } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+
+    const pointsSource = sources.get('journey-points')
+    await act(() => map.trigger('mousedown', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('mousemove', { lngLat: { lng: 127, lat: 37.6 } }))
+
+    const undoButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.undo')
+    await act(() => undoButton?.click())
+
+    expect(enable).toHaveBeenCalledOnce()
+    expect(canvas.style.cursor).toBe('')
+    expect(map.listenerCount('mousemove')).toBe(0)
+    expect(undoButton?.disabled).toBe(true)
+    const updatesAfterUndo = pointsSource?.setData.mock.calls.length
+    await act(() => map.trigger('mousemove', { lngLat: { lng: 128, lat: 38 } }))
+    expect(pointsSource?.setData).toHaveBeenCalledTimes(updatesAfterUndo ?? 0)
+  })
+
+  it('settles an active touch drag before clearing without recreating points', async () => {
+    const { map, canvas, enable, sources } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 127.1, lat: 37.7 } }))
+
+    const pointsSource = sources.get('journey-points')
+    await act(() => map.trigger('touchstart', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('touchmove', { lngLat: { lng: 127, lat: 37.6 } }))
+
+    const clearButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.clear')
+    await act(() => clearButton?.click())
+
+    expect(enable).toHaveBeenCalledOnce()
+    expect(canvas.style.cursor).toBe('')
+    expect(map.listenerCount('touchmove')).toBe(0)
+    expect(clearButton?.disabled).toBe(true)
+    expect(pointsSource?.setData.mock.calls.at(-1)?.[0]).toMatchObject({ features: [] })
+    const updatesAfterClear = pointsSource?.setData.mock.calls.length
+    await act(() => map.trigger('touchmove', { lngLat: { lng: 128, lat: 38 } }))
+    expect(pointsSource?.setData).toHaveBeenCalledTimes(updatesAfterClear ?? 0)
+  })
 })
