@@ -1,143 +1,85 @@
-# Code Reviewer — Deep Review (2026-07-16)
+# Code Reviewer — Deep Review (Cycle 2, 2026-07-16)
 
-## Scope and method
+## Inventory and coverage
 
-Reviewed the complete current implementation surface: 840 tracked paths were inventoried; all application source, configuration, scripts, tests, workflow files, and user-facing documentation were examined. Historical review/plan artifacts were inventoried but were not treated as current product code. Cross-file flows were traced through import, playback, trimming, map rendering, scene editing, export, static hardening, and CI.
+Reviewed the complete current nonhistorical surface at cc6f24f, with focused comparison across df8f08a..cc6f24f: 110 tracked paths comprising 50 src files, 18 E2E files/fixtures, 19 public assets, 7 scripts, the Pages workflow, package manifest/lock, 7 tool configs, README/.gitignore, and 4 active context documents. Generated out output was inspected only as build evidence; dependencies and historical plan/review archives were inventoried but excluded from source findings. Cross-file traces covered import/session replacement, timeline coordinate conversions, scene mutations, MapLibre sources, export/finalization, sharing, static hardening, and test coverage.
 
-Classification: Confirmed means the failure follows directly from control flow or was reproduced; Likely means the defect is strongly supported but still needs a browser/device fixture; Manual risk needs targeted measurement.
+Validation on this head: npm run lint, npm run typecheck, 266/266 unit tests, npm audit --audit-level=high (zero vulnerabilities), npm run build, generated-worker drift check, and npm run smoke:static all passed. Full browser matrices were not rerun in this timeboxed review; the cycle-1 implementation record reports 82 development-static and 82 production-static cases passing plus a real MP4 smoke.
+
+Status terms: Confirmed means the defect follows deterministically from current control flow or emitted output. Likely means the missing boundary is confirmed but the external/browser failure needs a targeted reproduction.
 
 ## Findings
 
-### CR-01 — Trail geometry freezes between track vertices
+### CR2-01 — Sample loading can overwrite a newer manual-journey session
 
-Severity: High | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed race
 
-Files: src/components/MapView.tsx:568-578 and src/components/MapView.tsx:1069-1080
+Evidence: src/app/page.tsx:374-397 owns sample fetch and parsing without an AbortController or session generation. src/components/FileUpload.tsx:215-240 invokes that async callback without entering its loading state, while src/components/FileUpload.tsx:288-299 leaves Draw Route enabled. The FileUpload cancellation added in cycle 1 covers only imports started inside FileUpload, not this parent-owned request.
 
-The marker is updated for every interpolated progress value, but trail GeoJSON is updated only when segmentIndex changes. segmentIndex identifies the pair of route vertices, so it remains constant for every animation/export frame between two vertices. On a two-point route the visible trail remains at the first point until the final vertex; on longer routes it advances in steps instead of ending at the moving marker.
+Failure scenario: click the sample preview, immediately choose Draw Route, and begin placing points. When the earlier fetch/parse resolves, page.tsx:388 calls loadTrackIntoSession and replaces the newer journey.
 
-Suggested fix: cache only completed immutable segment coordinates, but rebuild the active segment endpoint for every interpolated point. Reset the cache whenever a track/style/export session is replaced. Add a source-data regression test that samples two progress values inside the same vertex pair.
+Fix: give all asynchronous session producers a shared generation/abort boundary. Starting a journey, choosing another file, or loading another sample must invalidate the old sample completion. Add a deferred-fetch regression test analogous to FileUpload.test.ts:38-82.
 
-### CR-02 — The static release gate is broken after parser helpers moved
+### CR2-02 — The timeline enforces a point-count gap in distance-ratio space
 
-Severity: High | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed correctness defect
 
-Files: scripts/smoke-static.mjs:223-259, src/lib/parser.ts:1-11, src/lib/parse-utils.ts:6-8, src/lib/googleJsonParser.ts:138-158, .github/workflows/deploy-pages.yml:28-32
+Evidence: TimelineSelector.tsx:27-31 defines handle ratios as fractions of distance, but TimelineSelector.tsx:95-105 sets their minimum gap to 1/(pointCount-1). TimelineSelector.tsx:261-275 converts the result back through cumulative distances. TimelineSelector.test.ts:38-45 tests only evenly spaced/index-like ratios.
 
-A fresh npm run build succeeds, but npm run smoke:static fails with “Worker MAX_TRACK_POINTS must match MAX_TRACK_POINTS in src/lib/parser.ts”. The values actually match: parse-utils.ts defines 250,000 and the worker defines 250000. The smoke script still searches parser.ts for the old declaration. Once that assertion is repaired, its parserSource.includes('parseSemanticPoint') check will also fail because that function moved to googleJsonParser.ts. CI invokes this smoke test before static E2E, so every release is blocked.
+Failure scenario: for cumulative distances [0, 1, 1000], selecting indexes 0..1 requires an end ratio near 0.001. The three-point clamp forces at least 0.5, which resolves to index 2, so the valid adjacent pair cannot be selected.
 
-Suggested fix: make the parity check read the actual source modules, or preferably bundle the worker from the shared parser implementation and test behavior instead of source text. Add the worker build/parity step to the normal build.
+Fix: enforce the two-point invariant after resolving indexes, or snap handles to cumulative-distance positions for adjacent indexes. Add uneven-spacing and segment-plateau round trips.
 
-### CR-03 — Loaded desktop sessions lose language, unit, and theme controls
+### CR2-03 — Export finalization has no deadline and cannot be cancelled
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed missing bound; a fresh stall is Likely
 
-Files: src/components/GlobalToolbar.tsx:23-26, src/components/TrackToolbar.tsx:162-185 and 227-280, e2e/travelback.spec.ts:274-300 and 537-590
+Evidence: videoEncoder.ts:65-69 deliberately skips cancel once Mediabunny enters finalizing; videoEncoder.ts:232 awaits output.finalize with no timeout or signal race. useExportController.ts:125-127 only aborts the signal, and ExportPanel.tsx:322-330 presents that as a Cancel action. The cycle-1 implementation record documents a Chromium encoder flush stall that required frame rematerialization, demonstrating that this class of wait is not hypothetical.
 
-GlobalToolbar becomes hidden whenever hasTrack is true. TrackToolbar contains replacement settings only inside a sm:hidden mobile menu, so desktop users have no visible way to change language, units, or theme after loading a route. Static Playwright reproduced this on retry: the Japanese/Spanish locale cases and both desktop-toolbar layout cases time out on the hidden toolbar.
+Failure scenario: if codec flush/finalize stalls on another browser, driver, or input, Cancel and Escape only flip an AbortSignal that finalize never observes. isExporting remains true indefinitely and the map stays export-sized.
 
-Suggested fix: render the settings group in the desktop TrackToolbar or keep and reposition GlobalToolbar for loaded sessions. Retain the existing desktop E2E expectations as a regression guard.
+Fix: impose a bounded finalization watchdog with a distinct localized error and move encoding behind a terminable worker/process boundary if the library cannot interrupt finalization itself. Test a never-resolving finalize promise.
 
-### CR-04 — Export can capture a stale map frame when the camera is unchanged
+### CR2-04 — Delete undo still rewrites a later scene-range edit
 
-Severity: High | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed lost update
 
-Files: src/components/MapView.tsx:544-603 and 612-648, src/lib/videoEncoder.ts:148-164
+Evidence: SceneEditor.tsx:382-390 reinserts the deleted scene into current state, but then calls commitScenes. commitScenes at SceneEditor.tsx:297-335 calls normalizeScenes; camera.ts:25-49 raises each later start to the previous scene end. The E2E at e2e/travelback.spec.ts:1232-1247 verifies only a later name edit.
 
-renderFrameAndWait mutates marker/trail sources and then resolves immediately if the requested camera rounds equal to the current camera. Source setData is asynchronous with respect to WebGL painting; the immediate branch does not await a render. Overview scenes, zero-rotation scenes, duplicate points, and any stationary camera can therefore encode the previous marker/trail frame.
+Failure scenario: delete middle scene B [0.15,0.30], change later C start from 0.30 to 0.25, then undo B. Normalization silently moves C back to 0.30, reversing the newer range edit while preserving its name.
 
-Suggested fix: attach the render listener before source/camera mutations, track whether any source changed, request a repaint where needed, and resolve only after the resulting render plus one animation frame. Immediate resolution is safe only when neither camera nor source state changed.
+Fix: define conflict-aware inverse semantics. Either invalidate undo after an overlapping range edit, restore B only into an available gap, or ask before normalizing newer work. Extend E2E to cover later range and camera edits.
 
-### CR-05 — Completed one-point segments create invalid line geometry
+### CR2-05 — Timeline keyboard guard suppresses unrelated controls for three seconds
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed accessibility defect
 
-Files: src/components/MapView.tsx:102-116 and 232-264, src/lib/googleJsonParser.ts:150-190
+Evidence: TimelineSelector.tsx:22-23 selects Arrow/Home/End keys; TimelineSelector.tsx:141-153 installs a capturing window listener; TimelineSelector.tsx:345-354 arms it for three seconds after a timeline key. Any target outside the timeline is prevented and propagation-stopped during that window.
 
-precomputeWrappedSegments preserves one-coordinate segments. buildTrailGeoJSONFromSegments pushes completed segments without the singleton duplication used by buildTrackGeometry. Google semantic visit records intentionally form one-point segments, so playback can send a LineString or MultiLineString member containing one position, which violates line-geometry requirements and can disappear or be rejected by MapLibre.
+Failure scenario: adjust a trim handle, Tab to another slider/input, and press ArrowLeft within three seconds. The unrelated control never receives the key.
 
-Suggested fix: normalize completed segments to at least two identical coordinates, or omit one-point line members and represent visits separately. Test a mixed path/visit/path Google fixture.
+Fix: remove the global time window and keep suppression at the timeline handle event boundary. If a framework-specific leaked event must be guarded, tie it to the exact event/target rather than all subsequent keys.
 
-### CR-06 — Cancelling a scene-invalidating trim leaves the timeline and track divergent
+### CR2-06 — Scene range drag has no pointer-cancellation boundary
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Severity: Low | Confidence: High | Status: Confirmed lifecycle gap
 
-Files: src/components/TimelineSelector.tsx:96-105 and 274-322, src/app/page.tsx:319-355
+Evidence: SceneEditor.tsx:124-181 listens for window pointermove and pointerup only. It does not handle pointercancel, lost pointer capture, or window blur.
 
-TimelineSelector commits its internal handle ratios before the parent decides whether the trim is accepted. With scenes present, page.tsx records a pending range and returns. Cancel only clears pendingTrimRange; it does not restore the selector ratios. The map and active track remain untrimmed while handles, labels, and point counts continue to show the rejected range.
+Failure scenario: the OS/browser cancels a touch/stylus gesture. dragging remains true and a later pointer move can continue editing from the stale origin; the final commit may never run.
 
-Suggested fix: make accepted range controlled by the parent, or store the last accepted ratios and explicitly restore them on cancellation. Cover confirm and cancel as separate E2E paths.
+Fix: use pointer capture and route pointerup, pointercancel, lostpointercapture, and blur through one idempotent finish/cancel routine.
 
-### CR-07 — Clicking a trimmed timeline seeks to the wrong local position
+### CR2-07 — Share can silently do nothing for the actual MP4
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Severity: Low | Confidence: High | Status: Confirmed control-flow defect; size-dependent trigger is Likely
 
-Files: src/components/TrackWorkspace.tsx:138-146, src/components/TimelineSelector.tsx:323-329
+Evidence: ExportPanel.tsx:191-203 decides button visibility by calling canShare with a one-byte test file. ExportPanel.tsx:176-189 calls canShare again with the real MP4, but when it returns false there is no fallback and shareError remains false.
 
-TimelineSelector renders the full track and computes an absolute full-track click ratio, then passes that ratio directly to playback. Playback operates on the filtered active track. For a selected 25–50% range, clicking its visual midpoint sends about 0.375 instead of local progress 0.5.
+Failure scenario: a platform accepts the tiny capability probe but rejects the exported file because of size or platform limits. The visible Share button produces no share sheet and no feedback.
 
-Suggested fix: translate the click to (clickRatio - selectedStart) / (selectedEnd - selectedStart), or pass the accepted index range to the parent and convert there.
+Fix: treat false for the actual file as an error/fallback, hide or disable the button after that result, and provide the existing download action plus localized explanation.
 
-### CR-08 — Journey deletion, undo, and clear leave a ghost route line
+## Missed-issue sweep
 
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/components/JourneyCreator.tsx:80-89, 197-207, 328-344, and 481-493
-
-buildLineGeoJSON already returns empty geometry for fewer than two waypoints, but updateMapData calls lineSrc.setData only when at least two points remain. Reducing a route from two points to one or zero leaves the previous line in the map source.
-
-Suggested fix: always update the line source with buildLineGeoJSON. Test delete, undo, and clear transitions from a two-point route.
-
-### CR-09 — Scene delete undo can discard newer edits
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/components/SceneEditor.tsx:281-285 and 368-378
-
-Deleting a scene stores the entire pre-deletion scenes array. Undo later replaces current state wholesale. Any scene add, rename, parameter edit, or reorder performed during the five-second undo window is silently lost.
-
-Suggested fix: store the deleted scene and its former index, then reinsert it into the latest state, or invalidate the undo token on any subsequent scene mutation.
-
-### CR-10 — Keyboard scene-range edits bypass committed normalization
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/components/SceneEditor.tsx:153-164, 221-264, and 643-650
-
-Pointer range edits call onCommit on pointer-up, but all keyboard branches call only onChangeRef. The parent wires onChange to updateSceneRaw and onCommit to normalized updateScene. Keyboard users can therefore leave overlapping/raw scene ranges in the editor while preview/export silently normalize them, so displayed timing differs from rendered timing.
-
-Suggested fix: commit keyboard changes through the same normalized path, ideally once per key action, and add keyboard overlap tests.
-
-### CR-11 — A slow file parse can overwrite a newer journey session
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/components/FileUpload.tsx:53-95 and 263-286, src/app/page.tsx:297-317 and 540-548
-
-handleFile has no request generation or cancellation. The draw-route action remains enabled during parsing and unmounts FileUpload. When the old parse resolves, its retained onTrackLoaded callback still loads that stale track, replacing the newly started journey.
-
-Suggested fix: invalidate parse requests on unmount/session change, pass an AbortSignal through file/worker parsing, or disable mutually exclusive session actions until parsing settles. Test with a deferred parser promise.
-
-### CR-12 — Failed or cancelled encoding does not release the media pipeline
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/lib/videoEncoder.ts:115-173
-
-After Output.start, the finally block finalizes only completed exports and does nothing otherwise. Mediabunny Output.cancel is the API that releases encoders and prevents additional samples, so aborts and render/codec failures can retain WebCodecs/GPU resources until garbage collection.
-
-Suggested fix: call and await output.cancel whenever output started but did not complete, while preserving the original error. Mock Output in tests and assert finalize on success and cancel on every failure/abort path.
-
-### CR-13 — Both advertised 4K presets can never be exported
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/types.ts:77-104, src/lib/videoEncoder.ts:50-65, src/components/ExportPanel.tsx:90-108 and 408-436, README.md:90-96
-
-The raw-frame term for either 3840×2160 preset is about 379.7 MiB before encoded output, already above the fixed 256 MiB cap. ExportPanel therefore disables Start Export for every possible 4K configuration even though README and the preset selector advertise both modes.
-
-Suggested fix: remove or explicitly mark unsupported presets, or implement a resource model/export path that can actually satisfy them. Add a feasibility assertion for every advertised preset.
-
-## Summary
-
-13 findings: 3 High and 10 Medium. Eleven are confirmed directly from control flow; the smoke and desktop-toolbar regressions were also reproduced. No fixes were applied in this review phase.
+Rechecked every changed source/config/test/doc path, stale async completions, abort/finally blocks, coordinate domains, global listeners, generated-worker ownership, and current tests. No additional new confirmed code defect met the evidence threshold. Known CI permissions/unit-gate and license issues remain current but are assigned to security/critic and retain their explicit authorization/input blocks.

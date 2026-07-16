@@ -1,89 +1,89 @@
-# Debugger — Root-Cause Report (2026-07-16)
+# Debugger — Root-Cause Report (Cycle 2, 2026-07-16)
 
-## Scope
+## Inventory and diagnostic coverage
 
-Focused on reproducible gate failures and bugs with an actionable failing scenario. No source fixes were applied.
+Inspected all 110 current nonhistorical tracked paths at cc6f24f and the fresh emitted out HTML. Traced the 25 cycle-1 implementation commits plus current tests. Ran lint, typecheck, 266 unit tests, high audit (zero vulnerabilities), build, generated-worker check, and static smoke; all passed. Diagnostics below isolate defects not exercised by those green gates.
 
 ## Findings
 
-### DB-01 — Static smoke exits on an obsolete source-location assumption
+### DB2-01 — Three-point uneven tracks reproduce the trim over-clamp arithmetically
 
-Severity: High | Confidence: High | Status: Reproduced
+Severity: Medium | Confidence: High | Status: Deterministically reproduced from exported helpers
 
 Reproduction:
 
-1. Run npm run build; the static export and CSP postbuild succeed.
-2. Run npm run smoke:static.
-3. Observe “Worker MAX_TRACK_POINTS must match MAX_TRACK_POINTS in src/lib/parser.ts”.
+1. Use cumulativeDistances [0,1,1000] for three points.
+2. The desired inclusive range 0..1 has ratios [0,0.001].
+3. clampTimelineRatios at TimelineSelector.tsx:95-105 returns an end ratio of at least 0.5.
+4. ratioToIndex at lines 32-61 resolves distance 500 to end index 2.
 
-Root cause: scripts/smoke-static.mjs:223-236 reads parser.ts and regexes a declaration that moved to src/lib/parse-utils.ts:7. Worker and shared values both equal 250000. The next check at smoke-static lines 254-258 is also stale because parseSemanticPoint moved to googleJsonParser.ts:138.
+Root cause: the minimum index interval was expressed as a uniform ratio interval.
 
-Suggested fix: update the checker to actual ownership or replace textual synchronization with a generated worker plus fixture parity tests.
+Fix: enforce endIdx >= startIdx + 1 after conversion and return handle positions derived from the accepted indexes. Add this exact fixture to TimelineSelector.test.ts.
 
-### DB-02 — Loaded desktop locale tests time out because the control is deliberately hidden
+### DB2-02 — Fresh build proves CSP ordering is not covered by smoke
 
-Severity: Medium | Confidence: High | Status: Reproduced twice per case
+Severity: Medium | Confidence: High | Status: Reproduced
 
-Reproduction: load a GPX at the static desktop viewport, then locate the Language combobox or global toolbar. Japanese and Spanish selection tests at e2e/travelback.spec.ts:274-300, plus loaded toolbar tests at lines 537-590, time out on retry.
+Reproduction: run npm run build, then compare the first script and CSP offsets. out/index.html reports firstScript=492, csp=1159, scriptsBefore=7; both error pages report five scripts before CSP. npm run smoke:static still prints OK.
 
-Root cause: GlobalToolbar.tsx:25 applies hidden for hasTrack. TrackToolbar’s settings exist only inside the sm:hidden menu at lines 162-280, so no desktop replacement is visible.
+Root cause: layout.tsx:60-70 places bootstrap before CSP, harden-static-export.mjs:125-173 replaces the tag in place, and smoke-static.mjs:135-195 checks content only.
 
-Suggested fix: restore a visible desktop settings surface and use the existing four failures as the acceptance test.
+Fix: relocate CSP before active content and make the offset/order assertion part of both postbuild and smoke.
 
-### DB-03 — Trail freezes because the cache key excludes interpolated position
+### DB2-03 — Sample CTA bypasses the import cancellation repair
 
-Severity: High | Confidence: High | Status: Confirmed
+Severity: Medium | Confidence: High | Status: Confirmed control-flow reproduction; browser test absent
 
-Reproduction: use any two-point route, start playback, and compare marker position with the trail endpoint before reaching point two.
+Reproduction:
 
-Root cause: MapView.tsx:570 and 1072 cache solely by segmentIndex. The geometry function also depends on point, but point is absent from the invalidation key.
+1. Delay sample-trip.gpx or parseTrackFile.
+2. Click the sample preview at FileUpload.tsx:215-240.
+3. Click Draw Route at lines 288-299.
+4. Resolve the delayed operation.
+5. page.tsx:388 loads the sample and exits the manual journey.
 
-Suggested fix: cache completed segments, not the active geometry. In test/debug mode log or expose the trail source’s final coordinate at progress 0.25 and 0.75.
+Root cause: FileUpload’s request lifecycle test covers only its locally created parser controller; handleLoadSample at page.tsx:374-397 has no signal/generation.
 
-### DB-04 — Stationary export cameras can encode the preceding source frame
+Fix: shared page operation generation plus deferred sample regression.
 
-Severity: High | Confidence: High | Status: Confirmed ordering bug
+### DB2-04 — Finalization is the only unbounded export await
 
-Reproduction: configure an overview scene with unchanged camera/zero rotation, export a short route, and inspect consecutive marker/trail frames.
+Severity: Medium | Confidence: High | Status: Confirmed root cause; new hardware stall not reproduced
 
-Root cause: MapView.tsx:563-578 schedules source updates, but lines 598-603 resolve immediately when camera values match. The render listener is registered only later. waitForIdle can also return immediately when tiles are loaded, so videoEncoder captures without a paint barrier.
+Reproduction harness: mock Output.finalize with a never-settling promise, start export, then call cancelExport. videoEncoder.ts:232 stays pending because the signal is not observed and lines 65-69 skip Output.cancel. useExportController.ts:268-309 never reaches cleanup.
 
-Suggested fix: register before mutation and await a source-aware render. A deterministic test should mock render delivery and assert CanvasSource.add occurs after it.
+Root cause: cancellation is cooperative during frame work but finalization is an opaque in-process await.
 
-### DB-05 — 4K Start Export is disabled by an invariant, not codec detection
+Fix: watchdog plus terminable worker boundary; add a never-resolving-finalize unit test with fake timers.
 
-Severity: Medium | Confidence: High | Status: Confirmed
+### DB2-05 — Scene undo range loss is hidden by the name-only E2E
 
-Reproduction: open Export, choose either 4K preset, and observe the too-large warning/disabled Start Export for any duration, FPS, quality, or codec.
+Severity: Medium | Confidence: High | Status: Deterministically reproduced from normalization
 
-Root cause: videoEncoder.ts:59-65 assigns about 379.7 MiB to 4K raw-frame buffers before encoded bytes; the global cap is 256 MiB at line 7. ExportPanel.tsx:104-108 disables the action whenever that estimate exceeds the cap.
+Reproduction:
 
-Suggested fix: reconcile product presets with the enforced resource model rather than tuning UI state.
+1. Create A [0,0.15], B [0.15,0.30], C [0.30,0.45].
+2. Delete B.
+3. Change C start to 0.25.
+4. Undo B.
 
-### DB-06 — Journey line cleanup is skipped exactly when it is needed
+SceneEditor.tsx:382-388 reinserts B, then camera.ts:39-47 normalizes C start to max(0.25,0.30)=0.30. e2e/travelback.spec.ts:1232-1247 checks only a name edit, so it stays green.
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Root cause: the inverse object is narrow, but the mandatory global normalizer has broad side effects.
 
-Reproduction: create two waypoints, then delete one, press Undo until one remains, or Clear. Points/count update, but the old line stays drawn.
+Fix: conflict-aware undo semantics and a range-focused E2E.
 
-Root cause: JourneyCreator.tsx:204-207 guards line source updates with length >= 2 even though buildLineGeoJSON at lines 80-89 returns the required empty geometry for smaller arrays.
+### DB2-06 — Keyboard suppression leaks to the next focused control
 
-Suggested fix: remove the guard and assert the source receives an empty LineString.
+Severity: Medium | Confidence: High | Status: Confirmed event-path defect
 
-### DB-07 — Encoder abort path omits the library cleanup operation
+Reproduction: focus a timeline handle, press ArrowRight, Tab to another range/select control, then press an Arrow key within three seconds. TimelineSelector.tsx:141-153 captures the key before the target and blocks it because TimelineSelector.tsx:345-354 armed the guard.
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Root cause: a time-based global capture guard is broader than the originating timeline event.
 
-Reproduction: cancel after Output.start or force renderFrame to reject; repeat export/cancel and monitor WebCodecs/GPU resources.
+Fix: stop the originating handle event only; remove the three-second global interception.
 
-Root cause: videoEncoder.ts:168-173 finalizes successful output and performs no action otherwise. Mediabunny Output.cancel explicitly releases internal encoders.
+## Diagnostic conclusion and final sweep
 
-Suggested fix: cancel in the non-completed finally path and preserve the original thrown error if cleanup also fails.
-
-## Diagnostic status
-
-lint, typecheck, 219 unit tests, and production build pass. Dependency audit, static smoke, and observed static browser cases do not. The browser suite also reported a three-point timeline-trim assertion failure at e2e/travelback.spec.ts:720-735; isolate it after the deterministic toolbar and smoke failures are repaired.
-
-## Summary
-
-7 root causes: 3 High and 4 Medium. Six have deterministic reproductions; the remaining timeline E2E failure is preserved for targeted isolation.
+The green gates validate the repaired primary paths but lack adversarial fixtures for uneven distance, CSP placement, parent-owned sample cancellation, never-settling finalize, conflicting scene undo, and cross-control keyboard flow. Rechecked all failed-await cleanup, timer/listener teardown, generated outputs, and current test gaps; no additional reproducible root cause met the threshold.

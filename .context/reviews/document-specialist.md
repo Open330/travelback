@@ -1,48 +1,78 @@
-# Documentation specialist review — cycle 001
+# Documentation specialist review — cycle 002
 
 Date: 2026-07-16
+Reviewed revision: `cc6f24f`
 
-Reviewed revision: `df8f08a`
+## Inventory and method
 
-## Coverage and method
+I reviewed README, every current `.context` project/development instruction, the active plan index, package scripts/configuration, workflow, all 50 `src/` files for user-visible claims and comments, all 12 unit-test files, the Playwright spec and 17 fixtures, public/runtime assets, and all 7 scripts. Generated output and historical plan/review archives were excluded except for the cycle-1 aggregate/plan used to identify carried-forward issues.
 
-I compared README, `.context/README.md`, both project-context documents, development conventions, the active/deferred plan index, package scripts, source labels, parser formats, the Playwright inventory, and repository legal files. Historical plans/reviews were treated as traceability records, not current product documentation. Current Google instructions were checked against official Google support pages because this workflow changes over time.
+Because Google changes Timeline export flows, I rechecked the in-product instructions against Google's current official support pages on 2026-07-16: [iPhone/iPad Timeline export](https://support.google.com/maps/answer/6258979?co=GENIE.Platform%3DiOS&hl=en), [Android Timeline export](https://support.google.com/maps/answer/14169818?co=GENIE.Platform%3DAndroid&hl=en-419), and [Google Takeout help](https://support.google.com/accounts/answer/3024190?hl=en).
 
-## Findings
+## New findings
 
-### DOC-01 — Current and legacy Google Timeline acquisition paths are conflated
+### DOC-C2-01 — The Takeout guide gives an unsupported completion-time promise in every locale
 
-- Severity: **High**
-- Confidence: **High**
-- Classification: **Confirmed documentation mismatch; account-specific Takeout contents require manual validation**
-- Evidence in product copy: the “computer” method instructs users to select Location History and find `Records.json` at `src/lib/i18n.ts:180-189` and `src/lib/i18n.ts:537-546`. `src/components/GoogleGuide.tsx:167-189` gives that path a normal top-level tab and Takeout link. The landing page leads with a Takeout ZIP tip at `src/lib/i18n.ts:20`.
-- Evidence in repository docs: `README.md:42`, `README.md:64`, and `README.md:72` frame Google Location History primarily as Takeout; `.context/project/01-overview.md:38-45` calls every supported JSON shape a Takeout export, and `.context/project/01-overview.md:80` says “all Takeout variants.”
-- Current authoritative path: Google's current iOS instructions use Google Maps → profile → Settings → Location & Privacy → Export Timeline data; Android uses Settings → Location → Location services → Timeline → Export Timeline data. See [Google Maps Timeline for iPhone/iPad](https://support.google.com/maps/answer/6258979?co=GENIE.Platform%3DiOS&hl=en) and [Google Maps Timeline controls for Android](https://support.google.com/maps/answer/14169818?co=GENIE.Platform%3DAndroid&hl=en-419).
-- Failure scenario: a reader waits for a Takeout archive and searches for a filename that may not be present after Timeline's device-based migration, despite already having an export route on the phone.
-- Recommended fix: document phone export first and precisely. Rename the computer/Takeout path “Legacy Takeout export,” add a conditional warning, and describe formats as “known supported Google Timeline JSON shapes” rather than the unbounded “all variants.” Keep parser-shape examples, but separate file compatibility from instructions for obtaining a current export.
+- Severity: **Low**
+- Confidence: **High that the claim is unsupported; actual per-account duration is variable/manual-validation**
+- Status: **Confirmed documentation defect, not a parser defect**
+- Repository evidence: English says “usually 10 minutes to a few hours” at `src/lib/i18n.ts:186`; the same bound is repeated in Korean `:546`, Japanese `:906`, Chinese `:1266`, and Spanish `:1626`.
+- Authoritative evidence: Google's Takeout help promises an email when an export is complete and recommends smaller archives when downloads fail, but gives no 10-minute-to-hours service window. Completion depends on archive size/account state and is not controlled by Travelback.
+- Failure scenario: after waiting a few hours, a traveler assumes either Google or Travelback has failed and abandons an otherwise valid fallback flow.
+- Suggested fix: remove the duration: “Create export → wait for Google's completion email → download the ZIP.” If a time hint is retained, explicitly say it varies and may take much longer; do not translate a numeric promise that the upstream service does not make.
 
-### DOC-02 — The README's executable test inventory is stale
+### DOC-C2-02 — README calls an explicitly adapted stylesheet an “exact upstream copy”
 
 - Severity: **Low**
 - Confidence: **High**
-- Classification: **Confirmed factual defect**
-- Evidence: `README.md:145` says `e2e/travelback.spec.ts` contains 74 Playwright tests. `npx playwright test --list -c playwright.config.ts --reporter=list` reports **75 tests in 1 file**.
-- Failure scenario: a contributor uses the documented count as a completeness check and assumes a missing or extra test is a runner problem.
-- Recommended fix: update to 75, or remove the brittle count and describe the suite by coverage areas.
+- Status: **Confirmed internal contradiction**
+- Evidence: `README.md:138` describes `vitro-base.css` as “exact upstream copy + service theme,” while `src/styles/vitro-base.css:1-5` labels itself “adapted for Travelback.” README itself also says the system was adapted at `README.md:219`. The file includes Travelback-specific density/touch/contrast rules, for example `src/styles/vitro-base.css:225-245`.
+- Failure scenario: a maintainer assumes the file can be replaced wholesale from upstream or diffed as a pristine vendor copy, discarding local accessibility/theme work.
+- Suggested fix: describe it as an adapted/vendor-derived base and, if upstream synchronization matters, record the upstream revision plus which sections are local.
 
-### DOC-03 — “MIT” is asserted without shipping the license grant
+### DOC-C2-03 — Three shipped locale strings contain obvious duplicated or missing grammar
+
+- Severity: **Low**
+- Confidence: **High**
+- Status: **Confirmed copy defects; final wording should receive native-speaker review**
+- Evidence: Korean `export.estimatedTime` is the redundant `약 예상 소요 시간:` at `src/lib/i18n.ts:478`; Japanese `journey.addOneMore` is missing the connective in `ルートを作成するにもう1つ追加` at `:974`; Chinese `export.estimatedTime` duplicates approximation/estimation in `约计预计时间:` at `:1198`. `src/lib/i18n.test.ts:6-25` checks key parity/duplicates, not linguistic quality.
+- Failure scenario: users encounter visibly broken copy in the advanced export or manual-route flow, precisely where they need reassurance that the app understands their language.
+- Suggested fix: use concise native forms (for example Korean `예상 소요 시간:`, Japanese `ルートを作成するには、もう1ポイント追加してください`, Chinese `预计时间:`), then have a native speaker approve all five corresponding flows. Keep key-parity tests and add a reviewed-copy checklist rather than brittle prose snapshots.
+
+### DOC-C2-04 — The architecture reference materially misdescribes five current runtime paths
 
 - Severity: **Medium**
 - Confidence: **High**
-- Classification: **Confirmed repository/documentation defect**
-- Evidence: `README.md:226-228` declares MIT, but the repository has no root `LICENSE`, `LICENSE.md`, or `COPYING` file. `package.json:1-44` is private and does not contain a `license` field.
-- Failure scenario: a downstream user or contributor cannot find the actual permission notice, conditions, copyright holder, or year needed to rely on the stated license.
-- Recommended fix: add the complete MIT license text with the intended copyright holder/year, then link it from README. If MIT is not the intended grant, correct the README instead.
+- Status: **Confirmed source/documentation drift**
+- Evidence:
+  - `.context/project/02-architecture.md:19` still calls `GoogleGuide` a “Google Takeout import guide,” while current copy makes phone Timeline export primary and includes Strava, Garmin, AllTrails, Komoot, and other-app tabs (`src/components/GoogleGuide.tsx:155-205`, `src/lib/i18n.ts:165-171`).
+  - `.context/project/02-architecture.md:59-60` and the source comment at `src/lib/videoEncoder.ts:99-107` say capture goes directly through `CanvasSource.add()`. The implementation imports/constructs `VideoSampleSource` at `src/lib/videoEncoder.ts:120` and `:174-179`, copies each captured `VideoFrame` through a CPU-backed staging canvas at `:146-165` and `:211-227`, then adds a `VideoSample`.
+  - `.context/project/02-architecture.md:69` says identical camera state resolves immediately without waiting for paint. `src/lib/map-render.ts:16-20` and `:62-86` instead subscribe before mutation, call `triggerRepaint()`, wait for `render`, and then wait one animation frame, specifically so source-only changes paint.
+  - `.context/project/02-architecture.md:75-77` says completed segments are pushed as O(1) references and only the partial segment is copied. `src/lib/map-geometry.ts:78-93` iterates segments and calls `slice(0, lastOffset + 1)`, so rebuilding a newly completed prefix still copies coordinates.
+  - The map-layer table at `.context/project/02-architecture.md:155-165` omits the active `trail-head` source/`trail-head-line` layer defined at `src/components/MapView.tsx:65-68`, updated at `:410-435`, and rendered at `:760-787`.
+- Failure scenario: a maintainer investigating export stalls, frame freshness, trail cost, or map styling follows an obsolete pipeline and “fixes” behavior that no longer exists, or overlooks the layer that now provides continuous trail motion.
+- Suggested fix: update the component label, export diagram, repaint semantics, complexity wording, and layer inventory together. Correct the stale `videoEncoder.ts:99-107` comment in the same change so the executable source does not immediately reintroduce drift.
 
-## Accuracy notes that passed
+### DOC-C2-05 — README's Mediabunny acknowledgement links to a 404 repository
 
-The documented static preview command matches `package.json:8-9`; the `/travelback` base-path explanation at `README.md:202-204` matches the project context; the seven resolution presets at `README.md:85-95` match `src/types.ts:96-103`; and the context correctly distinguishes the local abstract map backdrops from full basemaps at `.context/project/01-overview.md:92`.
+- Severity: **Low**
+- Confidence: **High**
+- Status: **Confirmed live-link defect on 2026-07-16**
+- Evidence: `README.md:222` links to `https://github.com/nicosh/mediabunny`, which returned HTTP 404. The current project repository is [Vanilagy/mediabunny](https://github.com/Vanilagy/mediabunny), which returned HTTP 200 and matches the installed package name/import.
+- Failure scenario: a contributor cannot reach the encoder's official source, API documentation, issues, or license from the project's acknowledgement.
+- Suggested fix: replace the link with the official repository URL and optionally use the package's canonical documentation URL if the acknowledgement is meant as an API reference.
 
-## Final sweep
+## Accuracy checks that passed
 
-I searched current documentation for test counts, Takeout/Timeline wording, license claims, build/run commands, supported formats, and export claims, then cross-checked each against source/config or an authoritative external page. Archived implementation records were not flagged for historically accurate statements. No other confirmed user-blocking documentation error remained.
+- Current phone export steps are accurate: `src/lib/i18n.ts:172-177` matches Google's iOS and Android support routes, and `src/components/GoogleGuide.tsx:155-175` links to the platform-specific official pages.
+- The Takeout tab is now explicitly labelled legacy and warns that current device-based Timeline data may be absent (`src/lib/i18n.ts:166`, `:181-187`), resolving the cycle-1 conflation.
+- The README format list, resolution presets, static base-path command, and local-processing promise matched parser/types/config/source behavior in this sweep.
+- Fresh targeted browser tests imported GPX, KML, and all five documented Google JSON families: **7/7 passed**.
+
+## Carried-forward items
+
+README still says MIT at `README.md:224-226` without a root license file. This is the already-recorded cycle-1 legal/owner decision (AG-27/P27), not a new cycle-2 discovery. CI policy/permissions and low-end `preserveDrawingBuffer` measurement are likewise outside documentation edits and remain carried forward.
+
+## Final missed-issue sweep
+
+I re-searched current prose for Google/Takeout paths, time estimates, supported formats, resolution/codec claims, commands, base path, privacy/local processing, test structure, architecture diagrams, runtime comments, dependency links, design-system provenance, licensing, and untranslated/duplicated locale copy. No other new confirmed documentation defect remained. New finding count: **5** (1 Medium, 4 Low). Clean verified scopes: current phone acquisition, legacy labelling, documented import families, scripts/base path, and privacy wording.

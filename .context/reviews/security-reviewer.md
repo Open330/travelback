@@ -1,65 +1,47 @@
-# Security Reviewer — Deep Review (2026-07-16)
+# Security Reviewer — Cycle 2 (2026-07-16)
 
-## Scope and threat model
+## Inventory and coverage
 
-Reviewed dependency/supply-chain state, GitHub Actions authority, local untrusted file parsing, worker boundaries, XML/JSON resource limits, static CSP hardening, URL/base-path handling, and export filename handling. Travelback is a client-only static export; therefore server-only Next.js advisory paths have reduced production exploitability, but development/build/test tooling and the CI policy remain in scope.
+Reviewed the 110 current nonhistorical tracked paths at cc6f24f: all application/worker source and tests, parsers and fixtures, public static assets, build/serve/hardening scripts, dependency manifest/lock, Pages workflow, configs, README, and active architecture/context. Examined untrusted GPX/KML/JSON handling, point/depth/file limits, worker lifecycle, DOM insertion, filenames/download/share, CSP, frame handling, static path normalization/cache headers, local-only privacy claims, dependency advisories, and workflow privilege.
+
+Validation: npm audit --audit-level=high reports zero vulnerabilities; lint, typecheck, 266 unit tests, production build, generated-worker check, and static smoke pass.
 
 ## Findings
 
-### SR-01 — The dependency tree contains six known vulnerabilities and fails the CI audit gate
+### SEC2-01 — The emitted CSP starts after executable scripts
 
-Severity: High | Confidence: High | Status: Confirmed inventory/policy failure; runtime applicability varies
+Severity: Medium | Confidence: High | Status: Confirmed emitted-artifact defect
 
-Files: package.json:20-44, package-lock.json, .github/workflows/deploy-pages.yml:26-32
+Evidence: layout.tsx:60-70 places the beforeInteractive bootstrap before the CSP declaration. harden-static-export.mjs:125-173 replaces the meta tag in place and asserts its contents, but never moves it before executable content or asserts ordering. A fresh build produced out/index.html with the first script at byte 492, CSP at byte 1159, and seven scripts before the policy; out/404.html and out/_not-found.html each had five scripts before CSP. The W3C CSP specification states that meta-delivered policies are not applied to content that precedes them: https://www.w3.org/TR/CSP/latest/#meta-element
 
-npm audit --audit-level=low exits non-zero with 3 High, 2 Moderate, and 1 Low vulnerabilities:
+Failure scenario: the seven early script fetch/execution decisions are outside the hash-based policy. This weakens the documented injection mitigation and means the static smoke can pass while part of the document is not protected.
 
-- Direct next 16.2.3 is affected by multiple advisories, including Server Components denial of service below 16.2.5 and an App Router middleware/proxy bypass below 16.2.6.
-- Transitive vite 8.0.10 is affected by a Windows server.fs.deny bypass through 8.0.15.
-- Transitive undici 7.25.0 is affected by TLS/proxy routing and WebSocket denial-of-service advisories below 7.28.0.
-- Transitive js-yaml 4.1.1 and brace-expansion 5.0.4/5.0.5 have denial-of-service advisories; Babel 7.29.0 has a low-severity arbitrary file-read advisory.
+Fix: postprocess the CSP meta to the earliest valid head position before every script/link execution boundary, or deliver CSP as an HTTP response header on capable hosts. Add a build/smoke invariant that the CSP offset precedes the first script and other policy-controlled active content in every emitted HTML file.
 
-The deployed app is static and does not enable most Next server features named by the advisories, so direct production exploitability must be evaluated advisory by advisory. Nevertheless the project’s own npm audit --audit-level=high workflow step now fails, and vulnerable tooling executes on developer and CI hosts.
+### SEC2-02 — Build/test retains Pages and OIDC write permissions
 
-Suggested fix: update direct dependencies and their lockfile to patched current releases, then rerun audit, lint, typecheck, unit, build, and static E2E. Do not suppress advisories merely because the production host is static.
+Severity: Medium | Confidence: High | Status: Confirmed, carried from AG-05; change remains authorization-blocked
 
-### SR-02 — The build job receives deployment and OIDC write authority
+Evidence: .github/workflows/deploy-pages.yml:8-11 grants pages:write and id-token:write at workflow scope; the build job at lines 17-35 therefore inherits them while installing and executing repository dependencies and tests. The deploy job at lines 37-45 is the only job that needs those permissions.
 
-Severity: Medium | Confidence: High | Status: Confirmed
+Failure scenario: a compromised install/build/test dependency executes with a GitHub OIDC token minting surface and Pages write authority rather than read-only build authority.
 
-File: .github/workflows/deploy-pages.yml:8-12 and 17-35
+Fix: after explicit CI/CD authorization, set top-level permissions to contents:read and grant pages:write/id-token:write only to deploy. Do not deploy or dispatch while validating.
 
-pages: write and id-token: write are declared at workflow scope. The build job therefore retains those permissions while running npm ci, Playwright browser installation, package scripts, Next build, and tests. A compromised dependency or lifecycle script has more authority than needed to produce an artifact.
+### SEC2-03 — CI still omits the unit security/correctness corpus
 
-Suggested fix: set contents: read on the build job and grant pages: write plus id-token: write only to the deploy job. Keep artifact upload authority as narrow as GitHub Pages permits.
+Severity: High | Confidence: High | Status: Confirmed, carried from AG-04; change remains authorization-blocked
 
-### SR-03 — The point cap does not bound intermediate parser memory
+Evidence: package.json:14-21 defines npm test, while deploy-pages.yml:26-32 runs install, browser install, lint, typecheck, audit, build, and static E2E without npm test. The current unit suite contains parser entity/depth/budget tests, worker validation/lifecycle tests, abort cleanup, and encoder cleanup checks.
 
-Severity: Medium | Confidence: High | Status: Likely local availability attack
+Failure scenario: a parser/worker/encoder safety regression can merge and deploy while the exact unit guard that catches it is never run in CI.
 
-Files: src/lib/googleJsonParser.ts:74-117, 150-192, and 229-270; public/workers/trackParser.worker.js:68-105, 127-162, and 188-233
+Fix: after explicit CI/CD authorization, add npm test before build and retain audit/build/static E2E. Validate the workflow without dispatching or deploying.
 
-Per-segment arrays each receive their own 250,000-point allowance, while the aggregate is rejected only after all segments are stored and copied during sort/deduplication. A crafted user-selected Google JSON file can therefore force memory use far above the nominal track cap and crash the worker/tab before a clean TOO_MANY_POINTS response. The attack requires convincing a user to import the file, which limits reach but not the local availability impact.
+## Verified controls / no finding
 
-Suggested fix: enforce one parse-wide point/allocation budget during ingestion and stop before retaining additional segment objects. Add adversarial many-segment fixtures in both main and worker parity tests.
+XML DOCTYPE/entity rejection, 4 MB XML and 100 MB JSON limits, 250k parse-wide point budget, complete depth validation in a generated worker, worker abort/timeout/schema validation, local-only map styles, path traversal rejection in the static server, filename sanitization, object/base restrictions, hashed inline scripts after the CSP point, and zero current npm advisories were all verified. No secret, network exfiltration path, unsafe HTML derived from user track data, or external map/geocoder runtime dependency was found.
 
-### SR-04 — JSON depth validation trusts an unchecked 90 MiB suffix
+## Missed-issue sweep
 
-Severity: Medium | Confidence: Medium | Status: Manual risk
-
-Files: src/lib/googleJsonParser.ts:273-304, public/workers/trackParser.worker.js:277-321, src/lib/parser.ts:223-225 and 239-335
-
-Files up to 100 MiB are accepted, but worker checkJsonDepth examines only the first 10 MiB. Deep nesting placed later bypasses the intended depth rejection and reaches JSON.parse. Depending on engine behavior, the result is excessive CPU/memory, a worker crash, or a generic failure instead of the bounded JSON_DEPTH_EXCEEDED path.
-
-Suggested fix: perform a full linear structural scan in the worker or use a streaming parser with depth, byte, and point budgets. Add a cancellation/deadline path and a fixture whose deep suffix begins after byte 10 MiB.
-
-## Controls verified
-
-- XML preflight rejects DOCTYPE/ENTITY declarations and enforces tag, nesting, and 4 MiB limits before DOM conversion.
-- Large JSON is transferred to a worker; only files at or below 16 MiB keep a main-thread fallback copy.
-- Map styles/assets are local and the static hardener removes unsafe-inline script execution in the current build.
-- No plaintext credentials or privileged network endpoints were found in the reviewed source/configuration surface.
-
-## Summary
-
-4 findings: 1 High and 3 Medium. Dependency state and CI permission scope are confirmed; the parser issues are availability risks requiring adversarial browser validation.
+Rechecked untrusted input to DOM/map/export sinks, all fetch/worker URLs, CSP directives and ordering, server request normalization, storage use, external links, package advisories, and workflow authority. No additional new confirmed security finding met the threshold.

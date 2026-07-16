@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle2-implementation-2026-07-16.md` — Active plan for all 19 authorized cycle-2 findings; four carryovers remain explicitly authority-, legal-input-, or representative-evidence-blocked
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle

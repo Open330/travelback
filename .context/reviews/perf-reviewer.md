@@ -1,75 +1,37 @@
-# Performance Reviewer — Deep Review (2026-07-16)
+# Performance Reviewer — Cycle 2 (2026-07-16)
 
-## Scope
+## Inventory and coverage
 
-Reviewed hot animation/export paths, WebGL lifecycle, parser allocation behavior, worker boundaries, large-file guards, and preset feasibility. Static reasoning was paired with the production build, 219 unit tests, and direct memory calculations. Browser/device costs marked Manual risk require profiling before choosing an implementation.
+Reviewed all 110 current nonhistorical tracked paths at cc6f24f, including all 50 src files, 18 E2E files/fixtures, 19 public assets, 7 scripts, workflow/config/package files, README, and active context. Focused on parser ceilings, React render frequency, MapLibre source updates, trail geometry, camera work, worker generation, capture canvases, codec loops, static asset locality, and the cycle-1 performance deferral.
+
+Validation: lint, typecheck, 266 unit tests, clean high-severity audit, production build, worker drift check, and static smoke passed.
 
 ## Findings
 
-### PR-01 — The trail “optimization” removes required per-frame work
+### PERF2-01 — Completed-trail updates recopy and reserialize the full prefix
 
-Severity: High | Confidence: High | Status: Confirmed correctness regression
+Severity: High | Confidence: High | Status: Confirmed algorithmic hot path
 
-Files: src/components/MapView.tsx:568-578 and 1069-1080
+Evidence: map-geometry.ts:78-93 calls segment.coordinates.slice(0, lastOffset + 1) for every segment reached. MapView.tsx:410-423 invokes it whenever segmentIndex changes and immediately passes the result to GeoJSONSource.setData. parse-utils.ts:6-7 permits 250,000 points; types.ts:77-80 permits 10,800 export frames. The architecture claim at .context/project/02-architecture.md:75-77 says fully traversed segments are pushed as O(1) references and only the partial segment is copied, which is not what this implementation does for the active segment prefix.
 
-The segmentIndexChanged guard avoids rebuilding GeoJSON while the marker moves inside a vertex pair. The active trail endpoint is itself per-frame data, so this optimization changes output rather than merely reducing work. It produces a frozen/stair-step trail in both playback and export.
+Failure scenario: on a dense single-segment route, each new vertex rebuilds an ever-larger prefix. A 180-second/60-fps export can perform up to 10,800 source updates, each copying and serializing an average large fraction of a 250k-point route. The frame-rematerialization fix does not reduce this CPU/GC/MapLibre parsing load.
 
-Suggested fix: precompute and structurally share completed coordinates, then update only the active endpoint each frame. Measure source-update cost with 250,000-point fixtures; do not skip visual state changes.
+Fix: benchmark representative 10k/100k/250k tracks and redesign the progress representation so the full coordinate array is immutable (for example line-progress styling/feature-state, chunked immutable segments, or a bounded append strategy). Do not label the path O(1) until measurements and implementation support it. Add an operation/allocation budget regression.
 
-### PR-02 — Segmented Google imports can allocate far beyond the advertised point budget
+### PERF2-02 — Interactive MapLibre always pays preserveDrawingBuffer cost without the deferred measurements
 
-Severity: Medium | Confidence: High | Status: Likely under adversarial/large input
+Severity: Medium | Confidence: Medium | Status: Manual validation required; known cycle-1 deferral remains open
 
-Files: src/lib/googleJsonParser.ts:74-117, 150-192, and 229-270; public/workers/trackParser.worker.js:68-105, 127-162, and 188-233
+Evidence: MapView.tsx:586-591 enables preserveDrawingBuffer on the single interactive map and calls its cost “negligible.” .context/plans/cycle1-implementation-2026-07-16.md:286-288 explicitly defers P13 because representative low-end/mobile hardware was unavailable.
 
-Each timeline/semantic segment enforces MAX_TRACK_POINTS against a fresh local array. The aggregate budget is checked only later, after all segment arrays have been retained, individually sorted, copied, and deduplicated. A file containing many sub-250,000-point segments can therefore allocate millions of point objects and several copies before rejection. Worker isolation protects the UI thread but not the tab/process memory budget.
+Failure scenario: mobile GPUs may incur extra synchronization/memory cost throughout ordinary map interaction even when export is never used.
 
-Suggested fix: maintain a shared parse-wide count as points are appended, or flatten incrementally so the 250,000-point cap also bounds intermediate storage. Benchmark near-cap records, many small segments, and repeated-point data.
+Fix: collect p50/p95 frame time, GPU/process memory, and interaction responsiveness on representative low-end mobile and desktop devices with/without preservation. If material, isolate export capture in a dedicated map/canvas. Until measured, remove the unsupported “negligible” assertion.
 
-### PR-03 — The worker depth preflight leaves the expensive tail unchecked
+## Clean performance areas
 
-Severity: Medium | Confidence: Medium | Status: Manual risk
+The shared parser budget is enforced before retained allocation, JSON work runs in the generated worker, codec probes run in parallel, visible export progress is throttled, completed and active trail sources are separated, and static map styles are local. No new confirmed parser amplification, React render storm, network waterfall, or asset-cache regression was found.
 
-Files: src/lib/googleJsonParser.ts:273-304 and public/workers/trackParser.worker.js:277-321
+## Missed-issue sweep
 
-checkJsonDepth scans only the first 10 MiB of files allowed up to 100 MiB, relying on valid exports having uniform depth. Deep or pathological content after that prefix reaches JSON.parse without the intended guard and can cause a long parse, excessive allocation, or worker failure. The parser promise also has no deadline at src/lib/parser.ts:239-335, so loading UI can remain pending for an unbounded worker operation.
-
-Suggested fix: scan the full transferred text in the worker, or use a streaming parser that enforces depth and aggregate point limits in one pass. Add a bounded timeout/cancellation path with a recovery message.
-
-### PR-04 — Cancelled and failed exports retain encoder resources
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/lib/videoEncoder.ts:115-173
-
-Output is started before the frame loop, but only successful completion calls finalize. Abort, map-render rejection, wait failure, and CanvasSource.add failure leave the Output started. Mediabunny documents Output.cancel as releasing internal encoders; omitting it can make repeated cancel/retry sessions accumulate WebCodecs and GPU resources.
-
-Suggested fix: await cancel on every non-completed path and verify repeated abort/restart with a resource-aware mock and a real-browser soak test.
-
-### PR-05 — WebGL readback cost is paid for every interactive frame
-
-Severity: Medium | Confidence: Medium | Status: Manual risk
-
-File: src/components/MapView.tsx:745-762
-
-The only map is created permanently with preserveDrawingBuffer true for export capture. MapLibre defaults this attribute to false, and buffer preservation/readback can reduce GPU throughput and increase memory bandwidth on integrated/mobile GPUs. The source comment calls the impact negligible without a measured budget.
-
-Suggested fix: profile frame time, GPU memory, and battery on representative low-end/mobile hardware. If material, isolate export capture in a dedicated/offscreen map or use a capture path that does not require permanent preservation.
-
-### PR-06 — 4K presets are dead choices under the memory model
-
-Severity: Medium | Confidence: High | Status: Confirmed
-
-Files: src/types.ts:96-104, src/lib/videoEncoder.ts:50-65, and src/components/ExportPanel.tsx:90-108
-
-For 3840×2160, rawFrameBytes × 8 × 1.5 alone is 398,131,200 bytes, about 379.7 MiB. That exceeds MAX_IN_MEMORY_EXPORT_BYTES before duration, bitrate, or frame bookkeeping are added. Both 4K orientations are therefore disabled for all valid configurations.
-
-Suggested fix: align the preset catalog with the actual capacity envelope, or redesign the output/memory strategy and validate it on browsers that support the selected codec.
-
-## Positive observations
-
-Distance arrays and wrapped route segments are precomputed, playback uses requestAnimationFrame with a hidden-page fallback, and large JSON work is normally transferred to a worker. Those choices are sound; the findings above concern broken cache granularity and incomplete resource/input bounds.
-
-## Summary
-
-6 findings: 1 High and 5 Medium. Three are confirmed; two need stress fixtures and one needs device profiling.
+Revisited all loops over points/frames/scenes, setData sites, memo/effect dependencies, timers, generated assets, and maximum input/export constants. Beyond PERF2-01 and the explicitly open measurement item PERF2-02, no additional performance issue met the confidence threshold.

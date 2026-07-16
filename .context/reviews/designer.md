@@ -1,53 +1,64 @@
-# Product designer review — cycle 001
+# Product designer review — cycle 002
 
 Date: 2026-07-16
-
-Reviewed revision: `df8f08a`
+Reviewed revision: `cc6f24f`
 
 ## Actual-app coverage
 
-I used the running app, not screenshots alone. With `agent-browser` I inspected the accessibility tree, clicked controls, queried DOM/computed styles, checked console/page errors and network/storage state, and captured desktop (1440×900) and iPhone 15 (393×852, DPR 3) views. I also used Playwright's configured Chromium/WebGL flags for interaction measurements and ran targeted mobile, theme, language, guide, dialog-focus, error, and format journeys. Source coverage included every component/style/i18n file plus relevant tests.
+I reviewed all 50 `src/` files, the design stylesheet/assets, all translation dictionaries, the complete Playwright specification and 17 fixtures, README/current project instructions, and the running app at 1440×900 plus iPhone 12 emulation. Generated output and archived review/plan files were excluded except for current-cycle traceability.
 
-The landing screen is visually cohesive in dark mode, the desktop and mobile cards stay within the viewport, the global toolbar does not overlap the main action card, and primary controls measured at least 44px high. Copy hierarchy, focus treatment, and the portrait-social default are materially better than a typical settings-heavy creator tool.
+All nine available browser skills were read and used:
 
-## Findings
+- `agent-browser`: sessions, navigation, snapshots.
+- `agent-browser-interact`: click, focus, keyboard, select, upload, and real touch-event interaction.
+- `agent-browser-query`: text, attributes, bounding boxes, accessibility tree, computed styles, and state.
+- `agent-browser-wait`: load/text/time synchronization.
+- `agent-browser-network`: request inspection during local file journeys.
+- `agent-browser-visual`: desktop/mobile screenshots, highlighting, and annotated capture.
+- `agent-browser-debug`: JavaScript evaluation, console, and page-error inspection.
+- `agent-browser-state`: save/show/load session state.
+- `agent-browser-config`: desktop/mobile viewport, iPhone device emulation, offline toggle, light/dark media, and reduced-motion configuration.
 
-### DESIGN-01 — Route-mode icon targets are only 33px wide on an iPhone viewport
+The flow covered landing, unsupported-file recovery, sample GPX upload, playback entry, camera tracking, scene add/customization, export form/stub completion/download/share controls, Google guide/dialog semantics, desktop/mobile responsiveness, console/page errors, network activity, Korean/English switching, explicit light/dark theme, and reduced motion. Fresh format Playwright coverage also passed 7/7 for GPX, KML, and the five documented Google JSON families.
+
+## New confirmed findings
+
+### DESIGN-C2-01 — Scene sliders and panel-dismiss compete for the same mobile gesture
 
 - Severity: **Medium**
 - Confidence: **High**
-- Classification: **Confirmed runtime measurement; platform ergonomics issue, not a WCAG conformance claim**
-- Evidence: at 393×852, configured Chromium measured all six `journey-icon-*` buttons at approximately **33×44px**. The buttons are a tightly wrapped `px-2 py-1` group at `src/components/JourneyCreator.tsx:741-764`, unlike the explicit full-width/minimum-height actions elsewhere.
-- User scenario: a traveler taps car but selects plane, especially one-handed. The emoji-only labels make the narrow hit areas visually plausible but physically less forgiving than the familiar 44×44 iOS target.
-- Recommended fix: add `min-w-11 min-h-11`, preserve `aria-label`/title, and allow two-row wrapping. Validate at 320, 390, and 430px widths so the larger targets do not collide with the panel edge.
+- Status: **Confirmed on iPhone 12 emulation with the actual rendered control**
+- Runtime evidence: after sample load → Camera → Add → Customize, the accessibility tree exposed scene range, Zoom, Tilt, Direction, and Orbit sliders. A horizontal touch on the visible Zoom slider from x=181 to x=52 (dx=-129, no y movement, slider width 149px) changed the interaction context from `panelBefore: true` to `panelExists: false` within 300ms.
+- Source evidence: `src/components/SceneEditor.tsx:338-349` treats any >80px horizontal left gesture as dismissal; `:489-492` listens on the entire panel. The sliders live at `:532-545` and `:655-735`.
+- User scenario: on a phone, “drag Zoom farther left” is indistinguishable from “close Camera.” A traveler may think their scene disappeared or repeatedly reopen Customize just to finish one adjustment.
+- Suggested fix: scope swipe-to-close to a visible header/drag handle, as Export already does at `src/components/ExportPanel.tsx:115-130` and `:223-224`, or reject gestures beginning in interactive descendants. Validate on 320/390/430px widths with real touch drags on every slider.
 
-### DESIGN-02 — Korean advanced-export summary leaks an English connector
+### DESIGN-C2-02 — Export success replaces the focused control without choosing a new focus destination
 
 - Severity: **Low**
 - Confidence: **High**
-- Classification: **Confirmed rendered-copy defect**
-- Evidence: the Korean dictionary defines `export.at` as literal English `at` at `src/lib/i18n.ts:474`; the advanced summary renders it between codec and bitrate at `src/components/ExportPanel.tsx:408-411`.
-- User scenario: after switching to Korean and opening Advanced, the otherwise localized line reads like “출력 … (H.264) at 8 Mbps.” It is understandable, but it breaks trust in the translation at the most technical moment.
-- Recommended fix: localize the complete summary pattern per locale rather than translating the connector token in isolation. A Korean form such as `H.264 · 8 Mbps` avoids awkward grammar.
+- Status: **Confirmed keyboard/accessibility state; announcement remains functional**
+- Runtime evidence: Start Export was the active `BUTTON`; after stub completion and the visible “Video ready” state, `document.activeElement` was `BODY`. The accessibility tree exposed the Download MP4, Export Again, Share, and Close actions, and the live region announced “Video exported successfully!”, so this is specifically lost focus context.
+- Source evidence: `src/components/ExportPanel.tsx:241-303` replaces the form subtree with success content. `src/components/ModalDialog.tsx:93-167` handles initial open/trap/return but not an internal state transition. Current E2E covers the initial trap at `e2e/travelback.spec.ts:1516-1530` and success visibility at `:1587-1597`, not post-transition focus.
+- User scenario: a keyboard, switch-control, or screen-magnifier user reaches the final step and loses their exact position just as the actionable result appears.
+- Suggested fix: focus a `tabIndex={-1}` success heading or the first download action in an effect keyed to the done transition, then assert focus stays inside the dialog.
 
-### DESIGN-03 — “Route name icon” promises naming, but the flow offers only an emoji
+## Verified clean scopes
 
-- Severity: **Medium**
-- Confidence: **High**
-- Classification: **Confirmed interaction-model mismatch**
-- Evidence: the label is `Route name icon` at `src/lib/i18n.ts:270`; the control group contains only six emoji choices at `src/components/JourneyCreator.tsx:737-765`; confirmation has no editable identity at `src/components/JourneyCreator.tsx:795-815`; creation hard-codes `Custom Journey` at `src/components/JourneyCreator.tsx:607-614`.
-- User scenario: the user expects a naming step, reaches confirmation, and has no way to identify “Bali sunrise drive” versus another custom journey.
-- Recommended fix: change the label to “Travel icon” immediately, and add an optional route-name field to confirmation if distinct journeys are meant to be saved/downloaded under meaningful names.
+- At 1440×900 the landing primary card and toolbar did not overlap; Browse measured about 414×52px and primary/close controls met the project's 44px minimum.
+- iPhone 12 landing, loaded toolbar, Scene Editor placement, and Export dialog fit without confirmed horizontal overflow or dead-end action.
+- Wrong `README.md` upload produced the plain-language alert “That file is not a travel route file”; a sample GPX then loaded successfully.
+- The guide made the app root inert, kept focus in the dialog, and exposed current platform-specific official Google links.
+- Korean selection immediately changed landing labels, and explicit light mode changed the toolbar action to “다크 모드로 전환”; the initial dark presentation also rendered correctly.
+- Reduced-motion configuration and source fallbacks were present; no motion-specific unusable state was reproduced.
+- Console/page errors were clean in the reviewed journeys, and no route-upload network request was observed.
+- Playback, Camera, export success, download, and share affordances were discoverable by accessible names. The success toast remained announced.
+- The suspected stale manual-journey name did not reproduce because the creator remount resets the state; it is intentionally not reported.
 
-## Accessibility, responsiveness, and motion sweep
+## Manual-validation boundary
 
-- Focus: shared focus-visible styling exists at `src/styles/vitro-base.css:610-618`; dialog focus containment/return passed the targeted tests.
-- Reduced motion: global suppression is present at `src/styles/vitro-base.css:766-771` and component-specific fallbacks at `src/app/globals.css:46-70` and `260-264`.
-- Mobile: 393×852 landing content had no horizontal overflow; tested toolbar, journey, timeline, scene-editor, and export layouts passed.
-- Contrast: inspected landing secondary text remained readable against the dark glass card; no contrast failure was established. Light and dark system-theme checks passed.
-- i18n/RTL: English, Korean, Japanese, Chinese, and Spanish are present and key parity is covered. No RTL locale is advertised, so this review does not claim RTL support.
-- Error recovery: wrong-file messaging includes an alert and an import-guide route at `src/components/FileUpload.tsx:289-303`.
+Representative low-end hardware performance for `preserveDrawingBuffer` remains the cycle-1 deferred AG-21/P13 item. Desktop/mobile emulation cannot establish battery, thermal, or frame-budget impact, so this review makes no new performance finding.
 
-## Final sweep
+## Final missed-issue sweep
 
-I revisited landing, mobile geometry, guide/dialog behavior, export defaults/success actions, keyboard focus, reduced motion, localization, and error recovery after the findings were drafted. No blocking overlap, unreadable state, or dead-end primary CTA was reproduced.
+I revisited mobile gesture ownership, focus before/after state replacement, accessible names/roles, touch geometry, overflow, guide/help, wrong-file recovery, playback, scenes, export actions, language, light/dark, reduced motion, console/errors, and local-network behavior. No additional confirmed visual, accessibility, responsive, or interaction defect remained. New confirmed count: **2** (1 Medium, 1 Low).

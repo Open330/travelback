@@ -1,114 +1,102 @@
-# Tracer — Causal Flow Review (2026-07-16)
+# Tracer — Causal Flow Review (Cycle 2, 2026-07-16)
 
-## Scope
+## Inventory and coverage
 
-Traced ownership and timing across file import, session replacement, full/filtered tracks, timeline UI, playback, MapLibre source mutation, export synchronization, scene undo, and worker parsing. Each trace follows the actual producer → state boundary → consumer chain.
+Traced producer → ownership boundary → consumer across all 110 current nonhistorical tracked paths at cc6f24f, with focus on the 53 paths changed in df8f08a..cc6f24f. Covered import/sample/journey session replacement, full-track distance and point-index domains, scene inverse operations, MapLibre trail publication, export rendering/finalization, and static CSP emission. Local lint, typecheck, 266 unit tests, audit, build, worker check, and static smoke passed.
 
 ## Traces
 
-### TR-01 — Playback progress → interpolated point → trail source
+### TR2-01 — Sample request → newer journey → stale session commit
 
-Severity: High | Confidence: High | Status: Confirmed defect
-
-Flow:
-
-1. usePlaybackController changes progress.
-2. MapView.tsx:1061 computes a new interpolated point and segmentIndex.
-3. Marker state updates at lines 1064-1067.
-4. Trail state updates at lines 1069-1080 only if segmentIndex differs from the previous frame.
-
-The point changes continuously while segmentIndex changes only at route vertices. The marker and trail therefore diverge during every vertex interval.
-
-Fix boundary: retain precomputed completed geometry but treat the interpolated endpoint as uncached frame state.
-
-### TR-02 — Export progress → source mutation → frame capture
-
-Severity: High | Confidence: High | Status: Confirmed race
+Severity: Medium | Confidence: High | Status: Confirmed
 
 Flow:
 
-1. useExportController.ts:208 asks MapView to render a frame.
-2. MapView.tsx:563-578 calls marker/trail setData.
-3. If camera state compares equal, MapView.tsx:581-603 resolves before installing a render listener.
-4. videoEncoder.ts:158-164 sees an already-idle map and captures the canvas.
+1. page.tsx:374-387 starts fetch, text conversion, and parseTrackFile without a generation or signal.
+2. FileUpload.tsx:215-240 does not mark that parent operation loading.
+3. FileUpload.tsx:288-299 permits Draw Route; page.tsx:407-409 enters the newer journey.
+4. The old continuation reaches page.tsx:388 and calls loadTrackIntoSession.
 
-MapView.waitForIdle at lines 736-738 checks movement and tiles, not whether the just-mutated sources have painted. A stationary camera can therefore capture the preceding visual frame.
+Failure: the old sample becomes the winning session.
 
-Fix boundary: make renderFrameAndWait own one complete source/camera mutation-to-paint transaction.
+Fix boundary: a page-owned operation generation shared by sample, upload, and manual journey transitions.
 
-### TR-03 — Full-track trim proposal → pending confirmation → cancellation
+### TR2-02 — Point-count invariant → distance ratio → point indexes
 
-Severity: Medium | Confidence: High | Status: Confirmed state divergence
-
-Flow:
-
-1. TimelineSelector.tsx:274-322 updates its private ratios and emits indexes.
-2. page.tsx:319-327 detects scenes, stores pendingTrimRange, and leaves active track unchanged.
-3. page.tsx:353-355 cancels by clearing only pendingTrimRange.
-4. TimelineSelector retains proposed ratios because its key and internal state are unchanged.
-
-The UI presents the rejected full-track selection while playback/map still use the previously accepted track.
-
-Fix boundary: parent-owned accepted selection, or an explicit reject/revert signal.
-
-### TR-04 — Full-track click ratio → filtered-track playback
-
-Severity: Medium | Confidence: High | Status: Confirmed coordinate-space bug
+Severity: Medium | Confidence: High | Status: Confirmed domain crossing
 
 Flow:
 
-1. TrackWorkspace.tsx:138-146 supplies fullTrack to TimelineSelector.
-2. TimelineSelector.tsx:323-329 derives clickRatio in full-track coordinates.
-3. onSeek passes that number unchanged to playback for the filtered track.
+1. TimelineSelector.tsx:27-31 defines UI ratios in cumulative-distance space.
+2. TimelineSelector.tsx:95-105 converts pointCount into a minimum ratio as if point spacing were uniform.
+3. TimelineSelector.tsx:261-275 maps the clamped ratios back through cumulative distances.
+4. The index postcondition only prevents a one-point range; it cannot recover a valid pair excluded by the oversized ratio gap.
 
-The value crosses a state boundary without coordinate conversion. The visual midpoint of full-track range 25–50% becomes active progress 37.5%, not 50%.
+Failure: [0,1,1000] cannot select points 0..1 because 0.001 is clamped to 0.5.
 
-Fix boundary: normalize at the TimelineSelector/TrackWorkspace API boundary and name values fullTrackRatio versus activeTrackProgress.
+Fix boundary: enforce adjacency in index space, then project exact index distances back to handles.
 
-### TR-05 — File parse → component unmount → stale session replacement
+### TR2-03 — Cancel click → AbortSignal → unobservable finalize
 
-Severity: Medium | Confidence: High | Status: Confirmed race
+Severity: Medium | Confidence: High | Status: Confirmed missing propagation
 
 Flow:
 
-1. FileUpload.tsx:53-61 starts parseTrackFile and retains onTrackLoaded.
-2. The draw-route button at lines 263-274 remains enabled while loading.
-3. page.tsx:309-317 starts a fresh journey and unmounts FileUpload.
-4. The old promise resolves and still calls loadTrackIntoSession at page.tsx:297-307.
+1. ExportPanel.tsx:322-330 invokes cancelExport.
+2. useExportController.ts:125-127 aborts the controller.
+3. videoEncoder.ts:232 is already awaiting output.finalize, which receives no signal.
+4. videoEncoder.ts:65-69 refuses cancel after finalizing begins.
+5. useExportController.ts:268-309 cleanup cannot run until the promise settles.
 
-The stale import wins over the newer user action because neither operation carries a session generation or abort signal.
+Failure: a stalled finalizer keeps UI and map cleanup pending indefinitely.
 
-Fix boundary: generation-check every async completion against the active session and cancel the worker/read when invalidated.
+Fix boundary: a deadline/termination boundary around the encoder, not another signal check in the frame loop.
 
-### TR-06 — Scene delete → intervening edit → undo
+### TR2-04 — Delete inverse → current scenes → global normalization
 
 Severity: Medium | Confidence: High | Status: Confirmed lost update
 
 Flow:
 
-1. SceneEditor.tsx:368-371 stores the entire preDeletionScenes snapshot and removes one item.
-2. Another edit commits against the new current scenes.
-3. Undo at lines 374-378 replaces current scenes with the old snapshot.
+1. SceneEditor.tsx:376-380 stores deleted scene/index.
+2. A later range edit commits into current scenes.
+3. Undo at lines 382-388 reinserts only the deleted object, which is locally correct.
+4. commitScenes invokes normalizeScenes; camera.ts:25-49 shifts later starts after the restored scene.
 
-Undo restores the deleted item but also reverses unrelated work performed after deletion.
+Failure: the inverse operation indirectly rewrites a newer overlapping range edit.
 
-Fix boundary: record one inverse operation, deleted scene plus index, and apply it to the latest state.
+Fix boundary: conflict-aware inverse application before global normalization, or invalidation of the undo token when its range is no longer free.
 
-### TR-07 — Google segments → local budgets → aggregate rejection
+### TR2-05 — Route progress → completed prefix → GeoJSON parse
 
-Severity: Medium | Confidence: High | Status: Likely memory amplification
+Severity: High | Confidence: High | Status: Confirmed amplification
 
 Flow:
 
-1. googleJsonParser.ts:74-192 creates one array per timeline/semantic segment.
-2. assertPointBudget sees only each local array.
-3. flattenGoogleSegments at lines 229-270 retains, sorts, deduplicates, and copies all segments.
-4. Only then does the aggregate points array enforce MAX_TRACK_POINTS.
+1. progress interpolation advances segmentIndex.
+2. MapView.tsx:416-423 rebuilds completed geometry on each new vertex.
+3. map-geometry.ts:84-90 slices the complete active prefix.
+4. GeoJSONSource.setData reparses/serializes the growing result.
 
-The validation boundary occurs after the costly retained representation. A rejected file can consume multiples of the intended point budget.
+Failure: total work grows with the sum of all published prefixes rather than only new coordinates.
 
-Fix boundary: pass one parse budget object through every segment parser and decrement it before allocation.
+Fix boundary: publish progress against immutable geometry or bounded chunks.
 
-## Summary
+### TR2-06 — Layout order → in-place hardening → partial CSP window
 
-7 causal defects/risks traced: 2 High and 5 Medium. The principal pattern is state expressed in one coordinate/time domain crossing into another without an explicit conversion or completion token.
+Severity: Medium | Confidence: High | Status: Confirmed emitted order
+
+Flow:
+
+1. layout.tsx:60-70 declares beforeInteractive script before the CSP meta.
+2. Next emits multiple script tags before the placeholder.
+3. harden-static-export.mjs:125-173 changes CSP content in place.
+4. Fresh out/index.html contains seven scripts before CSP; smoke-static.mjs:135-195 checks directives but not order.
+
+Failure: policy-controlled content before the meta is outside enforcement.
+
+Fix boundary: emitted-document ordering assertion and relocation/header delivery.
+
+## Summary and final sweep
+
+Six causal defects are retained: one High amplification path and five Medium state/domain/security paths. Rechecked aborts, generations, coordinate transforms, inverse operations, source publication, and postbuild transformations; no additional cross-boundary defect met the evidence threshold.

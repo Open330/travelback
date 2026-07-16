@@ -1,57 +1,67 @@
-# Architect review — cycle 001
+# Architect Review — Cycle 2 (2026-07-16)
 
-Date: 2026-07-16
+## Inventory and system coverage
 
-Reviewed revision: `df8f08a` (`main`)
+Reviewed all 110 current nonhistorical tracked paths at cc6f24f: 50 src, 18 E2E/fixtures, 19 public assets, 7 scripts, workflow/package/configs, README, and active context. Historical material was inventoried only. The review covered the client-only data boundary, generated parser worker, app/session ownership, full versus filtered track models, map adapter, scene model, export adapter, static export hardening, and release gates.
 
-Scope: review only; no implementation, deployment, dependency, or configuration changes
-
-## Coverage and system inventory
-
-I inventoried the repository excluding generated output and dependencies, then traced every production boundary relevant to import, playback, map rendering, export, and static delivery. Coverage included all 41 files under `src/` (17 components, app shell/styles/types, 18 library TypeScript files including six unit-test files), the public parser worker and bundled map assets, all seven scripts, nine package/tool configs, 17 E2E fixtures, the 1,550-line Playwright suite, the Pages workflow, README, and project/development context. I also exercised targeted browser journeys rather than treating the component tree as sufficient evidence.
-
-The overall decomposition is sound: `page.tsx` owns the session boundary, playback and export lifecycles are isolated in hooks, pure camera/interpolation code sits under `src/lib`, and the app has no server-owned data path. The three findings below are the remaining architectural pressure points.
+Fresh evidence: lint, typecheck, 266 unit tests, zero high audit findings, production build, generated-worker drift check, and static smoke pass.
 
 ## Findings
 
-### ARCH-01 — The production Google parser has two manually synchronized implementations
+### ARCH2-01 — Session ownership is centralized for state resets, not asynchronous operations
 
-- Severity: **High**
-- Confidence: **High**
-- Classification: **Confirmed defect in the source-of-truth boundary**
-- Evidence: `src/lib/googleJsonParser.ts:7-13` explicitly declares the duplication; `public/workers/trackParser.worker.js:1-356` is the browser's worker implementation; `src/lib/parser.ts:239-335` routes Google JSON through that worker. `scripts/build-worker.mjs:3-8` does not generate or compare anything—it prints manual-copy instructions and an unconditional success message.
-- Concrete drift: the TypeScript depth scanner rejects a closing bracket that drives depth below zero at `src/lib/googleJsonParser.ts:285-304`, while the worker decrements without that validation at `public/workers/trackParser.worker.js:303-321`.
-- Failure scenario: a future Google format or safety fix is added to the tested TypeScript parser but not copied into the worker. Unit tests pass against one implementation while real browser uploads execute the other. The build script still exits successfully and says the logic is shared.
-- Recommended fix: bundle or generate the worker from the shared parser source. If the Next build cannot own that step, add a deterministic generation script and make CI fail when generated output differs. Until then, run every Google fixture against both entry points and compare the resulting `Track` or error code.
+Severity: Medium | Confidence: High | Status: Confirmed boundary gap
 
-### ARCH-02 — The core export promise has no functioning real-path release gate
+Evidence: page.tsx:366-397 routes final commits through loadTrackIntoSession but handleLoadSample owns an untracked request. FileUpload.tsx:29-95 has its own AbortController, while manual journey starts at page.tsx:407-409. These producers do not share an operation identity.
 
-- Severity: **High**
-- Confidence: **High**
-- Classification: **Confirmed verification-boundary defect; actual encoder failure is not established**
-- Evidence: `e2e/travelback.spec.ts:1311-1315` makes the real WebCodecs test return successfully unless an opt-in environment variable is set. With the opt-in enabled, `e2e/travelback.spec.ts:1317-1320` selects playback duration `3`, but the only playback values are `10, 15, 30, 60, 120, 300` at `src/components/Controls.tsx:23-24`. The test failed on its initial run and retry before opening Export. The ordinary export test at `e2e/travelback.spec.ts:1299-1309` uses a local stub and passed.
-- Failure scenario: a regression in the Mediabunny/WebCodecs frame loop, MP4 finalization, or blob download can ship while every default check stays green. An engineer who explicitly enables the smoke test sees a selector timeout rather than encoder evidence.
-- Recommended fix: set a supported playback value or the Export panel's numeric duration (minimum 5 seconds), then make a supported-browser real-export smoke a release gate or a documented manual release check. Keep the stub test for deterministic UI state coverage, but label it as such.
+Failure scenario: an earlier producer commits after a newer session intent and wins solely because it resolves last.
 
-### ARCH-03 — `MapView` still combines pure geometry, MapLibre lifecycle, playback, and export control
+Fix: introduce one page-level session-operation generation/cancellation API. Child operations may have local aborts, but all commits must validate the shared generation.
 
-- Severity: **Medium**
-- Confidence: **Medium**
-- Classification: **Likely maintenance risk; no present user-visible failure confirmed**
-- Evidence: `src/components/MapView.tsx:66-446` contains geometry, segment wrapping, reference-grid generation, and layer helpers; the stateful adapter begins at `src/components/MapView.tsx:462` and runs through line 1200. Its imperative contract includes normal rendering and export-only operations at `src/components/MapView.tsx:27-36`.
-- Failure scenario: a change to antimeridian segmentation, map style reloads, or export rendering touches the same module and effect graph. A locally correct change can disturb playback or export cleanup because both lifecycles share refs and layer helpers.
-- Recommended fix: extract the pure segment/grid/GeoJSON builders first, with no behavior change, then isolate the MapLibre source/layer adapter from the React lifecycle. Preserve the existing `MapViewHandle` as the boundary so `useExportController` and `page.tsx` do not churn simultaneously.
+### ARCH2-02 — Timeline’s public model mixes distance and index units
+
+Severity: Medium | Confidence: High | Status: Confirmed type/model defect
+
+Evidence: TimelineSelector.tsx:10-17 accepts cumulativeDistances and emits startIdx/endIdx, while private state at lines 155-168 is distance ratio. clampTimelineRatios at lines 95-105 accepts pointCount and constrains the distance ratio with an index-derived value.
+
+Failure scenario: uneven spacing violates the implicit conversion and blocks valid trim ranges.
+
+Fix: make coordinate domains explicit in types/names. Prefer an index selection model projected to distance positions, or a distance selection model with adjacency validated only after resolution.
+
+### ARCH2-03 — Trail rendering still republishes mutable prefixes despite the extracted geometry module
+
+Severity: High | Confidence: High | Status: Confirmed scalability boundary defect
+
+Evidence: map-geometry.ts:78-93 builds a new prefix; MapView.tsx:410-423 sends it through setData. .context/project/02-architecture.md:75-77 describes an immutable/O(1) model that the adapter does not implement.
+
+Failure scenario: large inputs couple playback/export frame progression to repeated O(prefix) allocations and MapLibre GeoJSON parsing.
+
+Fix: define an immutable route geometry contract and a small progress-state contract at the map adapter boundary. Benchmark before choosing line-gradient/feature-state, chunks, or append semantics.
+
+### ARCH2-04 — In-process export cannot provide bounded cancellation during finalization
+
+Severity: Medium | Confidence: High | Status: Confirmed architectural limitation
+
+Evidence: useExportController.ts:125-127 exposes signal cancellation, but videoEncoder.ts:65-69 and 232-235 show the library finalization phase is not signal-aware and cannot be cancelled through Output.
+
+Failure scenario: a native encoder flush that never settles also prevents React cleanup, size restoration, and another export.
+
+Fix: add a watchdog and, for a genuine hard stop, place encoding in a worker boundary that can be terminated. Model exporting and finalizing as separate states.
+
+### ARCH2-05 — Static security policy is verified as text, not as an ordered document invariant
+
+Severity: Medium | Confidence: High | Status: Confirmed architecture/test gap
+
+Evidence: harden-static-export.mjs:141-151 validates directives and lines 160-173 replace in place. smoke-static.mjs:135-195 repeats content checks. Neither asserts CSP precedes scripts; a fresh artifact has 5–7 scripts before it.
+
+Failure scenario: policy tests stay green while early executable content remains outside the meta policy.
+
+Fix: elevate CSP placement to a static artifact invariant, or move enforcement to response headers where deployment supports them.
 
 ## Boundary assessment
 
-The static-client constraint is respected: import and export remain browser-local, map themes are bundled, and route creation does not require an account, backend, or geocoder. `usePlaybackController` and `useExportController` are appropriate ownership boundaries. I found no additional confirmed layer inversion, persistence leak, or server dependency after a final pass across imports, configs, worker wiring, and deployment scripts.
-
-## Priority order
-
-1. Make the real export gate executable and meaningful.
-2. Establish one generated/tested source of truth for Google parsing.
-3. Reduce `MapView` coupling through behavior-preserving extraction.
+The shared generated parser, parse-wide budget, worker schema/timeout, fullTrack/track split, MapViewHandle, modal shell, local-only styles, and client-only privacy boundary are sound improvements. Map geometry has begun moving out of MapView and the real MP4 path is now meaningful. Dependency freshness is reported by the critic, and CI/legal authorization blocks remain outside source architecture.
 
 ## Final sweep
 
-Rechecked source/config/script/docs inventory, worker/main-thread parser behavior, export entry points, targeted E2E evidence, and the working tree before writing. Findings distinguish current defects from architectural risk; no deployment recommendation is included.
+Rechecked imports, state owners, imperative handles, lifecycle cleanup, worker generation, static postprocessing, tests, and documentation claims. No additional layer inversion or server/data persistence leak met the threshold.

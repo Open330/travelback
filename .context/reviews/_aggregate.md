@@ -1,87 +1,69 @@
-# Aggregate Review — Travelback (2026-07-16, Cycle 1)
+# Aggregate Review — Travelback (2026-07-16, Cycle 2)
 
 ## Outcome
 
-Twelve role reviews completed against `df8f08a` and were independently read and deduplicated. The role reports contain 69 entries, but most describe the same lifecycle, release-gate, or parser boundaries. This aggregate contains **31 distinct current findings**: 8 High, 19 Medium, and 4 Low. No deployment was attempted.
+All twelve required role reviews completed against `cc6f24f`, were read independently, and passed `git diff --check`. The reports contain 60 role-level entries, most of which corroborate the same state, rendering, security, or product boundaries. After deduplication, this aggregate retains **19 new confirmed findings**: 1 High, 9 Medium, and 9 Low. Four unresolved cycle-1 items remain explicitly separated as authority-, input-, or evidence-gated carryovers. No deployment was attempted.
 
-Current evidence is mixed rather than release-ready:
+Fresh review evidence:
 
-- `npm run lint`, `npm run typecheck`, `npm test` (219/219), and `npm run build` passed.
-- `npm audit` reports six vulnerable packages, including three High-severity packages.
-- `npm run smoke:static` fails because its parser parity checks follow obsolete source locations.
-- A direct static Playwright run reproduced loaded-desktop settings failures and exposed additional cases for targeted isolation.
-- Targeted format, mobile, dialog, theme, error, and stub-export journeys passed.
-- The opt-in real-MP4 test failed twice before reaching the encoder because it selects a nonexistent duration.
+- `npm run lint`, `npm run typecheck`, `npm run test` (266/266), `npm audit --audit-level=high` (zero vulnerabilities), `npm run build`, the generated-worker drift check, and `npm run smoke:static` passed.
+- Targeted Playwright journeys passed 7/7 for GPX, KML, and the five documented Google JSON families.
+- Desktop and iPhone-emulated browser review covered landing, recovery, playback, scenes, export, dialogs, theme, locale, reduced motion, console/page errors, and network behavior.
+- Fresh emitted HTML reproduced the CSP-order defect; actual mobile touch and export-focus journeys reproduced their respective product defects.
 
-## Deduplicated findings
+## Deduplicated new findings
 
-### Release, security, and verification
+### Runtime correctness, lifecycle, and accessibility
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG-01 | High / High | `package.json:20-44`, `package-lock.json` | **Known vulnerable dependency tree.** `next`, `vite`, and `undici` are High, with three additional Moderate/Low packages. Update to current patched releases and require a clean `npm audit --audit-level=high`. |
-| AG-02 | High / High | `scripts/smoke-static.mjs:223-259`, `src/lib/parse-utils.ts:7`, `src/lib/googleJsonParser.ts:138-158` | **The static smoke gate is broken.** It still searches `parser.ts` for symbols moved to `parse-utils.ts` and `googleJsonParser.ts`. Make the parity check follow actual source ownership and restore a passing release gate. |
-| AG-03 | High / High | `e2e/travelback.spec.ts:1311-1333`, `src/components/Controls.tsx:23-24` | **The real-MP4 test is dormant and cannot reach encoding when enabled.** Repair its invalid duration, validate a nontrivial MP4, and run a local supported-browser smoke. Adding it to CI is separately authority-gated. |
-| AG-04 | High / High | `.github/workflows/deploy-pages.yml:26-32`, `package.json:10-18` | **CI omits all 219 unit tests.** Add the unit gate before build/static E2E once explicit CI/CD modification authorization is granted. |
-| AG-05 | Medium / High | `.github/workflows/deploy-pages.yml:8-35` | **Build/test steps inherit Pages and OIDC write authority.** Narrow build to read-only and grant deployment permissions only to the deploy job once explicit CI/CD modification authorization is granted. |
-| AG-06 | Low / High | `src/app/layout.tsx:59-66` plus reproduced dev-console CSP violations | **The development CSP blocks Next's inline style elements despite claiming dev compatibility.** Permit only the dev style behavior needed by Next while preserving the postbuild hash-based production CSP and its smoke assertions. |
+| AG2-01 | High / High | `src/lib/map-geometry.ts:78-93`, `src/components/MapView.tsx:410-435` | **Completed-trail publication repeatedly copies and reparses a growing route prefix.** A dense single-segment route produces cumulative prefix work during playback/export. Move progress onto immutable or bounded-chunk geometry and add a structural allocation/update budget test. |
+| AG2-02 | Medium / High | `src/app/page.tsx:374-397`, `src/components/FileUpload.tsx:215-240,288-299` | **A stale sample request can overwrite a newer manual journey.** Give page-owned async session producers a generation/abort boundary and prove a delayed sample cannot commit after Draw Route or another import wins. |
+| AG2-03 | Medium / High | `src/components/TimelineSelector.tsx:27-31,95-105,288-296,524-598` | **The distance-ratio timeline applies point-count and hard-coded percentage gaps.** Uneven tracks such as `[0,1,1000]` cannot select the first valid adjacent pair. Derive constraints in the same coordinate domain and cover uneven spacing plus plateaus. |
+| AG2-04 | Medium / High | `src/lib/videoEncoder.ts:65-69,232-235`, `src/lib/useExportController.ts:125-127,268-309` | **Finalization has neither a deadline nor signal race.** Cancel/Escape cannot release the app from a never-settling `Output.finalize()`. Add bounded abort/timeout behavior, a distinct error contract, post-result abort checks, and never-resolving-finalizer tests while respecting Mediabunny's documented finalizing state. |
+| AG2-05 | Medium / High | `src/components/SceneEditor.tsx:376-390`, `src/lib/camera.ts:25-49` | **Undoing a deleted scene can normalize away a newer range edit.** Restore into the currently available gap or reject the conflicting undo with feedback; never rewrite later work as an indirect side effect. |
+| AG2-06 | Medium / High | `src/components/TimelineSelector.tsx:22-23,141-153,345-354` | **A three-second global key guard suppresses unrelated controls.** Remove the time-wide capture listener and contain keyboard events at the originating timeline handle. Add a cross-control focus regression. |
+| AG2-07 | Medium / High | `src/components/SceneEditor.tsx:338-349,489-492,532-545,655-735` | **A normal leftward mobile slider drag dismisses the Scene Editor.** Scope swipe dismissal to a dedicated header/handle and verify every horizontal scene control remains open during real touch drags. |
+| AG2-08 | Medium / High | `src/lib/useExportController.ts:63,84-92`; [React StrictMode effect behavior](https://react.dev/reference/react/StrictMode); [Next App Router default](https://nextjs.org/docs/app/api-reference/config/next-config-js/reactStrictMode) | **The export mounted flag stays false after Strict Mode's setup-cleanup-setup probe.** The cleanup sets `mountedRef.current = false`, but setup never restores it, so dev error/cancel cleanup is skipped. Mirror `usePlaybackController` by setting the flag true in effect setup and regression-test the lifecycle where practical. |
+| AG2-09 | Low / High | `src/components/SceneEditor.tsx:124-181` | **Scene range drag lacks pointer-cancellation cleanup.** Route `pointerup`, `pointercancel`, lost capture, and blur through one idempotent finish/cancel boundary so a cancelled gesture cannot leave stale drag state. |
+| AG2-10 | Low / High | `src/components/ExportPanel.tsx:176-203,287-300` | **Share can silently do nothing for the actual MP4.** If `canShare` rejects the real file after the tiny capability probe passed, surface the existing localized fallback instead of returning without feedback. |
+| AG2-11 | Low / High | `src/lib/googleJsonParser.ts:317-345`, `src/lib/parser.test.ts:634-637` | **Valid JSON `null` leaks an accidental `TypeError`.** Validate the parsed root and return an intentional `ParseError` code in direct and worker paths; tighten the permissive test oracle. |
+| AG2-12 | Low / High | `src/components/ExportPanel.tsx:241-303`, `src/components/ModalDialog.tsx:93-167` | **Export completion drops focus to `BODY`.** Focus the success heading or first result action when the form subtree is replaced and assert focus stays inside the dialog. |
 
-### Runtime correctness and lifecycle safety
-
-| ID | Severity / confidence | Evidence | Finding and required outcome |
-| --- | --- | --- | --- |
-| AG-07 | High / High | `src/components/MapView.tsx:568-578,1069-1080` | **Trail geometry freezes between route vertices.** The cache key ignores the changing interpolated endpoint. Keep immutable completed geometry cached but update the active endpoint for every playback/export frame. |
-| AG-08 | High / High | `src/components/MapView.tsx:544-648`, `src/lib/videoEncoder.ts:148-164` | **An unchanged export camera can capture the previous source frame.** Register the render barrier before mutation and resolve only after marker/trail source changes have painted. |
-| AG-09 | Medium / High | `src/components/MapView.tsx:102-116,232-264`, `src/lib/googleJsonParser.ts:150-190` | **Completed one-point Google visit segments produce invalid line members.** Normalize singletons to a valid two-coordinate line (or represent them separately) in trail geometry. |
-| AG-10 | Medium / High | `src/components/TimelineSelector.tsx:96-105,274-322`, `src/app/page.tsx:319-355` | **Cancelling a scene-invalidating trim leaves selector handles on the rejected range.** Restore the last accepted ratios when cancellation occurs. |
-| AG-11 | Medium / High | `src/components/TrackWorkspace.tsx:138-146`, `src/components/TimelineSelector.tsx:323-329` | **Click-to-seek uses full-track coordinates against the filtered active track.** Convert the selected full-track ratio to local active-track progress. |
-| AG-12 | Medium / High | `src/components/JourneyCreator.tsx:80-89,197-207,481-493` | **Undo/delete/clear can leave a ghost journey line.** Always publish `buildLineGeoJSON`, including its empty geometry for fewer than two waypoints. |
-| AG-13 | Medium / High | `src/components/SceneEditor.tsx:281-285,368-378` | **Scene delete undo discards newer edits.** Store the deleted scene plus index and reinsert into current state instead of restoring a whole stale snapshot. |
-| AG-14 | Medium / High | `src/components/SceneEditor.tsx:153-164,221-264,643-650` | **Keyboard range changes bypass committed normalization.** Route keyboard actions through the same normalized commit boundary as pointer actions. |
-| AG-15 | Medium / High | `src/components/FileUpload.tsx:53-95,263-286`, `src/app/page.tsx:297-317` | **A slow import can overwrite a newer manual journey session.** Invalidate async completion on unmount/session replacement and test with a deferred parse. |
-| AG-16 | Medium / High | `src/lib/videoEncoder.ts:115-173` | **Failed or cancelled encoding does not release Mediabunny resources.** Call `Output.cancel()` on every started-but-incomplete path while preserving the original error. |
-| AG-17 | Medium / High | `src/types.ts:96-104`, `src/lib/videoEncoder.ts:50-65`, `src/components/ExportPanel.tsx:90-108` | **Both advertised 4K presets are impossible under the 256 MiB estimator.** Align the preset catalog with the enforced envelope or redesign the memory path; every advertised preset must have a feasible configuration. |
-| AG-18 | Medium / High | `src/lib/parser.ts:338-390` | **Known unsupported extensions are read before rejection.** Reject missing/unsupported extensions before `FileReader`/`arrayBuffer` work and prove the reader is not invoked. |
-
-### Parser, performance, and architecture
+### Static security and dependency baseline
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG-19 | Medium / High | `src/lib/googleJsonParser.ts:74-117,150-192,229-270`, worker equivalents | **The point cap does not bound intermediate segmented allocations.** Enforce one parse-wide point budget during ingestion in both main and worker paths. |
-| AG-20 | Medium / Medium | `src/lib/googleJsonParser.ts:273-304`, `public/workers/trackParser.worker.js:277-321`, `src/lib/parser.ts:239-335` | **Depth preflight leaves a large suffix unchecked and worker parsing has no deadline.** Validate the complete input in the worker and provide bounded cancellation/recovery. |
-| AG-21 | Medium / Medium | `src/components/MapView.tsx:745-762` | **Interactive rendering permanently pays `preserveDrawingBuffer` cost without a measured budget.** Profile representative mobile/low-end devices; if material, isolate export capture from the interactive map. |
-| AG-22 | High / High | `src/lib/googleJsonParser.ts:7-13,285-304`, `public/workers/trackParser.worker.js:1-356,303-321`, `scripts/build-worker.mjs:3-8` | **Production Google parsing is manually duplicated and already drifted.** Establish one generated source of truth or deterministic behavioral parity; the build step must no longer report success without checking/generating anything. |
-| AG-23 | Low / Medium | `src/components/MapView.tsx:66-1200` | **MapView combines pure geometry, MapLibre lifecycle, playback, and export orchestration.** Extract pure geometry/source helpers behind the existing handle boundary after correctness regressions are covered. |
+| AG2-13 | Medium / High | `src/app/layout.tsx:60-70`, `scripts/harden-static-export.mjs:125-173`, `scripts/smoke-static.mjs:135-195`, fresh `out/*.html` | **The emitted CSP meta appears after five to seven scripts.** Relocate the hardened meta to the earliest valid head position and assert it precedes active content in every emitted HTML document. |
+| AG2-14 | Low / High | `package.json:24-45`, `package-lock.json` plus npm registry on 2026-07-16 | **The deterministic dependency baseline violates the repository's latest-stable rule.** Update compatible packages, align `@types/node` to Node 24, validate current stable TypeScript/ESLint/Lucide majors, refresh the lock, and rerun the complete gate matrix. This is maintenance freshness, not a vulnerability finding; the current audit is clean. |
 
-### User experience, accessibility, and documentation
+### Product copy and executable documentation
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG-24 | Medium / High | `src/components/GlobalToolbar.tsx:23-26`, `src/components/TrackToolbar.tsx:162-280`; reproduced static E2E | **Loaded desktop sessions lose language, unit, and theme controls.** Restore exactly one visible, accessible desktop settings surface without regressing mobile. |
-| AG-25 | High / High | `src/lib/i18n.ts:20,180-189,537-546`, `README.md:42,64,72`, `.context/project/01-overview.md:38-45,80` | **Google import guidance presents legacy Takeout as a current equal path.** Make current iOS/Android device export primary, clearly label Takeout conditional/legacy, and avoid claiming support for unbounded “all variants.” |
-| AG-26 | Medium / High | `src/components/JourneyCreator.tsx:607-614,737-765,795-815`, `src/lib/i18n.ts:270` | **Manual journeys cannot be named despite a naming-oriented label.** Add an optional prefilled route name and use it for the created `Track`; relabel the emoji group as a travel icon. |
-| AG-27 | Medium / High | `README.md:226-228`; no root license file | **The repository claims MIT without shipping a license grant.** Resolve the intended license and copyright holder/year with the user; do not invent legal attribution. |
-| AG-28 | Low / High | `README.md:145`; Playwright list output | **The README says 74 E2E tests while the suite lists 75.** Remove the brittle count or update it. |
-| AG-29 | Medium / High | `src/components/JourneyCreator.tsx:741-764`; measured at 393×852 | **Journey emoji targets are approximately 33×44 px on iPhone width.** Enforce at least 44×44 px and verify wrapping at 320/390/430 px. |
-| AG-30 | Low / High | `src/lib/i18n.ts:474`, `src/components/ExportPanel.tsx:408-411` | **Korean advanced export leaks the English connector “at.”** Localize the summary pattern or use a locale-neutral separator. |
-| AG-31 | Medium / High | `src/components/ExportPanel.tsx:331-401`; reproduced accessibility snapshot | **All six export form controls have visible but unassociated labels.** Associate labels through `htmlFor`/`id` and assert named combobox/spinbutton roles. |
+| AG2-15 | Medium / High | `.context/project/02-architecture.md:19,59-60,69,75-77,155-165`, `src/lib/videoEncoder.ts:99-107` | **The architecture reference materially misdescribes five current paths.** Correct the guide label, VideoSample/CPU-staging pipeline, repaint semantics, trail complexity, and trail-head inventory together with the stale source comment. The complexity correction must reflect AG2-01's implementation rather than merely relabeling the defect. |
+| AG2-16 | Low / High | `src/lib/i18n.ts:186,546,906,1266,1626`; current official Google Takeout help | **All locales promise an unsupported Takeout completion window.** Replace the numeric estimate with an instruction to wait for Google's completion email. |
+| AG2-17 | Low / High | `README.md:138`, `src/styles/vitro-base.css:1-5,225-245` | **README calls an adapted stylesheet an exact upstream copy.** Describe it as vendor-derived/adapted so maintainers do not overwrite Travelback-specific accessibility and theme work. |
+| AG2-18 | Low / High | `src/lib/i18n.ts:478,974,1198` | **Three shipped locale strings contain duplicated or missing grammar.** Correct the Korean, Japanese, and Chinese phrases and keep locale-key parity green. |
+| AG2-19 | Low / High | `README.md:222` | **The Mediabunny acknowledgement links to a 404.** Point it to the canonical `Vanilagy/mediabunny` repository. |
 
-## Preserved diagnostic evidence
+## Carried-forward authority, input, and evidence boundaries
 
-The direct static suite also reported a three-point timeline trimming count failure and additional failures later in the run. The available artifact does not yet prove a distinct root cause beyond AG-10/AG-11 and the deterministic AG-24 family, so it is preserved for targeted isolation rather than inflated into another finding.
+These remain current but are not counted as new cycle-2 findings:
 
-## Authority and deferral boundaries
+| ID | Original severity / confidence | Exact scope | Reason and exit criterion |
+| --- | --- | --- | --- |
+| CARRY-01 | High / High | `.github/workflows/deploy-pages.yml:26-32` | CI omits `npm test`. User-level destructive-action policy requires explicit confirmation before CI/CD modification. Exit: user authorizes the workflow edit; add the unit gate and validate without dispatch/deploy. |
+| CARRY-02 | Medium / High | `.github/workflows/deploy-pages.yml:8-45` | Build inherits Pages/OIDC write permissions. Same CI/CD authority block. Exit: explicit authorization; narrow top-level/build permissions and grant writes only to deploy. |
+| CARRY-03 | Medium / High | `README.md:224-226`, absent root `LICENSE` | Intended license, holder, and year/range are unknown. Exit: user supplies exact legal intent/attribution, then add the grant or explicitly correct the README claim. |
+| CARRY-04 | Medium / Medium | `src/components/MapView.tsx:586-591` | `preserveDrawingBuffer` impact needs representative low-end/mobile hardware evidence; emulation cannot establish GPU, battery, or thermal cost. Exit: record comparative p50/p95 frame time and memory, then isolate export capture if material. |
 
-- AG-04 and AG-05 require explicit user confirmation because the user-level safety rule classifies any CI/CD pipeline modification as confirmation-gated. No workflow edit is authorized yet.
-- AG-27 needs the user's intended license/copyright attribution. Adding guessed legal text or silently removing the stated grant would be inappropriate.
-- AG-21 is a measurement task, not a confirmed regression. Its exit criterion is representative mobile/low-end frame-time and memory evidence.
-- AG-23 is a maintenance-risk refactor. Its exit criterion is green source-data regressions for AG-07 through AG-09 before extraction begins.
-- No correctness, security, or data-loss defect is deferred for convenience; only explicit authority gaps and evidence-gathering risks are separated.
+No correctness, security, accessibility, or data-loss item is deferred for convenience. The four carryovers are separated only because repository authority/input/evidence rules prevent a responsible implementation in this cycle.
 
-## Cross-agent agreement
+## Cross-review agreement
 
-The strongest agreement was on five release blockers: trail rendering, export frame synchronization, the broken static smoke gate, vulnerable dependencies, and missing desktop settings. Parser duplication, async stale-completion, encoder cleanup, trim coordinate/state boundaries, impossible 4K choices, and the nonfunctional real-export check were each independently corroborated by multiple roles or direct browser/control-flow evidence.
+The strongest agreement was on the stale sample transaction, distance/index timeline mismatch, unbounded finalization, completed-prefix amplification, CSP ordering, scene undo conflict, mobile slider dismissal, parser null contract, and export focus loss. Actual browser evidence corroborated the mobile gesture and focus defects; fresh emitted artifacts corroborated CSP placement. The suspected stale manual-journey name was disproved by the component's conditional unmount/remount and is intentionally excluded.
 
 ## Agent failures
 
-None. All twelve required role artifacts were produced at their exact paths and passed `git diff --check`.
+None. All twelve required role artifacts were produced at their exact paths.
