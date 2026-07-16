@@ -28,7 +28,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: chronologically sort points only when every retained point in the segment has a valid timestamp. Sort segments only when every retained segment is fully comparable; otherwise preserve producer order for the whole comparison domain. Keep stable chronological sorting and deduplication for fully timed data. Regenerate the worker from the shared source.
 - Acceptance: mixed valid/missing/empty/invalid timestamps preserve source point and segment order through direct and worker transports; fully timed out-of-order records remain chronological; generated-worker parity passes.
 - Focused verification: parser and worker suites, `npm run build:worker`, `npm run check:worker`, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `933feeb` with supplemental multi-segment coverage in `c84235f`; parser/worker focused suites, generated-worker parity, lint, and typecheck passed.
 
 ### P02 — Preserve missing elevation as gaps (AG7-02)
 
@@ -37,7 +37,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: extract deterministic elevation geometry construction that emits separate SVG subpaths for contiguous valid runs. Do not substitute the minimum for missing leading, interior, or trailing samples. Keep finite min/max labels and distance-proportional x positions.
 - Acceptance: missing samples never produce vertices at an invented elevation; leading/trailing gaps are omitted; an interior gap separates paths; all-valid tracks preserve the existing profile; zero-distance and single-valid-run inputs remain finite.
 - Focused verification: new pure/component geometry tests, existing invalid-elevation E2E, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `a9492f0`; the focused geometry suite passed 6/6, with lint, typecheck, and malformed-elevation browser coverage green.
 
 ## Wave 1 — Interaction and accessibility ownership
 
@@ -48,7 +48,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: make `KeyboardHelp` own only the dialog and place the desktop Help trigger in the loaded TrackToolbar, while retaining the mobile More-menu action. Remove the independently bottom-positioned duplicate so one normal layout owner determines pointer order.
 - Acceptance: at 1440×1000, Help and the composed bottom stack do not intersect; Help's center hit resolves to Help/a descendant; a real click opens Keyboard Shortcuts; playback/elevation progress does not move. Mobile More → Help and dialog focus restoration still pass.
 - Focused verification: retries-disabled static E2E for desktop hit ownership and mobile Help, plus lint/typecheck.
-- Status: Pending.
+- Status: Completed in `9a5af6f`; exact desktop geometry/hit ownership, real click/dialog behavior, progress stability, mobile Help, lint, and typecheck passed.
 
 ### P04 — Render segmented-unit focus inside clipped groups (AG7-04)
 
@@ -57,7 +57,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: add a shared segmented-control button class whose `:focus-visible` treatment paints a complete two-tone high-contrast ring inside the button. Apply it to both desktop and mobile unit selectors while retaining joined clipped corners, pressed fill, and the 44px target.
 - Acceptance: first/last unit segments in both placements show a complete internal computed focus treatment in selected and unselected states; keyboard activation and `aria-pressed` continue to work in light and dark themes.
 - Focused verification: retries-disabled browser focus regression, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `4bd90b0`; selected/unselected desktop and mobile segments passed keyboard-visible computed-style coverage in light/dark modes, with lint and typecheck green.
 
 ### P05 — Announce timeline endpoint dates and times (AG7-05)
 
@@ -66,7 +66,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: include each resolved, locale-formatted endpoint date/time in the corresponding thumb's `aria-valuetext`, with concise endpoint/percentage context. Keep the existing localized percentage-only fallback when no timestamp exists.
 - Acceptance: initial and keyboard-updated values contain the same localized date/time shown for the selected endpoint; a timeless track exposes a meaningful percentage fallback; range min/max and keyboard trimming semantics remain unchanged.
 - Focused verification: TimelineSelector component suite, a browser assertion comparing accessible value with rendered date text before/after keyboard movement, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `5d61170`; the TimelineSelector suite passed 16/16 and browser values matched visible localized endpoints before/after keyboard movement, with lint and typecheck green.
 
 ## Wave 2 — Localized feedback and guide truthfulness
 
@@ -77,7 +77,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: replace the serial placeholder mutations with one pass over the untouched locale template, mapping only recognized template tokens. Preserve braces and other valid user text as literal content.
 - Acceptance: scene names `{from}` and `{to}` remain unchanged while the actual numeric placeholders resolve exactly once in both visible warning and polite live status; all ordinary five-locale templates remain correct.
 - Focused verification: SceneEditor and i18n suites, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `478b8b2`; SceneEditor passed 5/5 for ordinary and placeholder-like names across visible/live feedback, with lint and typecheck green.
 
 ### P07 — Render localized guide illustrations (AG7-07)
 
@@ -86,7 +86,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: use the existing locale-owned code-native `GuideIllustration` for Phone and Takeout instead of the English-text static images. Remove now-unused consumer imports/state but retain public assets on disk because deletion is not authorized.
 - Acceptance: Korean, Japanese, Chinese, and Spanish guide panels no longer lead with English instructional art; the English path remains clear; all guide tabs, arrow navigation, and modal behavior remain intact.
 - Focused verification: rendered Korean guide assertion (inline localized SVG, no English static image consumer), i18n suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `5555adc`; rendered Korean Phone/Takeout illustrations and absence of static-image consumers passed retries-disabled dev plus full dev/static coverage, with i18n, lint, and typecheck green.
 
 ### P08 — Centralize enforceable import-size policy and copy (AG7-08)
 
@@ -95,7 +95,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: expose typed JSON/XML policy metadata with maximum and below-limit warning thresholds; derive legacy exported constants and FileUpload warning behavior from it. Change all five guide strings to use format-specific placeholder limits and explain that near-limit accepted files may take longer.
 - Acceptance: JSON above 100 MiB and XML above 4 MiB remain rejected; warnings occur only for accepted near-limit files; rendered guide copy names both enforceable limits in every locale; one policy-consistency test prevents drift.
 - Focused verification: parser, FileUpload, and i18n suites, lint, typecheck, and static smoke.
-- Status: Pending.
+- Status: Completed in `88ec1b4`; parser/FileUpload/i18n passed 149/149, worker parity and static smoke passed, and full browser coverage confirmed format-specific rendered limits.
 
 ### P09 — Remove the stale Next.js 15 maintenance claim (AG7-09)
 
@@ -104,7 +104,7 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 - Work: describe the matched serialization shape as repository-current static output guarded by hardening/smoke assertions, without pinning the explanatory comment to an obsolete major.
 - Acceptance: the comment is accurate for the current Next 16 toolchain and the fail-closed guard remains byte-for-byte functional.
 - Focused verification: `node --check scripts/harden-static-export.mjs`, build, and static smoke.
-- Status: Pending.
+- Status: Completed in `4cb8a17`; `node --check`, exact-HEAD build, hardening, and static smoke passed with no stale Next.js 15 claim.
 
 ## Carried-forward blocked work
 
@@ -161,6 +161,16 @@ Implement every authorized Cycle 7 finding without deployment, preserve the know
 8. `npm run test:e2e:static:ci`.
 9. Production-static real-MP4 smoke with `TRAVELBACK_REAL_EXPORT=1`, retries disabled, output >1 KiB, and `ftyp` asserted.
 
+## Completed verification record
+
+- Exact-HEAD fast gates: lint completed without warnings, typecheck passed, 16 unit files / 393 tests passed, and `npm audit --audit-level=high` reported 0 vulnerabilities.
+- Exact-HEAD production build: generated-worker parity passed, Next.js 16.2.10 compiled and typechecked, 4/4 static pages generated, and CSP hardening completed across 3 HTML files. Static smoke passed before both build follow-up and the static E2E suite.
+- Retries-disabled focused browser gates: Korean guide art/import limits, segmented keyboard-visible focus, desktop/mobile Help hit ownership, and timeline keyboard/date semantics passed 4/4 on dev and 4/4 on production-static output. The first dev harness attempt exposed two test-ownership errors (an over-broad SVG locator and programmatic focus that did not establish keyboard modality); `36370dc` repaired both and both clean targets passed.
+- Full dev E2E: 97 passed, 1 expected environment-gated real-export skip, 0 failures, and no retries used in 25.6 minutes.
+- Full production-static E2E: 97 passed, 1 expected environment-gated real-export skip, 0 failures, and no retries used in 24.4 minutes.
+- Clean real export: `TRAVELBACK_REAL_EXPORT=1`, production-static target, one worker, and retries disabled passed 1/1 in 2.4 minutes. The downloaded MP4 exceeded 1 KiB, contained `ftyp` at bytes 4–7, used the expected `.mp4` filename, and exercised the one-call save-picker fallback.
+- Validation ran in the recorded mirror `/tmp/travelback-cycle7-gates.Osfw8C`. No deployment, CI/CD edit, production mutation, cleanup deletion, pre-existing process termination, or contact with port 3114 occurred. The durable final-cleanup item remains pending for the loop's final stop condition.
+
 ## Completion gate
 
-Pending. P01-P09 must be implemented and pushed in focused signed commits, all focused regressions and the full matrix must pass, and no deployment, destructive cleanup, CI/CD edit, or pre-existing process/port action may occur.
+Completed. P01-P09, the two gate-harness repairs, all focused regressions, the complete configured matrix, and the clean retries-disabled real-MP4 gate passed on the named review branch. Authority/legal/evidence-gated carryovers and performance deferrals retain their exit criteria; final cleanup remains deliberately incomplete until the loop's final stop condition.
