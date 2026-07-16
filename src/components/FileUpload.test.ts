@@ -74,4 +74,30 @@ describe('FileUpload request lifecycle', () => {
     })
     expect(onTrackLoaded).not.toHaveBeenCalled()
   })
+
+  it('announces an import before parsing starts', async () => {
+    const onImportStart = vi.fn()
+    parseTrackFile.mockResolvedValue({
+      name: 'Imported track',
+      points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
+    })
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded: vi.fn(),
+      onImportStart,
+    })))
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+    const file = new File(['track'], 'trip.gpx', { type: 'application/gpx+xml' })
+    Object.defineProperty(fileInput, 'files', { configurable: true, value: [file] })
+    await act(() => fileInput?.dispatchEvent(new Event('change', { bubbles: true })))
+
+    expect(onImportStart).toHaveBeenCalledOnce()
+    expect(parseTrackFile).toHaveBeenCalledOnce()
+    expect(onImportStart.mock.invocationCallOrder[0]).toBeLessThan(parseTrackFile.mock.invocationCallOrder[0])
+  })
 })

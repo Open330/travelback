@@ -11,6 +11,7 @@ import { useLocale } from '@/lib/i18n'
 interface FileUploadProps {
   onTrackLoaded: (track: Track) => void
   hasTrack: boolean
+  onImportStart?: () => void
   onShowGoogleGuide?: () => void
   onLoadSample?: () => void
   onCreateJourney?: () => void
@@ -19,7 +20,7 @@ interface FileUploadProps {
 const WARN_FILE_SIZE = 100 * 1024 * 1024
 const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
 
-export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
+export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
   useEffect(() => invalidateParse, [invalidateParse])
 
   const handleFile = useCallback(async (file: File) => {
+    onImportStart?.()
     invalidateParse()
     const requestGeneration = parseGenerationRef.current
     const controller = new AbortController()
@@ -111,7 +113,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onShowGoogleGuide,
         inputRef.current.value = ''
       }
     }
-  }, [invalidateParse, onTrackLoaded, t, withRecoveryHint])
+  }, [invalidateParse, onImportStart, onTrackLoaded, t, withRecoveryHint])
 
   const handleCreateJourney = useCallback(() => {
     invalidateParse()

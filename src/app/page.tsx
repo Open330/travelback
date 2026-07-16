@@ -138,8 +138,18 @@ function HomeInner() {
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const tRef = useRef(t)
+  const sampleLoadGenerationRef = useRef(0)
+  const sampleLoadControllerRef = useRef<AbortController | null>(null)
   useEffect(() => { tRef.current = t }, [t])
   const { messages: toasts, addToast, dismissToast } = useToast()
+
+  const invalidateSampleLoad = useCallback(() => {
+    sampleLoadGenerationRef.current++
+    sampleLoadControllerRef.current?.abort()
+    sampleLoadControllerRef.current = null
+  }, [])
+
+  useEffect(() => invalidateSampleLoad, [invalidateSampleLoad])
 
   const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-mode', mode)
@@ -311,6 +321,7 @@ function HomeInner() {
   }, [resetPlaybackSession, resetTrackWorkspace])
 
   const startFreshJourneySession = useCallback(() => {
+    invalidateSampleLoad()
     resetTrackWorkspace()
     mapViewRef.current?.clearTrackArtifacts()
     setTrack(null)
@@ -320,7 +331,7 @@ function HomeInner() {
     resetPlaybackSession()
     setIsCreatingJourney(true)
     setTrackSessionKey((key) => key + 1)
-  }, [resetPlaybackSession, resetTrackWorkspace])
+  }, [invalidateSampleLoad, resetPlaybackSession, resetTrackWorkspace])
 
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return
@@ -364,19 +375,25 @@ function HomeInner() {
   }, [])
 
   const handleTrackLoaded = useCallback((nextTrack: Track) => {
+    invalidateSampleLoad()
     loadTrackIntoSession(nextTrack)
-  }, [loadTrackIntoSession])
+  }, [invalidateSampleLoad, loadTrackIntoSession])
 
   const handleJourneyComplete = useCallback((nextTrack: Track) => {
+    invalidateSampleLoad()
     loadTrackIntoSession(nextTrack)
-  }, [loadTrackIntoSession])
+  }, [invalidateSampleLoad, loadTrackIntoSession])
 
   const handleLoadSample = useCallback(async () => {
+    invalidateSampleLoad()
+    const requestGeneration = sampleLoadGenerationRef.current
+    const controller = new AbortController()
+    sampleLoadControllerRef.current = controller
     const sampleUrl = `${basePath}/sample-trip.gpx`
     let responseStatus: number | null = null
 
     try {
-      const response = await fetch(sampleUrl)
+      const response = await fetch(sampleUrl, { signal: controller.signal })
       responseStatus = response.status
       if (!response.ok) {
         throw new Error('fetch failed')
@@ -384,17 +401,23 @@ function HomeInner() {
 
       const text = await response.text()
       const sampleFile = new File([text], 'sample-trip.gpx', { type: 'application/gpx+xml' })
-      const parsedTrack = await parseTrackFile(sampleFile)
+      const parsedTrack = await parseTrackFile(sampleFile, { signal: controller.signal })
+      if (requestGeneration !== sampleLoadGenerationRef.current || controller.signal.aborted) return
       loadTrackIntoSession(parsedTrack)
     } catch (error) {
+      if (requestGeneration !== sampleLoadGenerationRef.current || controller.signal.aborted) return
       console.error('Sample load failed:', {
         sampleUrl,
         responseStatus,
         error: error instanceof Error ? error.message : String(error),
       })
       addToast(tRef.current('app.sampleLoadFailed'), 'error')
+    } finally {
+      if (requestGeneration === sampleLoadGenerationRef.current && sampleLoadControllerRef.current === controller) {
+        sampleLoadControllerRef.current = null
+      }
     }
-  }, [addToast, loadTrackIntoSession])
+  }, [addToast, invalidateSampleLoad, loadTrackIntoSession])
 
   const handleOpenGoogleGuide = useCallback(() => {
     setShowGoogleGuide(true)
@@ -405,8 +428,9 @@ function HomeInner() {
   }, [])
 
   const handleStartJourney = useCallback(() => {
+    invalidateSampleLoad()
     setIsCreatingJourney(true)
-  }, [])
+  }, [invalidateSampleLoad])
 
   const handleCancelJourney = useCallback(() => {
     setIsCreatingJourney(false)
@@ -518,6 +542,7 @@ function HomeInner() {
   }, [])
 
   const handleErrorReset = useCallback(() => {
+    invalidateSampleLoad()
     setFullTrack(null)
     setTrack(null)
     setScenes([])
@@ -526,7 +551,7 @@ function HomeInner() {
     setIsCreatingJourney(false)
     resetPlaybackSession()
     resetExportSession()
-  }, [resetPlaybackSession, resetExportSession])
+  }, [invalidateSampleLoad, resetPlaybackSession, resetExportSession])
 
   return (
     <ErrorBoundary onReset={handleErrorReset}>
@@ -551,6 +576,7 @@ function HomeInner() {
           <FileUpload
             onTrackLoaded={handleTrackLoaded}
             hasTrack={track !== null}
+            onImportStart={invalidateSampleLoad}
             onShowGoogleGuide={handleOpenGoogleGuide}
             onLoadSample={handleLoadSample}
             onCreateJourney={handleStartJourney}

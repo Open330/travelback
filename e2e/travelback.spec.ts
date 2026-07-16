@@ -414,6 +414,28 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible({ timeout: 10_000 })
   })
 
+  test('a delayed sample cannot replace a newer manual journey session', async ({ page }) => {
+    let releaseSample!: () => void
+    const sampleReleased = new Promise<void>((resolve) => { releaseSample = resolve })
+    let markSampleRequested!: () => void
+    const sampleRequested = new Promise<void>((resolve) => { markSampleRequested = resolve })
+
+    await page.route('**/sample-trip.gpx', async (route) => {
+      markSampleRequested()
+      await sampleReleased
+      await route.fulfill({ path: GPX_FIXTURE, contentType: 'application/gpx+xml' }).catch(() => undefined)
+    })
+
+    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    await sampleRequested
+    await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+
+    releaseSample()
+    await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible()
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toHaveCount(0)
+  })
+
   test('moves focus to a visible workspace control after a track loads', async ({ page }) => {
     await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
     await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
