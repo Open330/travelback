@@ -16,7 +16,7 @@ page.tsx (Client Component — app shell / track-session boundary)
 │   ├── SceneEditor       — Scene editor panel (camera mode, start/end %, params)
 │   └── TrackToolbar      — Track-level toolbar (theme, locale, reset)
 ├── ExportPanel           — Video export settings (resolution, codec, FPS, bitrate)
-├── GoogleGuide           — Google Takeout import guide modal
+├── GoogleGuide           — Phone-first travel data import guide (Google, fitness, and GPS apps)
 ├── Toast                 — Non-intrusive notification toast
 └── KeyboardHelp          — Keyboard shortcuts reference overlay
 ```
@@ -55,18 +55,20 @@ videoEncoder.ts exportVideo()
     ↓
 For each frame:
     1. camera.ts computeCameraForProgress() → CameraState
-    2. MapView.renderFrameAndWait()          → Update map view + wait for render event
-    3. map.once('render') + rAF              → Ensure WebGL canvas is painted
-    4. mediabunny CanvasSource.add()         → Capture frame
+    2. MapView.renderFrameAndWait()          → Atomically update sources + camera
+    3. map.once('render') + triggerRepaint() + rAF → Wait for the WebGL paint
+    4. waitForIdle()                         → Confirm map/tile settling
+    5. VideoFrame(canvas) → 2D staging canvas → Materialize pixels in CPU-backed storage
+    6. VideoSample(staging canvas) → VideoSampleSource.add()
     ↓
-mediabunny Output.finalize() → ArrayBuffer (MP4)
+mediabunny Output.finalize() with abort/deadline → BufferTarget ArrayBuffer (MP4)
     ↓
 downloadVideo() → Browser download
     ↓
 MapView.resetSize() → Restore original dimensions
 ```
 
-Note: `waitForIdle()` is still used for initial map settling after resize (before the frame loop starts). The per-frame capture uses `renderFrameAndWait()` instead, which waits for MapLibre's `render` event with a 5-second timeout fallback. If the camera state is identical to the current map state (within rounding), `renderFrameAndWait` resolves immediately without waiting for a render event, preventing deadlocks when MapLibre would not repaint.
+Note: `waitForIdle()` is used after resize and again after each painted frame to confirm that map resources have settled before capture. `renderFrameAndWait()` subscribes to MapLibre's `render` event before changing the trail, marker, and camera, explicitly calls `triggerRepaint()` even when the camera is unchanged, and resolves on the following animation frame. A missing render event rejects after five seconds; there is no identical-camera shortcut because source-only changes still need to paint.
 
 ### Export / Playback separation
 
@@ -74,7 +76,7 @@ During export, `useExportController` sets `isExporting=true` on MapView. The pro
 
 ### Trail rendering with precomputed segments
 
-At track load time, `precomputeWrappedSegments()` builds per-segment coordinate arrays with antimeridian wrapping already applied. During playback, the trail update iterates precomputed segments: fully-traversed segments are pushed as O(1) references, and only the partial (current) segment is copied with the interpolated endpoint. This eliminates per-frame O(n) wrapping/copying for completed segments.
+At track load time, `precomputeWrappedSegments()` applies antimeridian wrapping once, then `buildTrailChunks()` partitions the route into immutable features of at most 512 coordinates. The complete chunk collection is published once per track/style load. During playback, a binary search finds the last completed chunk, `trail-line` reveals completed chunks with a filter only when a chunk boundary is crossed, and `trail-head-line` republishes only the current bounded chunk plus its interpolated endpoint. Per-frame serialization is therefore bounded by the 512-coordinate chunk budget rather than the total traveled prefix; preprocessing and initial publication remain linear in track size.
 
 ### Export cleanup: resetSize
 
@@ -154,12 +156,14 @@ During export, the map container is resized to the target resolution (e.g., 1920
 
 ## Map Layers
 
-| Layer ID | Type | Purpose |
-|----------|------|---------|
-| `route-line` | line | Full track displayed at low opacity |
-| `trail-line` | line | Traveled portion, high opacity, grows with progress |
-| `journey-line` | line | Manual journey creator connecting line |
-| `journey-points` | circle | Manual journey creator waypoint markers |
-| `current-position` | circle (GeoJSON source) | Current position dot during export (replaces HTML marker for canvas capture) |
-| `current-position-layer` | circle | Layer rendering the `current-position` source |
-| Marker | HTML overlay | Pulsing red dot at current interpolated position (playback only, not captured in export) |
+| Layer ID | Source | Type | Purpose |
+|----------|--------|------|---------|
+| `reference-grid-minor` | `reference-grid` | line | Fine local reference grid |
+| `reference-grid-major` | `reference-grid` | line | Emphasized major reference grid |
+| `route-line` | `route` | line | Full track displayed at low opacity |
+| `trail-line` | `trail` | line | Immutable completed trail chunks revealed by filter |
+| `trail-head-line` | `trail-head` | line | Bounded active chunk and interpolated trail endpoint |
+| `journey-line` | `journey-line` | line | Manual journey creator connecting line |
+| `journey-points` | `journey-points` | circle | Manual journey creator waypoint markers |
+| `current-position-layer` | `current-position` | circle | Canvas-rendered current position included in exports |
+| Marker | HTML overlay | DOM | Pulsing current-position marker used during interactive playback |

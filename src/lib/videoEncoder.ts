@@ -137,10 +137,11 @@ export function estimateExportMemoryBytes(config: {
  * 
  * Flow:
  * 1. For each frame, compute camera state from scenes + progress
- * 2. Call renderFrame callback (which updates the map)
- * 3. Wait for map to render (idle event)
- * 4. Capture the canvas frame via CanvasSource.add()
- * 5. After all frames, finalize and return the buffer
+ * 2. Call renderFrame callback (which updates the map and waits for paint)
+ * 3. Wait for the map to settle
+ * 4. Copy a captured VideoFrame into a reusable CPU-backed staging canvas
+ * 5. Add a VideoSample from that canvas to VideoSampleSource
+ * 6. Finalize with cancellation/deadline handling and return the buffer
  */
 export async function exportVideo(
   canvas: HTMLCanvasElement,
