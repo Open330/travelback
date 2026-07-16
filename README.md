@@ -135,7 +135,7 @@ travelback/
 │   │   └── videoEncoder.ts         # WebCodecs MP4 encoding via mediabunny
 │   │
 │   ├── styles/
-│   │   └── vitro-base.css          # Vitro liquid glass design system (exact upstream copy + service theme)
+│   │   └── vitro-base.css          # Vitro-derived styles adapted for Travelback theme and accessibility
 │   │
 │   └── types.ts                    # TrackPoint, Scene, CameraMode, ExportConfig, resolution presets
 │
