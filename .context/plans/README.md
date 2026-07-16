@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle1-implementation-2026-07-16.md` — Current 31-finding review-plan-fix cycle; 25 authorized implementation items, 2 authority/legal blockers, and 1 device-evidence follow-up
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Previous active entries retained for traceability
