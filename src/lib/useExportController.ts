@@ -84,6 +84,7 @@ export function useExportController({
   }, [scenes])
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
       // Abort any in-progress export when the owning component unmounts.
