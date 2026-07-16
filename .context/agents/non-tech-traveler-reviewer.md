@@ -55,13 +55,14 @@ Beyond the subjective UX review, Mina also checks automated E2E coverage that si
 ### Test infrastructure
 
 - **Framework**: Playwright with Chromium (WebGL via SwiftShader)
-- **Config**: `playwright.config.ts` — port 3099, `reuseExistingServer: false`, 120s timeout
-- **Existing tests**: `e2e/travelback.spec.ts` — 50+ tests covering core functionality and key localized flows
-- **Fixtures directory**: `e2e/fixtures/` — test travel log files
+- **Config**: `playwright.config.ts` — port 3099 by default, 120s timeout, and `reuseExistingServer` enabled only when `PLAYWRIGHT_REUSE_EXISTING_SERVER=1`; the ordinary wrapper sets that flag only for a live Next lock in this worktree
+- **Ordinary runner**: `npm run test:e2e` — reuses the active Next dev lock when it belongs to this worktree, otherwise reserves an available port and starts an isolated server
+- **Existing tests**: `e2e/travelback.spec.ts` — broad coverage of landing, import, map recovery, playback, timeline, camera, localization, responsive layout, and export states
+- **Fixtures directory**: `e2e/fixtures/` — representative GPX/KML routes plus Google export variants and regression cases for segmentation, dateline travel, XML edge cases, invalid elevation, and duplicate observations
 
 ### Mina's travel log fixtures
 
-Mina has trips in multiple formats. Each fixture represents a real scenario she'd encounter:
+Mina has trips in multiple formats. The table below is representative rather than an exhaustive fixture inventory:
 
 | Fixture | Format | Scenario | Track Name |
 |---------|--------|----------|------------|
@@ -70,7 +71,7 @@ Mina has trips in multiple formats. Each fixture represents a real scenario she'
 | `e2e/fixtures/korea-japan.kml` | KML (gx:Track) | Same route via Google Earth export | Seoul to Tokyo Route |
 | `e2e/fixtures/korea-japan.json` | Google JSON (flat array) | Same route from phone export `[{latitude, longitude, timestamp}]` | Google Location History |
 
-When adding new fixture scenarios, also create files for these Google Takeout variants the parser supports:
+The current fixture set also covers these Google Takeout variants supported by the parser:
 
 | Format variant | Shape | Notes |
 |----------------|-------|-------|
@@ -133,19 +134,15 @@ page.locator('video')                  // video preview element
 ### Running tests
 
 ```bash
-# Kill any lingering dev server on test port
-lsof -ti:3099 2>/dev/null | xargs kill -9 2>/dev/null
+# Ordinary full run: the repository wrapper owns server and port selection
+npm run test:e2e
 
-# Run all tests
-npx playwright test --reporter=list
-
-# Run only format-specific tests
-npx playwright test -g "imports KML"
-npx playwright test -g "imports Google"
-
-# Debug with headed browser
-npx playwright test --headed --debug
+# Focused non-HTML diagnostic only when you personally own the server on port 3099
+PLAYWRIGHT_DEV_PORT=3099 PLAYWRIGHT_REUSE_EXISTING_SERVER=1 PLAYWRIGHT_HTML_OPEN=never \
+  npm run test:e2e:dev -- --reporter=list -g "imports KML"
 ```
+
+Do not terminate a process merely because it owns the default test port. If the server is not yours, use the ordinary wrapper and let it select a safe port.
 
 ### Adding a new format test
 
@@ -154,8 +151,8 @@ When Mina brings a new travel log format:
 1. Create the fixture file in `e2e/fixtures/` with realistic coordinates and timestamps
 2. Add an upload helper function (e.g., `uploadKml(page)`) following the `uploadGpx` pattern
 3. Write the test verifying: upload → track name visible → point count → playback → export
-4. Run `npx playwright test` to confirm all tests pass (existing + new)
-5. Run `npx next build` to confirm no type errors
+4. Run `npm run test:e2e` to confirm all tests pass (existing + new)
+5. Run `npm run typecheck` and `npm run build` to confirm types and the static build
 
 ## Output Format
 
