@@ -219,7 +219,7 @@ If you need a stricter privacy posture, self-host the static bundle behind respo
 - **[Vitro](https://github.com/circle-oo/vitro)** by [Won Park](https://github.com/circle-oo) — Liquid glass design system. Glass material layers, mesh background animations, and color system adapted into a Travelback service theme. MIT License.
 - **[MapLibre GL JS](https://maplibre.org/)** — Open-source WebGL map rendering engine.
 - **Journey Creator jump tool** accepts pasted coordinates and supported map links entirely in-browser; no geocoding provider is required.
-- **[mediabunny](https://github.com/nicosh/mediabunny)** — Browser-side video encoding via the WebCodecs API.
+- **[mediabunny](https://github.com/Vanilagy/mediabunny)** — Browser-side video encoding via the WebCodecs API.
 
 ## License
 
