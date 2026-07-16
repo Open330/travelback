@@ -129,6 +129,12 @@ export function useExportController({
   }, [])
 
   const exportTrack = useCallback(async (config: ExportRequest) => {
+    // State updates do not become visible until React renders, so isExporting
+    // cannot serialize two calls made in the same tick. The abort controller is
+    // also the export lease: acquire it synchronously and let only its owner run
+    // export and cleanup work.
+    if (exportAbortRef.current) return
+
     const mapHandle = mapViewRef.current
     const canvas = mapHandle?.getCanvas()
     if (!canvas || !track || !mapHandle) {
@@ -143,18 +149,18 @@ export function useExportController({
     let pendingVideoUrlStored = false
     let exportSucceeded = false
 
-    setIsExporting(true)
-    setExportState('exporting')
-    setExportProgress(0)
-    exportProgressRef.current = undefined
-    lastProgressUpdateTimeRef.current = 0
-    lastExportProgressUpdateTimeRef.current = 0
-    // Clear any stale video from a previous export so a failed new export
-    // cannot show the old video in "done" state (CF5-03).
-    revokeExportedVideoUrl()
-    pausePlayback()
-
     try {
+      setIsExporting(true)
+      setExportState('exporting')
+      setExportProgress(0)
+      exportProgressRef.current = undefined
+      lastProgressUpdateTimeRef.current = 0
+      lastExportProgressUpdateTimeRef.current = 0
+      // Clear any stale video from a previous export so a failed new export
+      // cannot show the old video in "done" state (CF5-03).
+      revokeExportedVideoUrl()
+      pausePlayback()
+
       const exportScenes = scenesRef.current.length > 0
         ? scenesRef.current
         : generateDefaultScenes()
@@ -277,45 +283,53 @@ export function useExportController({
         setExportState('idle')
       }
     } finally {
-      exportAbortRef.current = null
-      // Only reset map size when the component is still mounted — calling
-      // resetSize() on a destroyed map can throw (C15-F05).
-      if (mountedRef.current) {
-        try {
-          mapViewRef.current?.resetSize()
-        } catch (resetError) {
-          // resetSize() is expected to clear forced dimensions itself; this log
-          // keeps unexpected map teardown failures visible without reaching into
-          // MapView's DOM from the controller.
-          console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
+      try {
+        // Only reset map size when the component is still mounted — calling
+        // resetSize() on a destroyed map can throw (C15-F05).
+        if (mountedRef.current) {
+          try {
+            mapViewRef.current?.resetSize()
+          } catch (resetError) {
+            // resetSize() is expected to clear forced dimensions itself; this log
+            // keeps unexpected map teardown failures visible without reaching into
+            // MapView's DOM from the controller.
+            console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
+          }
+        } else {
+          // Component unmounted during export — attempt a best-effort container
+          // style cleanup only (resetSize clears container style + calls
+          // map.resize). The container style clear is non-throwing.
+          try {
+            mapViewRef.current?.resetSize()
+          } catch { /* map destroyed — container already cleaned by unmount */ }
         }
-      } else {
-        // Component unmounted during export — attempt a best-effort container
-        // style cleanup only (resetSize clears container style + calls
-        // map.resize). The container style clear is non-throwing.
-        try {
-          mapViewRef.current?.resetSize()
-        } catch { /* map destroyed — container already cleaned by unmount */ }
-      }
-      // Wait for map to settle after resize on the normal-completion path.
-      // Skip the idle wait when the export was aborted — the signal is already
-      // aborted so waitForIdle would reject immediately, making the wait a no-op.
-      // Also skip if the map was destroyed during export to avoid unhandled rejections.
-      if (!abortController.signal.aborted && mapViewRef.current) {
-        try {
-          await mapViewRef.current?.waitForIdle(abortController.signal)
-        } catch {
-          // Timeout is acceptable during cleanup
+        // Wait for map to settle after resize on the normal-completion path.
+        // Skip the idle wait when the export was aborted — the signal is already
+        // aborted so waitForIdle would reject immediately, making the wait a no-op.
+        // Also skip if the map was destroyed during export to avoid unhandled rejections.
+        if (!abortController.signal.aborted && mapViewRef.current) {
+          try {
+            await mapViewRef.current?.waitForIdle(abortController.signal)
+          } catch {
+            // Timeout is acceptable during cleanup
+          }
         }
-      }
-      if (mountedRef.current) {
-        // Only restore pre-export progress on abort/failure — on success,
-        // progress was already set to 1 in the try block above.
-        if (!exportSucceeded) {
-          setPlaybackProgress(preExportProgress)
+        if (mountedRef.current) {
+          // Only restore pre-export progress on abort/failure — on success,
+          // progress was already set to 1 in the try block above.
+          if (!exportSucceeded) {
+            setPlaybackProgress(preExportProgress)
+          }
+          setIsExporting(false)
+          setExportProgress(0)
         }
-        setIsExporting(false)
-        setExportProgress(0)
+      } finally {
+        // A stale invocation must never clear a newer export's cancellation
+        // handle. Retain the lease through map/progress cleanup so re-entry
+        // cannot start while the previous owner is still restoring shared state.
+        if (exportAbortRef.current === abortController) {
+          exportAbortRef.current = null
+        }
       }
     }
   }, [
