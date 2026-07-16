@@ -1,6 +1,12 @@
 import type { Track, TrackPoint, Scene } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
-import { interpolateAlongTrack, computeBearing, normalizeLng, shortestLngDelta } from './interpolate'
+import {
+  interpolateAlongTrack,
+  computeBearing,
+  normalizeLng,
+  shortestLngDelta,
+  type InterpolationResult,
+} from './interpolate'
 
 export interface CameraState {
   center: [number, number]
@@ -22,6 +28,81 @@ export const smoothstep = (t: number) => t * t * (3 - 2 * t)
 /** Fraction of track length used for look-ahead bearing in bird's eye mode */
 export const LOOK_AHEAD_FRACTION = 0.05
 export const MIN_SCENE_SPAN = 0.01
+
+export interface TrackSegmentBounds {
+  start: number
+  end: number
+}
+
+/** Resolve the inclusive segment containing a point index. Track producers
+ * keep segmentStartIndices sorted and unique; binary search keeps this helper
+ * cheap even for visit-heavy Google histories. */
+export function findTrackSegmentBounds(track: Track, pointIndex: number): TrackSegmentBounds {
+  const lastIndex = Math.max(0, track.points.length - 1)
+  const index = Math.max(0, Math.min(lastIndex, Math.trunc(pointIndex)))
+  const starts = track.segmentStartIndices ?? []
+  let low = 0
+  let high = starts.length
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (starts[middle] <= index) low = middle + 1
+    else high = middle
+  }
+
+  return {
+    start: low > 0 ? starts[low - 1] : 0,
+    end: low < starts.length ? starts[low] - 1 : lastIndex,
+  }
+}
+
+/** Compute a forward-looking bearing without allowing a disconnected segment
+ * to influence the current camera. */
+export function computeSegmentLocalBearing(
+  track: Track,
+  cumulativeDistances: number[],
+  current: InterpolationResult,
+  lookAheadDistance: number,
+): number {
+  if (track.points.length === 0) return 0
+  const bounds = findTrackSegmentBounds(track, current.segmentIndex)
+  const endPoint = track.points[bounds.end] ?? current.point
+  const endDistance = cumulativeDistances[bounds.end] ?? current.distanceTraveled
+  const targetDistance = Math.min(
+    endDistance,
+    current.distanceTraveled + Math.max(0, lookAheadDistance),
+  )
+
+  let aheadPoint = endPoint
+  if (current.totalDist > 0 && targetDistance < endDistance) {
+    const ahead = interpolateAlongTrack(
+      track.points,
+      cumulativeDistances,
+      targetDistance / current.totalDist,
+      track.segmentStartIndices,
+    )
+    if (ahead.segmentIndex <= bounds.end) aheadPoint = ahead.point
+  }
+
+  if (aheadPoint.lng !== current.point.lng || aheadPoint.lat !== current.point.lat) {
+    return computeBearing(current.point, aheadPoint)
+  }
+
+  // At the segment endpoint, preserve the last meaningful in-segment
+  // direction. Never fall back to a point from the next disconnected segment.
+  for (let index = Math.min(current.segmentIndex, bounds.end); index >= bounds.start; index--) {
+    const candidate = track.points[index]
+    if (candidate.lng !== current.point.lng || candidate.lat !== current.point.lat) {
+      return computeBearing(candidate, current.point)
+    }
+  }
+  for (let index = Math.max(bounds.start, current.segmentIndex + 1); index <= bounds.end; index++) {
+    const candidate = track.points[index]
+    if (candidate.lng !== current.point.lng || candidate.lat !== current.point.lat) {
+      return computeBearing(current.point, candidate)
+    }
+  }
+  return 0
+}
 
 export type RestoreDeletedSceneResult =
   | { restored: true; scenes: Scene[] }
@@ -242,7 +323,7 @@ export function computeCameraForScene(
   }
   const params = scene.params
   const trackProgress = scene.startPercent + localProgress * (scene.endPercent - scene.startPercent)
-  const result = interpolateAlongTrack(track.points, cumulDist, trackProgress)
+  const result = interpolateAlongTrack(track.points, cumulDist, trackProgress, track.segmentStartIndices)
   const { point, bearing } = result
 
   switch (scene.cameraMode) {
@@ -272,13 +353,12 @@ export function computeCameraForScene(
         bearing: normBearing(elapsedSec * params.rotationSpeed + params.bearingOffset),
       }
     case 'birdeye': {
-      // Look-ahead: interpolate a point further along the track for bearing
-      const lookAheadProgress = Math.min(1, trackProgress + LOOK_AHEAD_FRACTION)
-      const ahead = interpolateAlongTrack(track.points, cumulDist, lookAheadProgress)
-      const lookBearing =
-        ahead.point.lng === point.lng && ahead.point.lat === point.lat
-          ? ahead.bearing
-          : computeBearing(point, ahead.point)
+      const lookBearing = computeSegmentLocalBearing(
+        track,
+        cumulDist,
+        result,
+        result.totalDist * LOOK_AHEAD_FRACTION,
+      )
       // Use the look-ahead bearing combined with slow rotation for cinematic drift
       const drift = elapsedSec * params.rotationSpeed
       return {
@@ -299,7 +379,7 @@ export function computeCameraForScene(
 }
 
 function computeDefaultFollowCamera(track: Track, cumulDist: number[], progress: number): CameraState {
-  const result = interpolateAlongTrack(track.points, cumulDist, progress)
+  const result = interpolateAlongTrack(track.points, cumulDist, progress, track.segmentStartIndices)
   return {
     center: [result.point.lng, result.point.lat],
     zoom: 14,

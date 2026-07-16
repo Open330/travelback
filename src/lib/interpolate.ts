@@ -91,6 +91,7 @@ export function interpolateAlongTrack(
   points: TrackPoint[],
   cumulativeDistances: number[],
   progress: number,
+  segmentStartIndices?: number[],
 ): InterpolationResult {
   // Guard: empty or single-point tracks
   if (points.length === 0) {
@@ -112,18 +113,69 @@ export function interpolateAlongTrack(
     }
   }
 
-  const clampedProgress = Math.max(0, Math.min(1, progress))
+  const clampedProgress = Number.isFinite(progress)
+    ? Math.max(0, Math.min(1, progress))
+    : 0
   const total = cumulativeDistances[cumulativeDistances.length - 1]
-  if ((total ?? 0) <= 0) {
-    const point = { ...points[0] }
-    const nextDistinct = points.find((candidate) => candidate.lat !== point.lat || candidate.lng !== point.lng)
+  const endpointResult = (pointIndex: number): InterpolationResult => {
+    const point = { ...points[pointIndex] }
+    let segmentStart = 0
+    let segmentEnd = points.length - 1
+    for (const startIndex of segmentStartIndices ?? []) {
+      if (startIndex <= pointIndex) segmentStart = startIndex
+      else {
+        segmentEnd = startIndex - 1
+        break
+      }
+    }
+
+    let bearing = 0
+    let foundBearing = false
+    const pointDistance = cumulativeDistances[pointIndex] ?? 0
+    for (let index = pointIndex + 1; index <= segmentEnd; index++) {
+      const candidate = points[index]
+      if (
+        (cumulativeDistances[index] ?? pointDistance) > pointDistance
+        && (candidate.lat !== point.lat || candidate.lng !== point.lng)
+      ) {
+        bearing = computeBearing(point, candidate)
+        foundBearing = true
+        break
+      }
+    }
+    if (!foundBearing) {
+      for (let index = pointIndex - 1; index >= segmentStart; index--) {
+        const candidate = points[index]
+        if (
+          pointDistance > (cumulativeDistances[index] ?? pointDistance)
+          && (candidate.lat !== point.lat || candidate.lng !== point.lng)
+        ) {
+          bearing = computeBearing(candidate, point)
+          break
+        }
+      }
+    }
+
     return {
       point,
-      bearing: nextDistinct ? computeBearing(point, nextDistinct) : 0,
-      segmentIndex: 0,
-      distanceTraveled: 0,
-      totalDist: 0,
+      bearing,
+      segmentIndex: pointIndex,
+      distanceTraveled: pointDistance,
+      totalDist: total ?? 0,
     }
+  }
+
+  // Distance plateaus at the beginning/end are segment boundaries, not
+  // interpolatable edges. Keep both endpoints explicitly reachable.
+  if (clampedProgress <= 0) return endpointResult(0)
+  if (clampedProgress >= 1) return endpointResult(points.length - 1)
+
+  if ((total ?? 0) <= 0) {
+    // With no measurable edge, distance-space interpolation cannot advance.
+    // Step through observations in index space instead of drawing a synthetic
+    // line between intentionally disconnected singleton segments.
+    const pointIndex = Math.min(points.length - 1, Math.floor(clampedProgress * points.length))
+    return endpointResult(pointIndex)
   }
   const targetDist = clampedProgress * total
 

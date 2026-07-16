@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScenes, lerpCamera, computeCameraForProgress, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, restoreDeletedScene } from './camera'
+import { normalizeScenes, lerpCamera, computeCameraForProgress, computeCameraForScene, computeSegmentLocalBearing, findTrackSegmentBounds, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, restoreDeletedScene } from './camera'
+import { computeCumulativeDistances, interpolateAlongTrack } from './interpolate'
 import type { Scene, Track } from '@/types'
 
 const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMode'] = 'flyover'): Scene => ({
@@ -75,6 +76,66 @@ describe('normalizeScenes', () => {
     const result = normalizeScenes(scenes)
     // NaN is clamped to fallback (0 for startPercent)
     expect(result[0].startPercent).toBe(0)
+  })
+})
+
+describe('segment-local camera anticipation', () => {
+  const segmentedTrack: Track = {
+    name: 'disconnected cities',
+    points: [
+      { lat: 0, lng: 0 },
+      { lat: 0, lng: 1 },
+      { lat: 10, lng: 10 },
+      { lat: 11, lng: 10 },
+    ],
+    segmentStartIndices: [2],
+  }
+  const distances = computeCumulativeDistances(
+    segmentedTrack.points,
+    segmentedTrack.segmentStartIndices,
+  )
+
+  it('resolves inclusive bounds around a segment break', () => {
+    expect(findTrackSegmentBounds(segmentedTrack, 0)).toEqual({ start: 0, end: 1 })
+    expect(findTrackSegmentBounds(segmentedTrack, 1)).toEqual({ start: 0, end: 1 })
+    expect(findTrackSegmentBounds(segmentedTrack, 2)).toEqual({ start: 2, end: 3 })
+  })
+
+  it('keeps distance look-ahead on the current route', () => {
+    const current = interpolateAlongTrack(segmentedTrack.points, distances, 0.499)
+    const bearing = computeSegmentLocalBearing(segmentedTrack, distances, current, 600)
+
+    expect(bearing).toBeCloseTo(90, 0)
+  })
+
+  it('keeps bird-eye fractional look-ahead on the current route', () => {
+    const scene = makeScene('bird', 0, 1, 'birdeye')
+    scene.params = { zoom: 11, pitch: 65, bearingOffset: 0, rotationSpeed: 0 }
+    const camera = computeCameraForScene(segmentedTrack, distances, scene, 0.49, 0)
+
+    expect(camera.bearing).toBeCloseTo(90, 0)
+  })
+
+  it('keeps the final camera direction when a route ends in duplicate points', () => {
+    const track: Track = {
+      name: 'duplicate endpoint',
+      points: [
+        { lat: 0, lng: 0 },
+        { lat: 0, lng: 1 },
+        { lat: 0, lng: 1 },
+      ],
+    }
+    const scene = makeScene('final', 0, 1, 'flyover')
+    scene.params = { zoom: 11, pitch: 45, bearingOffset: 0, rotationSpeed: 0 }
+    const camera = computeCameraForScene(
+      track,
+      computeCumulativeDistances(track.points),
+      scene,
+      1,
+      0,
+    )
+
+    expect(camera.bearing).toBeCloseTo(90, 0)
   })
 })
 

@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImper
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
-import { computeCameraForProgress, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
+import { interpolateAlongTrack, shortestLngDelta } from '@/lib/interpolate'
+import { computeCameraForProgress, computeSegmentLocalBearing, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
@@ -461,7 +461,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const track = trackRef.current
         const cumulDist = cumulDistRef.current
         if (track && cumulDist.length === track.points.length && cumulDist.length > 0) {
-          const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progress)
+          const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progress, track.segmentStartIndices)
 
           markerRef.current?.setLngLat([point.lng, point.lat])
           const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
@@ -809,7 +809,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     lastCompletedTrailChunkIndexRef.current = -1
     const cumulDist = cumulDistRef.current
     if (cumulDist.length === track.points.length && cumulDist.length > 0) {
-      const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progressRef.current)
+      const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progressRef.current, track.segmentStartIndices)
       updateTrailSources(map, segmentIndex, point)
     }
   }, [updateTrailSources])
@@ -922,7 +922,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     ensureMarker(map, track.points[0])
 
-    const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress)
+    const result = interpolateAlongTrack(track.points, cumulDistRef.current, progress, track.segmentStartIndices)
     const { point, segmentIndex } = result
 
     // Update marker position
@@ -942,20 +942,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           track, cumulDistRef.current, normalizedScenesRef.current, progress, elapsedSec, transitionDurationRef.current, true,
         )
       } else {
-        const totalDistance = cumulDistRef.current[cumulDistRef.current.length - 1] ?? 0
-        const lookAheadDistance = Math.min(totalDistance, result.distanceTraveled + LOOK_AHEAD_DISTANCE_METERS)
-        const lookAheadIdx = findDistanceIndexAtOrAfter(cumulDistRef.current, lookAheadDistance, segmentIndex + 1)
-
-        const lookAheadPoint = track.points[lookAheadIdx]
-        const fallbackPoint = track.points[Math.min(segmentIndex + 1, track.points.length - 1)]
-        const lookAheadIsDistinct = lookAheadPoint.lng !== point.lng || lookAheadPoint.lat !== point.lat
-        const fallbackIsDistinct = fallbackPoint.lng !== point.lng || fallbackPoint.lat !== point.lat
-        const lookAheadBearing =
-          lookAheadIsDistinct
-            ? computeBearing(point, lookAheadPoint)
-            : fallbackIsDistinct
-              ? computeBearing(point, fallbackPoint)
-              : result.bearing
+        const lookAheadBearing = computeSegmentLocalBearing(
+          track,
+          cumulDistRef.current,
+          result,
+          LOOK_AHEAD_DISTANCE_METERS,
+        )
 
         targetCamera = {
           center: [point.lng, point.lat],

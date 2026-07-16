@@ -166,6 +166,46 @@ describe('interpolateAlongTrack', () => {
     expect(result.point.lat).toBeCloseTo(1, 3)
   })
 
+  it('reaches a trailing singleton segment at progress 1', () => {
+    const points = [makePoint(0, 0), makePoint(1, 0), makePoint(20, 20)]
+    const cumul = computeCumulativeDistances(points, [2])
+    const result = interpolateAlongTrack(points, cumul, 1, [2])
+
+    expect(cumul[2]).toBe(cumul[1])
+    expect(result.point).toMatchObject(points[2])
+    expect(result.segmentIndex).toBe(2)
+    expect(result.distanceTraveled).toBe(cumul[2])
+    expect(result.bearing).toBe(0)
+  })
+
+  it('preserves the final in-segment bearing across duplicate points', () => {
+    const points = [makePoint(0, 0), makePoint(1, 0), makePoint(1, 0)]
+    const cumul = computeCumulativeDistances(points)
+    const result = interpolateAlongTrack(points, cumul, 1)
+
+    expect(result.point).toMatchObject(points[2])
+    expect(result.bearing).toBeCloseTo(90, 0)
+  })
+
+  it('keeps a leading singleton segment reachable at progress 0', () => {
+    const points = [makePoint(-20, -20), makePoint(0, 0), makePoint(1, 0)]
+    const cumul = computeCumulativeDistances(points, [1])
+    const result = interpolateAlongTrack(points, cumul, 0)
+
+    expect(result.point).toMatchObject(points[0])
+    expect(result.segmentIndex).toBe(0)
+  })
+
+  it('steps through distinct observations when every edge has zero distance', () => {
+    const points = [makePoint(0, 0), makePoint(10, 10), makePoint(20, 20)]
+    const cumul = computeCumulativeDistances(points, [1, 2])
+
+    expect(interpolateAlongTrack(points, cumul, 0.1).point).toMatchObject(points[0])
+    expect(interpolateAlongTrack(points, cumul, 0.4).point).toMatchObject(points[1])
+    expect(interpolateAlongTrack(points, cumul, 0.8).point).toMatchObject(points[2])
+    expect(interpolateAlongTrack(points, cumul, 1).point).toMatchObject(points[2])
+  })
+
   it('interpolates at mid-progress', () => {
     const points = [makePoint(0, 0), makePoint(0, 2)]
     const cumul = computeCumulativeDistances(points)
