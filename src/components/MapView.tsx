@@ -4,10 +4,18 @@ import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImper
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
-import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter, wrapLngNear } from '@/lib/interpolate'
+import { interpolateAlongTrack, computeBearing, shortestLngDelta, findDistanceIndexAtOrAfter } from '@/lib/interpolate'
 import { computeCameraForProgress, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
+import {
+  buildActiveTrailHeadGeometry,
+  buildCompletedTrailGeometry,
+  buildTrackGeometry,
+  precomputeWrappedSegments,
+  type PrecomputedSegment,
+} from '@/lib/map-geometry'
+import { mutateMapAndWaitForRender } from '@/lib/map-render'
 
 interface MapViewProps {
   track: Track | null
@@ -54,6 +62,10 @@ const REFERENCE_GRID_MINOR_LAYER = 'reference-grid-minor'
 const REFERENCE_GRID_MAJOR_LAYER = 'reference-grid-major'
 const POSITION_MARKER_SOURCE = 'current-position'
 const POSITION_MARKER_LAYER = 'current-position-layer'
+const TRAIL_SOURCE = 'trail'
+const TRAIL_LAYER = 'trail-line'
+const TRAIL_HEAD_SOURCE = 'trail-head'
+const TRAIL_HEAD_LAYER = 'trail-head-line'
 
 const GRID_PAINT_BY_STYLE: Record<MapStyleKey, { minor: string; major: string }> = {
   voyager: { minor: 'rgba(120, 130, 120, 0.22)', major: 'rgba(120, 130, 120, 0.38)' },
@@ -76,104 +88,6 @@ function centerDistanceMeters(a: [number, number], b: [number, number]): number 
 
 function smoothCameraState(previous: CameraState, target: CameraState, factor: number, bearingFactor?: number): CameraState {
   return lerpCamera(previous, target, factor, linear, bearingFactor)
-}
-
-function normalizeSegmentStarts(pointCount: number, segmentStartIndices: number[] = []): number[] {
-  return [...new Set(
-    segmentStartIndices
-      .filter((index) => Number.isInteger(index) && index > 0 && index < pointCount)
-      .sort((a, b) => a - b)
-  )]
-}
-
-function buildSegmentRanges(pointCount: number, segmentStartIndices: number[] = []): Array<{ start: number; end: number }> {
-  const starts = [0, ...normalizeSegmentStarts(pointCount, segmentStartIndices)]
-  return starts.map((start, index) => ({
-    start,
-    end: (starts[index + 1] ?? pointCount) - 1,
-  }))
-}
-
-interface PrecomputedSegment {
-  coordinates: [number, number][]
-  range: { start: number; end: number }
-}
-
-function precomputeWrappedSegments(
-  points: Track['points'],
-  segmentStartIndices: number[] = [],
-): PrecomputedSegment[] {
-  const ranges = buildSegmentRanges(points.length, segmentStartIndices)
-  return ranges.map((range) => {
-    const coordinates: [number, number][] = []
-    for (let i = range.start; i <= range.end; i++) {
-      const point = points[i]
-      const previous = coordinates[coordinates.length - 1]
-      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
-      coordinates.push([lng, point.lat])
-    }
-    return { coordinates, range }
-  })
-}
-
-function buildTrackGeometry(
-  points: Track['points'],
-  segmentStartIndices: number[] = [],
-  uptoIndex?: number,
-  interpolatedPoint?: TrackPoint,
-): GeoJSON.LineString | GeoJSON.MultiLineString {
-  const buildWrappedCoordinates = (segmentPoints: TrackPoint[]) => {
-    const coordinates: [number, number][] = []
-    for (const point of segmentPoints) {
-      const previous = coordinates[coordinates.length - 1]
-      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
-      coordinates.push([lng, point.lat])
-    }
-    return coordinates
-  }
-
-  const ranges = buildSegmentRanges(points.length, segmentStartIndices)
-  const segments: [number, number][][] = []
-
-  for (const range of ranges) {
-    if (uptoIndex != null && range.start > uptoIndex) break
-
-    const basePoints = points.slice(
-      range.start,
-      uptoIndex != null ? Math.min(range.end, uptoIndex) + 1 : range.end + 1,
-    )
-    const segmentPoints = buildWrappedCoordinates(basePoints)
-
-    if (uptoIndex != null && range.start <= uptoIndex && uptoIndex <= range.end && interpolatedPoint) {
-      const previous = segmentPoints[segmentPoints.length - 1]
-      const lng = previous ? wrapLngNear(previous[0], interpolatedPoint.lng) : interpolatedPoint.lng
-      segmentPoints.push([lng, interpolatedPoint.lat])
-    }
-
-    if (segmentPoints.length === 1) {
-      segmentPoints.push([...segmentPoints[0]] as [number, number])
-    }
-
-    if (segmentPoints.length >= 2) {
-      segments.push(segmentPoints)
-    }
-  }
-
-  if (segments.length === 0) {
-    return { type: 'LineString', coordinates: [] }
-  }
-
-  if (segments.length === 1) {
-    return {
-      type: 'LineString',
-      coordinates: segments[0],
-    }
-  }
-
-  return {
-    type: 'MultiLineString',
-    coordinates: segments,
-  }
 }
 
 function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
@@ -217,51 +131,13 @@ function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
 
 function removeTrackArtifacts(map: maplibregl.Map) {
   if (map.getLayer(POSITION_MARKER_LAYER)) map.removeLayer(POSITION_MARKER_LAYER)
-  if (map.getLayer('trail-line')) map.removeLayer('trail-line')
+  if (map.getLayer(TRAIL_HEAD_LAYER)) map.removeLayer(TRAIL_HEAD_LAYER)
+  if (map.getLayer(TRAIL_LAYER)) map.removeLayer(TRAIL_LAYER)
   if (map.getLayer('route-line')) map.removeLayer('route-line')
   if (map.getSource(POSITION_MARKER_SOURCE)) map.removeSource(POSITION_MARKER_SOURCE)
-  if (map.getSource('trail')) map.removeSource('trail')
+  if (map.getSource(TRAIL_HEAD_SOURCE)) map.removeSource(TRAIL_HEAD_SOURCE)
+  if (map.getSource(TRAIL_SOURCE)) map.removeSource(TRAIL_SOURCE)
   if (map.getSource('route')) map.removeSource('route')
-}
-
-/**
- * Build trail GeoJSON from precomputed segments up to a given segment index.
- * Shared by both the export path (renderFrameAndWait) and the playback path
- * (progress useEffect) to avoid logic duplication (N01/C18-F03).
- */
-function buildTrailGeoJSONFromSegments(
-  precomputedSegments: PrecomputedSegment[],
-  segmentIndex: number,
-  point: TrackPoint,
-): GeoJSON.LineString | GeoJSON.MultiLineString {
-  const trailSegments: [number, number][][] = []
-
-  for (const seg of precomputedSegments) {
-    if (seg.range.start > segmentIndex) break
-
-    if (seg.range.end <= segmentIndex) {
-      trailSegments.push(seg.coordinates)
-    } else {
-      const partialCoords: [number, number][] = []
-      for (let i = 0; i < seg.coordinates.length; i++) {
-        if (seg.range.start + i > segmentIndex) break
-        partialCoords.push(seg.coordinates[i])
-      }
-      const previous = partialCoords[partialCoords.length - 1]
-      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
-      partialCoords.push([lng, point.lat])
-      if (partialCoords.length === 1) {
-        partialCoords.push([...partialCoords[0]] as [number, number])
-      }
-      if (partialCoords.length >= 2) {
-        trailSegments.push(partialCoords)
-      }
-    }
-  }
-
-  return trailSegments.length <= 1
-    ? { type: 'LineString', coordinates: trailSegments[0] ?? [] }
-    : { type: 'MultiLineString', coordinates: trailSegments }
 }
 
 function markerPointFeature(point: TrackPoint): GeoJSON.Feature<GeoJSON.Point> {
@@ -484,6 +360,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const cumulDistRef = useRef<number[]>([])
   const precomputedSegmentsRef = useRef<PrecomputedSegment[]>([])
   const trackRef = useRef<Track | null>(track)
+  const progressRef = useRef(progress)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
   const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
@@ -514,6 +391,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     trackRef.current = track
   }, [track])
   useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
+  useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
@@ -526,6 +406,33 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     container.removeAttribute('inert')
     container.removeAttribute('aria-hidden')
   }, [allowInteractionWithoutTrack, mapError, track])
+
+  const updateTrailSources = useCallback((
+    map: maplibregl.Map,
+    segmentIndex: number,
+    point: TrackPoint,
+  ) => {
+    const completedSource = map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (segmentIndex !== lastTrailSegmentIndexRef.current) {
+      if (completedSource) {
+        completedSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: buildCompletedTrailGeometry(precomputedSegmentsRef.current, segmentIndex),
+        })
+        lastTrailSegmentIndexRef.current = segmentIndex
+      } else {
+        lastTrailSegmentIndexRef.current = -1
+      }
+    }
+
+    const activeHeadSource = map.getSource(TRAIL_HEAD_SOURCE) as maplibregl.GeoJSONSource | undefined
+    activeHeadSource?.setData({
+      type: 'Feature',
+      properties: {},
+      geometry: buildActiveTrailHeadGeometry(precomputedSegmentsRef.current, segmentIndex, point),
+    })
+  }, [])
 
 
   useImperativeHandle(ref, () => ({
@@ -542,64 +449,23 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     },
     renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => {
-      return new Promise<void>((resolve, reject) => {
-        const map = mapRef.current
-        if (!map) {
-          // Reject rather than resolve so the export loop can distinguish
-          // "frame ready" from "map unavailable" and abort cleanly.
-          reject(new DOMException('Map not available for frame render', 'AbortError'))
-          return
-        }
+      const map = mapRef.current
+      if (!map) {
+        return Promise.reject(new DOMException('Map not available for frame render', 'AbortError'))
+      }
 
-        // Imperatively update trail and marker for this export frame.
-        // During export the React progress effect is gated by isExporting,
-        // so we must update visual state here to produce a correct video.
+      return mutateMapAndWaitForRender(map, () => {
+        // During export the React progress effect is gated by isExporting, so
+        // all source and camera mutations for this frame happen atomically here.
         const track = trackRef.current
         const cumulDist = cumulDistRef.current
         if (track && cumulDist.length === track.points.length && cumulDist.length > 0) {
-          const result = interpolateAlongTrack(track.points, cumulDist, progress)
-          const { point, segmentIndex } = result
+          const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progress)
 
-          // Update marker position
           markerRef.current?.setLngLat([point.lng, point.lat])
           const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
           markerSource?.setData(markerPointFeature(point))
-
-          // Update trail
-          const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
-          const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
-          lastTrailSegmentIndexRef.current = segmentIndex
-          if (trailSource && segmentIndexChanged) {
-            trailSource.setData({
-              type: 'Feature',
-              properties: {},
-              geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
-            })
-          }
-        }
-
-        // If camera state is identical to current map state, resolve immediately
-        // — MapLibre won't repaint so the render event would never fire
-        const center = map.getCenter()
-        const current = {
-          lng: Math.round(center.lng * 1e6) / 1e6,
-          lat: Math.round(center.lat * 1e6) / 1e6,
-          zoom: Math.round(map.getZoom() * 1e3) / 1e3,
-          pitch: Math.round(map.getPitch() * 10) / 10,
-          bearing: Math.round(map.getBearing() * 10) / 10,
-        }
-        const next = {
-          lng: Math.round((state.center as [number, number])[0] * 1e6) / 1e6,
-          lat: Math.round((state.center as [number, number])[1] * 1e6) / 1e6,
-          zoom: Math.round(state.zoom * 1e3) / 1e3,
-          pitch: Math.round(state.pitch * 10) / 10,
-          bearing: Math.round(state.bearing * 10) / 10,
-        }
-        if (current.lng === next.lng && current.lat === next.lat
-          && current.zoom === next.zoom && current.pitch === next.pitch
-          && current.bearing === next.bearing) {
-          resolve()
-          return
+          updateTrailSources(map, segmentIndex, point)
         }
 
         map.jumpTo({
@@ -608,44 +474,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           pitch: state.pitch,
           bearing: state.bearing,
         })
-
-        let settled = false
-
-        const cleanup = () => {
-          if (settled) return
-          settled = true
-          map.off('render', onRender)
-          clearTimeout(timeoutId)
-          signal?.removeEventListener('abort', onAbort)
-        }
-
-        const onRender = () => {
-          cleanup()
-          // Wait one more rAF to ensure WebGL canvas is painted
-          requestAnimationFrame(() => resolve())
-        }
-
-        const onAbort = () => {
-          cleanup()
-          reject(new DOMException('Export cancelled', 'AbortError'))
-        }
-
-        // Timeout: if MapLibre never fires a render event (e.g. identical state
-        // slipped through rounding), resolve anyway after 5s. A duplicate frame
-        // is acceptable for export; a deadlock is not.
-        const timeoutId = setTimeout(() => {
-          cleanup()
-          resolve()
-        }, 5000)
-
-        if (signal?.aborted) {
-          onAbort()
-          return
-        }
-
-        signal?.addEventListener('abort', onAbort, { once: true })
-        map.once('render', onRender)
-      })
+      }, { signal })
     },
     clearTrackArtifacts: () => {
       const map = mapRef.current
@@ -656,6 +485,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       cumulDistRef.current = []
       precomputedSegmentsRef.current = []
+      lastTrailSegmentIndexRef.current = -1
     },
     resize: (width: number, height: number) => {
       const map = mapRef.current
@@ -867,9 +697,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
-    // Start with empty trail — the progress effect will populate it on the
-    // first render, avoiding an unnecessary geometry construction at index 0.
-    const emptyTrailGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
+    const emptyLineGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
 
     // Full route line
     if (map.getSource('route')) {
@@ -901,25 +729,55 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     // Trail (traveled portion)
-    if (map.getSource('trail')) {
-      (map.getSource('trail') as maplibregl.GeoJSONSource).setData({
+    if (map.getSource(TRAIL_SOURCE)) {
+      (map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
         properties: {},
-        geometry: emptyTrailGeometry,
+        geometry: emptyLineGeometry,
       })
     } else {
-      map.addSource('trail', {
+      map.addSource(TRAIL_SOURCE, {
         type: 'geojson',
         data: {
           type: 'Feature',
           properties: {},
-          geometry: emptyTrailGeometry,
+          geometry: emptyLineGeometry,
         },
       })
       map.addLayer({
-        id: 'trail-line',
+        id: TRAIL_LAYER,
         type: 'line',
-        source: 'trail',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': TRAIL_COLOR,
+          'line-width': 6,
+          'line-opacity': 1,
+        },
+      })
+    }
+
+    // The completed source changes only when playback crosses a vertex. The
+    // active-head source stays at two coordinates and follows every frame.
+    if (map.getSource(TRAIL_HEAD_SOURCE)) {
+      (map.getSource(TRAIL_HEAD_SOURCE) as maplibregl.GeoJSONSource).setData({
+        type: 'Feature',
+        properties: {},
+        geometry: emptyLineGeometry,
+      })
+    } else {
+      map.addSource(TRAIL_HEAD_SOURCE, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: emptyLineGeometry,
+        },
+      })
+      map.addLayer({
+        id: TRAIL_HEAD_LAYER,
+        type: 'line',
+        source: TRAIL_HEAD_SOURCE,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': TRAIL_COLOR,
@@ -949,7 +807,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       })
     }
-  }, [])
+
+    lastTrailSegmentIndexRef.current = -1
+    const cumulDist = cumulDistRef.current
+    if (cumulDist.length === track.points.length && cumulDist.length > 0) {
+      const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progressRef.current)
+      updateTrailSources(map, segmentIndex, point)
+    }
+  }, [updateTrailSources])
 
   const ensureMarker = useCallback((map: maplibregl.Map, startPoint: Track['points'][number]) => {
     if (!markerEl.current) {
@@ -994,6 +859,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     cumulDistRef.current = cumulativeDistancesProp ?? []
     precomputedSegmentsRef.current = precomputeWrappedSegments(track.points, track.segmentStartIndices)
+    lastTrailSegmentIndexRef.current = -1
 
     const attachTrackToReadyStyle = () => {
       if (!map.isStyleLoaded()) {
@@ -1054,7 +920,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0 || cumulDistRef.current.length !== track.points.length) return
 
-    if (!map.getSource('trail') || !map.getSource('route')) return
+    if (!map.getSource(TRAIL_SOURCE) || !map.getSource(TRAIL_HEAD_SOURCE) || !map.getSource('route')) return
 
     ensureMarker(map, track.points[0])
 
@@ -1066,18 +932,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
     markerSource?.setData(markerPointFeature(point))
 
-    // Update trail — skip expensive GeoJSON rebuild when segment index hasn't
-    // changed since the last trail update (marker-only updates are cheap above).
-    const trailSource = map.getSource('trail') as maplibregl.GeoJSONSource | undefined
-    const segmentIndexChanged = segmentIndex !== lastTrailSegmentIndexRef.current
-    lastTrailSegmentIndexRef.current = segmentIndex
-    if (trailSource && segmentIndexChanged) {
-      trailSource.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: buildTrailGeoJSONFromSegments(precomputedSegmentsRef.current, segmentIndex, point),
-      })
-    }
+    updateTrailSources(map, segmentIndex, point)
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
     if (followCamera && !suspendAutoCamera) {
@@ -1158,8 +1013,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of per-frame re-execution if their deps ever change. The effect already handles missing layers via the isStyleLoaded + layer-existence guard above.
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting, ensureMarker, updateTrailSources])
 
   return (
     <div
