@@ -334,6 +334,7 @@ function TimelineSelector({
 
   const applyDrag = useCallback(
     (clientX: number) => {
+      if (!dragState.current.dragging) return
       lastDragClientXRef.current = clientX
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
@@ -380,16 +381,32 @@ function TimelineSelector({
     lastDragClientXRef.current = clientX
   }, [showHint, dismissHint])
 
-  const endDrag = useCallback(() => {
-    const finalClientX = lastDragClientXRef.current
+  const clearPendingDragFrame = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    lastDragClientXRef.current = null
+  }, [])
+
+  const endDrag = useCallback(() => {
+    if (!dragState.current.dragging) {
+      clearPendingDragFrame()
+      dragMovedRef.current = false
+      return
+    }
+
+    const finalClientX = lastDragClientXRef.current
     const wasRegion = dragState.current.dragging === 'region'
     const originX = dragState.current.originX
+    clearPendingDragFrame()
     const flushedFinalDrag = finalClientX != null && applyDragNow(finalClientX)
-    dragState.current.dragging = null
+    dragState.current = {
+      dragging: null,
+      originX: 0,
+      originStart: ratioRef.current.start,
+      originEnd: ratioRef.current.end,
+    }
     if ((flushedFinalDrag || dragMovedRef.current) && points.length > 0) {
       const { start, end } = ratioRef.current
       const { startIdx, endIdx } = resolveIndexesForRatios(start, end)
@@ -407,14 +424,30 @@ function TimelineSelector({
       }
     }
     dragMovedRef.current = false
-    lastDragClientXRef.current = null
-  }, [applyDragNow, resolveIndexesForRatios, points.length, onSeek])
+  }, [applyDragNow, clearPendingDragFrame, resolveIndexesForRatios, points.length, onSeek])
+
+  const cancelDrag = useCallback(() => {
+    const { dragging, originStart, originEnd } = dragState.current
+    clearPendingDragFrame()
+    dragMovedRef.current = false
+    dragState.current = {
+      dragging: null,
+      originX: 0,
+      originStart,
+      originEnd,
+    }
+    if (dragging) applyRatioState(originStart, originEnd)
+  }, [applyRatioState, clearPendingDragFrame])
 
   // Global mouse/touch listeners for drag
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => applyDrag(e.clientX)
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragState.current.dragging) return
+      applyDrag(e.clientX)
+    }
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) applyDrag(e.touches[0].clientX)
+      if (!dragState.current.dragging || e.touches.length === 0) return
+      applyDrag(e.touches[0].clientX)
     }
     const onUp = () => endDrag()
 
@@ -422,17 +455,20 @@ function TimelineSelector({
     window.addEventListener('mouseup', onUp)
     window.addEventListener('touchmove', onTouchMove, { passive: true })
     window.addEventListener('touchend', onUp)
+    window.addEventListener('touchcancel', cancelDrag)
+    window.addEventListener('blur', cancelDrag)
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
+      clearPendingDragFrame()
+      dragState.current.dragging = null
+      dragMovedRef.current = false
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onUp)
       window.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('touchend', onUp)
+      window.removeEventListener('touchcancel', cancelDrag)
+      window.removeEventListener('blur', cancelDrag)
     }
-  }, [applyDrag, endDrag])
+  }, [applyDrag, cancelDrag, clearPendingDragFrame, endDrag])
 
   // Memoize range index resolution to avoid redundant binary searches during drag
   const { startIdx, endIdx } = useMemo(() => resolveRangeIndexes(), [resolveRangeIndexes])

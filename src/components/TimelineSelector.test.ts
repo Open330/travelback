@@ -1,5 +1,107 @@
-import { describe, expect, it } from 'vitest'
-import { clampTimelineRatios, indexToRatio, minimumTimelineRatioGap, ratioToIndex } from './TimelineSelector'
+// @vitest-environment jsdom
+
+import { act, createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Track } from '@/types'
+
+vi.mock('@/lib/i18n', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/i18n')>(),
+  useLocale: () => ({ t: (key: string) => key, locale: 'en' }),
+}))
+
+import TimelineSelector, { clampTimelineRatios, indexToRatio, minimumTimelineRatioGap, ratioToIndex } from './TimelineSelector'
+
+;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+let root: Root | null = null
+let container: HTMLDivElement | null = null
+let nextFrameId = 1
+let animationFrames = new Map<number, FrameRequestCallback>()
+
+const TRACK: Track = {
+  name: 'Timeline test',
+  points: [
+    { lat: 37, lng: 127 },
+    { lat: 37.1, lng: 127.1 },
+    { lat: 37.2, lng: 127.2 },
+    { lat: 37.3, lng: 127.3 },
+    { lat: 37.4, lng: 127.4 },
+  ],
+}
+const CUMULATIVE_DISTANCES = [0, 10, 20, 30, 40]
+
+function touchEvent(type: string, clientX?: number) {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  const touches = clientX == null ? [] : [{ clientX }]
+  Object.defineProperties(event, {
+    touches: { value: touches },
+    changedTouches: { value: touches },
+  })
+  return event
+}
+
+async function flushAnimationFrames() {
+  const callbacks = [...animationFrames.values()]
+  animationFrames.clear()
+  await act(() => {
+    for (const callback of callbacks) callback(performance.now())
+  })
+}
+
+async function renderTimeline(onRangeChange = vi.fn()) {
+  localStorage.setItem('travelback-timeline-hint-dismissed', '1')
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(() => root?.render(createElement(TimelineSelector, {
+    track: TRACK,
+    cumulativeDistances: CUMULATIVE_DISTANCES,
+    acceptedRange: { startIdx: 1, endIdx: 3 },
+    onRangeChange,
+  })))
+
+  const timeline = container.querySelector<HTMLElement>('[data-testid="timeline-selector"] > div')
+  const startHandle = container.querySelector<HTMLElement>('[data-testid="timeline-start-handle"]')
+  const endHandle = container.querySelector<HTMLElement>('[data-testid="timeline-end-handle"]')
+  if (!timeline || !startHandle || !endHandle) throw new Error('Missing timeline controls')
+  timeline.getBoundingClientRect = () => ({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 100,
+    bottom: 48,
+    width: 100,
+    height: 48,
+    toJSON: () => ({}),
+  })
+  onRangeChange.mockClear()
+  return { onRangeChange, startHandle, endHandle }
+}
+
+beforeEach(() => {
+  nextFrameId = 1
+  animationFrames = new Map()
+  vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+    const id = nextFrameId++
+    animationFrames.set(id, callback)
+    return id
+  }))
+  vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+    animationFrames.delete(id)
+  }))
+})
+
+afterEach(async () => {
+  if (root) await act(() => root?.unmount())
+  container?.remove()
+  root = null
+  container = null
+  localStorage.clear()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe('ratioToIndex', () => {
   const cumulativeDistances = [0, 10, 20, 30, 40]
@@ -59,5 +161,74 @@ describe('clampTimelineRatios', () => {
 
   it('falls back to index space for an all-zero-distance track', () => {
     expect(minimumTimelineRatioGap([0, 0, 0], 3)).toBe(0.5)
+  })
+})
+
+describe('TimelineSelector drag lifecycle', () => {
+  it('restores the origin and never commits a cancelled touch drag', async () => {
+    const { onRangeChange, endHandle } = await renderTimeline()
+
+    await act(() => endHandle.dispatchEvent(touchEvent('touchstart', 75)))
+    await act(() => window.dispatchEvent(touchEvent('touchmove', 90)))
+    await flushAnimationFrames()
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('90')
+
+    await act(() => window.dispatchEvent(touchEvent('touchmove', 95)))
+    expect(animationFrames.size).toBe(1)
+    await act(() => window.dispatchEvent(touchEvent('touchcancel')))
+
+    expect(animationFrames.size).toBe(0)
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('75')
+    expect(onRangeChange).not.toHaveBeenCalled()
+
+    vi.mocked(requestAnimationFrame).mockClear()
+    await act(() => window.dispatchEvent(touchEvent('touchend')))
+    await act(() => window.dispatchEvent(touchEvent('touchmove', 10)))
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
+    expect(onRangeChange).not.toHaveBeenCalled()
+  })
+
+  it('restores the origin without committing when the window blurs', async () => {
+    const { onRangeChange, startHandle } = await renderTimeline()
+
+    await act(() => startHandle.dispatchEvent(new MouseEvent('mousedown', {
+      bubbles: true,
+      clientX: 25,
+    })))
+    await act(() => window.dispatchEvent(new MouseEvent('mousemove', { clientX: 10 })))
+    await flushAnimationFrames()
+    expect(startHandle.getAttribute('aria-valuenow')).toBe('10')
+
+    await act(() => window.dispatchEvent(new Event('blur')))
+    expect(startHandle.getAttribute('aria-valuenow')).toBe('25')
+    expect(onRangeChange).not.toHaveBeenCalled()
+  })
+
+  it('commits an ordinary drag exactly once', async () => {
+    const { onRangeChange, endHandle } = await renderTimeline()
+
+    await act(() => endHandle.dispatchEvent(new MouseEvent('mousedown', {
+      bubbles: true,
+      clientX: 75,
+    })))
+    await act(() => window.dispatchEvent(new MouseEvent('mousemove', { clientX: 90 })))
+    await act(() => window.dispatchEvent(new MouseEvent('mouseup')))
+    await act(() => window.dispatchEvent(new MouseEvent('mouseup')))
+    await act(() => window.dispatchEvent(new Event('blur')))
+
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('90')
+    expect(onRangeChange).toHaveBeenCalledOnce()
+    expect(onRangeChange).toHaveBeenCalledWith(1, 4)
+  })
+
+  it('does not schedule animation frames for idle global movement', async () => {
+    await renderTimeline()
+    vi.mocked(requestAnimationFrame).mockClear()
+
+    await act(() => window.dispatchEvent(new MouseEvent('mousemove', { clientX: 80 })))
+    await act(() => window.dispatchEvent(touchEvent('touchmove', 80)))
+
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
+    expect(animationFrames.size).toBe(0)
   })
 })
