@@ -518,6 +518,11 @@ body {
   transform: translateY(1px) scale(.995);
 }
 
+.gi.nh:hover,
+.gi.nh:active {
+  transform: none;
+}
+
 .go {
   backdrop-filter: blur(48px) saturate(190%);
   -webkit-backdrop-filter: blur(48px) saturate(190%);

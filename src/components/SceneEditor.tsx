@@ -340,7 +340,6 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
 
@@ -405,15 +404,6 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   const handleTouchCancel = useCallback(() => {
     touchStartRef.current = null
   }, [])
-
-  // Auto-clear undo after 5 seconds
-  useEffect(() => {
-    if (!deletedScene) return
-    // Clear any previous timer before setting a new one
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
-    undoTimerRef.current = setTimeout(() => setDeletedScene(null), 5000)
-    return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current) }
-  }, [deletedScene])
 
   const addScene = useCallback(() => {
     const last = scenes[scenes.length - 1]
@@ -646,7 +636,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {scenes.map((scene) => (
           <div key={scene.id}
-            className="gi p-3 space-y-2" style={{ borderRadius: '10px' }}>
+            className="gi nh p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
               <input value={scene.name}
                 aria-label={`${t('scenes.title')} ${scene.name}`}
