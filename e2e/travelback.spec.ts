@@ -1595,6 +1595,9 @@ test.describe('Travelback App', () => {
     const endHandle = page.getByTestId('timeline-end-handle')
     await expect(page.getByTestId('timeline-start-handle')).toHaveAttribute('aria-valuetext', /Start of range/)
     await expect(endHandle).toHaveAttribute('aria-valuetext', /End of range/)
+    const initialEndDate = (await page.getByTestId('timeline-end-date').textContent())?.trim()
+    if (!initialEndDate) throw new Error('Missing initial timeline end date')
+    await expect(endHandle).toHaveAttribute('aria-valuetext', new RegExp(initialEndDate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     await endHandle.focus()
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press('ArrowLeft')
@@ -1604,6 +1607,10 @@ test.describe('Travelback App', () => {
       const counts = await loadedTrackPointCounts(page)
       return counts.visible
     }, { timeout: 10_000, intervals: [120, 200, 300] }).toBeLessThan(20)
+    const updatedEndDate = (await page.getByTestId('timeline-end-date').textContent())?.trim()
+    if (!updatedEndDate) throw new Error('Missing updated timeline end date')
+    expect(updatedEndDate).not.toBe(initialEndDate)
+    await expect(endHandle).toHaveAttribute('aria-valuetext', new RegExp(updatedEndDate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     await expect(playbackProgress).toHaveValue('0')
     expect(await page.evaluate(() => {
       const testWindow = window as Window & { __timelineBubbledKeys?: string[] }

@@ -139,6 +139,11 @@ function formatDate(date: Date | undefined, locale?: string): string {
   })
 }
 
+function formatHandleValue(percent: number, label: string, date: Date | undefined, locale?: string): string {
+  const formattedDate = formatDate(date, locale)
+  return formattedDate ? `${percent}% ${label}: ${formattedDate}` : `${percent}% ${label}`
+}
+
 function TimelineSelector({
   track,
   cumulativeDistances,
@@ -555,7 +560,12 @@ function TimelineSelector({
           tabIndex={0}
           aria-label={t('timeline.startHandle')}
           aria-valuenow={Math.round(startRatio * 100)}
-          aria-valuetext={`${Math.round(startRatio * 100)}% ${t('timeline.startHandle')}`}
+          aria-valuetext={formatHandleValue(
+            Math.round(startRatio * 100),
+            t('timeline.startHandle'),
+            startDate,
+            locale,
+          )}
           aria-valuemin={0}
           aria-valuemax={Math.round(endRatio * 100)}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
@@ -612,7 +622,12 @@ function TimelineSelector({
           tabIndex={0}
           aria-label={t('timeline.endHandle')}
           aria-valuenow={Math.round(endRatio * 100)}
-          aria-valuetext={`${Math.round(endRatio * 100)}% ${t('timeline.endHandle')}`}
+          aria-valuetext={formatHandleValue(
+            Math.round(endRatio * 100),
+            t('timeline.endHandle'),
+            endDate,
+            locale,
+          )}
           aria-valuemin={Math.round(startRatio * 100)}
           aria-valuemax={100}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"

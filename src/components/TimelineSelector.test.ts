@@ -29,6 +29,13 @@ const TRACK: Track = {
     { lat: 37.4, lng: 127.4 },
   ],
 }
+const TIMED_TRACK: Track = {
+  ...TRACK,
+  points: TRACK.points.map((point, index) => ({
+    ...point,
+    time: new Date(`2024-01-15T${String(index).padStart(2, '0')}:00:00Z`),
+  })),
+}
 const CUMULATIVE_DISTANCES = [0, 10, 20, 30, 40]
 
 function touchEvent(type: string, clientX?: number) {
@@ -49,13 +56,13 @@ async function flushAnimationFrames() {
   })
 }
 
-async function renderTimeline(onRangeChange = vi.fn()) {
+async function renderTimeline(onRangeChange = vi.fn(), track = TRACK) {
   localStorage.setItem('travelback-timeline-hint-dismissed', '1')
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
   await act(() => root?.render(createElement(TimelineSelector, {
-    track: TRACK,
+    track,
     cumulativeDistances: CUMULATIVE_DISTANCES,
     acceptedRange: { startIdx: 1, endIdx: 3 },
     onRangeChange,
@@ -230,5 +237,34 @@ describe('TimelineSelector drag lifecycle', () => {
 
     expect(requestAnimationFrame).not.toHaveBeenCalled()
     expect(animationFrames.size).toBe(0)
+  })
+})
+
+describe('TimelineSelector accessible endpoint values', () => {
+  it('keeps each dated handle value aligned with its visible endpoint', async () => {
+    const { startHandle, endHandle } = await renderTimeline(vi.fn(), TIMED_TRACK)
+    const startDate = container?.querySelector<HTMLElement>('[data-testid="timeline-start-date"]')
+    const endDate = container?.querySelector<HTMLElement>('[data-testid="timeline-end-date"]')
+    if (!startDate || !endDate) throw new Error('Missing visible timeline dates')
+
+    expect(startHandle.getAttribute('aria-valuetext')).toContain(startDate.textContent)
+    expect(endHandle.getAttribute('aria-valuetext')).toContain(endDate.textContent)
+    const initialEndDate = endDate.textContent
+
+    await act(() => endHandle.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Home',
+      bubbles: true,
+    })))
+
+    expect(endDate.textContent).not.toBe(initialEndDate)
+    expect(endHandle.getAttribute('aria-valuetext')).toContain(endDate.textContent)
+  })
+
+  it('retains a localized percentage fallback for a timeless track', async () => {
+    const { startHandle, endHandle } = await renderTimeline()
+
+    expect(startHandle.getAttribute('aria-valuetext')).toBe('25% timeline.startHandle')
+    expect(endHandle.getAttribute('aria-valuetext')).toBe('75% timeline.endHandle')
+    expect(container?.querySelector('[data-testid="timeline-date-row"]')).toBeNull()
   })
 })
