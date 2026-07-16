@@ -49,3 +49,6 @@ archived into their respective cycle implementation plans once addressed.
   pre-existing trees are safe to remove.
 - No listed path is deleted during Cycle 6. Remove only at the loop's final
   stop condition, after re-verifying provenance and primary-worktree health.
+- Cycle 8 status: ingested into `cycle8-implementation-2026-07-17.md` and
+  retained for the loop's final stop condition. Cycle 8 review created no new
+  temporary filesystem path. This item remains incomplete.

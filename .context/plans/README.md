@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle8-implementation-2026-07-17.md` — Implement the 4 Cycle 8 findings covering untimed revisit preservation, bounded post-drag suppression, deterministic locale hydration, and reviewed Spanish copy; full gates and final-cleanup retention required
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
