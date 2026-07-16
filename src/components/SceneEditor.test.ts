@@ -3,13 +3,20 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_CAMERA_PARAMS, type Scene } from '@/types'
 
-vi.mock('@/lib/i18n', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@/lib/i18n')>(),
-  useLocale: () => ({ t: (key: string) => key }),
-}))
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/i18n')>()
+  return {
+    ...original,
+    useLocale: () => ({
+      locale: 'ko',
+      t: (key: keyof typeof original.translations.en) => original.translations.ko[key] ?? key,
+    }),
+  }
+})
 
-import { SceneRangeEditor } from './SceneEditor'
+import SceneEditor, { SceneRangeEditor } from './SceneEditor'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -122,5 +129,61 @@ describe('SceneRangeEditor pointer lifecycle', () => {
 
     expect(onChange).toHaveBeenLastCalledWith(0, 0.5)
     expect(onCommit).not.toHaveBeenCalled()
+  })
+})
+
+describe('SceneEditor normalization feedback', () => {
+  it('localizes adjusted start and end boundaries in visible and live feedback', async () => {
+    const scenes: Scene[] = [
+      {
+        id: 'first',
+        name: '첫 번째',
+        cameraMode: 'flyover',
+        startPercent: 0,
+        endPercent: 0.6,
+        params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+      },
+      {
+        id: 'second',
+        name: '두 번째',
+        cameraMode: 'orbit',
+        startPercent: 0.5,
+        endPercent: 1.2,
+        params: { ...DEFAULT_CAMERA_PARAMS.orbit },
+      },
+    ]
+    const onChange = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(SceneEditor, {
+      scenes,
+      onChange,
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    })))
+
+    const nameInput = container.querySelector<HTMLInputElement>('input[value="첫 번째"]')
+    if (!nameInput) throw new Error('Missing first scene name input')
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(nameInput, '첫 번째 수정')
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    const expectedStart = '"두 번째" 장면의 시작이 50%에서 60%로 조정되었습니다.'
+    const expectedEnd = '"두 번째" 장면의 끝이 120%에서 100%로 조정되었습니다.'
+    const status = container.querySelector('[data-testid="scene-editor-status"]')
+    expect(status?.textContent).toContain(expectedStart)
+    expect(status?.textContent).toContain(expectedEnd)
+    expect(status?.textContent).not.toMatch(/\bstart:|\bend:/i)
+    const visibleWarnings = [...container.querySelectorAll('p')]
+      .map(element => element.textContent ?? '')
+      .join(' ')
+    expect(visibleWarnings).toContain(expectedStart)
+    expect(visibleWarnings).toContain(expectedEnd)
+    expect(onChange).toHaveBeenCalledOnce()
   })
 })

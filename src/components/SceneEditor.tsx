@@ -37,6 +37,13 @@ function scenesWereAdjusted(inputScenes: Scene[], normalizedScenes: Scene[]): bo
   })
 }
 
+function formatSceneAdjustment(template: string, sceneName: string, from: number, to: number) {
+  return template
+    .replace('{name}', sceneName)
+    .replace('{from}', String(Math.round(from * 100)))
+    .replace('{to}', String(Math.round(to * 100)))
+}
+
 /** Small inline SVG icons for each camera mode */
 function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }) {
   const s = { width: size, height: size, flexShrink: 0 }
@@ -367,10 +374,20 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
           const startDiff = Math.abs(norm.startPercent - orig.startPercent)
           const endDiff = Math.abs(norm.endPercent - orig.endPercent)
           if (startDiff > 0.001) {
-            w.push(`"${orig.name}" start: ${Math.round(orig.startPercent * 100)}% → ${Math.round(norm.startPercent * 100)}%`)
+            w.push(formatSceneAdjustment(
+              t('scenes.startAdjusted'),
+              orig.name,
+              orig.startPercent,
+              norm.startPercent,
+            ))
           }
           if (endDiff > 0.001) {
-            w.push(`"${orig.name}" end: ${Math.round(orig.endPercent * 100)}% → ${Math.round(norm.endPercent * 100)}%`)
+            w.push(formatSceneAdjustment(
+              t('scenes.endAdjusted'),
+              orig.name,
+              orig.endPercent,
+              norm.endPercent,
+            ))
           }
         }
         // Fallback if no specific diff found (should not happen)
