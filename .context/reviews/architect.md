@@ -1,44 +1,39 @@
-# Architect Review — Cycle 4 (2026-07-16)
+# Architect Review — Cycle 5 (2026-07-16)
+
+Reviewed revision: bdfb1d7
 
 ## Result
 
-**New architecture findings: 0.** Current boundaries remain coherent for a client-only application. Three already-known correctness carryovers expose ownership gaps; they are summarized here as architectural implications, not counted again as independent findings.
+**New architecture findings: 1.** ARCH5-01 is the same deduplicated underlying defect as CR5-01: map construction, style readiness, and current-pose hydration are separate ownership events, so a ready style can expose incomplete session state.
 
 ## System coverage
 
-Reviewed the client-only trust boundary, parser/worker parity, session replacement, full-versus-filtered track models, segmented distance and camera math, React state ownership, MapLibre adapter and gesture lifecycles, scene history, export adapter/finalization, static-output hardening, workflow/configuration, and the active deferred register at `4917d39`.
+Reviewed the client-only trust boundary, parser/worker parity, import and session replacement, full-versus-trimmed track models, segmented distance/camera math, React state ownership, MapLibre instance/style/overlay lifecycles, Journey Creator gestures, playback, scene history, export ownership/finalization, static hardening, workflow/configuration, and the active blocked/deferred register. The change-focused review covered the complete Cycle 4 implementation range through bdfb1d7.
 
-Local lint and all 352 unit tests passed. Typecheck could not be independently evaluated while another review process was mutating Next's generated `.next/dev/types/routes.d.ts`; no source-level architectural conclusion is drawn from that shared artifact.
+## Finding
 
-## Carryover boundary analysis
+### ARCH5-01 — Map generation is signaled at construction while pose hydration requires style readiness
 
-### ARCH4-CARRY-01 — Gesture settlement is effect-local rather than transaction-owned
+Severity: **Medium** | Confidence: **High** | Status: **Confirmed architectural ownership split**
 
-Related code carryover: `CR4-CARRY-03`
-Evidence: `src/components/JourneyCreator.tsx:360-399`, `src/components/JourneyCreator.tsx:519-531`
+Related code finding: CR5-01
 
-The map setup effect owns `activeDragInput`, transient listeners, cursor state, and `dragPan`, while toolbar actions live outside that owner. This prevents Undo and Clear from atomically terminating the same gesture transaction before mutating route state.
+Evidence:
 
-Recommended boundary: one idempotent Journey Creator interaction controller (or a settlement ref with a strict lifetime contract) should own acquisition, move, and release. Every terminal path—map/window terminal events, Undo, Clear, Cancel, Done, style reload, and unmount—must invoke that same release operation.
+- src/components/MapView.tsx:582-602 constructs a MapLibre instance and immediately announces onMapInstanceChange before its style is ready.
+- src/app/page.tsx:169-172 and src/components/JourneyCreator.tsx:160,528 correctly use that generation to rebind the Journey Creator, but it is not a style-ready/current-state commit signal.
+- src/components/MapView.tsx:702-817 owns source/layer creation and restores only route/trail state at saved progress while seeding the current-position source at the route start.
+- src/components/MapView.tsx:844-906 owns asynchronous style attachment and retry fit/marker creation.
+- src/components/MapView.tsx:914-1009 separately owns marker pose and follow/scene camera application, but style readiness is absent from its dependency model.
 
-### ARCH4-CARRY-02 — Export state has presentation ownership but no exclusive runtime owner
+The boundary has three meanings of ready: the map object exists, its style owns layers, and the current session pose is committed. Consumers and tests observe the first or second state, while user-visible correctness requires the third.
 
-Related code carryover: `CR4-CARRY-01`
-Evidence: `src/lib/useExportController.ts:131-146`, `src/lib/useExportController.ts:279-318`
+Failure scenario: a paused nonzero-progress session receives an ordinary style replacement or in-app retry. The layer transaction completes later without atomically publishing the corresponding marker and camera state. Retry recreates marker and camera from initial/bounds state; ordinary replacement can split HTML and GeoJSON marker positions.
 
-`isExporting` describes UI state after React commits, whereas `exportAbortRef` is the actual runtime capability. Because acquisition is not atomic, two asynchronous transactions may control one map/canvas and one cleanup path.
+Recommended boundary: define one idempotent MapView hydration transaction that runs only after the active map generation's style owns all required sources. Commit route, trail, HTML marker, GeoJSON/export marker, and current automatic camera from the same progress snapshot. Publish readiness only afterward, or drive the pose owner with a style-generation token. Ignore stale callbacks by map/style generation identity.
 
-Recommended boundary: treat the abort controller (or a monotonically identified export session) as the exclusive lease. Acquire synchronously before any shared mutation, scope progress/finalization to that lease, and release conditionally by identity.
+Required regression: verify a nonzero paused pose across both ordinary style reload and failed-style in-app retry, including source/layer presence, both marker representations, trail agreement, and follow/scene camera state.
 
-### ARCH4-CARRY-03 — Parser source precedence is structural rather than result-based
+## Existing strategic deferrals and final sweep
 
-Related code carryover: `CR4-CARRY-02`
-Evidence: `src/lib/googleJsonParser.ts:97-123`
-
-The parser encodes precedence with nested property-existence branches. That conflates “representation exists” with “representation yielded usable points,” preventing graceful degradation across evolving Google export shapes.
-
-Recommended boundary: give each representation a small decoder returning accepted points/result metadata, then select the first non-empty successful result. Keep this policy in the TypeScript source and enforce generated-worker parity through the existing worker check.
-
-## Existing strategic deferrals
-
-Root-owned playback progress, large-component decomposition, elevation downsampling, parser peak-memory work, and the separate export-capture strategy remain in the active deferred register. Current changes neither resolve nor worsen them, so they are not reopened here.
+B01-B04 and D01-D03 remain blocked, evidence-gated, or explicitly deferred with unchanged exit criteria. Root playback ownership, elevation downsampling, and drag-distance complexity were inspected for regressions but not reopened without new profile evidence. No second architectural finding met the threshold.

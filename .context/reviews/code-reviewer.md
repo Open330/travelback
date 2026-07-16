@@ -1,63 +1,38 @@
-# Code Reviewer — Deep Review (Cycle 4, 2026-07-16)
+# Code Reviewer — Deep Review (Cycle 5, 2026-07-16)
+
+Reviewed revision: bdfb1d7
 
 ## Result
 
-**New findings: 0.** Three deterministic defects remain on `4917d39`, but each has prior review or plan provenance and is therefore recorded as an unresolved **CARRYOVER**, not a Cycle 4 discovery. No fixed finding or evidence-blocked item is reopened.
+**New findings: 1.** CR5-01 is a Medium-severity, High-confidence regression gap in the Cycle 4 map-generation fix. No fixed parser, export, gesture, keyboard, trim, scene-editor, or test-harness finding was reopened.
 
 ## Inventory and coverage
 
-Reviewed the complete current application surface: all 53 tracked `src/` files (including 15 unit-test files), 19 E2E files and fixtures, 19 public assets, 7 scripts, package/configuration files, the Pages workflow, README, and the active context documents. Cross-file review covered import and session replacement, Google semantic parsing, segmented interpolation and camera bearings, map ownership and gesture settlement, timeline cancellation, playback, scene editing, export encoding/finalization, static-output hardening, and test coverage.
+Reviewed all 53 tracked src files, including 15 unit-test files; the Playwright specification and all 18 fixtures; 19 public assets; 7 scripts; package, TypeScript, lint, Next, Vitest, and Playwright configuration; the Pages workflow; README; and active project, development, review, and plan context. The change-focused pass covered every file changed from e3f21ba through bdfb1d7 and traced import/session replacement, parser and worker parity, segmented interpolation, MapLibre construction/style readiness, Journey Creator ownership, playback, scenes, export, static hardening, and regression assertions.
 
-Validation on this head:
+The source at bdfb1d7 is identical to the exact source revision c6eec45 for which the Cycle 4 plan records lint, typecheck, 366 unit tests, audit, build, static smoke, and both 92-test E2E suites as passing. This review used those results as existing evidence and did not claim a new independent full-matrix run.
 
-- `npm run lint`: passed.
-- `npm test`: passed, 15 files and 352 tests.
-- `npm run typecheck`: could not produce independent evidence because another active review process was running `next dev` and concurrently regenerating `.next/dev/types/routes.d.ts`. The generated file was observed mid-write. This is a shared-artifact verification limitation, not a source finding.
+## Finding
 
-## Unresolved carryovers confirmed on current HEAD
+### CR5-01 — Style readiness restores layers but not the current playback pose
 
-### CR4-CARRY-01 — Export startup has no synchronous single-owner guard
+Severity: **Medium** | Confidence: **High** | Status: **Confirmed by deterministic source control flow**
 
-Severity: Medium | Confidence: High | Status: Confirmed carryover
+Evidence:
 
-Current evidence: `src/lib/useExportController.ts:131-146`, `src/lib/useExportController.ts:279-318`
-Prior provenance: `.context/reviews/cycle2-code-reviewer-2026-04-25.md:60-70`
+- src/components/MapView.tsx:791-809 initializes the GeoJSON current-position source at track.points[0].
+- src/components/MapView.tsx:812-817 reapplies only the traveled trail at progressRef.current; it does not update either marker representation or the camera.
+- src/components/MapView.tsx:865-881 runs after a replacement style becomes ready, fits the whole route, removes the old HTML marker, and recreates it at track.points[0].
+- src/components/MapView.tsx:914-1009 is the only transaction that places the HTML and GeoJSON markers at the interpolated point and applies follow/scene camera state. On map retry it runs before the new style owns route/trail sources and returns at line 924. Style readiness changes none of its dependencies, so it does not run again while playback is paused.
+- src/components/MapView.tsx:676-700 has the same readiness split for an ordinary setStyle call: the later style-load handler adds sources at the route start without causing the pose effect to rerun.
+- e2e/travelback.spec.ts:429-442 asserts only one canvas and one HTML marker after retry. It never seeks to nonzero progress or checks marker coordinates, the GeoJSON marker, trail/marker agreement, or follow-camera parity.
 
-`exportTrack()` checks the map and track but not whether another export already owns the pipeline. React does not synchronously commit `setIsExporting(true)`, so two activations in the same event/render window can both pass. The second call overwrites `exportAbortRef.current`; both jobs then resize and render through the same map/canvas, and either `finally` can clear the other job's controller and reset shared map/playback state.
+Failure scenario: pause a trip at 50% with camera follow enabled, then trigger a style failure and use Retry Map. Once the new style loads, the route and progressed trail are present, but both markers are at the first point and the camera is fit to route bounds instead of the 50% follow/scene pose. They remain stale until progress, seek, follow, export, or another listed dependency changes. With an ordinary style switch at paused nonzero progress, the HTML marker can remain current while the recreated GeoJSON marker resets to the first point, leaving the two render paths inconsistent.
 
-Failure scenario: double-click or same-tick programmatic activation starts exports A and B. Cancel reaches only B, while A continues. Whichever job finishes first clears the shared ref and performs cleanup while the other is still active.
+Suggested fix: make post-style hydration one idempotent transaction. After sources and layers exist, interpolate using progressRef.current, update the HTML marker, GeoJSON marker, and trail together, then reapply the current follow/scene camera when automatic camera ownership is active. Alternatively publish a style-ready generation token and key the existing pose transaction to it; a constructor-only generation signal is insufficient.
 
-Required fix: acquire export ownership synchronously at function entry, reject re-entry while an owner exists, and clear the ref only if it still belongs to that invocation. Add a focused controller test for same-tick double invocation and cancellation ownership.
+Required regression: seek and pause at a nonzero progress value, record current marker/camera state, force a style failure, use the actual Retry Map button, and assert route/trail presence plus matching current HTML and GeoJSON marker positions and current follow/scene camera. Add an ordinary paused style-switch variant because it reaches the same split transaction.
 
-### CR4-CARRY-02 — An empty preferred Google path prevents valid fallback parsing
+## Carryovers and final sweep
 
-Severity: Medium | Confidence: High | Status: Confirmed carryover
-
-Current evidence: `src/lib/googleJsonParser.ts:97-123`
-Prior provenance: `.context/reviews/cycle2-code-reviewer-2026-04-25.md:74-84`
-
-`parseTimelineObjects()` selects `simplifiedRawPath.points` whenever that property is an array. It only considers `waypointPath.waypoints` or start/end locations in the `else` branches. An empty preferred array—or an array whose entries are all rejected—therefore suppresses valid lower-priority path data.
-
-Failure scenario: an activity contains `simplifiedRawPath: { points: [] }` and populated `waypointPath.waypoints`. The activity contributes no movement segment, producing a shortened route or a too-few-points error.
-
-Required fix: model the sources as a first-success fallback chain. Try the next representation whenever the preceding representation adds zero accepted points, then regenerate/check the worker and add empty/all-invalid preferred-path fixtures.
-
-### CR4-CARRY-03 — Undo and Clear bypass the active waypoint-drag settlement transaction
-
-Severity: Medium | Confidence: High | Status: Confirmed incomplete carryover
-
-Current evidence: `src/components/JourneyCreator.tsx:360-399`, `src/components/JourneyCreator.tsx:519-531`
-Prior provenance: `.context/plans/archive/interaction-state-correctness-2026-04-17.md:67-84`; the later outside-release work is `.context/plans/cycle3-implementation-2026-07-16.md:57-62`
-
-Cycle 3 correctly centralized map/window terminal events in local `settleDrag()`, but toolbar actions cannot call that function because it is scoped inside the setup effect. `handleUndo()` clears only `draggingIndexRef`; `handleClear()` does not clear any drag state. Neither removes transient listeners, clears `activeDragInput`, restores the cursor, nor re-enables map panning.
-
-Failure scenarios:
-
-- During a drag, keyboard-activating Undo leaves `activeDragInput` and listeners live and leaves `dragPan` disabled until some later terminal event.
-- During a drag, keyboard-activating Clear empties the route, but a subsequent pointer move writes to the stale drag index and can recreate a waypoint in the supposedly cleared array.
-
-Required fix: expose one idempotent drag-settlement owner to both effect listeners and component actions. Settle before Undo, Clear, Cancel, completion, style teardown, and unmount. Add focused tests for Undo/Clear while a mouse or touch drag is active.
-
-## Cycle 3 regression check
-
-The reviewed implementations for Google runtime-shape handling, segmented endpoint interpolation and bearings, outside-map waypoint release, timeline cancel/blur cleanup, export codec/recovery state, and stable hotkey callbacks remain internally consistent and covered by the passing unit suite. No regression in those fixes was found.
+B01-B04 and D01-D03 retain the blocked/evidence/performance statuses recorded in the Cycle 4 plan and are not new findings. A final pass rechecked all Cycle 4 implementation commits, effect dependency boundaries, cleanup identities, parser fallback precedence, export lease ownership, theme deferral, drag settlement, scene Undo, and direct/worker parity. No second new correctness issue met the reporting threshold.

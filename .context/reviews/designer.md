@@ -1,46 +1,60 @@
-# Product Designer Review — Cycle 4 (2026-07-16)
+# Product Designer Review — Cycle 5 (2026-07-16)
 
-Reviewed revision: `4917d39`
+Reviewed revision: bdfb1d7
 
 ## Outcome
 
-The responsive visual system remains cohesive, but two keyboard interactions undermine otherwise strong accessibility and traveler confidence. Both are **Medium/High** and reproduced in the rendered application.
+The product remains visually coherent and responsive, but one bottom-corner collision harms both legibility and attribution interaction, and one language switch leaves an accessibility-only sentence behind. Findings: **DESIGN5-01 Medium/High, DESIGN5-02 Low/High**.
 
 ## Actual-app coverage
 
-Using the full browser skill suite, I reviewed the landing page and loaded-track workspace at 1440×1000 and 390×844, in light and dark schemes and with reduced motion. The journey covered sample/file load, map interaction, playback, timeline, Camera, More controls, Export form, codec readiness, modal focus/inert state, keyboard use, touch target geometry, overflow, console/page errors, and static asset requests.
+I used every required agent-browser skill family: core navigation/session handling, interaction, query/accessibility snapshots, waits, network/storage inspection, visual screenshots/comparison, debug console/evaluation, saved state, and viewport/media configuration.
+
+The audit covered:
+
+- 1440×1000 desktop and 390×844 phone layouts
+- landing, sample/file load, map, playback, timeline, Camera/scene creation, Export, More/settings, and invalid upload
+- pointer and keyboard navigation, focus rings, modal trap/inert behavior, roles/names/live regions, and hit targets
+- dark/light, reduced motion, EN/KO, loading/error states, console/page errors, runtime requests, horizontal overflow, and perceived responsiveness
+
+Primary actions remained at least 44px in the reviewed paths; the 40px-high elevation slider still exceeds WCAG 2.2's 24px target minimum. No horizontal overflow was found.
 
 ## New findings
 
-### DESIGN4-01 — Arrow keys on the focused map seek the movie instead of panning the map
+### DESIGN5-01 — Attribution occupies the playback statistics layer
 
 Severity: **Medium** | Confidence: **High**
 
-MapLibre exposes its canvas as a keyboard-focusable `region`. In the loaded app, focusing that canvas and pressing ArrowRight changed playback from 0% to 2%; the canvas received the event, but Travelback prevented its default behavior. The global filter at `src/lib/usePlaybackController.ts:188-218` does not recognize the map canvas as an interaction owner.
+Source regions: src/app/globals.css:214-257; src/components/TrackWorkspace.tsx:142-174; src/components/Controls.tsx:147-154.
 
-Traveler impact: a keyboard user sees the focus ring on the map and reasonably expects arrow-key panning. Instead the route marker jumps forward or backward, making the map feel unreliable and making precise spatial exploration impossible without a pointer.
+The CSS moves MapLibre's top controls away from the app toolbar but leaves the bottom-right attribution at the viewport edge. The app then draws its full-width timeline/elevation/playback stack over that edge at z-index 10.
 
-Required outcome: when focus is on MapLibre's interactive canvas, all of MapLibre's own keyboard commands stay with the map. Global playback arrows must continue to work from neutral page context.
+At 390×844, the attribution rectangle (295.64,810,84.36,24) overlaps both playback-stats (27,809,336,16) and the time label (307.89,809,55.11,16). The screenshot visibly merges “MapLibre”/icons with distance and time. Hit testing the collision lands on the time span, so the attribution action below is not pointer accessible. At 1440×1000 the attribution is likewise visible underneath the translucent playback surface.
 
-### DESIGN4-02 — An impossible trim action asks users to discard valid camera work
+Traveler impact: elapsed time becomes hard to parse at a glance, the corner looks broken, and map credit/help cannot be reliably opened.
 
-Severity: **Medium** | Confidence: **High**
+Required outcome: establish a responsive bottom safe area for MapLibre attribution or reserve a dedicated unobscured corner. Verify visual separation, pointer hit ownership, focus visibility, and keyboard activation at desktop and mobile sizes. Do not solve it by hiding attribution.
 
-After trimming the sample to 79% and adding a camera scene, the start handle correctly announced 0%. Pressing ArrowLeft could not move it and left the value at 0%, yet the destructive “Trimming the timeline” dialog appeared. Source flow is `src/components/TimelineSelector.tsx:350-367,576-593` into `src/app/page.tsx:344-362`.
+### DESIGN5-02 — Locale switching updates the visible workspace but not its live status
 
-Traveler impact: the product asks a frightening, irreversible-sounding question even though the traveler changed nothing. Choosing Discard deletes authored camera scenes; choosing Cancel interrupts the editing flow. Repeated boundary keys can make the timeline feel unsafe.
+Severity: **Low** | Confidence: **High**
 
-Required outcome: semantically unchanged accepted ranges must be silent no-ops. Preserve the scenes, point count, current playback/export state, and focus on the active handle.
+Source regions: src/app/page.tsx:329-341, 638-642; src/lib/i18n.ts:1873-1887.
+
+After loading the sample in English and selecting KO, document.lang becomes ko and visible controls translate, but role=status continues to expose “Track loaded: Namsan Tower Walk.” The stored string was translated only at load time.
+
+Accessibility impact: the visual design communicates a complete language change while the screen-reader layer remains partly English under a Korean language context. This breaks consistency and may trigger the wrong voice/pronunciation.
+
+Required outcome: derive the status from current locale plus stable track data, or deliberately clear/re-announce it on locale change. Add a live-region localization regression.
 
 ## Verified clean scopes
 
-- Desktop and 390px mobile landing, loaded toolbar, More controls, Camera, and Export fit without confirmed horizontal overflow.
-- Reviewed primary controls meet the 44px interaction target.
-- Export's modal correctly makes the application root inert, names the dialog, traps focus, and remains usable on mobile.
-- Dark/light rendering and reduced-motion mode retained readable hierarchy and focus visibility.
-- Fresh static journeys produced no application page errors; route files stayed local in the reviewed flow.
-- More controls behaves as a focus-managed popover rather than a blocking modal, so its non-modal region semantics are appropriate.
+- Loaded desktop and phone headers, More controls, Camera, timeline, and Export fit without sideways scrolling.
+- Export has a named dialog, focus containment, inert background, reachable Close/Cancel, and usable mobile form layout.
+- Keyboard focus indicators remain visible; map zoom controls no longer collide with the top action rows.
+- Dark/light and reduced-motion rendering retain hierarchy and state.
+- Invalid upload messaging is clear in Korean; no application page error or unexpected route-data network request appeared.
 
 ## Final sweep
 
-Revisited focus order, keyboard ownership, touch geometry, overlays, dialogs, overflow, color modes, motion, error recovery, playback, scene authoring, and export. No additional confirmed design defect remained.
+Revisited responsive geometry, overlay stacking, focus order, pointer/keyboard ownership, target size, color modes, motion, i18n, status/error/loading feedback, Camera, export, and perceived performance. No third new design defect met the evidence threshold. No deployment was attempted.

@@ -1,74 +1,45 @@
-# Debugger — Root-Cause Report (Cycle 4, 2026-07-16)
+# Debugger — Root-Cause Report (Cycle 5, 2026-07-16)
+
+Reviewed revision: bdfb1d7
 
 ## Result and diagnostic coverage
 
-**Actionable root causes: 2 Medium / High-confidence.** DB4-01 confirms and reopens an older split-ownership risk that lacked a failing path; DB4-02 isolates a system-event variant that remains after direct export-time controls became inert. Inspected all current source, tests, fixtures, static assets/worker, scripts, workflow/config/package files, README, and active context at revision 4917d39. npm test passed 352/352 and npm audit reported zero vulnerabilities. No build, deployment, or production mutation was performed.
+**Actionable root causes: 1 Medium / High-confidence.** DB5-01 isolates the incomplete current-pose portion of the Cycle 4 map-generation fix. Inspected all source, tests, fixtures, static assets/worker, scripts, workflow/configuration, README, and active context. No deployment or production mutation was performed.
 
-## Findings
+## Finding
 
-### DB4-01 — Recovery changes map identity, but React dependencies model only data identity
+### DB5-01 — Pose update runs before asynchronous style hydration and has no later trigger
 
-Severity: **Medium** | Confidence: **High** | Status: **Deterministically reproduced**
+Severity: **Medium** | Confidence: **High** | Status: **Confirmed by source-order analysis**
 
-Reproduction 1 — loaded trip:
+Deterministic trigger:
 
-1. Load a track and observe one HTML map marker.
-2. Force a style load error, unblock it, and use the in-app Retry Map button.
-3. Wait for the recovered style.
-
-Result: the new canvas exists and route layers are recreated, but the HTML marker count is zero and the camera remains at the new Map constructor default until another progress mutation.
-
-Reproduction 2 — manual route editor:
-
-1. Fail the initial style and activate Journey Creator while the failed MapLibre object exists.
-2. Unblock the style and use Retry Map.
-3. After the replacement canvas settles, click its center.
-
-Result: the creator stays at zero points and Undo remains disabled. A no-retry control with the same delayed click accepts one location.
+1. Load a track, seek to a nonzero point, pause, and enable camera follow.
+2. Either change map style while progress remains stable, or force a style failure and recover with Retry Map.
+3. Let the replacement style finish loading without changing playback state.
 
 Root-cause chain:
 
-1. src/components/MapView.tsx:1027-1032 increments mapRetryNonce.
-2. The initialization effect at src/components/MapView.tsx:577-671 cleans up map A and creates map B.
-3. map B's global style-load callback at lines 632-639 restores only reference and track layers.
-4. The complete attachment transaction at lines 841-903 is keyed to track/cumulative-distance identity. Those props did not change, so fitBounds and ensureMarker do not run for map B.
-5. The progress/camera transaction at lines 911-1006 is also not keyed to map identity, so unchanged progress does not reapply camera or recreate the HTML marker.
-6. Journey Creator's setup effect at src/components/JourneyCreator.tsx:284-517 captured map A. The retry counter is only advanced when no map existed at entry; map A existed, so replacing the ref with map B creates no React dependency change. All creator layers and click/drag listeners remain owned by the destroyed map.
-7. The current E2E recovery at e2e/travelback.spec.ts:392-427 uses page.reload, which remounts all owners and therefore cannot expose the identity gap.
+1. src/components/MapView.tsx:582-602 constructs a retry map, stores it, and signals instance generation while its style is still loading.
+2. The track effect at src/components/MapView.tsx:844-906 sees that the style is not ready and subscribes to style.load/styledata/idle.
+3. In the same React pass, the pose effect at src/components/MapView.tsx:914-1009 evaluates the new map but returns at line 924 because route/trail sources do not exist.
+4. When style readiness arrives, attachTrackToReadyStyle calls addTrackLayers, fitBounds, and ensureMarker at lines 865-881.
+5. addTrackLayers seeds POSITION_MARKER_SOURCE with track.points[0] at lines 791-809. It uses progressRef.current only to restore trail geometry at lines 812-817.
+6. ensureMarker creates the HTML marker at the supplied start point at lines 820-842. No style-ready callback interpolates and moves it afterward.
+7. The pose effect is the only code at lines 928-1002 that synchronizes both markers and follow/scene camera. Style readiness changes none of its dependencies, so paused progress leaves it dormant.
+8. Ordinary setStyle reaches the same broken edge through the later handler at lines 676-700: layers and the GeoJSON marker are recreated, but no current-pose trigger fires.
 
-Why the bug persists behind green tests: data state is correct and map B is visibly alive. Existing assertions focus on error visibility, full reload, and ordinary style reload where map identity stays constant. No test observes the in-app replacement generation.
+Resulting state:
 
-Historical provenance: cycle2-code-reviewer-2026-04-26.md:74-82 predicted map-retry staleness as a Risk; cycle-c2-aggregate-2026-04-24.md:89-94 deferred readiness work pending a reproduced active panel without layers. The manual-route reproduction above triggers that reopen criterion.
+- Retry: trail reflects saved progress, both markers are at the first point, and camera reflects fitBounds instead of the current follow/scene pose.
+- Ordinary style reload: trail and persistent HTML marker can reflect current progress while the recreated GeoJSON/export marker is at the first point.
 
-Fix boundary: introduce an explicit monotonically increasing map generation or onReady(map, generation) event. Make one idempotent hydration transaction consume current track, cumulative distances, progress, camera, marker, and overlay state for every generation. Journey Creator must rebind to the generation without clearing existing waypoints. Test both initial-load and later-style failures through the actual Retry Map button.
+Why green tests miss it: e2e/travelback.spec.ts:429-442 starts from progress zero and asserts only one canvas and one HTML marker. At progress zero, the incorrect coordinate is indistinguishable, and neither GeoJSON marker data nor camera parity is asserted.
 
-### DB4-02 — Theme preference owns map.setStyle outside the export transaction
+Fix boundary: after style attachment, invoke one current-pose function that reads the latest refs and atomically updates trail, both markers, and automatic camera. It must reject stale map/style generations. A style-ready generation dependency is also viable if it cannot race stale callbacks.
 
-Severity: **Medium** | Confidence: **High** | Status: **Concurrent mutation confirmed**
-
-Reproduction:
-
-1. Start in light mode with no explicit theme or map-style override.
-2. Load a track and hold an export in data-travelback-exporting=true.
-3. Change prefers-color-scheme to dark.
-
-Result: data-mapstyle changes to dark while exporting remains true. When dark.json is intercepted, map-error becomes visible during the same export state.
-
-Root-cause chain:
-
-1. src/app/page.tsx:265-291 installs a MediaQueryList change listener whenever theme choice is implicit.
-2. applySystemMode updates mapStyleKey at lines 277-285 with no export lease check.
-3. The export modal makes the app root inert, but a media-query callback bypasses DOM interaction restrictions.
-4. src/components/MapView.tsx:673-697 receives the new key and calls map.setStyle on the same instance held by useExportController.
-5. MapLibre removes style-owned sources/layers while it reloads. Meanwhile src/components/MapView.tsx:452-478 can render/capture a frame; missing sources are optional-chained, so a frame can complete without route/trail/marker data rather than necessarily failing fast.
-6. src/lib/useExportController.ts:205-234 then waits/captures under an invariant that the map style was stable. Depending on timing, output gets partial frames or the render/idle path times out.
-
-Why the bug persists behind green tests: e2e/travelback.spec.ts:1577-1604 correctly proves live system-theme synchronization, while export tests correctly prove modal interaction and frame sequencing. Neither composes the two independently correct features.
-
-Historical distinction: tracer-2026-04-27.md:20-30 covered direct style-control interaction. Modal inertness now blocks that action; the MediaQueryList callback does not use the control path and remains live.
-
-Fix boundary: treat map style as part of the export lease. Snapshot it at acquisition, defer theme-derived style mutations, and apply the newest queued preference only after map-size/render cleanup completes. A deterministic test should hold the frame renderer between mutation and capture, deliver a media change, and assert that no setStyle/style request occurs until release.
+Verification target: pause at 50%, capture marker/camera state, run ordinary style reload and failed-style retry, then assert both marker representations and camera remain at the current pose without an extra seek.
 
 ## Diagnostic conclusion and final sweep
 
-Both defects are ownership problems across independently keyed effects: retry changes the resource without changing consumer dependencies, and export changes state without acquiring ownership over all map mutators. Rechecked map/style listener cleanup, marker/source recreation, creator polling, export abort/finally, theme explicit-choice logic, and current browser/unit coverage. No third new root cause met the reproduction and confidence threshold.
+The defect is temporal rather than a bad interpolation calculation: current state exists, but the only consumer runs before its destination resources. Rechecked map cleanup, generation rebinding, style listeners, export ownership/theme deferral, parser fallbacks, gesture settlement, and scene Undo. No second root cause met the confidence threshold.

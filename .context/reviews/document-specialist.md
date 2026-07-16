@@ -1,46 +1,46 @@
-# Documentation Specialist Review — Cycle 4 (2026-07-16)
+# Documentation Specialist Review — Cycle 5 (2026-07-16)
 
-Reviewed revision: `4917d39`
+Reviewed revision: bdfb1d7
 
 ## Result
 
-**One new Low/High documentation finding.** User-facing format, privacy, export, language, and base-path claims otherwise match the current implementation. Existing legal and CI-policy carryovers remain separated because they require user input or explicit authorization.
+**One new Medium/High documentation finding.** User-facing format, privacy, base-path, export, language, and contributor test claims otherwise match current behavior. Existing license, CI-policy, and hardware-evidence items remain carryovers.
 
 ## Coverage
 
-Reviewed README, package scripts and configuration, all current `.context/project` and `.context/development` references, the active plan index, inline runtime comments for playback/map/timeline/export, the Pages workflow, and traveler-visible copy in all five locale dictionaries. Historical material was consulted only to identify already-known carryovers.
+Reviewed README.md, package.json, framework/Playwright/Vitest configuration, all scripts, Pages workflow, .context/README.md, current project/development references, the active plan index, Mina's reviewer runbook, inline map/playback/export/parser comments, and traveler-visible copy across all five locale dictionaries. Historical reviews were used only to avoid duplicate IDs.
 
 ## New finding
 
-### DOC4-01 — Contributor test instructions omit Vitest and recommend the low-level dev E2E entry point
+### DOC5-01 — Mina's E2E runbook recommends destructive process killing and bypasses the repository's safe wrapper
 
-Severity: **Low** | Confidence: **High**
+Severity: **Medium** | Confidence: **High**
 
 Evidence:
 
-- `README.md:155-160` says testing is Playwright only, while `package.json:16` defines the 352-test Vitest suite.
-- `README.md:178-184` omits `npm test` and tells contributors to run `npm run test:e2e:dev`.
-- `package.json:17-20` exposes `npm run test:e2e` as the canonical wrapper and `test:e2e:dev` as the lower-level Playwright command.
-- `scripts/run-dev-e2e.mjs:35-62` detects an active Next dev lock, reuses its port when appropriate, and otherwise reserves a collision-free port. The direct command lacks that orchestration and can hit Next's single-worktree dev lock.
-- `.context/project/01-overview.md:15-28` also describes testing as Playwright-only and omits `npm test` from the verification commands.
+- .context/agents/non-tech-traveler-reviewer.md:133-148 tells reviewers to find any process on port 3099 and send kill -9, then run npx playwright test directly.
+- package.json:17-20 defines npm run test:e2e as the canonical dev wrapper.
+- scripts/run-dev-e2e.mjs:14-57 safely detects a live Next lock, reuses that server when appropriate, or reserves another available port.
+- playwright.config.ts:44-48 makes reuseExistingServer conditional, while the runbook's line 58 says it is always false.
+- The runbook still says “50+ tests” at line 59 although the suite now has 93, and its four-fixture summary omits most of the current 18-file fixture inventory. Those are secondary signs that this section has drifted.
 
-Failure scenario: a contributor follows the README, never runs 352 unit regressions, then sees an avoidable Next dev-lock failure even though the repository provides a safer wrapper.
+Concrete failure scenario: a contributor follows the reviewer documentation while port 3099 belongs to another project or an unsaved debugging session. The kill pipeline terminates that unrelated process without confirmation. The subsequent direct command also bypasses dynamic-port/lock orchestration and can collide with Next's single-worktree dev lock or open a blocking HTML report on failure.
 
-Required fix: describe testing as Vitest plus Playwright; list `npm test`, `npm run test:e2e`, and `npm run test:e2e:static`; document `test:e2e:dev` only as the direct/internal variant if it remains worth mentioning. Align the project overview in the same change.
+Required fix: remove the kill command entirely. Make npm run test:e2e the ordinary instruction, document a focused non-HTML reporter command only for diagnosis, and state that the wrapper owns server/port selection. Update reuse semantics, current test count, and fixture coverage without relying on a brittle exact number if desired.
 
 ## Verified accurate scopes
 
-- README's supported formats and installed dependency versions match package/source behavior.
-- The `/travelback` production base path and static preview commands match `next.config.ts` and `scripts/serve-static.mjs`.
-- Current phone-first Google Timeline guidance, local-processing language, codec/resolution descriptions, and map-theme descriptions remain consistent with the application.
-- No stale Cycle 3 finding was reintroduced in architecture or product copy.
+- README.md:178-203 now correctly distinguishes npm test, the safe dev E2E wrapper, static E2E, build, and static preview/base path.
+- README supported formats, privacy/network behavior, installed dependencies, and local map claims match current source/configuration.
+- .context/project/01-overview.md now includes Vitest plus Playwright commands.
+- Architecture's parser, export, and local-map descriptions still match their implemented paths.
 
 ## Existing non-new boundaries
 
-- README still claims MIT without a root `LICENSE`; holder/year/legal intent remain unknown and are carried forward for owner input.
-- CI unit-gate and permission-scope changes remain carried forward because user-level policy requires explicit confirmation before CI/CD modification.
-- No deployment documentation or production configuration was changed during review.
+- B03: README.md:225-227 says MIT, but no root LICENSE contains the actual grant. Exact holder/year/legal intent still require owner input.
+- B01/B02: the Pages workflow still omits npm test and grants Pages/OIDC writes at workflow scope; changing CI/CD requires explicit authorization.
+- B04: src/components/MapView.tsx:589-594 claims preserved-buffer cost is negligible without representative evidence. Treat that assertion as unproven until the existing hardware-measurement exit criterion is met.
 
-## Final sweep
+## Final missed-issue sweep
 
-Rechecked commands, test runners, base paths, supported inputs, dependency names, export language, privacy claims, locale parity, licensing, and current context references. No second new documentation defect was confirmed.
+Rechecked setup/test/build commands, ports, test runners, supported inputs, base paths, privacy, locale parity, export terms, licensing, inline claims, and active context references. No second new documentation defect was confirmed. No deployment or production configuration change was made.

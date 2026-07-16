@@ -1,53 +1,73 @@
-# Performance Reviewer — Cycle 4 (2026-07-16)
+# Performance Reviewer — Cycle 5 (2026-07-16)
+
+Reviewed revision: bdfb1d7
 
 ## Result
 
-**New performance findings: 0.** The current head introduces no new confirmed performance regression. The items below remain explicitly deferred or evidence-blocked carryovers and are not counted as Cycle 4 findings.
+New performance findings: **0**. I found no new confirmed regression relative to Cycle 4. The known architecture costs below are still present and remain carryovers, not Cycle 5 IDs.
 
-## Coverage and validation
+## Inventory and evidence
 
-Reviewed parsing limits and worker boundaries, React render ownership, playback and export frame loops, MapLibre source publication and camera work, manual-route gestures, elevation/timeline construction, codec probing, capture surfaces, static assets, and build/test scripts across the current 53-file `src/` surface and supporting configuration.
+Reviewed all 53 files under src, including parser/worker boundaries, MapLibre rendering, playback and export loops, camera math, timeline/elevation construction, Journey Creator gestures, all 15 Vitest files, the 2,214-line/93-test Playwright suite, 18 fixtures, scripts, package/framework configuration, static assets, Pages workflow, and current project/development/plan context.
 
-- `npm run lint`: passed.
-- `npm test`: passed, 352 tests in 15 files.
-- Independent typecheck evidence was unavailable because another active `next dev` process was concurrently writing `.next/dev/types/routes.d.ts`; this generated-artifact race is not treated as a product performance finding.
+Actual-app checks covered 1440×1000 and 390×844, dark/light, playback, Camera, Export, responsive fit, network/console state, and reduced-motion behavior. The full dev E2E run reported 91 passed, 1 skipped, and 1 flaky in 12.3 minutes; the flaky map-retry case passed a separate retries-disabled 3/3 run. That timing is unsuitable as a performance benchmark because a separate browser export probe was active, so it is not used to infer a product slowdown.
 
-## Confirmed carryover register
+## Confirmed carryovers
 
-### PERF4-CARRY-01 — Playback progress still commits root-owned React state every frame
+### PERF5-CARRY-01 — Root-owned React progress is still committed per playback frame
 
-Original severity/confidence: High / High
-Current evidence: `src/lib/usePlaybackController.ts:98-155`; root consumers in `src/app/page.tsx`
-Provenance: `.context/plans/deferred-findings-cycle2-2026-04-19.md:15-23` (`DF-C2-002`)
+Original severity/confidence: **High / High**
 
-The rAF loop calls `setPlaybackProgress()` on essentially every visible frame. Progress is owned by the page-level controller, so playback continues to schedule broad React work instead of keeping map animation on an imperative/external-store boundary. This is an existing architecture deferral, not a Cycle 4 regression.
+Current region: src/lib/usePlaybackController.ts:98-155, with root consumers in src/app/page.tsx:180-232, 577-595.
 
-Exit criterion remains a dedicated performance cycle that profiles and restructures playback/map ownership without changing seek, scenes, camera follow, or export behavior.
+The animation loop calls setPlaybackProgress on each foreground frame, and page-owned progress fans into map, controls, scenes, and export-related consumers. This remains D01 from the Cycle 4 plan.
 
-### PERF4-CARRY-02 — Elevation SVG path size scales with the full track
+Exit criterion: profile representative tracks, then introduce an imperative/external-store animation boundary while preserving seek, camera follow, scenes, and export.
 
-Original severity/confidence: Medium / High
-Current evidence: `src/components/ElevationProfile.tsx:20-60`
-Provenance: `.context/plans/deferred-findings-cycle1-2026-04-25.md:105-109` (`DF-C1-20250425-016`)
+### PERF5-CARRY-02 — Elevation SVG strings scale with every track point
 
-Both line and area paths include every elevation sample. At the supported large-track ceiling this creates very large path strings and browser tessellation work. It remains intentionally deferred until large-track visual performance is profiled and a distance-aware downsampling strategy can be regression-tested.
+Original severity/confidence: **Medium / High**
 
-### PERF4-CARRY-03 — Manual waypoint dragging recomputes total route distance per move
+Current region: src/components/ElevationProfile.tsx:20-60, 91-133.
 
-Original severity/confidence: Medium / High
-Current evidence: `src/components/JourneyCreator.tsx:192-196`, `src/components/JourneyCreator.tsx:360-369`
-Provenance: `.context/plans/deferred-findings-cycle2-2026-04-19.md:35-43` (`DF-C2-004`)
+Both pathD and areaD contain every elevation sample. This remains D02; browser emulation did not establish a new measured failure.
 
-Every accepted drag move calls `syncUI()`, which scans all waypoints through `totalDistance()`. The established exit criterion is the next Journey Creator performance pass; an incremental adjacent-segment update or throttled preview plus exact terminal commit remains appropriate.
+Exit criterion: profile near the supported point ceiling, choose distance-aware downsampling with endpoint/extrema guarantees, and add visual regressions.
 
-### PERF4-CARRY-04 — Always-on preserved WebGL buffers still require hardware evidence
+### PERF5-CARRY-03 — Waypoint dragging scans the full route on every move
 
-Original severity/confidence: Medium / Medium
-Current evidence: `src/components/MapView.tsx:582-592`
-Provenance: `.context/plans/cycle3-implementation-2026-07-16.md:133-139` (`B04`)
+Original severity/confidence: **Medium / High**
 
-`preserveDrawingBuffer` is required by the current export capture design and can impose interactive GPU cost, but representative mobile/low-end hardware measurements are still absent. This stays evidence-blocked; desktop emulation or code inspection cannot justify an architecture change.
+Current region: src/components/JourneyCreator.tsx:194-198, 363-373.
+
+Each drag move updates map sources and calls syncUI, whose totalDistance call is O(n). This remains D03.
+
+Exit criterion: use incremental adjacent-segment updates or a throttled preview with an exact terminal reconciliation, verified at a documented route-size target.
+
+### PERF5-CARRY-04 — Always-on preserved WebGL buffers still lack representative hardware evidence
+
+Original severity/confidence: **Medium / Medium**
+
+Current region: src/components/MapView.tsx:582-595.
+
+preserveDrawingBuffer remains required by the current export capture path. The nearby claim that impact is negligible is not supported by low-end/mobile GPU, memory, battery, or thermal evidence. This remains B04 rather than a new finding.
+
+Exit criterion: compare p50/p95 frame time and memory on representative low-end/mobile hardware, then isolate export capture only if the impact is material.
+
+### PERF5-CARRY-05 — Export still performs an idle check for every captured frame
+
+Original severity/confidence: **Medium / High**
+
+Current region: src/lib/useExportController.ts:174-239 and src/lib/videoEncoder.ts:223-247.
+
+renderFrameAndWait already waits for a render event; exportVideo then calls waitForIdle for each frame. The fast path can return immediately for bundled local styles, so source inspection alone does not quantify the cost. This is historical DF-C17-004, not a new regression.
+
+Exit criterion: profile real exports and prove whether the second wait is redundant before changing frame correctness.
 
 ## Positive checks
 
-Cycle 3's terminal-only waypoint listener ownership and idle timeline early-return remove unnecessary global interaction work. Segmented camera-bound lookups are logarithmic at the lookup boundary, trail chunks remain bounded, and export progress remains throttled before React publication. No new unbounded loop, allocation multiplier, or network/bundle regression was found.
+Trail publication remains chunk-bounded, cumulative distance lookups are reused, visible export progress is throttled, local map styles avoid runtime tile networks, and no new unbounded loop, per-frame allocation multiplier, or asset/network expansion was introduced.
+
+## Final missed-issue sweep
+
+Rechecked parser limits, render ownership, all requestAnimationFrame sites, map source updates, export capture, codec probing, layout paths, and build scripts against Cycle 4 history. No additional performance issue met the evidence threshold. No deployment was attempted.

@@ -1,61 +1,67 @@
-# Test Engineer Review — Cycle 4 (2026-07-16)
+# Test Engineer Review — Cycle 5 (2026-07-16)
 
-Reviewed revision: `4917d39`
+Reviewed revision: bdfb1d7
 
 ## Result
 
-Fresh verification found **two product regressions without coverage** and **one test-harness warning defect**. The current unit suite still passes 352/352, and the previously retry-only timeline-keyboard case passed 10/10 consecutive retries-disabled static runs.
+Fresh testing found **three actionable test findings**: one intermittent readiness test, one missing responsive overlay regression, and one missing loaded-locale accessibility regression. Only the latter two accompany confirmed product defects. The map-retry flake did not reproduce in an isolated retries-disabled run, so it is not classified as a product failure.
 
 ## Inventory and execution
 
-Reviewed all 15 Vitest files, the complete 2,034-line Playwright journey, its fixtures/configuration, all build/smoke/server scripts, package commands, and the runtime surfaces tied to playback hotkeys, timeline trimming, scenes, map recovery, export, and responsive behavior.
+Reviewed all 15 Vitest files, every test in the 2,214-line Playwright spec, all 18 fixtures, Playwright dev/static configuration, test/build/smoke/server scripts, package commands, Pages CI, and source paths tied to map readiness, bottom overlays, localization, playback, scenes, import, and export.
 
 Fresh evidence:
 
-- `npm run test -- --reporter=dot`: 15/15 files and 352/352 tests passed, but `FileUpload.test.ts` emitted repeated React `act(...)` environment warnings.
-- `npx playwright test -c playwright.static.config.ts -g "timeline keyboard trimming updates the track without scrubbing playback" --retries=0 --repeat-each=10 --reporter=line`: 10/10 passed. The Cycle 3 retry-only follow-up remains closed.
-- Desktop and mobile static journeys loaded a GPX track, exercised playback, Camera, More controls, and Export without page errors or horizontal overflow.
-- Focused browser probes reproduced both product failures below against the rendered app.
+- npm run test:e2e: 91 passed, 1 skipped, 1 flaky in 12.3 minutes. The flaky test was e2e/travelback.spec.ts:444-489.
+- Focused command with a non-HTML list reporter, retries=0, repeat-each=3: the same test passed 3/3 in 1.3 minutes.
+- The skipped case is the opt-in real WebCodecs export at e2e/travelback.spec.ts:1938-1959.
+- A separate live-browser export probe was active during the full run, adding uncontrolled CPU/GPU load. That explains why the first failure is not evidence of a repo product defect; it does not remove the test's confirmed dependence on fixed timing.
+- Browser geometry and DOM inspection independently confirmed TEST5-02/03 against the actual app.
 
 ## New findings
 
-### TE4-01 — Map keyboard navigation is unprotected from global playback hotkeys
+### TEST5-01 — Map-retry journey regression is intermittently timing-dependent
+
+Severity: **Medium** | Confidence: **High** for test flakiness; **Unconfirmed** as product defect
+
+Region: e2e/travelback.spec.ts:444-489; readiness implementation in src/components/JourneyCreator.tsx:286-318.
+
+The full suite failed its first attempt at line 461 because the blind center-canvas click did not produce “1 location” within 10 seconds, then passed on Playwright's retry. The test waits for networkidle plus a fixed 500 ms at lines 454-460 before clicking. JourneyCreator, meanwhile, may poll for the MapView handle every 100 ms and binds route listeners only after style readiness.
+
+Concrete failure scenario: under a loaded CI runner, the click happens before the journey layers/listeners are bound. A retry hides the timing weakness and lengthens the suite; a future genuine retry regression is harder to distinguish from noise.
+
+Required fix/test: expose or await a deterministic journey-map-ready condition after the layer/listener binding completes, then click. Keep retries disabled for a focused reliability gate and require at least 10 consecutive passes. If an early real-user click is intentionally accepted before readiness, queue it or visibly disable the instruction; do not merely increase the sleep.
+
+### TEST5-02 — Responsive tests omit bottom attribution versus playback geometry and hit testing
 
 Severity: **Medium** | Confidence: **High**
 
-Evidence: `src/lib/usePlaybackController.ts:188-218` ignores inputs, buttons, dialogs, and sliders, but not MapLibre's focusable canvas. MapLibre renders that canvas as `canvas.maplibregl-canvas[role="region"][tabindex="0"]` inside `src/components/MapView.tsx:1008-1015`. No E2E assertion focuses the canvas and presses an arrow key.
+Region: e2e/travelback.spec.ts:710-837; source layout at src/app/globals.css:214-257, src/components/TrackWorkspace.tsx:142-174, and src/components/Controls.tsx:147-154.
 
-Runtime proof: with a loaded track, focusing `canvas[role="region"]` and pressing ArrowRight changed Playback progress from `0` to `0.02`; the key event target was `CANVAS`, and the application set `defaultPrevented=true`. MapLibre therefore never receives its documented keyboard-pan gesture.
+Existing layout tests compare zoom controls with top toolbars and settings with titles. None locate .maplibregl-ctrl-bottom-right, playback-stats, or the full bottom control panel.
 
-Required coverage: focus the live map canvas, press ArrowRight/ArrowLeft, and assert playback does not move while the map retains ownership. Keep a separate assertion that the same global key still seeks when focus is on the page background.
+Confirmed missed failure: at 390×844 the attribution box (295.64,810,84.36,24) intersects the time text (307.89,809,55.11,16); hit testing returns the time span, not attribution. Desktop also places attribution under the playback surface.
 
-### TE4-02 — Scene-invalidating trim coverage misses semantic no-op keys
+Required test: after loading a track at mobile and desktop sizes, assert no intersection between attribution and every bottom overlay, then verify the attribution summary/link is the pointer hit target and can be activated by keyboard. Preserve visible attribution rather than hiding it.
 
-Severity: **Medium** | Confidence: **High**
-
-Evidence: current E2E covers real scene-invalidating trims and cancellation (`e2e/travelback.spec.ts:1438-1489`) plus mouse no-op clicks when no scenes exist (`:1856-1874`). It does not exercise an unchanged keyboard boundary after a track is already trimmed and scenes exist. `TimelineSelector` always publishes clamped ratios at `src/components/TimelineSelector.tsx:350-367,576-593`, while `src/app/page.tsx:344-362` opens the discard transaction before checking whether the accepted indices actually changed.
-
-Runtime proof: trim the sample track end to 79%, add Scene 1, focus the start handle at 0%, then press ArrowLeft. The handle stays `0` before and after, yet the “Trimming the timeline” discard dialog becomes visible.
-
-Required coverage: add an E2E case that repeats this sequence and asserts the dialog stays absent, the scene remains, and the accepted point count is unchanged. The application boundary should ignore equivalent accepted index pairs, not rely only on control-level ratio equality.
-
-### TE4-03 — FileUpload tests emit React act-environment warnings on a green run
+### TEST5-03 — Locale tests do not verify already-populated live-region content
 
 Severity: **Low** | Confidence: **High**
 
-Evidence: `src/components/FileUpload.test.ts:1-99` uses `createRoot()` and `act()` but does not set `globalThis.IS_REACT_ACT_ENVIRONMENT`. Every other createRoot-based component test establishes that flag (`ExportPanel.test.ts:20`, `JourneyCreator.test.ts:16`, `SceneEditor.test.ts:14`, `TimelineSelector.test.ts:15`). The fresh unit command printed repeated “The current testing environment is not configured to support act(...)” warnings from both FileUpload lifecycle cases.
+Region: e2e/travelback.spec.ts:299-329 and src/lib/i18n.test.ts; source at src/app/page.tsx:329-341, 638-642 and src/lib/i18n.ts:1873-1887.
 
-Failure scenario: persistent expected noise makes a future real unwrapped state-update warning easy to overlook and leaves the gate non-clean despite passing assertions.
+Current tests switch landing labels and a loaded toolbar, and assert document.lang. They do not load a track in one language, change locale, and inspect role=status.
 
-Required fix: establish the React act environment in the FileUpload test harness and require a warning-free focused run.
+Confirmed missed failure: after EN→KO, document.lang and visible controls are Korean while the status remains “Track loaded: Namsan Tower Walk.”
 
-## Clean and bounded scopes
+Required test: load in English, switch to each supported locale or at minimum KO, assert document.lang and translated status text, and specify whether the change should trigger a new announcement.
 
-- The timeline keyboard-trimming propagation case is stable across 10 retries-disabled repetitions, so prior W01 is not reopened.
-- The 352 unit assertions passed; there is no broad parser, camera, export, or component-test failure.
-- Desktop 1440×1000 and mobile 390×844 checks found no new confirmed fit, target-size, dialog-focus, console, or network regression.
-- Deployment was not attempted.
+## Existing boundaries, not new
+
+- B01 remains blocked: .github/workflows/deploy-pages.yml:26-32 still does not run npm test, and CI edits need explicit authorization.
+- Final real MP4 encoding remains opt-in rather than part of the ordinary 93-test run.
+- Format imports are broad, but several Google variants remain import-focused rather than full-journey; this is historical coverage debt and is not recounted as a Cycle 5 ID.
 
 ## Final missed-issue sweep
 
-After reproducing both failures, I remapped every current E2E case around map focus, global keys, accepted trim revisions, scene invalidation, no-op pointer actions, and export preservation. I also rechecked test stderr across all 15 unit files. No additional confirmed test defect remained.
+Mapped all 93 E2E cases to the 15 unit suites, fixtures, parser/worker paths, layout states, accessibility surfaces, export states, and current carryovers. No additional new test defect met the threshold. No process was killed and no deployment was attempted.

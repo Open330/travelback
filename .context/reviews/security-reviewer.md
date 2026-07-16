@@ -1,40 +1,36 @@
-# Security Reviewer — Cycle 4 (2026-07-16)
+# Security Reviewer — Cycle 5 (2026-07-16)
+
+Reviewed revision: bdfb1d7
 
 ## Result
 
-**New security findings: 0.** No new confidentiality, integrity, privilege, or code-execution defect met the reporting threshold on revision 4917d39. No deployment or production mutation was performed.
+**New security findings: 0.** No new confidentiality, integrity, availability, privilege, privacy, or code-execution defect met the reporting threshold. No deployment or production mutation was performed.
 
 ## Inventory and coverage
 
-Reviewed the current application and release surface: all 53 tracked src files (including 15 unit-test files), the Playwright specification and 18 fixtures, all 7 scripts, 19 public assets including the generated parser worker and local map styles, package/build/test configuration, the Pages workflow, README, and active project/development/plan context. Historical reviews and plans were searched to distinguish new issues from fixed findings and the four explicit Cycle 3 carryovers.
+Reviewed all 53 tracked src files, the Playwright specification and 18 fixtures, all 7 scripts, 19 public assets including the generated worker and local map styles, package/build/test configuration, the Pages workflow, README, and active context. The security trace followed uploaded GPX/KML/Google JSON through direct and worker parsing into React, MapLibre, and export/download/share sinks. It also checked XML declaration rejection, size/depth/point budgets, runtime shape validation, worker lifecycle and schema checks, DOM injection, localStorage, object URLs, external links, network destinations, static CSP hardening, frame handling, path normalization, dependencies, and workflow authority.
 
-The security pass traced untrusted GPX/KML/Google JSON from File/FileReader through direct and worker parsers into React, MapLibre, and export filename sinks. It also checked XML declarations and depth/size/point budgets, worker origin/lifecycle/schema validation, DOM injection, localStorage, object URLs, File System Access and Web Share calls, external links, runtime fetch destinations, CSP/static hardening, frame handling, static-server path normalization, dependency advisories, and workflow authority.
+The source at bdfb1d7 matches the exact source revision c6eec45. The Cycle 4 completion record reports a zero-high-vulnerability audit and a green build/test/E2E matrix for that source. This role did not represent those prior results as a fresh audit.
 
-Fresh local evidence:
+## Controls still intact
 
-- npm audit --audit-level=high: passed, zero vulnerabilities.
-- npm test: passed, 15 files and 352/352 tests.
-- Production build and deployment were not run in this role pass.
-
-## Verified controls
-
-- Uploaded route data remains browser-local. The only application fetch is the bundled sample trip; local map styles and coordinate jumps add no third-party runtime request. Web Share is an explicit user action over the generated video file.
-- GPX/KML rejects DOCTYPE and ENTITY declarations before DOM parsing, caps XML input, and enforces structural limits. Google JSON has file and parse-wide point budgets plus non-null runtime record validation in both direct and generated-worker paths.
-- Worker messages are origin-local, transferred buffers are validated on return, abort/timeout cleanup terminates the worker, and the checked-in worker is generated from shared TypeScript parser code.
-- User-derived names are rendered through React text nodes and normalized before download. Reserved path characters and ASCII controls cannot escape the browser download boundary; no unsafe user-derived HTML, eval, or dynamic script sink was found.
-- The static hardener places a hash-based CSP before active head content and retains object-src 'none', base-uri 'none', and self-only connect/style policies. The client frame-buster and documented host-header limitation remain accurately described.
-- Preferences, UI hints, and the localhost-only export-test toggle are the only localStorage data. Raw tracks, authentication material, and secrets are not persisted.
+- Uploaded route content remains browser-local; no new upload or telemetry destination was introduced.
+- XML rejection and structural limits, Google JSON parse-wide budgets, and direct/generated-worker parity remain in place.
+- User-derived names flow through React text rendering and filename normalization; no unsafe HTML, eval, dynamic script, or executable URL sink was found.
+- Worker timeout/abort termination and returned-data validation remain bounded to the local worker.
+- Static hardening still emits the documented hash-based CSP with object-src none, base-uri none, and self-constrained runtime connections.
+- Object URL, File System Access, and Web Share use remains tied to explicit export/download actions with cleanup paths.
 
 ## Existing blocked boundaries, not new findings
 
 | Carryover | Severity / confidence | Current status |
 | --- | --- | --- |
-| B01 — Pages CI omits npm test | High / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:26-32. The passing local unit corpus does not replace a CI gate. |
-| B02 — Build inherits Pages/OIDC writes | Medium / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:8-45. Writes should be scoped to deploy only after explicit CI/CD approval. |
-| B03 — README says MIT without a root LICENSE | Medium / High | Still blocked on the owner's exact legal grant, holder, and year/range; no legal text should be invented. |
+| B01 — Pages CI omits npm test | High / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:26-32. |
+| B02 — Build inherits Pages/OIDC writes | Medium / High | Still authorization-blocked at .github/workflows/deploy-pages.yml:8-45. |
+| B03 — README says MIT without a root LICENSE | Medium / High | Still blocked on exact owner-supplied legal terms and attribution. |
 
-The representative-device preserveDrawingBuffer measurement remains Cycle 3 evidence carryover B04, not a security defect.
+B04 remains a representative-hardware performance evidence item, not a security finding.
 
 ## Missed-issue sweep
 
-Rechecked every network-capable API, untrusted-input property access, user-derived rendering/download sink, worker boundary, CSP directive/order assertion, package advisory, workflow permission, and privacy claim after drafting. The two actionable lifecycle defects documented by the critic/verifier/debugger affect map correctness and export consistency, but do not create a new data disclosure or privilege boundary. New security count remains **0**.
+Rechecked every network-capable API, untrusted-input property access, rendering/download sink, worker boundary, CSP assertion, workflow permission, and privacy claim after drafting. CR5-01 is a MapLibre current-pose consistency defect and does not cross a security or privacy boundary. New security count remains **0**.

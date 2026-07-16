@@ -2,6 +2,7 @@
 
 ## Active
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
+- `cycle5-implementation-2026-07-16.md` — Implements five Cycle 5 findings covering style-ready pose hydration, deterministic Journey readiness, attribution safe area, live-status localization, and safe reviewer E2E guidance; no deployment or CI/CD edit
 
 ## Completed this cycle
 
