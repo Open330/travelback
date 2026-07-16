@@ -133,7 +133,7 @@ function HomeInner() {
   const [acceptedTrimRange, setAcceptedTrimRange] = useState({ startIdx: 0, endIdx: 0 })
   const [trimSelectionRevision, setTrimSelectionRevision] = useState(0)
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
-  const [workspaceAnnouncement, setWorkspaceAnnouncement] = useState('')
+  const [loadedTrackStatusName, setLoadedTrackStatusName] = useState<string | null>(null)
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const [mapGeneration, setMapGeneration] = useState(0)
@@ -336,7 +336,7 @@ function HomeInner() {
     resetPlaybackSession()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
-    setWorkspaceAnnouncement(`${tRef.current('app.trackLoaded')} ${nextTrack.name}`)
+    setLoadedTrackStatusName(nextTrack.name)
     setPendingWorkspaceFocus(true)
   }, [resetPlaybackSession, resetTrackWorkspace])
 
@@ -638,7 +638,7 @@ function HomeInner() {
         {track && fullTrack && (
           <>
             <div ref={workspaceStatusRef} tabIndex={-1} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-              {workspaceAnnouncement}
+              {loadedTrackStatusName ? `${t('app.trackLoaded')} ${loadedTrackStatusName}` : ''}
             </div>
             <TrackWorkspace
               fullTrack={fullTrack}
