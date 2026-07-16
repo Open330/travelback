@@ -44,6 +44,7 @@ archived into their respective cycle implementation plans once addressed.
   - `/tmp/travelback-cycle7-focused.Im7MbJ`
   - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-35199d5637ccdb78dc5bc086890c807f.log`
   - `/tmp/travelback-cycle7-focused-copy.8mgPDR`
+  - `/tmp/travelback-cycle7-gates.Osfw8C`
 - These paths are run-created only. Do not infer that similarly named or
   pre-existing trees are safe to remove.
 - No listed path is deleted during Cycle 6. Remove only at the loop's final
