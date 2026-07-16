@@ -5,7 +5,7 @@ import { X, ChevronDown } from 'lucide-react'
 import type { Scene, CameraMode } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateId } from '@/lib/id'
-import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, normalizeScenes } from '@/lib/camera'
+import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, MIN_SCENE_SPAN, normalizeScenes, restoreDeletedScene } from '@/lib/camera'
 import { useLocale, type TranslationKey } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
@@ -13,7 +13,6 @@ const SCENE_COLORS = [
   'rgba(var(--gl),.7)', '#34D399', '#FBBF24', '#A78BFA',
   '#FB7185', '#2DD4BF', '#FB923C', '#818CF8',
 ]
-const MIN_SCENE_SPAN = 0.01
 
 interface SceneEditorProps {
   scenes: Scene[]
@@ -381,13 +380,15 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
 
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
-    if (!scenes.some((scene) => scene.id === deletedScene.scene.id)) {
-      const restoredScenes = [...scenes]
-      restoredScenes.splice(Math.min(deletedScene.index, restoredScenes.length), 0, deletedScene.scene)
-      commitScenes(restoredScenes)
+    const result = restoreDeletedScene(scenes, deletedScene.scene, deletedScene.index)
+    if (result.restored) {
+      setNormalizationWarnings([])
+      onChange(result.scenes)
+    } else if (result.reason === 'conflict') {
+      setNormalizationWarnings([t('scenes.undoConflict')])
     }
     setDeletedScene(null)
-  }, [commitScenes, deletedScene, scenes])
+  }, [deletedScene, onChange, scenes, t])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null

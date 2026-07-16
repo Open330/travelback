@@ -1273,15 +1273,27 @@ test.describe('Travelback App', () => {
     const addButton = page.getByRole('button', { name: '+ Add' })
     await addButton.click({ force: true })
     await addButton.click({ force: true })
+    await addButton.click({ force: true })
 
-    await page.getByRole('button', { name: 'Delete scene Scene 1' }).click({ force: true })
-    const remainingName = page.getByRole('textbox').first()
+    await page.getByRole('button', { name: 'Delete scene Scene 2' }).click({ force: true })
+    const remainingName = page.getByRole('textbox').nth(1)
     await remainingName.fill('Edited after deletion')
+    await page.getByRole('button', { name: 'Customize' }).nth(1).click()
+    const editedStart = page.getByRole('spinbutton').first()
+    await editedStart.fill('25')
+    await page.locator('.space-y-2 select').nth(1).selectOption('orbit')
     await page.getByRole('button', { name: 'Undo' }).click()
 
-    await expect(page.getByRole('textbox')).toHaveCount(2)
+    await expect(page.getByRole('textbox')).toHaveCount(3)
     await expect(page.getByRole('textbox').nth(0)).toHaveValue('Scene 1')
-    await expect(page.getByRole('textbox').nth(1)).toHaveValue('Edited after deletion')
+    await expect(page.getByRole('textbox').nth(1)).toHaveValue('Scene 2')
+    await expect(page.getByRole('textbox').nth(2)).toHaveValue('Edited after deletion')
+
+    await page.getByRole('button', { name: 'Customize' }).nth(1).click()
+    await expect(page.getByRole('spinbutton').nth(1)).toHaveValue('25')
+    await page.getByRole('button', { name: 'Customize' }).nth(2).click()
+    await expect(page.getByRole('spinbutton').first()).toHaveValue('25')
+    await expect(page.locator('.space-y-2 select').nth(2)).toHaveValue('orbit')
   })
 
   test('keyboard scene range edits use committed normalization', async ({ page }) => {

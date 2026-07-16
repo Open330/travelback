@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScenes, lerpCamera, computeCameraForProgress, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes } from './camera'
+import { normalizeScenes, lerpCamera, computeCameraForProgress, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, restoreDeletedScene } from './camera'
 import type { Scene, Track } from '@/types'
 
 const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMode'] = 'flyover'): Scene => ({
@@ -75,6 +75,57 @@ describe('normalizeScenes', () => {
     const result = normalizeScenes(scenes)
     // NaN is clamped to fallback (0 for startPercent)
     expect(result[0].startPercent).toBe(0)
+  })
+})
+
+describe('restoreDeletedScene', () => {
+  it('clips only the restored scene around a later range edit', () => {
+    const first = makeScene('first', 0, 0.15)
+    const deleted = { ...makeScene('deleted', 0.15, 0.3), name: 'Deleted', cameraMode: 'orbit' as const, params: { zoom: 9, pitch: 60, bearingOffset: 20, rotationSpeed: 12 } }
+    const editedLater = { ...makeScene('later', 0.25, 0.45), name: 'Edited later' }
+
+    const result = restoreDeletedScene([first, editedLater], deleted, 1)
+
+    expect(result.restored).toBe(true)
+    if (!result.restored) return
+    expect(result.scenes[0]).toBe(first)
+    expect(result.scenes[2]).toBe(editedLater)
+    expect(result.scenes[1]).toEqual({
+      ...deleted,
+      startPercent: 0.15,
+      endPercent: 0.25,
+    })
+  })
+
+  it('clips the restored start when the previous scene grew', () => {
+    const grownPrevious = makeScene('first', 0, 0.2)
+    const deleted = makeScene('deleted', 0.15, 0.3)
+    const later = makeScene('later', 0.4, 0.6)
+
+    const result = restoreDeletedScene([grownPrevious, later], deleted, 1)
+
+    expect(result).toMatchObject({
+      restored: true,
+      scenes: [grownPrevious, { id: 'deleted', startPercent: 0.2, endPercent: 0.3 }, later],
+    })
+  })
+
+  it('rejects restoration when less than the minimum original span is free', () => {
+    const scenes = [makeScene('first', 0, 0.245), makeScene('later', 0.25, 0.6)]
+    const result = restoreDeletedScene(scenes, makeScene('deleted', 0.15, 0.3), 1)
+
+    expect(result).toEqual({ restored: false, reason: 'conflict', scenes })
+  })
+
+  it('does not insert a duplicate scene id', () => {
+    const existing = makeScene('same', 0, 0.2)
+    const scenes = [existing]
+
+    expect(restoreDeletedScene(scenes, makeScene('same', 0.2, 0.4), 1)).toEqual({
+      restored: false,
+      reason: 'duplicate',
+      scenes,
+    })
   })
 })
 

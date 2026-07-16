@@ -21,6 +21,80 @@ export const smoothstep = (t: number) => t * t * (3 - 2 * t)
 
 /** Fraction of track length used for look-ahead bearing in bird's eye mode */
 export const LOOK_AHEAD_FRACTION = 0.05
+export const MIN_SCENE_SPAN = 0.01
+
+export type RestoreDeletedSceneResult =
+  | { restored: true; scenes: Scene[] }
+  | { restored: false; reason: 'duplicate' | 'conflict'; scenes: Scene[] }
+
+export function restoreDeletedScene(
+  scenes: Scene[],
+  deletedScene: Scene,
+  originalIndex: number,
+): RestoreDeletedSceneResult {
+  if (scenes.some((scene) => scene.id === deletedScene.id)) {
+    return { restored: false, reason: 'duplicate', scenes }
+  }
+
+  const occupied = scenes
+    .map((scene) => ({
+      start: clampUnit(scene.startPercent, 0),
+      end: clampUnit(scene.endPercent, 1),
+    }))
+    .filter((range) => range.end > range.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+
+  const merged: Array<{ start: number; end: number }> = []
+  for (const range of occupied) {
+    const previous = merged.at(-1)
+    if (previous && range.start <= previous.end) {
+      previous.end = Math.max(previous.end, range.end)
+    } else {
+      merged.push({ ...range })
+    }
+  }
+
+  const gaps: Array<{ start: number; end: number }> = []
+  let cursor = 0
+  for (const range of merged) {
+    if (range.start > cursor) gaps.push({ start: cursor, end: range.start })
+    cursor = Math.max(cursor, range.end)
+  }
+  if (cursor < 1) gaps.push({ start: cursor, end: 1 })
+
+  const originalStart = clampUnit(deletedScene.startPercent, 0)
+  const originalEnd = clampUnit(deletedScene.endPercent, 1)
+  const candidates = gaps
+    .map((gap) => {
+      const start = Math.max(gap.start, originalStart)
+      const end = Math.min(gap.end, originalEnd)
+      const insertionIndex = scenes.filter((scene) => scene.endPercent <= start).length
+      return { start, end, insertionIndex }
+    })
+    .filter((gap) => gap.end - gap.start + Number.EPSILON >= MIN_SCENE_SPAN)
+    .sort((a, b) => {
+      const widthDifference = (b.end - b.start) - (a.end - a.start)
+      if (Math.abs(widthDifference) > Number.EPSILON) return widthDifference
+      return Math.abs(a.insertionIndex - originalIndex) - Math.abs(b.insertionIndex - originalIndex)
+    })
+
+  const available = candidates[0]
+  if (!available) {
+    return { restored: false, reason: 'conflict', scenes }
+  }
+
+  const restoredScene = {
+    ...deletedScene,
+    startPercent: available.start,
+    endPercent: available.end,
+  }
+  const nextScenes = [...scenes, restoredScene].sort((a, b) => (
+    a.startPercent - b.startPercent
+    || a.endPercent - b.endPercent
+    || a.id.localeCompare(b.id)
+  ))
+  return { restored: true, scenes: nextScenes }
+}
 
 export function normalizeScenes(scenes: Scene[]): Scene[] {
   let previousEndPercent = 0
