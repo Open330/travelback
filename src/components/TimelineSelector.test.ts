@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { indexToRatio, ratioToIndex } from './TimelineSelector'
+import { clampTimelineRatios, indexToRatio, ratioToIndex } from './TimelineSelector'
 
 describe('ratioToIndex', () => {
   const cumulativeDistances = [0, 10, 20, 30, 40]
@@ -32,5 +32,15 @@ describe('ratioToIndex', () => {
     const ratio = indexToRatio(1, 'end', segmentedDistances, 3)
 
     expect(ratioToIndex(ratio, 'end', segmentedDistances, 3)).toBe(1)
+  })
+})
+
+describe('clampTimelineRatios', () => {
+  it('allows a three-point track to select its two-point inclusive minimum', () => {
+    expect(clampTimelineRatios(0, 0.42, 3)).toEqual([0, 0.5])
+  })
+
+  it('keeps a two-point track on its only valid interval', () => {
+    expect(clampTimelineRatios(0.25, 0.75, 2)).toEqual([0, 1])
   })
 })

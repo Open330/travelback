@@ -92,6 +92,19 @@ export function indexToRatio(
   return Math.max(0, Math.min(1, distance / totalDistance))
 }
 
+export function clampTimelineRatios(start: number, end: number, pointCount: number): [number, number] {
+  // An inclusive two-point range spans one interval. Using two point slots
+  // here over-constrains short tracks (three points could never trim to two).
+  const minGap = 1 / Math.max(1, pointCount - 1)
+  let nextStart = Math.max(0, Math.min(start, 1 - minGap))
+  let nextEnd = Math.max(minGap, Math.min(end, 1))
+  if (nextEnd - nextStart < minGap) {
+    nextEnd = Math.min(1, nextStart + minGap)
+    nextStart = Math.max(0, nextEnd - minGap)
+  }
+  return [nextStart, nextEnd]
+}
+
 function formatDate(date: Date | undefined, locale?: string): string {
   if (!date) return ''
   return date.toLocaleString(locale, {
@@ -240,16 +253,7 @@ function TimelineSelector({
   const getWidth = () => containerRef.current?.getBoundingClientRect().width ?? 1
 
   const clampRatios = useCallback((s: number, e: number): [number, number] => {
-    // Enforce a minimum visible range of at least 2 points-worth of the
-    // timeline so the resulting slice always has >= 2 points.
-    const minGap = Math.max(1 / (points.length || 1), 2 / (points.length || 1))
-    s = Math.max(0, Math.min(s, 1 - minGap))
-    e = Math.max(minGap, Math.min(e, 1))
-    if (e - s < minGap) {
-      e = Math.min(1, s + minGap)
-      s = Math.max(0, e - minGap)
-    }
-    return [s, e]
+    return clampTimelineRatios(s, e, points.length)
   }, [points.length])
 
   // Helper to resolve a ratio pair to point indexes without reading React state.
