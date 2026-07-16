@@ -239,6 +239,100 @@ describe('parseGoogleLocationHistory — Format 2: Timeline Objects', () => {
     // Place visit starts a new segment
     expect(track.segmentStartIndices!.length).toBeGreaterThanOrEqual(1)
   })
+
+  it.each([
+    ['empty', []],
+    [
+      'all-invalid',
+      [
+        { latE7: 910000000, lngE7: -1221000000 },
+        { latE7: 374000000, lngE7: 1810000000 },
+        { latE7: true, lngE7: -1221000000 },
+      ],
+    ],
+  ])('falls back from an %s simplified path to waypoints', (_name, points) => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      timelineObjects: [{
+        activitySegment: {
+          simplifiedRawPath: { points },
+          waypointPath: {
+            waypoints: [
+              { latE7: 375000000, lngE7: -1220000000 },
+              { latE7: 376000000, lngE7: -1219000000 },
+            ],
+          },
+          startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+          endLocation: { latitudeE7: 378000000, longitudeE7: -1217000000 },
+        },
+      }],
+    }), 2)
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+      [37.5, -122],
+      [37.6, -121.9],
+    ])
+  })
+
+  it.each([
+    ['empty', []],
+    [
+      'all-invalid',
+      [
+        { latE7: 910000000, lngE7: -1221000000 },
+        { latE7: 374000000, lngE7: 1810000000 },
+        { latE7: {}, lngE7: -1221000000 },
+      ],
+    ],
+  ])('falls back from an %s waypoint path to start and end locations', (_name, waypoints) => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      timelineObjects: [{
+        activitySegment: {
+          simplifiedRawPath: { points: [] },
+          waypointPath: { waypoints },
+          startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+          endLocation: { latitudeE7: 378000000, longitudeE7: -1217000000 },
+          duration: {
+            startTimestamp: '2024-01-15T10:00:00Z',
+            endTimestamp: '2024-01-15T10:05:00Z',
+          },
+        },
+      }],
+    }), 2)
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+      [37.7, -121.8],
+      [37.8, -121.7],
+    ])
+    expect(track.points.map(point => point.time?.toISOString())).toEqual([
+      '2024-01-15T10:00:00.000Z',
+      '2024-01-15T10:05:00.000Z',
+    ])
+  })
+
+  it('keeps a partly valid simplified path without mixing lower-priority representations', () => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      timelineObjects: [{
+        activitySegment: {
+          simplifiedRawPath: {
+            points: [
+              { latE7: 910000000, lngE7: -1221000000 },
+              { latE7: 374000000, lngE7: -1221000000 },
+            ],
+          },
+          waypointPath: {
+            waypoints: [
+              { latE7: 375000000, lngE7: -1220000000 },
+              { latE7: 376000000, lngE7: -1219000000 },
+            ],
+          },
+          startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+          endLocation: { latitudeE7: 378000000, longitudeE7: -1217000000 },
+        },
+      }],
+    }), 1)
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([[37.4, -122.1]])
+  })
 })
 
 describe('parseGoogleLocationHistory — Format 3: Timeline Edits', () => {

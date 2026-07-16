@@ -95,6 +95,71 @@ const guardedGoogleCases: [string, unknown, number][] = [
   ],
 ]
 
+const timelineActivityFallbackCases: [string, unknown, number[][]][] = [
+  [
+    'empty simplified path',
+    {
+      simplifiedRawPath: { points: [] },
+      waypointPath: { waypoints: [{ latE7: 375000000, lngE7: -1220000000 }] },
+      startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+    },
+    [[37.5, -122]],
+  ],
+  [
+    'all-invalid simplified path',
+    {
+      simplifiedRawPath: {
+        points: [
+          { latE7: 910000000, lngE7: -1221000000 },
+          { latE7: 374000000, lngE7: 1810000000 },
+        ],
+      },
+      waypointPath: { waypoints: [{ latE7: 375000000, lngE7: -1220000000 }] },
+      startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+    },
+    [[37.5, -122]],
+  ],
+  [
+    'empty waypoint path',
+    {
+      simplifiedRawPath: { points: [] },
+      waypointPath: { waypoints: [] },
+      startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+      endLocation: { latitudeE7: 378000000, longitudeE7: -1217000000 },
+    },
+    [[37.7, -121.8], [37.8, -121.7]],
+  ],
+  [
+    'all-invalid waypoint path',
+    {
+      simplifiedRawPath: { points: [] },
+      waypointPath: {
+        waypoints: [
+          { latE7: 910000000, lngE7: -1221000000 },
+          { latE7: 374000000, lngE7: 1810000000 },
+        ],
+      },
+      startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+      endLocation: { latitudeE7: 378000000, longitudeE7: -1217000000 },
+    },
+    [[37.7, -121.8], [37.8, -121.7]],
+  ],
+  [
+    'partly valid preferred path',
+    {
+      simplifiedRawPath: {
+        points: [
+          { latE7: 910000000, lngE7: -1221000000 },
+          { latE7: 374000000, lngE7: -1221000000 },
+        ],
+      },
+      waypointPath: { waypoints: [{ latE7: 375000000, lngE7: -1220000000 }] },
+      startLocation: { latitudeE7: 377000000, longitudeE7: -1218000000 },
+    },
+    [[37.4, -122.1]],
+  ],
+]
+
 describe('track parser worker entry', () => {
   it('returns the same track as the shared main-thread parser', () => {
     const json = JSON.stringify({
@@ -116,6 +181,17 @@ describe('track parser worker entry', () => {
       const directTrack = parseGoogleLocationHistory(json)
 
       expect(directTrack.points).toHaveLength(expectedPoints)
+      expect(parseTrackParserRequest(requestFor(json))).toEqual({ track: directTrack })
+    },
+  )
+
+  it.each(timelineActivityFallbackCases)(
+    'keeps source/worker result-based fallback parity for an %s',
+    (_name, activitySegment, expectedPoints) => {
+      const json = JSON.stringify({ timelineObjects: [{ activitySegment }] })
+      const directTrack = parseGoogleLocationHistory(json)
+
+      expect(directTrack.points.map(({ lat, lng }) => [lat, lng])).toEqual(expectedPoints)
       expect(parseTrackParserRequest(requestFor(json))).toEqual({ track: directTrack })
     },
   )

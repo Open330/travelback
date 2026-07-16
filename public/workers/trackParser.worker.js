@@ -90,17 +90,17 @@
             let point = asRecord(value2);
             point && pushE7(currentSegment, budget, point.latE7, point.lngE7, point.timestamp);
           }
-        else {
+        if (currentSegment.length === 0) {
           let wpPath = asRecord(seg.waypointPath);
           if (wpPath && Array.isArray(wpPath.waypoints))
             for (let value2 of wpPath.waypoints) {
               let waypoint = asRecord(value2);
               waypoint && pushE7(currentSegment, budget, waypoint.latE7, waypoint.lngE7);
             }
-          else {
-            let duration = asRecord(seg.duration), start = asRecord(seg.startLocation), end = asRecord(seg.endLocation);
-            start && pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp), end && pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp);
-          }
+        }
+        if (currentSegment.length === 0) {
+          let duration = asRecord(seg.duration), start = asRecord(seg.startLocation), end = asRecord(seg.endLocation);
+          start && pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp), end && pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp);
         }
       }
       if (visit) {

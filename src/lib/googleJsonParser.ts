@@ -103,7 +103,9 @@ function parseTimelineObjects(objects: unknown[], budget: PointBudget): TrackSeg
           if (!point) continue
           pushE7(currentSegment, budget, point.latE7, point.lngE7, point.timestamp)
         }
-      } else {
+      }
+
+      if (currentSegment.length === 0) {
         // Fallback: waypointPath.waypoints[]
         const wpPath = asRecord(seg.waypointPath)
         if (wpPath && Array.isArray(wpPath.waypoints)) {
@@ -112,14 +114,16 @@ function parseTimelineObjects(objects: unknown[], budget: PointBudget): TrackSeg
             if (!waypoint) continue
             pushE7(currentSegment, budget, waypoint.latE7, waypoint.lngE7)
           }
-        } else {
-          // Last resort: startLocation + endLocation
-          const duration = asRecord(seg.duration)
-          const start = asRecord(seg.startLocation)
-          const end = asRecord(seg.endLocation)
-          if (start) pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp)
-          if (end) pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp)
         }
+      }
+
+      if (currentSegment.length === 0) {
+        // Last resort: startLocation + endLocation
+        const duration = asRecord(seg.duration)
+        const start = asRecord(seg.startLocation)
+        const end = asRecord(seg.endLocation)
+        if (start) pushE7(currentSegment, budget, start.latitudeE7, start.longitudeE7, duration?.startTimestamp)
+        if (end) pushE7(currentSegment, budget, end.latitudeE7, end.longitudeE7, duration?.endTimestamp)
       }
     }
 
