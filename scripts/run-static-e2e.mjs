@@ -37,6 +37,7 @@ const playwrightBin = path.resolve(process.cwd(), 'node_modules/.bin/playwright'
 const env = {
   ...process.env,
   PLAYWRIGHT_STATIC_PORT: String(port),
+  TRAVELBACK_E2E_TARGET: 'static',
 }
 delete env.NO_COLOR
 

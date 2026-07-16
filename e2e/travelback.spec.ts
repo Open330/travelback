@@ -18,6 +18,7 @@ const POINT_PLACEMARKS_KML_FIXTURE = path.resolve(__dirname, 'fixtures/point-pla
 const INVALID_ELEVATION_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/invalid-elevation.gpx')
 const ANTIMERIDIAN_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/antimeridian.gpx')
 const MULTILINE_ENTITY_GPX_FIXTURE = path.resolve(__dirname, 'fixtures/multiline-entity.gpx')
+const IS_STATIC_E2E = process.env.TRAVELBACK_E2E_TARGET === 'static'
 
 function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) {
   return !(
@@ -140,6 +141,15 @@ async function waitForApp(page: Page) {
   await expect(page.getByTestId('map-container')).toBeAttached({ timeout: 30_000 })
   await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('input[type="file"]')).toBeAttached({ timeout: 30_000 })
+}
+
+async function expectProductionDebugApiAbsent(page: Page) {
+  expect(await page.evaluate(() => '__travelbackDebug' in window)).toBe(false)
+}
+
+async function expectPublicMapReady(page: Page) {
+  await expect(page.getByTestId('map-container').locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('map-error')).toHaveCount(0)
 }
 
 /** Helper: upload a GPX file and wait for the track to load */
@@ -962,9 +972,16 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
   })
 
-  test('route and trail layers are attached after track load', async ({ page }) => {
+  test('loaded route map is operational after track load', async ({ page }) => {
     await uploadGpx(page)
     await page.waitForTimeout(750)
+
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+      await startPlayback(page)
+      return
+    }
 
     await expect.poll(async () => page.evaluate(() => {
       type DebugWindow = Window & {
@@ -994,33 +1011,45 @@ test.describe('Travelback App', () => {
     await uploadGpx(page)
     await page.waitForTimeout(750)
 
-    await expect.poll(async () => page.evaluate(() => {
-      type DebugWindow = Window & {
-        __travelbackDebug?: {
-          getMapState: () => {
-            hasRouteSource: boolean
-            hasTrailSource: boolean
-            hasRouteLayer: boolean
-            hasTrailLayer: boolean
-            hasMarker: boolean
-          } | null
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+    } else {
+      await expect.poll(async () => page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: {
+            getMapState: () => {
+              hasRouteSource: boolean
+              hasTrailSource: boolean
+              hasRouteLayer: boolean
+              hasTrailLayer: boolean
+              hasMarker: boolean
+            } | null
+          }
         }
-      }
 
-      const debugWindow = window as DebugWindow
-      return debugWindow.__travelbackDebug?.getMapState() ?? null
-    }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
-      hasRouteSource: true,
-      hasTrailSource: true,
-      hasRouteLayer: true,
-      hasTrailLayer: true,
-      hasMarker: true,
-    })
+        const debugWindow = window as DebugWindow
+        return debugWindow.__travelbackDebug?.getMapState() ?? null
+      }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
+        hasRouteSource: true,
+        hasTrailSource: true,
+        hasRouteLayer: true,
+        hasTrailLayer: true,
+        hasMarker: true,
+      })
+    }
 
     const newRouteBtn = page.getByText('New Route', { exact: true })
     await expect(newRouteBtn).toBeVisible({ timeout: 10_000 })
     await newRouteBtn.click({ force: true })
     await expect(page.getByTestId('journey-creator-panel')).toBeVisible({ timeout: 10_000 })
+
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeHidden()
+      await expect(page.getByTestId('map-error')).toHaveCount(0)
+      return
+    }
 
     await expect.poll(async () => page.evaluate(() => {
       type DebugWindow = Window & {
@@ -1072,6 +1101,13 @@ test.describe('Travelback App', () => {
     await page.waitForTimeout(3000)
 
     await startPlayback(page)
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+      await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+      return
+    }
+
     const samples = await collectCameraSamples(page)
 
     expectStableCameraMotion(samples)
@@ -1092,6 +1128,13 @@ test.describe('Travelback App', () => {
     await addSceneBtn.click({ force: true })
 
     await startPlayback(page)
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+      await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+      return
+    }
+
     const samples = await collectCameraSamples(page)
 
     expectStableCameraMotion(samples)
@@ -1101,34 +1144,45 @@ test.describe('Travelback App', () => {
     await uploadCustomFile(page, ANTIMERIDIAN_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Antimeridian Hop')).toBeVisible({ timeout: 15_000 })
 
-    await expect.poll(async () => page.evaluate(() => {
-      type DebugWindow = Window & {
-        __travelbackDebug?: {
-          getMapState: () => {
-            hasRouteSource: boolean
-            hasTrailSource: boolean
-            hasRouteLayer: boolean
-            hasTrailLayer: boolean
-            hasMarker: boolean
-          } | null
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+    } else {
+      await expect.poll(async () => page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: {
+            getMapState: () => {
+              hasRouteSource: boolean
+              hasTrailSource: boolean
+              hasRouteLayer: boolean
+              hasTrailLayer: boolean
+              hasMarker: boolean
+            } | null
+          }
         }
-      }
 
-      return (window as DebugWindow).__travelbackDebug?.getMapState() ?? null
-    }), { timeout: 20_000, intervals: [150, 250, 400, 600] }).toMatchObject({
-      hasRouteSource: true,
-      hasTrailSource: true,
-      hasRouteLayer: true,
-      hasTrailLayer: true,
-      hasMarker: true,
-    })
+        return (window as DebugWindow).__travelbackDebug?.getMapState() ?? null
+      }), { timeout: 20_000, intervals: [150, 250, 400, 600] }).toMatchObject({
+        hasRouteSource: true,
+        hasTrailSource: true,
+        hasRouteLayer: true,
+        hasTrailLayer: true,
+        hasMarker: true,
+      })
+    }
 
     await page.getByText('Camera', { exact: true }).click({ force: true })
     await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
     await page.getByRole('button', { name: 'Cinematic' }).click({ force: true })
 
-    const playBtn = page.getByRole('button', { name: 'Play' })
-    await playBtn.click({ force: true })
+    await startPlayback(page)
+
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expect(page.getByTestId('map-error')).toHaveCount(0)
+      await expect(visibleTrackTitle(page, 'Antimeridian Hop')).toBeVisible()
+      return
+    }
 
     await expect.poll(async () => page.evaluate(() => {
       type DebugWindow = Window & {
@@ -1220,15 +1274,22 @@ test.describe('Travelback App', () => {
     await expect(playbackProgress).toHaveValue('0.8')
     await page.waitForTimeout(1500)
 
-    const baselineZoom = await page.evaluate(() => {
-      type DebugWindow = Window & {
-        __travelbackDebug?: {
-          getCamera: () => { zoom: number } | null
+    let baselineZoom = 0
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+    } else {
+      const currentZoom = await page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: {
+            getCamera: () => { zoom: number } | null
+          }
         }
-      }
-      return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
-    })
-    if (baselineZoom == null) throw new Error('Missing baseline camera')
+        return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+      })
+      if (currentZoom == null) throw new Error('Missing baseline camera')
+      baselineZoom = currentZoom
+    }
 
     await page.getByText('Camera', { exact: true }).click({ force: true })
     await expect(page.getByTestId('scene-editor-panel')).toBeVisible({ timeout: 10_000 })
@@ -1243,6 +1304,15 @@ test.describe('Travelback App', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }))
       input.dispatchEvent(new Event('change', { bubbles: true }))
     })
+
+    if (IS_STATIC_E2E) {
+      await expect(zoomSlider).toHaveValue('20')
+      await zoomSlider.press('ArrowUp')
+      await expect(playbackProgress).toHaveValue('0.8')
+      await expect(page.getByTestId('map-error')).toHaveCount(0)
+      await expectProductionDebugApiAbsent(page)
+      return
+    }
 
     await expect.poll(async () => page.evaluate(() => {
       type DebugWindow = Window & {
@@ -1355,10 +1425,17 @@ test.describe('Travelback App', () => {
     const styleBtn = page.getByTestId('map-style-button')
     await expect(styleBtn).toBeVisible({ timeout: 10_000 })
 
+    if (IS_STATIC_E2E) {
+      await expectProductionDebugApiAbsent(page)
+      await expectPublicMapReady(page)
+    }
+
     for (const label of ['Light', 'Dark', 'Liberty', 'Bright', 'Voyager']) {
       await styleBtn.click({ force: true })
       await expect(styleBtn).toHaveText(new RegExp(`Map:\\s*${label}`), { timeout: 10_000 })
       await expect(page.getByTestId('map-error')).toHaveCount(0)
+      if (IS_STATIC_E2E) continue
+
       await expect.poll(async () => {
         return page.evaluate(() => {
           type DebugWindow = Window & {
