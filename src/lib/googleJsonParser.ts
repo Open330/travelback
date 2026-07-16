@@ -318,15 +318,19 @@ export function parseGoogleLocationHistory(text: string, maxPoints?: number): Tr
   // Keep depth and structural preflight in the shared parser so worker and
   // bounded main-thread fallback behavior cannot drift.
   checkJsonDepth(text)
-  let data: GoogleLocationData | Record<string, unknown>[]
+  let parsed: unknown
   try {
-    data = JSON.parse(text) as GoogleLocationData | Record<string, unknown>[]
+    parsed = JSON.parse(text)
   } catch (err) {
     if (err instanceof RangeError) {
       throw new ParseError('JSON nesting depth exceeds limit', 'JSON_DEPTH_EXCEEDED')
     }
     throw new ParseError('Invalid JSON file. Please check that the file is a valid Google Location History export.', 'INVALID_GOOGLE_JSON')
   }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new ParseError('Unsupported Google Location History format', 'UNSUPPORTED_GOOGLE_FORMAT')
+  }
+  const data = parsed as GoogleLocationData | Record<string, unknown>[]
   const segments: TrackSegment[] = []
   const budget = createPointBudget(maxPoints)
   let recognizedFormat = false

@@ -198,13 +198,15 @@
   }
   function parseGoogleLocationHistory(text, maxPoints) {
     checkJsonDepth(text);
-    let data;
+    let parsed;
     try {
-      data = JSON.parse(text);
+      parsed = JSON.parse(text);
     } catch (err) {
       throw err instanceof RangeError ? new ParseError("JSON nesting depth exceeds limit", "JSON_DEPTH_EXCEEDED") : new ParseError("Invalid JSON file. Please check that the file is a valid Google Location History export.", "INVALID_GOOGLE_JSON");
     }
-    let segments = [], budget = createPointBudget(maxPoints), recognizedFormat = !1;
+    if (parsed === null || typeof parsed != "object")
+      throw new ParseError("Unsupported Google Location History format", "UNSUPPORTED_GOOGLE_FORMAT");
+    let data = parsed, segments = [], budget = createPointBudget(maxPoints), recognizedFormat = !1;
     if (Array.isArray(data) && data.some(looksLikeGoogleLocationRecord)) {
       recognizedFormat = !0;
       let records = parseRecords(data, budget);

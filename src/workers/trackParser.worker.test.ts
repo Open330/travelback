@@ -29,6 +29,12 @@ describe('track parser worker entry', () => {
     })
   })
 
+  it.each([null, true, 42, '"text"'])('returns an intentional error for non-object JSON root %s', (value) => {
+    expect(parseTrackParserRequest(requestFor(value))).toMatchObject({
+      code: 'UNSUPPORTED_GOOGLE_FORMAT',
+    })
+  })
+
   it('checks nesting after the former 10 MiB scan boundary', () => {
     const padding = 'x'.repeat(10 * 1024 * 1024)
     const deepSuffix = `${'['.repeat(65)}0${']'.repeat(65)}`

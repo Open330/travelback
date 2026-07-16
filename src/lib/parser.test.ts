@@ -631,9 +631,14 @@ describe('parseGoogleLocationHistory — additional edge cases', () => {
     expect(() => parseGoogleLocationHistory(JSON.stringify({}))).toThrowError(ParseError)
   })
 
-  it('handles null input after JSON parse', () => {
-    // null JSON.parse result causes a TypeError when trying to access properties
-    expect(() => parseGoogleLocationHistory('null')).toThrow()
+  it.each(['null', 'true', '42', '"text"'])('rejects non-object JSON root %s intentionally', (json) => {
+    try {
+      parseGoogleLocationHistory(json)
+      throw new Error('Expected parser to reject a non-object JSON root')
+    } catch (err) {
+      expect(err).toBeInstanceOf(ParseError)
+      expect((err as ParseError).code).toBe('UNSUPPORTED_GOOGLE_FORMAT')
+    }
   })
 
   it('handles locations with NaN latitudeE7', () => {
