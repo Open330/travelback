@@ -92,6 +92,14 @@ function SceneRangeEditor({
   const endPercentRef = useRef(endPercent)
   useEffect(() => { endPercentRef.current = endPercent }, [endPercent])
 
+  const commitKeyboardRange = useCallback((start: number, end: number) => {
+    if (onCommitRef.current) {
+      onCommitRef.current(start, end)
+      return
+    }
+    onChangeRef.current(start, end)
+  }, [])
+
   const clampRange = useCallback((start: number, end: number): [number, number] => {
     let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
     let nextEnd = Math.max(MIN_SCENE_SPAN, Math.min(end, 1))
@@ -225,40 +233,40 @@ function SceneRangeEditor({
                 e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(Math.min(startPercent + step, endPercent - MIN_SCENE_SPAN), endPercent)
-                  onChangeRef.current(s, endPercent)
+                  commitKeyboardRange(s, endPercent)
                 } else {
                   const [, en] = clampRange(startPercent, Math.min(endPercent + step, 1))
-                  onChangeRef.current(startPercent, en)
+                  commitKeyboardRange(startPercent, en)
                 }
               } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(Math.max(startPercent - step, 0), endPercent)
-                  onChangeRef.current(s, endPercent)
+                  commitKeyboardRange(s, endPercent)
                 } else {
                   const [, en] = clampRange(startPercent, Math.max(endPercent - step, startPercent + MIN_SCENE_SPAN))
-                  onChangeRef.current(startPercent, en)
+                  commitKeyboardRange(startPercent, en)
                 }
               } else if (e.key === 'Home') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(0, endPercent)
-                  onChangeRef.current(s, endPercent)
+                  commitKeyboardRange(s, endPercent)
                 } else {
                   const [, en] = clampRange(startPercent, startPercent + MIN_SCENE_SPAN)
-                  onChangeRef.current(startPercent, en)
+                  commitKeyboardRange(startPercent, en)
                 }
               } else if (e.key === 'End') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
                   const [s] = clampRange(endPercent - MIN_SCENE_SPAN, endPercent)
-                  onChangeRef.current(s, endPercent)
+                  commitKeyboardRange(s, endPercent)
                 } else {
                   const [, en] = clampRange(startPercent, 1)
-                  onChangeRef.current(startPercent, en)
+                  commitKeyboardRange(startPercent, en)
                 }
               }
             }}
@@ -278,7 +286,7 @@ function SceneRangeEditor({
 
 function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
-  const [deletedScene, setDeletedScene] = useState<{ preDeletionScenes: Scene[]; deletedName: string } | null>(null)
+  const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
@@ -367,15 +375,19 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
-    if (idx >= 0) setDeletedScene({ preDeletionScenes: scenes, deletedName: scenes[idx].name })
+    if (idx >= 0) setDeletedScene({ scene: scenes[idx], index: idx })
     commitScenes(scenes.filter(s => s.id !== id))
   }, [commitScenes, scenes])
 
   const undoDelete = useCallback(() => {
     if (!deletedScene) return
-    commitScenes(deletedScene.preDeletionScenes)
+    if (!scenes.some((scene) => scene.id === deletedScene.scene.id)) {
+      const restoredScenes = [...scenes]
+      restoredScenes.splice(Math.min(deletedScene.index, restoredScenes.length), 0, deletedScene.scene)
+      commitScenes(restoredScenes)
+    }
     setDeletedScene(null)
-  }, [commitScenes, deletedScene])
+  }, [commitScenes, deletedScene, scenes])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null
@@ -437,7 +449,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
   }, [onPreviewScene])
 
   const statusMessage = deletedScene
-    ? `${t('scenes.deleted')} ${deletedScene.deletedName}`
+    ? `${t('scenes.deleted')} ${deletedScene.scene.name}`
     : normalizationWarnings.join(' ')
 
   const localizePresetScenes = useCallback((presetType: PresetType, nextScenes: Scene[]) => {
@@ -742,7 +754,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
       {deletedScene && (
         <div className="px-3 py-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--div)' }}>
           <span className="text-xs" style={{ color: 'var(--t3)' }}>
-            {t('scenes.deleted')} &ldquo;{deletedScene.deletedName}&rdquo;
+            {t('scenes.deleted')} &ldquo;{deletedScene.scene.name}&rdquo;
           </span>
           <button type="button" onClick={undoDelete}
             className="text-xs px-2 py-0.5 font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'rgb(var(--gl))' }}>
