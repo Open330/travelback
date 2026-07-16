@@ -146,6 +146,19 @@ function removeTrackArtifacts(map: maplibregl.Map) {
   if (map.getSource('route')) map.removeSource('route')
 }
 
+function ownsTrackStyle(map: maplibregl.Map) {
+  return Boolean(
+    map.getSource('route')
+    && map.getSource(TRAIL_SOURCE)
+    && map.getSource(TRAIL_HEAD_SOURCE)
+    && map.getSource(POSITION_MARKER_SOURCE)
+    && map.getLayer('route-line')
+    && map.getLayer(TRAIL_LAYER)
+    && map.getLayer(TRAIL_HEAD_LAYER)
+    && map.getLayer(POSITION_MARKER_LAYER),
+  )
+}
+
 function markerPointFeature(point: TrackPoint): GeoJSON.Feature<GeoJSON.Point> {
   return {
     type: 'Feature',
@@ -155,6 +168,33 @@ function markerPointFeature(point: TrackPoint): GeoJSON.Feature<GeoJSON.Point> {
       coordinates: [point.lng, point.lat],
     },
   }
+}
+
+function readPositionMarkerSource(map: maplibregl.Map): [number, number] | null {
+  const source = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource | undefined
+  if (!source) return null
+
+  const data = source.serialize().data as GeoJSON.Feature<GeoJSON.Point> | string
+  if (typeof data === 'string' || data.type !== 'Feature' || data.geometry?.type !== 'Point') {
+    return null
+  }
+
+  const [lng, lat] = data.geometry.coordinates
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
+}
+
+function readTrailHeadPosition(map: maplibregl.Map): [number, number] | null {
+  const source = map.getSource(TRAIL_HEAD_SOURCE) as maplibregl.GeoJSONSource | undefined
+  if (!source) return null
+
+  const data = source.serialize().data as GeoJSON.Feature<GeoJSON.LineString> | string
+  if (typeof data === 'string' || data.type !== 'Feature' || data.geometry?.type !== 'LineString') {
+    return null
+  }
+
+  const coordinates = data.geometry.coordinates
+  const [lng, lat] = coordinates[coordinates.length - 1] ?? []
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
 }
 
 function chooseReferenceGridStep(span: number): number {
@@ -336,7 +376,16 @@ type TravelbackDebugWindow = Window & {
       hasRouteLayer: boolean
       hasTrailLayer: boolean
       hasMarker: boolean
+      hasExportMarkerLayer: boolean
       hasReferenceGridLayer: boolean
+    } | null
+    getPoseState: () => {
+      htmlMarkerPosition: [number, number] | null
+      geoJsonMarkerPosition: [number, number] | null
+      trailHeadPosition: [number, number] | null
+      completedTrailChunkIndex: number
+      requestedStyleRevision: number
+      readyStyleRevision: number
     } | null
   }
 }
@@ -377,12 +426,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const normalizedScenesRef = useRef<Scene[]>([])
   const durationRef = useRef(duration)
   const transitionDurationRef = useRef(transitionDuration)
+  const followCameraRef = useRef(followCamera)
+  const suspendAutoCameraRef = useRef(suspendAutoCamera)
+  const seekNonceRef = useRef(seekNonce)
+  const requestedStyleRevisionRef = useRef(0)
+  const loadedStyleRevisionRef = useRef(0)
+  const readyStyleRevisionRef = useRef(0)
+  const fitTrackOnReadyRef = useRef<Track | null>(null)
+  const preparedTrackRef = useRef<Track | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
+  const [readyStyleRevision, setReadyStyleRevision] = useState(0)
 
   // Cache reference grid data keyed on track reference — avoids recomputing
   // grid coordinates on every style change when the track hasn't changed.
   const referenceGridData = useMemo(() => buildReferenceGridData(track), [track])
+  const referenceGridDataRef = useRef(referenceGridData)
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -392,7 +451,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     durationRef.current = duration
     transitionDurationRef.current = transitionDuration
-  }, [duration, transitionDuration])
+    followCameraRef.current = followCamera
+    suspendAutoCameraRef.current = suspendAutoCamera
+    seekNonceRef.current = seekNonce
+  }, [duration, followCamera, seekNonce, suspendAutoCamera, transitionDuration])
+
+  useEffect(() => {
+    referenceGridDataRef.current = referenceGridData
+  }, [referenceGridData])
 
   useEffect(() => {
     trackRef.current = track
@@ -575,134 +641,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     },
   }))
-  // Initialize map
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    try {
-      const initialStyleKey = styleKeyRef.current
-      const map = new maplibregl.Map({
-        container: containerRef.current,
-        style: MAP_STYLES[initialStyleKey].url,
-        center: [0, 20],
-        zoom: 2,
-        // preserveDrawingBuffer:true is required so that captureStream()/drawImage()
-        // can read back the WebGL canvas during video export.  The trade-off is a
-        // slight performance cost on every frame (the GPU must finish painting before
-        // the buffer is preserved), but MapLibre's rendering workload is well within
-        // budget on modern devices so the impact is negligible.
-        canvasContextAttributes: { preserveDrawingBuffer: true },
-      })
-
-      map.addControl(new maplibregl.NavigationControl(), 'top-left')
-
-      mapRef.current = map
-      styleKeyRef.current = initialStyleKey
-      onMapInstanceChange?.()
-
-      const canExposeDebugCamera =
-        process.env.NODE_ENV === 'development'
-      if (canExposeDebugCamera) {
-        const debugWindow = window as TravelbackDebugWindow
-        debugWindow.__travelbackDebug = {
-          getCamera: () => {
-            const currentMap = mapRef.current
-            if (!currentMap) return null
-            const center = currentMap.getCenter()
-            return {
-              center: [center.lng, center.lat],
-              zoom: currentMap.getZoom(),
-              pitch: currentMap.getPitch(),
-              bearing: currentMap.getBearing(),
-            }
-          },
-          getMapState: () => {
-            const currentMap = mapRef.current
-            if (!currentMap) return null
-            return {
-              hasRouteSource: Boolean(currentMap.getSource('route')),
-              hasTrailSource: Boolean(currentMap.getSource('trail')),
-              hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
-              hasTrailLayer: Boolean(currentMap.getLayer('trail-line')),
-              hasMarker: Boolean(markerRef.current),
-              hasExportMarkerLayer: Boolean(currentMap.getLayer(POSITION_MARKER_LAYER)),
-              hasReferenceGridLayer: Boolean(currentMap.getLayer(REFERENCE_GRID_MINOR_LAYER) && currentMap.getLayer(REFERENCE_GRID_MAJOR_LAYER)),
-            }
-          },
-        }
-      }
-
-      const onGlobalStyleLoad = () => {
-        const activeTrack = trackRef.current
-        addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
-        setMapError(null)
-        if (!activeTrack) return
-        addTrackLayers(map, activeTrack)
-        setMapError(null)
-      }
-      map.on('style.load', onGlobalStyleLoad)
-
-      const onMapError = (e: { error?: Error | string }) => {
-        const message = e.error instanceof Error ? e.error.message : typeof e.error === 'string' ? e.error : 'Map failed to load'
-        console.error('[Travelback] Map error:', message)
-        setMapError(message)
-      }
-      map.on('error', onMapError)
-
-      return () => {
-        markerRef.current?.remove()
-        markerRef.current = null
-        if (markerEl.current) {
-          markerEl.current.remove()
-          markerEl.current = null
-        }
-        map.off('style.load', onGlobalStyleLoad)
-        map.off('error', onMapError)
-        map.remove()
-        mapRef.current = null
-        lastCameraStateRef.current = null
-        if (canExposeDebugCamera) {
-          const cleanupWindow = window as TravelbackDebugWindow
-          delete cleanupWindow.__travelbackDebug
-        }
-      }
-    } catch (err) {
-      console.error('Failed to initialize map:', err instanceof Error ? err.message : 'Unknown error')
-      setMapError(err instanceof Error ? err.message : 'Failed to initialize WebGL map')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- map creation is controlled by mount and explicit retry; mutable refs provide the latest style/track state without re-creating the MapLibre instance on every prop change
-  }, [mapRetryNonce, onMapInstanceChange])
-
-  // Change map style
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || styleKeyRef.current === mapStyleKey) return
-    styleKeyRef.current = mapStyleKey
-
-    map.setStyle(MAP_STYLES[mapStyleKey].url)
-
-    // Re-add sources/layers after style loads
-    let styleHandler: (() => void) | null = null
-    styleHandler = () => {
-      const currentTrack = trackRef.current
-      addReferenceGridLayers(map, mapStyleKey, referenceGridData)
-      setMapError(null)
-      if (currentTrack) {
-        addTrackLayers(map, currentTrack)
-        setMapError(null)
-      }
-    }
-    map.once('style.load', styleHandler)
-    return () => {
-      if (styleHandler) map.off('style.load', styleHandler)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- track is intentionally omitted: the effect reads trackRef.current inside the handler; including track causes unnecessary listener churn on every track change since the styleKeyRef guard short-circuits when the style hasn't changed
-  }, [mapStyleKey, referenceGridData])
-
   const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
     const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
     const trailChunkCollection = buildTrailChunkFeatureCollection(trailChunksRef.current)
     const emptyLineGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
+    const cumulDist = cumulDistRef.current
+    const currentResult = cumulDist.length === track.points.length && cumulDist.length > 0
+      ? interpolateAlongTrack(track.points, cumulDist, progressRef.current, track.segmentStartIndices)
+      : null
+    const currentPoint = currentResult?.point ?? track.points[0]
 
     // Full route line
     if (map.getSource('route')) {
@@ -720,6 +667,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           geometry: routeGeometry,
         },
       })
+    }
+    if (!map.getLayer('route-line')) {
       map.addLayer({
         id: 'route-line',
         type: 'line',
@@ -741,6 +690,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'geojson',
         data: trailChunkCollection,
       })
+    }
+    if (!map.getLayer(TRAIL_LAYER)) {
       map.addLayer({
         id: TRAIL_LAYER,
         type: 'line',
@@ -775,6 +726,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           geometry: emptyLineGeometry,
         },
       })
+    }
+    if (!map.getLayer(TRAIL_HEAD_LAYER)) {
       map.addLayer({
         id: TRAIL_HEAD_LAYER,
         type: 'line',
@@ -789,12 +742,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     if (map.getSource(POSITION_MARKER_SOURCE)) {
-      (map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource).setData(markerPointFeature(track.points[0]))
+      (map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource).setData(markerPointFeature(currentPoint))
     } else {
       map.addSource(POSITION_MARKER_SOURCE, {
         type: 'geojson',
-        data: markerPointFeature(track.points[0]),
+        data: markerPointFeature(currentPoint),
       })
+    }
+    if (!map.getLayer(POSITION_MARKER_LAYER)) {
       map.addLayer({
         id: POSITION_MARKER_LAYER,
         type: 'circle',
@@ -810,10 +765,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     lastCompletedTrailChunkIndexRef.current = -1
-    const cumulDist = cumulDistRef.current
-    if (cumulDist.length === track.points.length && cumulDist.length > 0) {
-      const { point, segmentIndex } = interpolateAlongTrack(track.points, cumulDist, progressRef.current, track.segmentStartIndices)
-      updateTrailSources(map, segmentIndex, point)
+    if (currentResult) {
+      updateTrailSources(map, currentResult.segmentIndex, currentResult.point)
     }
   }, [updateTrailSources])
 
@@ -841,13 +794,271 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       .addTo(map)
   }, [])
 
+  const isCurrentStyleRevision = useCallback((map: maplibregl.Map, styleRevision: number) => {
+    return mapRef.current === map && requestedStyleRevisionRef.current === styleRevision
+  }, [])
+
+  const computeCurrentTargetCamera = useCallback((
+    activeTrack: Track,
+    result: ReturnType<typeof interpolateAlongTrack>,
+  ): CameraState => {
+    if (scenesRef.current && scenesRef.current.length > 0) {
+      const elapsedSec = progressRef.current * durationRef.current
+      return computeCameraForProgress(
+        activeTrack,
+        cumulDistRef.current,
+        normalizedScenesRef.current,
+        progressRef.current,
+        elapsedSec,
+        transitionDurationRef.current,
+        true,
+      )
+    }
+
+    return {
+      center: [result.point.lng, result.point.lat],
+      bearing: computeSegmentLocalBearing(
+        activeTrack,
+        cumulDistRef.current,
+        result,
+        LOOK_AHEAD_DISTANCE_METERS,
+      ),
+      pitch: 45,
+      zoom: 13,
+    }
+  }, [])
+
+  const hydrateCurrentStyle = useCallback((
+    map: maplibregl.Map,
+    styleRevision: number,
+  ) => {
+    if (
+      !isCurrentStyleRevision(map, styleRevision)
+      || loadedStyleRevisionRef.current !== styleRevision
+      || !map.isStyleLoaded()
+    ) {
+      return false
+    }
+
+    const activeTrack = trackRef.current
+    addReferenceGridLayers(map, styleKeyRef.current, referenceGridDataRef.current)
+    if (activeTrack) {
+      const cumulDist = cumulDistRef.current
+      if (cumulDist.length === 0 || cumulDist.length !== activeTrack.points.length) {
+        return false
+      }
+
+      addTrackLayers(map, activeTrack)
+      if (!ownsTrackStyle(map)) {
+        return false
+      }
+
+      const result = interpolateAlongTrack(
+        activeTrack.points,
+        cumulDist,
+        progressRef.current,
+        activeTrack.segmentStartIndices,
+      )
+      ensureMarker(map, result.point)
+      markerRef.current?.setLngLat([result.point.lng, result.point.lat])
+      const markerSource = map.getSource(POSITION_MARKER_SOURCE) as maplibregl.GeoJSONSource
+      markerSource.setData(markerPointFeature(result.point))
+      updateTrailSources(map, result.segmentIndex, result.point)
+
+      if (followCameraRef.current && !suspendAutoCameraRef.current) {
+        const targetCamera = computeCurrentTargetCamera(activeTrack, result)
+        if (map.isMoving()) map.stop()
+        map.jumpTo({
+          center: targetCamera.center as [number, number],
+          zoom: targetCamera.zoom,
+          pitch: targetCamera.pitch,
+          bearing: targetCamera.bearing,
+        })
+        lastCameraStateRef.current = targetCamera
+        lastSeekNonceRef.current = seekNonceRef.current
+      } else if (fitTrackOnReadyRef.current === activeTrack) {
+        map.fitBounds(buildFitBounds(activeTrack.points), { padding: 80, duration: 1000 })
+      }
+
+      if (fitTrackOnReadyRef.current === activeTrack) {
+        fitTrackOnReadyRef.current = null
+      }
+    }
+
+    readyStyleRevisionRef.current = styleRevision
+    setReadyStyleRevision(styleRevision)
+    setMapError(null)
+    return true
+  }, [addTrackLayers, computeCurrentTargetCamera, ensureMarker, isCurrentStyleRevision, updateTrailSources])
+
+  // Initialize a map generation and attach its style-ready listener before any
+  // track effect can race the first local style load.
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    try {
+      const initialStyleKey = styleKeyRef.current
+      requestedStyleRevisionRef.current += 1
+      const styleRevision = requestedStyleRevisionRef.current
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: MAP_STYLES[initialStyleKey].url,
+        center: [0, 20],
+        zoom: 2,
+        // preserveDrawingBuffer:true is required so that captureStream()/drawImage()
+        // can read back the WebGL canvas during video export.  The trade-off is a
+        // slight performance cost on every frame (the GPU must finish painting before
+        // the buffer is preserved), but MapLibre's rendering workload is well within
+        // budget on modern devices so the impact is negligible.
+        canvasContextAttributes: { preserveDrawingBuffer: true },
+      })
+
+      mapRef.current = map
+      styleKeyRef.current = initialStyleKey
+
+      const onInitialStyleLoad = () => {
+        if (!isCurrentStyleRevision(map, styleRevision)) {
+          map.off('style.load', onInitialStyleLoad)
+          return
+        }
+        loadedStyleRevisionRef.current = styleRevision
+        if (hydrateCurrentStyle(map, styleRevision)) {
+          map.off('style.load', onInitialStyleLoad)
+        }
+      }
+      map.on('style.load', onInitialStyleLoad)
+
+      map.addControl(new maplibregl.NavigationControl(), 'top-left')
+      const onMapControlKeyDown = (event: KeyboardEvent) => {
+        if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return
+        if (!(event.target instanceof HTMLElement)) return
+        if (!event.target.matches('summary.maplibregl-ctrl-attrib-button')) return
+
+        // MapLibre's compact attribution summary does not synthesize its click
+        // activation from keyboard input consistently. Preserve its own toggle
+        // implementation while making the focused control keyboard operable.
+        event.preventDefault()
+        event.target.click()
+      }
+      map.getContainer().addEventListener('keydown', onMapControlKeyDown)
+
+      onMapInstanceChange?.()
+
+      const canExposeDebugCamera = process.env.NODE_ENV === 'development'
+      if (canExposeDebugCamera) {
+        const debugWindow = window as TravelbackDebugWindow
+        debugWindow.__travelbackDebug = {
+          getCamera: () => {
+            const currentMap = mapRef.current
+            if (!currentMap) return null
+            const center = currentMap.getCenter()
+            return {
+              center: [center.lng, center.lat],
+              zoom: currentMap.getZoom(),
+              pitch: currentMap.getPitch(),
+              bearing: currentMap.getBearing(),
+            }
+          },
+          getMapState: () => {
+            const currentMap = mapRef.current
+            if (!currentMap) return null
+            return {
+              hasRouteSource: Boolean(currentMap.getSource('route')),
+              hasTrailSource: Boolean(currentMap.getSource(TRAIL_SOURCE)),
+              hasRouteLayer: Boolean(currentMap.getLayer('route-line')),
+              hasTrailLayer: Boolean(currentMap.getLayer(TRAIL_LAYER)),
+              hasMarker: Boolean(markerRef.current),
+              hasExportMarkerLayer: Boolean(currentMap.getLayer(POSITION_MARKER_LAYER)),
+              hasReferenceGridLayer: Boolean(currentMap.getLayer(REFERENCE_GRID_MINOR_LAYER) && currentMap.getLayer(REFERENCE_GRID_MAJOR_LAYER)),
+            }
+          },
+          getPoseState: () => {
+            const currentMap = mapRef.current
+            if (!currentMap) return null
+            const markerPosition = markerRef.current?.getLngLat()
+            return {
+              htmlMarkerPosition: markerPosition ? [markerPosition.lng, markerPosition.lat] : null,
+              geoJsonMarkerPosition: readPositionMarkerSource(currentMap),
+              trailHeadPosition: readTrailHeadPosition(currentMap),
+              completedTrailChunkIndex: lastCompletedTrailChunkIndexRef.current,
+              requestedStyleRevision: requestedStyleRevisionRef.current,
+              readyStyleRevision: readyStyleRevisionRef.current,
+            }
+          },
+        }
+      }
+
+      const onMapError = (e: { error?: Error | string }) => {
+        if (mapRef.current !== map) return
+        const message = e.error instanceof Error ? e.error.message : typeof e.error === 'string' ? e.error : 'Map failed to load'
+        console.error('[Travelback] Map error:', message)
+        setMapError(message)
+      }
+      map.on('error', onMapError)
+
+      return () => {
+        markerRef.current?.remove()
+        markerRef.current = null
+        if (markerEl.current) {
+          markerEl.current.remove()
+          markerEl.current = null
+        }
+        map.off('style.load', onInitialStyleLoad)
+        map.getContainer().removeEventListener('keydown', onMapControlKeyDown)
+        map.off('error', onMapError)
+        if (mapRef.current === map) {
+          mapRef.current = null
+        }
+        map.remove()
+        if (canExposeDebugCamera) {
+          const cleanupWindow = window as TravelbackDebugWindow
+          delete cleanupWindow.__travelbackDebug
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to initialize WebGL map'
+      console.error('Failed to initialize map:', message)
+      queueMicrotask(() => setMapError(message))
+    }
+  }, [hydrateCurrentStyle, isCurrentStyleRevision, mapRetryNonce, onMapInstanceChange])
+
+  // Change map style. Each request owns a revision so a superseded callback
+  // cannot attach route state to the current map/style.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || styleKeyRef.current === mapStyleKey) return
+
+    styleKeyRef.current = mapStyleKey
+    requestedStyleRevisionRef.current += 1
+    const styleRevision = requestedStyleRevisionRef.current
+
+    const removeReadyListeners = () => {
+      map.off('style.load', onStyleLoad)
+    }
+    const onStyleLoad = () => {
+      if (!isCurrentStyleRevision(map, styleRevision)) {
+        removeReadyListeners()
+        return
+      }
+      loadedStyleRevisionRef.current = styleRevision
+      if (hydrateCurrentStyle(map, styleRevision)) {
+        removeReadyListeners()
+      }
+    }
+
+    map.on('style.load', onStyleLoad)
+    map.setStyle(MAP_STYLES[mapStyleKey].url)
+
+    return removeReadyListeners
+  }, [hydrateCurrentStyle, isCurrentStyleRevision, mapRetryNonce, mapStyleKey])
+
   // Load track onto map
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
+    const styleRevision = requestedStyleRevisionRef.current
 
     if (!track) {
-      addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
       removeTrackArtifacts(map)
       markerRef.current?.remove()
       markerRef.current = null
@@ -855,55 +1066,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       cumulDistRef.current = []
       trailChunksRef.current = []
       lastCompletedTrailChunkIndexRef.current = -1
-      return
+      fitTrackOnReadyRef.current = null
+      preparedTrackRef.current = null
+    } else {
+      const isNewTrack = preparedTrackRef.current !== track
+      cumulDistRef.current = cumulativeDistancesProp ?? []
+      trailChunksRef.current = buildTrailChunks(precomputeWrappedSegments(track.points, track.segmentStartIndices))
+      lastCompletedTrailChunkIndexRef.current = -1
+      if (isNewTrack) fitTrackOnReadyRef.current = track
+      preparedTrackRef.current = track
     }
 
-    cumulDistRef.current = cumulativeDistancesProp ?? []
-    trailChunksRef.current = buildTrailChunks(precomputeWrappedSegments(track.points, track.segmentStartIndices))
-    lastCompletedTrailChunkIndexRef.current = -1
-
-    const attachTrackToReadyStyle = () => {
-      if (!map.isStyleLoaded()) {
-        return false
-      }
-
-      addReferenceGridLayers(map, styleKeyRef.current, referenceGridData)
-      addTrackLayers(map, track)
-
-      // Fit map to track bounds
-      const bounds = buildFitBounds(track.points)
-      map.fitBounds(bounds, { padding: 80, duration: 1000 })
-      if (markerRef.current) {
-        markerRef.current.remove()
-        markerRef.current = null
-      }
-      ensureMarker(map, track.points[0])
-      return true
+    if (isCurrentStyleRevision(map, styleRevision) && map.isStyleLoaded()) {
+      loadedStyleRevisionRef.current = styleRevision
+      hydrateCurrentStyle(map, styleRevision)
     }
-
-    const onStyleReady = () => {
-      if (!attachTrackToReadyStyle()) {
-        return
-      }
-
-      map.off('style.load', onStyleReady)
-      map.off('styledata', onStyleReady)
-      map.off('idle', onStyleReady)
-    }
-
-    if (!attachTrackToReadyStyle()) {
-      map.on('style.load', onStyleReady)
-      map.on('styledata', onStyleReady)
-      map.on('idle', onStyleReady)
-    }
-
-    return () => {
-      map.off('style.load', onStyleReady)
-      map.off('styledata', onStyleReady)
-      map.off('idle', onStyleReady)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTrackLayers/ensureMarker are stable useCallback([],…); including them introduces latent risk of unnecessary re-execution if their deps ever change. The effect calls them directly and they are idempotent.
-  }, [track, cumulativeDistancesProp, mapRetryNonce])
+  }, [
+    cumulativeDistancesProp,
+    hydrateCurrentStyle,
+    isCurrentStyleRevision,
+    mapRetryNonce,
+    track,
+  ])
 
   useEffect(() => {
     if (!followCamera || suspendAutoCamera) {
@@ -920,8 +1104,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     const map = mapRef.current
     if (!map || !track || cumulDistRef.current.length === 0 || cumulDistRef.current.length !== track.points.length) return
-
-    if (!map.getSource(TRAIL_SOURCE) || !map.getSource(TRAIL_HEAD_SOURCE) || !map.getSource('route')) return
+    // A slow or failed replacement request can leave the outgoing style fully
+    // usable. Continue animating that owned style until a newer style is
+    // hydrated instead of freezing solely because a request is pending.
+    if (!ownsTrackStyle(map)) return
 
     ensureMarker(map, track.points[0])
 
@@ -937,28 +1123,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     // Camera follow - use scene-based camera if scenes exist, otherwise basic follow
     if (followCamera && !suspendAutoCamera) {
-      let targetCamera: CameraState
-
-      if (scenesRef.current && scenesRef.current.length > 0) {
-        const elapsedSec = progress * durationRef.current
-        targetCamera = computeCameraForProgress(
-          track, cumulDistRef.current, normalizedScenesRef.current, progress, elapsedSec, transitionDurationRef.current, true,
-        )
-      } else {
-        const lookAheadBearing = computeSegmentLocalBearing(
-          track,
-          cumulDistRef.current,
-          result,
-          LOOK_AHEAD_DISTANCE_METERS,
-        )
-
-        targetCamera = {
-          center: [point.lng, point.lat],
-          bearing: lookAheadBearing,
-          pitch: 45,
-          zoom: 13,
-        }
-      }
+      const targetCamera = computeCurrentTargetCamera(track, result)
 
       const previousCameraState = lastCameraStateRef.current
       const explicitSeek = seekNonce !== lastSeekNonceRef.current
@@ -1006,7 +1171,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCameraStateRef.current = null
       lastSeekNonceRef.current = seekNonce
     }
-  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting, mapRetryNonce, ensureMarker, updateTrailSources])
+  }, [progress, track, followCamera, suspendAutoCamera, seekNonce, cumulativeDistancesProp, isExporting, mapRetryNonce, readyStyleRevision, computeCurrentTargetCamera, ensureMarker, updateTrailSources])
 
   return (
     <div
