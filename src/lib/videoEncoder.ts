@@ -125,13 +125,11 @@ export async function exportVideo(
   })
 
   output.addVideoTrack(videoSource, { frameRate: safeFps })
-  await output.start()
 
-  // Track completion state to skip finalize on abort (US-004)
-  let completed = false
-
-  // Render each frame (wrapped in try/finally to ensure cleanup)
+  // Mediabunny enters its started lifecycle before its asynchronous startup
+  // work settles, so startup failures need the same cleanup as later failures.
   try {
+    await output.start()
     for (let frame = 0; frame < totalFrames; frame++) {
       if (signal?.aborted) {
         throw new DOMException('Export cancelled', 'AbortError')
@@ -164,12 +162,26 @@ export async function exportVideo(
 
       onProgress?.(Math.max(0, Math.min(1, progress)))
     }
-    completed = true
-  } finally {
-    // Only finalize when export completed normally — skip on abort to avoid corrupt MP4 (US-004)
-    if (completed) {
-      await output.finalize()
+    await output.finalize()
+  } catch (error) {
+    try {
+      await output.cancel()
+    } catch (cleanupError) {
+      // Preserve the failure that actually ended the export while retaining
+      // cleanup evidence for diagnostics.
+      if (error instanceof Error && !('cause' in error)) {
+        try {
+          Object.defineProperty(error, 'cause', {
+            configurable: true,
+            value: cleanupError,
+          })
+        } catch {
+          // Frozen/non-extensible errors cannot carry cleanup metadata. The
+          // original export failure still takes precedence.
+        }
+      }
     }
+    throw error
   }
 
   const buffer = target.buffer
