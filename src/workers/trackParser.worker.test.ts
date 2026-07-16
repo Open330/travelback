@@ -195,6 +195,55 @@ describe('track parser worker entry', () => {
     }
   })
 
+  it('preserves partially timestamped segment order through the worker', () => {
+    const json = JSON.stringify({
+      semanticSegments: [
+        { timelinePath: [{ point: 'geo:10,10' }, { point: 'geo:11,11' }] },
+        {
+          timelinePath: [
+            { point: 'geo:20,20', timestamp: '2024-01-15T10:00:00Z' },
+            { point: 'geo:21,21', timestamp: '2024-01-15T10:05:00Z' },
+          ],
+        },
+      ],
+    })
+
+    const result = parseTrackParserRequest(requestFor(json))
+
+    expect(result).toEqual({ track: parseGoogleLocationHistory(json) })
+    if ('track' in result) {
+      expect(result.track.points.map((point) => point.lat)).toEqual([10, 11, 20, 21])
+      expect(result.track.segmentStartIndices).toEqual([2])
+    }
+  })
+
+  it('sorts fully timestamped segments chronologically through the worker', () => {
+    const json = JSON.stringify({
+      semanticSegments: [
+        {
+          timelinePath: [
+            { point: 'geo:20,20', timestamp: '2024-01-15T11:00:00Z' },
+            { point: 'geo:21,21', timestamp: '2024-01-15T11:05:00Z' },
+          ],
+        },
+        {
+          timelinePath: [
+            { point: 'geo:10,10', timestamp: '2024-01-15T10:00:00Z' },
+            { point: 'geo:11,11', timestamp: '2024-01-15T10:05:00Z' },
+          ],
+        },
+      ],
+    })
+
+    const result = parseTrackParserRequest(requestFor(json))
+
+    expect(result).toEqual({ track: parseGoogleLocationHistory(json) })
+    if ('track' in result) {
+      expect(result.track.points.map((point) => point.lat)).toEqual([10, 11, 20, 21])
+      expect(result.track.segmentStartIndices).toEqual([2])
+    }
+  })
+
   it.each(guardedGoogleCases)(
     'keeps source/worker parity while guarding malformed %s data',
     (_name, value, expectedPoints) => {
