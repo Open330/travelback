@@ -25,7 +25,7 @@
     "@tmcw/togeojson": "^7.1.2",
     "lucide-react": "^0.575.0",
     "maplibre-gl": "^5.18.0",
-    "mediabunny": "^1.34.4",
+    "mediabunny": "^1.50.8",
     "next": "^16.2.10",
     "react": "19.2.3",
     "react-dom": "19.2.3"

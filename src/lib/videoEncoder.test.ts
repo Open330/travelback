@@ -15,7 +15,7 @@ const mediabunny = vi.hoisted(() => ({
   finalize: vi.fn<() => Promise<void>>(),
   cancel: vi.fn<() => Promise<void>>(),
   addFrame: vi.fn<() => Promise<void>>(),
-  targetBuffer: new ArrayBuffer(8),
+  targetBuffer: new ArrayBuffer(8) as ArrayBuffer | null,
 }))
 
 vi.mock('mediabunny', () => ({
@@ -24,10 +24,25 @@ vi.mock('mediabunny', () => ({
   },
   Mp4OutputFormat: class Mp4OutputFormat {},
   Output: class Output {
+    state: 'pending' | 'started' | 'canceled' | 'finalizing' | 'finalized' = 'pending'
     addVideoTrack = mediabunny.addVideoTrack
-    start = mediabunny.start
-    finalize = mediabunny.finalize
-    cancel = mediabunny.cancel
+
+    async start() {
+      this.state = 'started'
+      await mediabunny.start()
+    }
+
+    async finalize() {
+      this.state = 'finalizing'
+      await mediabunny.finalize()
+      this.state = 'finalized'
+    }
+
+    async cancel() {
+      if (this.state === 'finalizing' || this.state === 'finalized') return
+      this.state = 'canceled'
+      await mediabunny.cancel()
+    }
   },
   CanvasSource: class CanvasSource {
     add = mediabunny.addFrame
@@ -196,16 +211,6 @@ describe('exportVideo lifecycle', () => {
         }
       },
     },
-    {
-      stage: 'finalize',
-      arrange: (primaryError: Error) => {
-        mediabunny.finalize.mockRejectedValue(primaryError)
-        return {
-          renderFrame: vi.fn().mockResolvedValue(undefined),
-          waitForIdle: vi.fn().mockResolvedValue(undefined),
-        }
-      },
-    },
   ])('cancels exactly once and preserves the $stage error when cleanup fails', async ({ stage, arrange }) => {
     const primaryError = new Error(`${stage} failed`)
     const cleanupError = new Error('cancel failed')
@@ -216,7 +221,38 @@ describe('exportVideo lifecycle', () => {
 
     expect(primaryError.cause).toBe(cleanupError)
     expect(mediabunny.cancel).toHaveBeenCalledOnce()
-    expect(mediabunny.finalize).toHaveBeenCalledTimes(stage === 'finalize' ? 1 : 0)
+    expect(mediabunny.finalize).not.toHaveBeenCalled()
+  })
+
+  it('preserves finalize errors without claiming an unavailable cancellation', async () => {
+    const primaryError = new Error('finalize failed')
+    mediabunny.finalize.mockRejectedValue(primaryError)
+
+    await expect(exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined),
+    )).rejects.toBe(primaryError)
+
+    expect(mediabunny.finalize).toHaveBeenCalledOnce()
+    expect(mediabunny.cancel).not.toHaveBeenCalled()
+  })
+
+  it('reports a missing finalized buffer without claiming cancellation', async () => {
+    mediabunny.targetBuffer = null
+
+    await expect(exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined),
+    )).rejects.toMatchObject({ code: 'EXPORT_NO_BUFFER' })
+
+    expect(mediabunny.finalize).toHaveBeenCalledOnce()
+    expect(mediabunny.cancel).not.toHaveBeenCalled()
   })
 
   it('preserves a frozen primary error when cleanup also fails', async () => {

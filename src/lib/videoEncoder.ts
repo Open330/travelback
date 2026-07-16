@@ -43,6 +43,37 @@ export interface VideoExportResult {
   mimeType: string
 }
 
+type CancellableOutput = {
+  state: 'pending' | 'started' | 'canceled' | 'finalizing' | 'finalized'
+  cancel: () => Promise<void>
+}
+
+function attachCleanupCause(error: unknown, cleanupError: unknown) {
+  if (!(error instanceof Error) || 'cause' in error) return
+
+  try {
+    Object.defineProperty(error, 'cause', {
+      configurable: true,
+      value: cleanupError,
+    })
+  } catch {
+    // Frozen/non-extensible errors cannot carry cleanup metadata. The
+    // original export failure still takes precedence.
+  }
+}
+
+async function cancelCancellableOutput(output: CancellableOutput, error: unknown) {
+  // Mediabunny intentionally makes cancel() a no-op once finalization has
+  // begun. Avoid presenting that no-op as successful resource cleanup.
+  if (output.state === 'finalizing' || output.state === 'finalized') return
+
+  try {
+    await output.cancel()
+  } catch (cleanupError) {
+    attachCleanupCause(error, cleanupError)
+  }
+}
+
 export function estimateEncodedBytes(durationSeconds: number, bitrateMbps: number): number {
   return (bitrateMbps * 1_000_000 * durationSeconds) / 8
 }
@@ -164,23 +195,7 @@ export async function exportVideo(
     }
     await output.finalize()
   } catch (error) {
-    try {
-      await output.cancel()
-    } catch (cleanupError) {
-      // Preserve the failure that actually ended the export while retaining
-      // cleanup evidence for diagnostics.
-      if (error instanceof Error && !('cause' in error)) {
-        try {
-          Object.defineProperty(error, 'cause', {
-            configurable: true,
-            value: cleanupError,
-          })
-        } catch {
-          // Frozen/non-extensible errors cannot carry cleanup metadata. The
-          // original export failure still takes precedence.
-        }
-      }
-    }
+    await cancelCancellableOutput(output, error)
     throw error
   }
 
