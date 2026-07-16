@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ExportConfig, Track } from '@/types'
 import { EXPORT_LIMITS, RESOLUTION_PRESETS } from '@/types'
 import {
@@ -16,6 +16,12 @@ const mediabunny = vi.hoisted(() => ({
   cancel: vi.fn<() => Promise<void>>(),
   addFrame: vi.fn<() => Promise<void>>(),
   targetBuffer: new ArrayBuffer(8) as ArrayBuffer | null,
+  sourceConfigs: [] as unknown[],
+  samples: [] as Array<{
+    source: unknown
+    options: unknown
+    close: ReturnType<typeof vi.fn>
+  }>,
 }))
 
 vi.mock('mediabunny', () => ({
@@ -44,8 +50,20 @@ vi.mock('mediabunny', () => ({
       await mediabunny.cancel()
     }
   },
-  CanvasSource: class CanvasSource {
+  VideoSampleSource: class VideoSampleSource {
+    constructor(config: unknown) {
+      mediabunny.sourceConfigs.push(config)
+    }
     add = mediabunny.addFrame
+  },
+  VideoSample: class VideoSample {
+    close = vi.fn()
+    constructor(
+      readonly source: unknown,
+      readonly options: unknown,
+    ) {
+      mediabunny.samples.push(this)
+    }
   },
 }))
 
@@ -66,7 +84,33 @@ const minimumConfig = (): ExportConfig => ({
   scenes: [],
 })
 
-const canvas = {} as HTMLCanvasElement
+const frameContext = {
+  drawImage: vi.fn(),
+}
+const frameCanvases: MockOffscreenCanvas[] = []
+class MockOffscreenCanvas {
+  getContext = vi.fn(() => frameContext)
+  constructor(
+    readonly width: number,
+    readonly height: number,
+  ) {
+    frameCanvases.push(this)
+  }
+}
+const capturedFrames: MockVideoFrame[] = []
+class MockVideoFrame {
+  close = vi.fn()
+  constructor(
+    readonly source: unknown,
+    readonly init: VideoFrameInit,
+  ) {
+    capturedFrames.push(this)
+  }
+}
+const createElement = vi.fn()
+const canvas = {
+  ownerDocument: { createElement },
+} as unknown as HTMLCanvasElement
 
 beforeEach(() => {
   mediabunny.addVideoTrack.mockReset()
@@ -75,6 +119,18 @@ beforeEach(() => {
   mediabunny.cancel.mockReset().mockResolvedValue()
   mediabunny.addFrame.mockReset().mockResolvedValue()
   mediabunny.targetBuffer = new ArrayBuffer(8)
+  mediabunny.sourceConfigs.length = 0
+  mediabunny.samples.length = 0
+  frameContext.drawImage.mockReset()
+  frameCanvases.length = 0
+  capturedFrames.length = 0
+  createElement.mockClear()
+  vi.stubGlobal('OffscreenCanvas', MockOffscreenCanvas)
+  vi.stubGlobal('VideoFrame', MockVideoFrame)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('ExportError', () => {
@@ -158,6 +214,39 @@ describe('exportVideo lifecycle', () => {
     expect(renderFrame).toHaveBeenCalledTimes(EXPORT_LIMITS.duration.min * EXPORT_LIMITS.fps.min)
     expect(waitForIdle).toHaveBeenCalledTimes(EXPORT_LIMITS.duration.min * EXPORT_LIMITS.fps.min)
     expect(mediabunny.addFrame).toHaveBeenCalledTimes(EXPORT_LIMITS.duration.min * EXPORT_LIMITS.fps.min)
+  })
+
+  it('stages every map frame at the requested output dimensions', async () => {
+    const config = minimumConfig()
+    await exportVideo(canvas, track, config, vi.fn(), vi.fn())
+
+    expect(createElement).not.toHaveBeenCalled()
+    expect(frameCanvases).toHaveLength(1)
+    const [frameCanvas] = frameCanvases
+    expect(frameCanvas.width).toBe(config.resolution.width)
+    expect(frameCanvas.height).toBe(config.resolution.height)
+    expect(frameCanvas.getContext).toHaveBeenCalledWith('2d', {
+      alpha: false,
+      willReadFrequently: true,
+    })
+    expect(mediabunny.sourceConfigs).toEqual([{
+      codec: 'avc',
+      bitrate: config.bitrate * 1_000_000,
+    }])
+    expect(capturedFrames).toHaveLength(config.duration * config.fps)
+    expect(frameContext.drawImage).toHaveBeenCalledTimes(config.duration * config.fps)
+    expect(frameContext.drawImage).toHaveBeenLastCalledWith(
+      capturedFrames.at(-1),
+      0,
+      0,
+      config.resolution.width,
+      config.resolution.height,
+    )
+    expect(capturedFrames.every(frame => frame.source === canvas)).toBe(true)
+    expect(capturedFrames.every(frame => frame.close.mock.calls.length === 1)).toBe(true)
+    expect(mediabunny.samples).toHaveLength(config.duration * config.fps)
+    expect(mediabunny.samples.every(sample => sample.source === frameCanvas)).toBe(true)
+    expect(mediabunny.samples.every(sample => sample.close.mock.calls.length === 1)).toBe(true)
   })
 
   it('cancels exactly once when the signal is already aborted', async () => {

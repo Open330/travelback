@@ -117,7 +117,7 @@ export async function exportVideo(
   cumulDistParam?: number[],
 ): Promise<VideoExportResult> {
   // Dynamic import mediabunny (it uses WebCodecs, browser-only)
-  const { Output, Mp4OutputFormat, BufferTarget, CanvasSource } = await import('mediabunny')
+  const { Output, Mp4OutputFormat, BufferTarget, VideoSample, VideoSampleSource } = await import('mediabunny')
 
   const { codec, fps, duration, bitrate, scenes } = config
 
@@ -143,6 +143,27 @@ export async function exportVideo(
 
   const mbCodec = toMediabunnyCodec(codec)
 
+  // Re-materialize each MapLibre frame before it reaches the native encoder.
+  // Chromium can strand the final GPU-backed WebGL frames in VideoEncoder's
+  // queue, leaving flush() pending forever. Drawing a captured VideoFrame into
+  // a reusable CPU-backed staging canvas breaks that resource chain. The
+  // preset-sized canvas also keeps HiDPI displays from silently doubling output
+  // dimensions.
+  let frameCanvas: OffscreenCanvas | HTMLCanvasElement
+  let frameContext: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null
+  if (typeof OffscreenCanvas === 'function') {
+    frameCanvas = new OffscreenCanvas(config.resolution.width, config.resolution.height)
+    frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
+  } else {
+    frameCanvas = canvas.ownerDocument.createElement('canvas')
+    frameCanvas.width = config.resolution.width
+    frameCanvas.height = config.resolution.height
+    frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
+  }
+  if (!frameContext) {
+    throw new ExportError('Video encoding failed: could not create a frame staging canvas', 'EXPORT_CAPTURE_CANVAS')
+  }
+
   // Create mediabunny output pipeline
   const target = new BufferTarget()
   const output = new Output({
@@ -150,7 +171,7 @@ export async function exportVideo(
     target,
   })
 
-  const videoSource = new CanvasSource(canvas, {
+  const videoSource = new VideoSampleSource({
     codec: mbCodec,
     bitrate: safeBitrate * 1_000_000, // Mbps to bps
   })
@@ -189,7 +210,22 @@ export async function exportVideo(
 
       // Capture frame
       const timestamp = frame * frameDuration
-      await videoSource.add(timestamp, frameDuration)
+      const capturedFrame = new VideoFrame(canvas, {
+        timestamp: Math.round(timestamp * 1_000_000),
+        duration: Math.round(frameDuration * 1_000_000),
+      })
+      try {
+        frameContext.drawImage(capturedFrame, 0, 0, frameCanvas.width, frameCanvas.height)
+      } finally {
+        capturedFrame.close()
+      }
+
+      const sample = new VideoSample(frameCanvas, { timestamp, duration: frameDuration })
+      try {
+        await videoSource.add(sample)
+      } finally {
+        sample.close()
+      }
 
       onProgress?.(Math.max(0, Math.min(1, progress)))
     }
