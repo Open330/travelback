@@ -3,6 +3,7 @@ import type { ExportConfig, Track } from '@/types'
 import { EXPORT_LIMITS, RESOLUTION_PRESETS } from '@/types'
 import {
   ExportError,
+  EXPORT_FINALIZE_TIMEOUT_MS,
   MAX_IN_MEMORY_EXPORT_BYTES,
   estimateEncodedBytes,
   estimateExportMemoryBytes,
@@ -153,6 +154,12 @@ describe('estimateEncodedBytes', () => {
 
   it('returns 0 for zero duration', () => {
     expect(estimateEncodedBytes(0, 8)).toBe(0)
+  })
+})
+
+describe('finalization deadline', () => {
+  it('uses a finite production deadline', () => {
+    expect(EXPORT_FINALIZE_TIMEOUT_MS).toBe(60_000)
   })
 })
 
@@ -326,6 +333,72 @@ describe('exportVideo lifecycle', () => {
     )).rejects.toBe(primaryError)
 
     expect(mediabunny.finalize).toHaveBeenCalledOnce()
+    expect(mediabunny.cancel).not.toHaveBeenCalled()
+  })
+
+  it('settles with AbortError when cancellation happens during a stuck finalizer', async () => {
+    let rejectFinalization!: (error: Error) => void
+    mediabunny.finalize.mockReturnValue(new Promise<void>((_, reject) => {
+      rejectFinalization = reject
+    }))
+    const controller = new AbortController()
+
+    const pendingExport = exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn(),
+      vi.fn(),
+      undefined,
+      controller.signal,
+    )
+    await vi.waitFor(() => expect(mediabunny.finalize).toHaveBeenCalledOnce())
+    controller.abort()
+
+    await expect(pendingExport).rejects.toMatchObject({ name: 'AbortError' })
+    expect(mediabunny.cancel).not.toHaveBeenCalled()
+
+    rejectFinalization(new Error('late finalization failure'))
+    await Promise.resolve()
+  })
+
+  it('returns a distinct error when a finalizer exceeds its deadline', async () => {
+    mediabunny.finalize.mockReturnValue(new Promise<void>(() => {}))
+
+    await expect(exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn(),
+      vi.fn(),
+      undefined,
+      undefined,
+      undefined,
+      5,
+    )).rejects.toMatchObject({
+      name: 'ExportError',
+      code: 'EXPORT_FINALIZE_TIMEOUT',
+    })
+
+    expect(mediabunny.cancel).not.toHaveBeenCalled()
+  })
+
+  it('checks cancellation again after finalization resolves', async () => {
+    const controller = new AbortController()
+    mediabunny.finalize.mockImplementation(async () => {
+      controller.abort()
+    })
+
+    await expect(exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn(),
+      vi.fn(),
+      undefined,
+      controller.signal,
+    )).rejects.toMatchObject({ name: 'AbortError' })
+
     expect(mediabunny.cancel).not.toHaveBeenCalled()
   })
 

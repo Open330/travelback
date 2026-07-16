@@ -19,6 +19,7 @@ const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
   EXPORT_NO_BUFFER: 'app.exportFailedSuffix',
   EXPORT_MAP_RENDER: 'app.exportMapRenderFailed',
   EXPORT_MAP_IDLE: 'app.exportMapRenderFailed',
+  EXPORT_FINALIZE_TIMEOUT: 'app.exportFinalizeTimeout',
 }
 
 interface UseExportControllerOptions {
@@ -231,9 +232,18 @@ export function useExportController({
             cumulDist,
           )
 
+      if (abortController.signal.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
       const blob = new Blob([result.buffer], { type: result.mimeType })
       pendingVideoUrl = URL.createObjectURL(blob)
+      if (abortController.signal.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
       const downloadResult = await downloadVideo(pendingVideoUrl, result.filename, blob)
+      if (abortController.signal.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
       if (exportedVideoUrlRef.current) {
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }

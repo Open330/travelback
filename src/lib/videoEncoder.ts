@@ -5,6 +5,7 @@ import { computeCameraForProgress, normalizeScenes } from './camera'
 import { computeCumulativeDistances } from './interpolate'
 
 export const MAX_IN_MEMORY_EXPORT_BYTES = 256 * 1024 * 1024
+export const EXPORT_FINALIZE_TIMEOUT_MS = 60_000
 
 /**
  * Export error with a machine-readable code for i18n mapping.
@@ -46,6 +47,41 @@ export interface VideoExportResult {
 type CancellableOutput = {
   state: 'pending' | 'started' | 'canceled' | 'finalizing' | 'finalized'
   cancel: () => Promise<void>
+  finalize: () => Promise<void>
+}
+
+function exportAbortError(): DOMException {
+  return new DOMException('Export cancelled', 'AbortError')
+}
+
+function throwIfExportAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw exportAbortError()
+}
+
+async function finalizeWithDeadline(
+  output: CancellableOutput,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+) {
+  throwIfExportAborted(signal)
+
+  const finalizationPromise = output.finalize()
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  let abortHandler: (() => void) | null = null
+  const interruptionPromise = new Promise<never>((_, reject) => {
+    abortHandler = () => reject(exportAbortError())
+    signal?.addEventListener('abort', abortHandler, { once: true })
+    timeoutId = setTimeout(() => {
+      reject(new ExportError('Video finalization timed out', 'EXPORT_FINALIZE_TIMEOUT'))
+    }, timeoutMs)
+  })
+
+  try {
+    await Promise.race([finalizationPromise, interruptionPromise])
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId)
+    if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+  }
 }
 
 function attachCleanupCause(error: unknown, cleanupError: unknown) {
@@ -115,6 +151,7 @@ export async function exportVideo(
   onProgress?: ExportProgressCallback,
   signal?: AbortSignal,
   cumulDistParam?: number[],
+  finalizeTimeoutMs = EXPORT_FINALIZE_TIMEOUT_MS,
 ): Promise<VideoExportResult> {
   // Dynamic import mediabunny (it uses WebCodecs, browser-only)
   const { Output, Mp4OutputFormat, BufferTarget, VideoSample, VideoSampleSource } = await import('mediabunny')
@@ -184,7 +221,7 @@ export async function exportVideo(
     await output.start()
     for (let frame = 0; frame < totalFrames; frame++) {
       if (signal?.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError')
+        throw exportAbortError()
       }
 
       const progress = frame / (totalFrames - 1)
@@ -202,7 +239,7 @@ export async function exportVideo(
       // top-of-loop check may have passed but the user can cancel during
       // the map camera update, so re-check before the expensive idle wait.
       if (signal?.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError')
+        throw exportAbortError()
       }
 
       // Wait for the map to finish rendering tiles
@@ -229,7 +266,8 @@ export async function exportVideo(
 
       onProgress?.(Math.max(0, Math.min(1, progress)))
     }
-    await output.finalize()
+    await finalizeWithDeadline(output, signal, finalizeTimeoutMs)
+    throwIfExportAborted(signal)
   } catch (error) {
     await cancelCancellableOutput(output, error)
     throw error
