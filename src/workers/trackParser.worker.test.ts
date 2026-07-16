@@ -174,6 +174,27 @@ describe('track parser worker entry', () => {
     })
   })
 
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['invalid', 'not a date'],
+  ])('preserves mixed producer order through the worker when a timestamp is %s', (_name, timestamp) => {
+    const json = JSON.stringify({
+      locations: [
+        { latitudeE7: 100000000, longitudeE7: 100000000, timestamp },
+        { latitudeE7: 200000000, longitudeE7: 200000000, timestamp: '2024-01-15T10:00:00Z' },
+        { latitudeE7: 300000000, longitudeE7: 300000000 },
+      ],
+    })
+
+    const result = parseTrackParserRequest(requestFor(json))
+
+    expect(result).toEqual({ track: parseGoogleLocationHistory(json) })
+    if ('track' in result) {
+      expect(result.track.points.map((point) => point.lat)).toEqual([10, 20, 30])
+    }
+  })
+
   it.each(guardedGoogleCases)(
     'keeps source/worker parity while guarding malformed %s data',
     (_name, value, expectedPoints) => {

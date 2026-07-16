@@ -226,25 +226,19 @@ function parseSemanticSegments(segments: unknown[], budget: PointBudget): TrackS
 const MAX_JSON_DEPTH = 64
 
 function sortPointsWithinSegment(segment: TrackSegment): TrackSegment {
+  if (segment.some((point) => !point.time)) return segment
+
   return segment
     .map((point, order) => ({ point, order }))
     .sort((a, b) => {
-      const aTime = a.point.time?.getTime()
-      const bTime = b.point.time?.getTime()
-      if (aTime != null && bTime != null) return aTime - bTime
-      if (aTime != null) return -1
-      if (bTime != null) return 1
-      return a.order - b.order
+      const difference = a.point.time!.getTime() - b.point.time!.getTime()
+      return difference || a.order - b.order
     })
     .map(({ point }) => point)
 }
 
 function pointKey(point: TrackPoint): string {
   return `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time?.getTime() ?? ''}`
-}
-
-function segmentSortTime(segment: TrackSegment): number | undefined {
-  return segment.find((point) => point.time)?.time?.getTime()
 }
 
 function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoint[]; segmentStartIndices: number[] } {
@@ -261,14 +255,13 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
       return { points, order }
     })
     .filter((segment): segment is { points: TrackPoint[]; order: number } => segment.points.length > 0)
-    .sort((a, b) => {
-      const aTime = segmentSortTime(a.points)
-      const bTime = segmentSortTime(b.points)
-      if (aTime != null && bTime != null) return aTime - bTime
-      if (aTime != null) return -1
-      if (bTime != null) return 1
-      return a.order - b.order
+
+  if (segments.every((segment) => segment.points.every((point) => point.time))) {
+    segments.sort((a, b) => {
+      const difference = a.points[0].time!.getTime() - b.points[0].time!.getTime()
+      return difference || a.order - b.order
     })
+  }
 
   const points: TrackPoint[] = []
   const segmentStartIndices: number[] = []

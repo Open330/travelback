@@ -558,6 +558,48 @@ describe('parseGoogleLocationHistory — sorting', () => {
     expect(track.points[0].time!.getTime()).toBeLessThan(track.points[1].time!.getTime())
     expect(track.points[1].time!.getTime()).toBeLessThan(track.points[2].time!.getTime())
   })
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['invalid', 'not a date'],
+  ])('preserves producer order when a timestamp is %s', (_name, incompleteTimestamp) => {
+    const mixedJson = JSON.stringify({
+      locations: [
+        { latitudeE7: 100000000, longitudeE7: 100000000, timestamp: incompleteTimestamp },
+        { latitudeE7: 200000000, longitudeE7: 200000000, timestamp: '2024-01-15T10:00:00Z' },
+        { latitudeE7: 300000000, longitudeE7: 300000000 },
+      ],
+    })
+
+    const track = parseGoogleLocationHistory(mixedJson)
+
+    expect(track.points.map((point) => point.lat)).toEqual([10, 20, 30])
+  })
+
+  it('preserves segment order when any segment is not fully timestamped', () => {
+    const mixedSegmentsJson = JSON.stringify({
+      semanticSegments: [
+        {
+          timelinePath: [
+            { point: 'geo:10,10' },
+            { point: 'geo:11,11' },
+          ],
+        },
+        {
+          timelinePath: [
+            { point: 'geo:20,20', timestamp: '2024-01-15T10:00:00Z' },
+            { point: 'geo:21,21', timestamp: '2024-01-15T10:05:00Z' },
+          ],
+        },
+      ],
+    })
+
+    const track = parseGoogleLocationHistory(mixedSegmentsJson)
+
+    expect(track.points.map((point) => point.lat)).toEqual([10, 11, 20, 21])
+    expect(track.segmentStartIndices).toEqual([2])
+  })
 })
 
 describe('parseGoogleLocationHistory — segment preservation', () => {

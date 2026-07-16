@@ -169,16 +169,10 @@
   }
   var MAX_JSON_DEPTH = 64;
   function sortPointsWithinSegment(segment) {
-    return segment.map((point, order) => ({ point, order })).sort((a, b) => {
-      let aTime = a.point.time?.getTime(), bTime = b.point.time?.getTime();
-      return aTime != null && bTime != null ? aTime - bTime : aTime != null ? -1 : bTime != null ? 1 : a.order - b.order;
-    }).map(({ point }) => point);
+    return segment.some((point) => !point.time) ? segment : segment.map((point, order) => ({ point, order })).sort((a, b) => a.point.time.getTime() - b.point.time.getTime() || a.order - b.order).map(({ point }) => point);
   }
   function pointKey(point) {
     return `${point.lat.toFixed(7)},${point.lng.toFixed(7)},${point.time?.getTime() ?? ""}`;
-  }
-  function segmentSortTime(segment) {
-    return segment.find((point) => point.time)?.time?.getTime();
   }
   function flattenGoogleSegments(rawSegments) {
     let segments = rawSegments.map((segment, order) => {
@@ -188,10 +182,9 @@
         seen.has(key) || (seen.add(key), points2.push(point));
       }
       return { points: points2, order };
-    }).filter((segment) => segment.points.length > 0).sort((a, b) => {
-      let aTime = segmentSortTime(a.points), bTime = segmentSortTime(b.points);
-      return aTime != null && bTime != null ? aTime - bTime : aTime != null ? -1 : bTime != null ? 1 : a.order - b.order;
-    }), points = [], segmentStartIndices = [], seenTimedObservations = /* @__PURE__ */ new Set();
+    }).filter((segment) => segment.points.length > 0);
+    segments.every((segment) => segment.points.every((point) => point.time)) && segments.sort((a, b) => a.points[0].time.getTime() - b.points[0].time.getTime() || a.order - b.order);
+    let points = [], segmentStartIndices = [], seenTimedObservations = /* @__PURE__ */ new Set();
     for (let segment of segments) {
       let nextPoints = segment.points.filter((point) => {
         if (!point.time) return !0;
