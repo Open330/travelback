@@ -223,7 +223,7 @@ input[type="range"]:focus-visible {
 /* Keep map attribution above the loaded timeline/elevation/playback stack. */
 .map-has-track-controls .maplibregl-ctrl-bottom-right {
   right: .5rem;
-  bottom: calc(clamp(15rem, 30vh, 16rem) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(clamp(19rem, 36vh, 20rem) + env(safe-area-inset-bottom, 0px));
 }
 
 .map-has-track-controls .maplibregl-ctrl-group,

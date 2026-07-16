@@ -693,10 +693,10 @@ function TimelineSelector({
             }}
             aria-label={t('timeline.reset')}
             title={t('timeline.reset')}
-            className="inline-flex items-center gap-0.5 cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ color: 'rgb(var(--gl))' }}
           >
-            <RotateCcw size={10} strokeWidth={2} />
+            <RotateCcw size={14} strokeWidth={2} />
           </button>
         )}
       </div>

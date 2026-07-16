@@ -1351,6 +1351,62 @@ test.describe('Travelback App', () => {
     await expect(page.locator('text=/2 \\/ 3 locations/').first()).toBeVisible({ timeout: 10_000 })
   })
 
+  test('timeline Reset remains above elevation and restores the full route', async ({ page }) => {
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/')
+      await waitForApp(page)
+      await uploadGpx(page)
+
+      const fullCounts = await loadedTrackPointCounts(page)
+      expect(fullCounts.visible).toBe(fullCounts.full)
+
+      const endHandle = page.getByTestId('timeline-end-handle')
+      await endHandle.focus()
+      await page.keyboard.press('Home')
+      await expect.poll(async () => (await loadedTrackPointCounts(page)).visible, {
+        timeout: 10_000,
+        intervals: [100, 200, 300],
+      }).toBeLessThan(fullCounts.full)
+
+      const reset = page.getByRole('button', { name: 'Reset timeline range' })
+      const timeline = page.getByTestId('timeline-selector')
+      const elevation = page.getByRole('slider', { name: 'Elevation profile' })
+      await expect(reset).toBeVisible()
+      await expect(elevation).toBeVisible()
+
+      const [resetBox, timelineBox, elevationBox] = await Promise.all([
+        reset.boundingBox(),
+        timeline.boundingBox(),
+        elevation.boundingBox(),
+      ])
+      if (!resetBox || !timelineBox || !elevationBox) {
+        throw new Error(`Missing bottom-stack geometry at ${viewport.width}x${viewport.height}`)
+      }
+      expect(resetBox.width).toBeGreaterThanOrEqual(44)
+      expect(resetBox.height).toBeGreaterThanOrEqual(44)
+      expect(boxesOverlap(timelineBox, elevationBox)).toBe(false)
+      expect(await reset.evaluate((button) => {
+        const box = button.getBoundingClientRect()
+        const owner = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+        return owner instanceof Element && owner.closest('button') === button
+      })).toBe(true)
+
+      const playbackProgress = page.getByLabel('Playback progress')
+      const progressBeforeReset = await playbackProgress.inputValue()
+      await reset.click()
+      await expect(reset).toHaveCount(0)
+      await expect.poll(async () => loadedTrackPointCounts(page), {
+        timeout: 10_000,
+        intervals: [100, 200, 300],
+      }).toEqual({ visible: fullCounts.full, full: fullCounts.full })
+      await expect(playbackProgress).toHaveValue(progressBeforeReset)
+    }
+  })
+
   test('timeline can select the first adjacent pair on an uneven-distance track', async ({ page }) => {
     await uploadCustomFile(page, UNEVEN_TRIM_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Uneven Trim Track')).toBeVisible({ timeout: 15_000 })

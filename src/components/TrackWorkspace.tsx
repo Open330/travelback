@@ -139,21 +139,20 @@ export default function TrackWorkspace({
         {track.name} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
       </div>
 
-      {fullTrack.points.length > 2 && (
-        <div className="absolute bottom-40 left-0 right-0 z-10 px-4 sm:bottom-36">
-          <TimelineSelector
-            key={trackSessionKey}
-            track={fullTrack}
-            cumulativeDistances={fullTrackCumulativeDistances}
-            onRangeChange={onRangeChange}
-            onSeek={onSeek}
-            acceptedRange={acceptedTrimRange}
-            selectionRevision={trimSelectionRevision}
-          />
-        </div>
-      )}
-
       <div className="absolute bottom-0 left-0 right-0 z-10">
+        {fullTrack.points.length > 2 && (
+          <div className="mb-2 px-4">
+            <TimelineSelector
+              key={trackSessionKey}
+              track={fullTrack}
+              cumulativeDistances={fullTrackCumulativeDistances}
+              onRangeChange={onRangeChange}
+              onSeek={onSeek}
+              acceptedRange={acceptedTrimRange}
+              selectionRevision={trimSelectionRevision}
+            />
+          </div>
+        )}
         <div className="px-4 mb-1.5">
           <ElevationProfile track={track} cumulativeDistances={cumulativeDistances} progress={progress} onSeek={onSeek} units={units} />
         </div>
