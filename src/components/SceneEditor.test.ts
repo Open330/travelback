@@ -133,7 +133,10 @@ describe('SceneRangeEditor pointer lifecycle', () => {
 })
 
 describe('SceneEditor normalization feedback', () => {
-  it('localizes adjusted start and end boundaries in visible and live feedback', async () => {
+  it.each([
+    { caseName: 'ordinary scene names', secondSceneName: '두 번째' },
+    { caseName: 'placeholder-like scene names', secondSceneName: '{from} / {to}' },
+  ])('localizes adjusted boundaries for $caseName in visible and live feedback', async ({ secondSceneName }) => {
     const scenes: Scene[] = [
       {
         id: 'first',
@@ -145,7 +148,7 @@ describe('SceneEditor normalization feedback', () => {
       },
       {
         id: 'second',
-        name: '두 번째',
+        name: secondSceneName,
         cameraMode: 'orbit',
         startPercent: 0.5,
         endPercent: 1.2,
@@ -173,8 +176,8 @@ describe('SceneEditor normalization feedback', () => {
       nameInput.dispatchEvent(new Event('input', { bubbles: true }))
     })
 
-    const expectedStart = '"두 번째" 장면의 시작이 50%에서 60%로 조정되었습니다.'
-    const expectedEnd = '"두 번째" 장면의 끝이 120%에서 100%로 조정되었습니다.'
+    const expectedStart = `"${secondSceneName}" 장면의 시작이 50%에서 60%로 조정되었습니다.`
+    const expectedEnd = `"${secondSceneName}" 장면의 끝이 120%에서 100%로 조정되었습니다.`
     const status = container.querySelector('[data-testid="scene-editor-status"]')
     expect(status?.textContent).toContain(expectedStart)
     expect(status?.textContent).toContain(expectedEnd)

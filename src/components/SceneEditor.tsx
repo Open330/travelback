@@ -38,10 +38,13 @@ function scenesWereAdjusted(inputScenes: Scene[], normalizedScenes: Scene[]): bo
 }
 
 function formatSceneAdjustment(template: string, sceneName: string, from: number, to: number) {
-  return template
-    .replace('{name}', sceneName)
-    .replace('{from}', String(Math.round(from * 100)))
-    .replace('{to}', String(Math.round(to * 100)))
+  const values = {
+    name: sceneName,
+    from: String(Math.round(from * 100)),
+    to: String(Math.round(to * 100)),
+  }
+
+  return template.replace(/\{(name|from|to)\}/g, (_match, key: keyof typeof values) => values[key])
 }
 
 /** Small inline SVG icons for each camera mode */
