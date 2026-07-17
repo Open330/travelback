@@ -5,7 +5,7 @@ import { X, ChevronDown, Check, Share2, RotateCcw, Download } from 'lucide-react
 import type { VideoCodec, ExportRequest } from '@/types'
 import { CODEC_LABELS, RESOLUTION_PRESETS, EXPORT_LIMITS } from '@/types'
 import { estimateEncodedBytes, estimateExportMemoryBytes, isCodecSupported, MAX_IN_MEMORY_EXPORT_BYTES } from '@/lib/videoEncoder'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type TranslationKey } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 import type { DownloadMethod, ExportState } from '@/lib/useExportController'
 import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
@@ -24,6 +24,18 @@ const RESOLUTION_KEYS = [
   'resolution.instagramPost',
   'resolution.hd',
 ] as const
+
+const COMPLETION_HEADING_KEYS: Record<DownloadMethod, TranslationKey> = {
+  picker: 'export.success',
+  fallback: 'export.downloadStarted',
+  ready: 'export.ready',
+}
+
+const COMPLETION_DESCRIPTION_KEYS: Record<DownloadMethod, TranslationKey> = {
+  picker: 'export.videoSaved',
+  fallback: 'export.savedToDownloads',
+  ready: 'export.readyDescription',
+}
 
 function clampExportDuration(value: number): number {
   return Math.max(EXPORT_LIMITS.duration.min, Math.min(value, EXPORT_LIMITS.duration.max))
@@ -70,6 +82,7 @@ export default function ExportPanel({
   playbackDuration,
 }: ExportPanelProps) {
   const { t } = useLocale()
+  const completionMethod = downloadMethod ?? 'ready'
   const formId = useId()
   const resolutionId = `${formId}-resolution`
   const durationId = `${formId}-duration`
@@ -300,14 +313,10 @@ export default function ExportPanel({
               <Check size={32} strokeWidth={2.5} style={{ color: 'rgb(var(--gl))' }} />
             </div>
             <h4 ref={successHeadingRef} tabIndex={-1} className="mb-1 text-lg font-bold" style={{ color: 'var(--t1)' }}>
-              {downloadMethod === 'ready' ? t('export.ready') : t('export.success')}
+              {t(COMPLETION_HEADING_KEYS[completionMethod])}
             </h4>
             <p className="mb-4 text-sm" style={{ color: 'var(--t3)' }}>
-              {downloadMethod === 'picker'
-                ? t('export.videoSaved')
-                : downloadMethod === 'fallback'
-                  ? t('export.savedToDownloads')
-                  : t('export.readyDescription')}
+              {t(COMPLETION_DESCRIPTION_KEYS[completionMethod])}
             </p>
 
             {exportedVideoUrl && (
@@ -316,7 +325,7 @@ export default function ExportPanel({
               </div>
             )}
 
-            {downloadMethod !== 'ready' && (
+            {completionMethod !== 'ready' && (
               <div className="gi mb-4 p-3 text-left text-xs" style={{ borderRadius: '10px', color: 'var(--t3)' }}>
                 💡 {platformTip}
               </div>

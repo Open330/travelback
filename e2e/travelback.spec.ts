@@ -2653,7 +2653,7 @@ test.describe('Travelback App', () => {
       const testWindow = window as Window & { releaseExportPicker?: () => void }
       testWindow.releaseExportPicker?.()
     })
-    const successHeading = exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })
+    const successHeading = exportPanel.getByRole('heading', { name: 'Video saved!' })
     await expect(successHeading).toBeVisible({ timeout: 15_000 })
     await expect(successHeading).toBeFocused()
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
@@ -2681,6 +2681,29 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.getByText(/has not been saved yet/i)).toBeVisible()
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible()
     await expect(exportPanel.getByText(/find the MP4 in (Downloads|Files)/i)).toHaveCount(0)
+  })
+
+  test('fallback download reports that the download started', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: async () => {
+          throw new DOMException('Use the download fallback', 'NotAllowedError')
+        },
+      })
+    })
+    await page.reload()
+    await waitForApp(page)
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+
+    await expect(exportPanel.getByRole('heading', { name: 'Download started' })).toBeVisible({ timeout: 15_000 })
+    await expect(exportPanel.getByText('Your video download has started.')).toBeVisible()
+    await expect(exportPanel.getByRole('heading', { name: 'Video saved!' })).toHaveCount(0)
   })
 
   test('share reports when the actual exported MP4 is unsupported', async ({ page }) => {
@@ -2752,7 +2775,7 @@ test.describe('Travelback App', () => {
     const startExportButton = exportPanel.getByRole('button', { name: 'Start Export' })
     await expect(startExportButton).toBeEnabled({ timeout: 30_000 })
     await startExportButton.click()
-    const completedHeading = exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })
+    const completedHeading = exportPanel.getByRole('heading', { name: 'Download started' })
     await expect.poll(async () => {
       if (await completedHeading.isVisible()) return 'done'
       const progress = await exportPanel.getByRole('progressbar').getAttribute('aria-valuenow').catch(() => null)
@@ -2793,7 +2816,7 @@ test.describe('Travelback App', () => {
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
-    await expect(exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })).toBeVisible({ timeout: 15_000 })
+    await expect(exportPanel.getByRole('heading', { name: 'Download started' })).toBeVisible({ timeout: 15_000 })
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible()
     await page.getByRole('button', { name: 'Close panel' }).click({ force: true })
 

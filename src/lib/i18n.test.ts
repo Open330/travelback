@@ -110,6 +110,20 @@ describe('i18n locale key parity', () => {
     expect(translations.zh['export.readyDescription']).toContain('尚未保存')
     expect(translations.es['export.readyDescription']).toContain('aún no se ha guardado')
   })
+
+  it('describes fallback completion as a download start in every locale', () => {
+    expect(locales.map((locale) => translations[locale]['export.downloadStarted'])).toEqual([
+      'Download started',
+      '다운로드가 시작되었습니다',
+      'ダウンロードを開始しました',
+      '下载已开始',
+      'Descarga iniciada',
+    ])
+
+    for (const locale of locales) {
+      expect(translations[locale]['export.downloadStarted']).not.toMatch(/saved|저장|保存|已保存|guardad/i)
+    }
+  })
 })
 
 describe('t()', () => {

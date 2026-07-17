@@ -117,15 +117,31 @@ describe('ExportPanel codec discovery', () => {
   })
 })
 
-describe('ExportPanel ready state', () => {
-  it('does not claim an unsaved video exists in the platform download location', async () => {
+describe('ExportPanel completion state', () => {
+  it.each([
+    ['picker', 'export.success', 'export.videoSaved', true],
+    ['fallback', 'export.downloadStarted', 'export.savedToDownloads', true],
+    ['ready', 'export.ready', 'export.readyDescription', false],
+  ] as const)('renders truthful %s completion copy', async (downloadMethod, headingKey, descriptionKey, showsPlatformTip) => {
     await renderExportPanel(vi.fn(), {
       exportState: 'done',
-      downloadMethod: 'ready',
+      downloadMethod,
       exportedVideoUrl: 'blob:ready-video',
       exportedVideoFilename: 'Travelback.mp4',
     })
 
+    const heading = document.querySelector<HTMLHeadingElement>('h4')
+    if (!heading) throw new Error('Missing completion heading')
+    expect(heading.textContent).toBe(headingKey)
+    expect(document.body.textContent).toContain(descriptionKey)
+    expect(document.body.textContent?.includes('export.tipTikTok')).toBe(showsPlatformTip)
+    expect(document.activeElement).toBe(heading)
+  })
+
+  it('defaults an unspecified completion method to the unsaved ready state', async () => {
+    await renderExportPanel(vi.fn(), { exportState: 'done' })
+
+    expect(document.querySelector('h4')?.textContent).toBe('export.ready')
     expect(document.body.textContent).toContain('export.readyDescription')
     expect(document.body.textContent).not.toContain('export.tipTikTok')
   })
