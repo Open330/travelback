@@ -57,6 +57,10 @@ describe('i18n locale key parity', () => {
 
   it('keeps reviewed Korean, Japanese, Chinese, and Spanish phrases grammatical', () => {
     expect(translations.ko['export.estimatedTime']).toBe('예상 소요 시간:')
+    expect(translations.ko['mapStyle.positron']).toBe('라이트')
+    expect(translations.ko['mapStyle.dark']).toBe('다크')
+    expect(`${translations.ko['app.mapStylePrefix']} ${translations.ko['mapStyle.positron']}`).toBe('지도: 라이트')
+    expect(`${translations.ko['app.mapStylePrefix']} ${translations.ko['mapStyle.dark']}`).toBe('지도: 다크')
     expect(translations.ja['journey.addOneMore']).toBe('ルートを作成するには、もう1ポイント追加してください')
     expect(translations.zh['export.estimatedTime']).toBe('预计时间:')
     expect(translations.es['google.tip1']).toBe('Desde 2024, Google almacena los datos de la cronología en el dispositivo — la exportación del móvil suele tener los datos más completos')

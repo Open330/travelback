@@ -520,8 +520,8 @@ export const translations = {
 
     // Map style labels
     'mapStyle.voyager': 'Voyager',
-    'mapStyle.positron': '밝은',
-    'mapStyle.dark': '어두운',
+    'mapStyle.positron': '라이트',
+    'mapStyle.dark': '다크',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': 'Bright',
 
