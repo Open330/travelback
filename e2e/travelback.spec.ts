@@ -1623,8 +1623,7 @@ test.describe('Travelback App', () => {
       expect(fullCounts.visible).toBe(fullCounts.full)
 
       const endHandle = page.getByTestId('timeline-end-handle')
-      await endHandle.focus()
-      await page.keyboard.press('Home')
+      await endHandle.press('Home')
       await expect.poll(async () => (await loadedTrackPointCounts(page)).visible, {
         timeout: 10_000,
         intervals: [100, 200, 300],
