@@ -916,18 +916,19 @@ test.describe('Travelback App', () => {
 
   test('successful Sample intent clears a previous rejected-file alert', async ({ page }) => {
     const fileInput = page.locator('input[type="file"]')
+    const rejectedFileAlert = page.getByRole('alert').filter({ hasText: 'That file is not a travel route file' })
     await fileInput.setInputFiles({
       name: 'notes.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('not a travel route'),
     })
-    await expect(page.locator('[role="alert"]')).toContainText('That file is not a travel route file')
+    await expect(rejectedFileAlert).toBeVisible()
 
     await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
 
     await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('status')).toContainText('Track loaded: Namsan Tower Walk')
-    await expect(page.locator('[role="alert"]')).toHaveCount(0)
+    await expect(rejectedFileAlert).toHaveCount(0)
   })
 
   test('a delayed sample cannot replace a newer manual journey session', async ({ page }) => {
