@@ -818,12 +818,12 @@ textarea:focus-visible,
   }
 }
 
-[data-has-track="true"] .travelback-toast {
+.travelback-toast[data-has-track="true"] {
   bottom: 11rem;
 }
 
 @media (min-width: 640px) {
-  [data-has-track="true"] .travelback-toast {
+  .travelback-toast[data-has-track="true"] {
     bottom: 10rem;
   }
 }

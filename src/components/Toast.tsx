@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useLocale } from '@/lib/i18n'
 import { generateId } from '@/lib/id'
@@ -14,7 +15,12 @@ export interface ToastMessage {
 interface ToastProps {
   messages: ToastMessage[]
   onDismiss: (id: string) => void
+  hasTrack?: boolean
 }
+
+const subscribeToHydration = () => () => {}
+const getClientHydrationSnapshot = () => true
+const getServerHydrationSnapshot = () => false
 
 function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: () => void }) {
   const { t } = useLocale()
@@ -60,18 +66,30 @@ function ToastItem({ message, onDismiss }: { message: ToastMessage; onDismiss: (
   )
 }
 
-export default function Toast({ messages, onDismiss }: ToastProps) {
+export default function Toast({ messages, onDismiss, hasTrack = false }: ToastProps) {
   // Use assertive for error toasts so screen readers announce them immediately;
   // use polite for all other types to avoid interrupting the user.
   // When both types are present, use assertive to ensure errors are heard.
   const hasError = messages.some(m => m.type === 'error')
-  return (
-    <div aria-live={hasError ? 'assertive' : 'polite'} aria-atomic="false" className="travelback-toast fixed bottom-28 right-4 z-50 flex flex-col gap-2">
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
+  )
+  const liveRegion = (
+    <div
+      aria-live={hasError ? 'assertive' : 'polite'}
+      aria-atomic="false"
+      data-has-track={hasTrack ? 'true' : undefined}
+      className="travelback-toast fixed bottom-28 right-4 z-50 flex flex-col gap-2"
+    >
       {messages.map(msg => (
         <ToastItem key={msg.id} message={msg} onDismiss={() => onDismiss(msg.id)} />
       ))}
     </div>
   )
+
+  return hydrated ? createPortal(liveRegion, document.body) : liveRegion
 }
 
 /** Hook to manage toast state */

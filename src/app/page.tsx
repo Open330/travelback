@@ -715,7 +715,7 @@ function HomeInner() {
           />
         ) : null}
 
-        <Toast messages={toasts} onDismiss={dismissToast} />
+        <Toast messages={toasts} onDismiss={dismissToast} hasTrack={track !== null} />
 
         {pendingTrimRange && (
           <ModalDialog
