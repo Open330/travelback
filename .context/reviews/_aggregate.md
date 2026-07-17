@@ -1,35 +1,33 @@
-# Aggregate Review — Travelback (Cycle 12, 2026-07-17)
+# Aggregate Review — Travelback (Cycle 13, 2026-07-17)
 
 ## Outcome
 
-Exactly two source-only reviewer artifacts completed against
-`d62b13ce3f7b89aefe71fbc2ad6bf0b3fbc0d789`, covering all twelve requested
-roles plus Mina. Both artifacts were read in full. Independent source tracing
-and historical deduplication retained **2 genuinely new Medium/High roots**
-plus **4 Medium/High reopened or incomplete historical edges**. Prompt 2 must
-cover all six actionable items without relabeling the four historical edges as
-new.
+Exactly two source-only reviewer reports completed against
+`86e35c56ef2c5e8231a7a4009e19f7a94b3ceb84`, covering all twelve requested
+roles plus Mina. Both reports were read in full. Independent source tracing and
+historical deduplication retained **four genuinely new roots** and **one
+reopened/incomplete historical edge**. Prompt 2 must cover all five actionable
+items without relabeling the base-path edge as wholly new.
 
-No browser, Playwright, server, build, test suite, or long-lived process was
-started during Prompt 1. The accepted Cycle 11 matrix remains historical
-evidence only. Current source and the existing generated static output were
-inspected read-only; implementation and runtime validation belong to Prompt 3.
+No browser, agent-browser, Playwright, server, build, test suite, or long-lived
+process was started during Prompt 1. The accepted Cycle 12 matrix remains
+historical evidence only. Current source was inspected read-only;
+implementation and runtime validation belong to Prompt 3.
 
 ## New actionable findings
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG12-01 | Medium / High | `src/app/page.tsx:487-523`; `src/components/SceneEditor.tsx:356-490,591-603,857-864`; `src/components/MapView.tsx:406-451,1147-1223`; reviewer A; independent dependency trace | **Committed scene changes do not refresh a paused map pose.** MapView updates scene refs and clears its previous-camera cache, but its camera effect is not keyed by scenes or a committed-scene revision. Mode, preset, add/delete, range, and transition changes can therefore leave the visible paused map on the old pose while playback/export uses the new scenes. Add one committed-current-pose refresh boundary that preserves temporary parameter preview, plus component/browser coverage at stationary progress. |
-| AG12-02 | Medium / High | `src/components/MapView.tsx:99-135,897-899`; parser coordinate guards and boundary regression; MapLibre `LngLat` validation; reviewer A; independent source validation | **Degenerate pole-adjacent tracks create invalid fit-bounds latitudes.** The accepted latitude domain includes ±90, but the fixed ±0.1° degenerate padding can extend past it and throw before `fitBounds`. Clamp latitude padding and make it inward/asymmetric at a pole while preserving shifted-longitude antimeridian behavior. Extract a pure bounds contract and test ±90 plus near-pole coincident points. |
+| AG13-01 | Medium / High | `src/components/SceneEditor.tsx:430-450,579-582`; reviewer A; independent scene-coverage trace | **Add Scene silently fails when only an interior gap is available.** Addition considers only the final scene's end and returns when it is `1`, although deletion and range editing intentionally permit earlier gaps. Find the first usable free range, insert a valid scene there, and disable Add only when no range can hold `MIN_SCENE_SPAN`. |
+| AG13-02 | Medium / High | `src/components/ModalDialog.tsx:44-70,93-103,171-194`; `src/app/page.tsx:592-718`; `src/components/Toast.tsx:63-73`; `src/lib/useExportController.ts:273-287`; reviewer B; independent modal-tree trace | **Modal inertness hides global Toast announcements.** Export cancellation and failure add their only explanation to a live region beneath the inert and `aria-hidden` application root while the dialog remains open outside that root. Keep notifications outside the hidden subtree and cover the composed accessibility ancestry. |
+| AG13-03 | Low / High | `src/components/FileUpload.tsx:26-125`; `src/components/JourneyCreator.tsx:160-173,623-647,881-884`; `src/components/SceneEditor.tsx:348-407,452-463,649-653`; reviewer B; independent state trace | **Retained validation and warning text does not follow locale changes.** These components store already-translated strings, so a later locale switch changes surrounding UI but leaves recovery guidance in the former language. Store semantic keys/parameters and translate at render time. |
+| AG13-04 | Medium / High | `src/styles/vitro-base.css:28-33,44-73,263-305`; warning/error consumers in FileUpload, JourneyCreator, SceneEditor, ExportPanel, and GoogleGuide; reviewer B; independent token-use trace | **Light-theme warning/error text fails normal-text contrast.** `--warn` is 1.78–2.15:1 and `--err` is 3.04–3.67:1 against declared light surfaces, below the 4.5:1 requirement for the shipped 10–14px text. Add contrast-safe theme-specific foreground tokens while retaining brighter accent tokens for non-text decoration. |
 
 ## Reopened confirmed historical gaps
 
 | ID | Current severity / confidence | Historical provenance | Required outcome |
 | --- | --- | --- | --- |
-| R12-01 | Medium / High | Cycle 7 `P03` explicitly required mobile More → Help focus restoration, but the browser case asserted opening only; `src/components/TrackToolbar.tsx:72-77,124-127,207-254`; `src/components/ModalDialog.tsx:93-166`; reviewer B | **A modal launched from mobile More loses the More trigger as its return-focus owner.** The action opens the parent modal in the same batch that removes the focused menu item; ModalDialog captures focus only after that removal. Establish More as the opener before Help/import-guide opens, and assert both modal close paths restore it. |
-| R12-02 | Medium / High | Cycle 9 `AG9-03/P05` required success, cancellation, and opener focus continuity, but covered only idle → rendering and success; `src/components/ExportPanel.tsx:256-307,371-513`; reviewer B | **Export cancellation or failure removes the focused Cancel button without handing focus to the still-open idle panel.** Add an exporting → idle focus transfer to a stable panel target, preserve success and opener restoration, and cover cancellation plus keyboard containment. |
-| R12-03 | Medium / High | Cycle 11 `R11-01/P04` required `onImportStart` exactly once for every newer file intent; the older loading guard at `src/components/FileUpload.tsx:165-169` still bypasses the unified abort/generation owner; reviewer A | **A newer drop during an in-flight parse is silently ignored, allowing the older file to win.** Let a drop replace the active parse through the existing generation/AbortController protocol, keep the native picker disabled, and prove parse A aborts/stales while B alone completes. |
-| R12-04 | Medium / High | Cycle 1 `P05` required strict production style CSP while allowing Next development styles, but smoke only checks policy strings; `scripts/harden-static-export.mjs:18-31,71-86,177-191`; `scripts/smoke-static.mjs:149-222`; existing `out/404.html` and `out/_not-found.html` each contain one nonempty inline style | **The hardened static CSP blocks Next's own inline 404-page style.** `style-src` and `style-src-elem` contain only `'self'`, while the hardener hashes scripts only. Compute deterministic hashes for every nonempty inline style, authorize them in both style directives without `unsafe-inline`, and make static smoke verify that every inline style is covered. |
+| R13-01 | Medium / High | Cycle 2 `N07/N28` centralized browser consumers and accepted substring-wide `..` rejection as defense-in-depth, but did not align build/serve/test normalization; `next.config.ts:3-14`; `src/lib/env.ts:1-9`; `scripts/serve-static.mjs:15-30`; `scripts/smoke-static.mjs:12-18`; `playwright.static.config.ts:4-14`; reviewer A | **Base-path normalizers disagree across build and runtime.** A valid literal segment such as `/release..candidate` is accepted and injected by the build yet silently becomes root in the browser; actual traversal is also accepted by other surfaces. Establish one shared normalizer, accept literal dots, reject real dot segments explicitly, and table-test every consumer. |
 
 ## Formal manual-validation items
 
@@ -56,29 +54,26 @@ inspected read-only; implementation and runtime validation belong to Prompt 3.
 
 ## Cross-review agreement and rejected hypotheses
 
-Reviewer A supplied the three application/data-path candidates; reviewer B
-supplied the two focus-lifecycle candidates. The main agent independently
-validated all five causes against the current source, added R12-04 from a
-separate CSP/output trace, and searched historical plans/reviews before
-classification. AG12-01 and AG12-02 have no matching owned historical exit.
-R12-01 through R12-04 each map to explicit older acceptance language and are
-therefore reopened/incomplete edges, not fresh roots.
+Reviewer A supplied the scene and base-path candidates. Reviewer B supplied
+the modal notification, retained translation, and semantic-contrast candidates.
+The main agent independently validated all five causes against current source
+and searched historical plans/reviews before classification. AG13-01 through
+AG13-04 have no matching owned exit. R13-01 shares the old `N07/N28` root and
+is therefore an incomplete historical edge, not a fresh hardening finding.
 
-The broad historical `style-src-attr 'unsafe-inline'` debt was not relabeled:
-R12-04 concerns blocked `<style>` elements on generated error pages, while
-legacy React style attributes remain isolated under their existing policy.
-The fixed loading-time no-op was likewise not called a new parser race; only
-the unreconciled Cycle 11 replacement contract is reopened. Uppercase extension
-warnings, confirmation search polish, generic scene-performance concerns, and
-older antimeridian padding discussion did not establish additional current
-actionable roots.
+The historical zero-length terminal Add bug, visual toast z-index note, loaded
+track-status localization, primary-button contrast, workflow, license,
+`preserveDrawingBuffer`, and measured performance items were not relabeled.
+An export-size copy hypothesis was rejected as unreachable through the current
+UI guard. Speculative stacked-dialog behavior and other low-confidence polish
+did not establish additional current actionable roots.
 
 ## Agent, process, and cleanup notes
 
-Both source-only artifacts completed and were read before this aggregate. The
-reviewers used no browser, server, Playwright, build, test suite, temporary
-copy, child agent, commit, or push. Prompt 1 created no process/session/port
-inventory and stopped or killed nothing. The user's final-cleanup instruction
-remains open for the loop's final stop condition. No deployment, workflow
-edit/dispatch, production mutation, external communication, or publication
-occurred.
+Both source-only reports completed and were read before this aggregate. The
+reviewers used no browser, agent-browser, server, Playwright, build, test suite,
+temporary copy, child agent, commit, or push. The main process check found zero
+browser processes and all dedicated ports free. Prompt 1 stopped or killed
+nothing. The final-cleanup ledger remains open for the loop's final stop
+condition. No deployment, workflow edit/dispatch, production mutation,
+external communication, or publication occurred.
