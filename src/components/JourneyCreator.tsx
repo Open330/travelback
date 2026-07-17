@@ -182,6 +182,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const selectedIconSymbolRef = useRef(selectedIconSymbol)
   const selectedIconColorRef = useRef(selectedIconColor)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+  const confirmationWaypointsRef = useRef<TrackPoint[] | null>(null)
 
   // Track whether layers have been added to the map
   const layersAddedRef = useRef(false)
@@ -335,6 +336,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       // --- Click to add waypoint ---
       const onClick = (e: maplibregl.MapMouseEvent) => {
+        if (confirmationWaypointsRef.current) return
         if (shouldSuppressPostDragClick()) return
         // Ignore clicks on existing waypoints (handled separately)
         const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_POINTS] })
@@ -357,6 +359,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       // --- Click on waypoint to delete ---
       const onPointClick = (e: maplibregl.MapLayerMouseEvent) => {
         e.preventDefault()
+        if (confirmationWaypointsRef.current) return
         if (draggingIndexRef.current !== null) return
         if (shouldSuppressPostDragClick()) return
         const feature = e.features?.[0]
@@ -371,6 +374,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
       // --- Drag waypoints ---
       const updateDraggedPoint = (lng: number, lat: number) => {
+        if (confirmationWaypointsRef.current) return
         if (draggingIndexRef.current === null) return
         const waypoint = normalizeWaypoint(lng, lat)
         if (!waypoint) return
@@ -440,6 +444,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       settleDragRef.current = settleDrag
 
       const startDrag = (index: number, input: 'mouse' | 'touch') => {
+        if (confirmationWaypointsRef.current) return
         settleDrag()
         draggingIndexRef.current = index
         activeDragInput = input
@@ -477,6 +482,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
 
       const onMouseEnterPoint = () => {
+        if (confirmationWaypointsRef.current) return
         map.getCanvas().style.cursor = 'pointer'
       }
 
@@ -583,8 +589,23 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     }
   }, [addLayers, isActive, mapGeneration, mapReadyRetry, mapRef, removeLayers, syncUI, updateMapData])
 
+  useEffect(() => {
+    if (!showConfirm) return
+    const canvas = mapRef.current?.getMap()?.getCanvas()
+    if (!canvas) return
+
+    const previousPointerEvents = canvas.style.pointerEvents
+    canvas.style.pointerEvents = 'none'
+    canvas.dataset.journeyConfirming = 'true'
+    return () => {
+      canvas.style.pointerEvents = previousPointerEvents
+      delete canvas.dataset.journeyConfirming
+    }
+  }, [mapGeneration, mapRef, showConfirm])
+
   const handleUndo = useCallback(() => {
     settleDragRef.current()
+    if (confirmationWaypointsRef.current) return
     if (waypointsRef.current.length === 0) return
     waypointsRef.current = waypointsRef.current.slice(0, -1)
     updateMapData()
@@ -593,6 +614,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
 
   const handleClear = useCallback(() => {
     settleDragRef.current()
+    if (confirmationWaypointsRef.current) return
     waypointsRef.current = []
     updateMapData()
     syncUI()
@@ -628,6 +650,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   }, [])
 
   const handleSelectPlace = useCallback((lat: string, lon: string) => {
+    if (confirmationWaypointsRef.current) return
     const lng = parseFloat(lon)
     const latNum = parseFloat(lat)
     if (!Number.isFinite(lng) || !Number.isFinite(latNum)) return
@@ -705,17 +728,30 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const handleDone = useCallback(() => {
     settleDragRef.current()
     if (waypointsRef.current.length < 2) return
+    confirmationWaypointsRef.current = waypointsRef.current.map((point) => ({ ...point }))
     setJourneyName((current) => current || t('journey.defaultName'))
     setShowConfirm(true)
   }, [t])
 
+  const handleContinueEditing = useCallback(() => {
+    confirmationWaypointsRef.current = null
+    setShowConfirm(false)
+  }, [])
+
   const handleConfirmCreate = useCallback(() => {
     settleDragRef.current()
+    const confirmedWaypoints = confirmationWaypointsRef.current
+    if (!confirmedWaypoints || confirmedWaypoints.length < 2) {
+      confirmationWaypointsRef.current = null
+      setShowConfirm(false)
+      return
+    }
     const resolvedName = journeyName.trim() || t('journey.defaultName')
     const track: Track = {
       name: `${selectedIconSymbol} ${resolvedName}`,
-      points: waypointsRef.current as TrackPoint[],
+      points: confirmedWaypoints.map((point) => ({ ...point })),
     }
+    confirmationWaypointsRef.current = null
     setShowConfirm(false)
     onComplete(track)
   }, [journeyName, onComplete, selectedIconSymbol, t])
@@ -946,7 +982,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             />
           </label>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowConfirm(false)}
+            <button type="button" onClick={handleContinueEditing}
               className="gi px-3 py-1.5 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t1)' }}>
               {t('journey.confirmEdit')}

@@ -278,3 +278,94 @@ archived into their respective cycle implementation plans once addressed.
     The reviewer subsequently live-confirmed the race in this clean session:
     the unsupported-drop recovery alert remained while the older held sample
     installed `Namsan Tower Walk`, so the screenshot is verified evidence.
+- Run-created physical Cycle 11 P01 focused-verification copy:
+  - `/tmp/travelback-cycle11-p01-copy.bHAoFV`
+  - Created empty after read-only listener checks found ports `43121`–`43124`
+    unused. Port `43121` is reserved for this copy's bounded focused browser
+    regression. The copy will be populated from signed review/plan HEAD plus
+    the P01 candidate files; it must not be reused outside P01 or removed before
+    the final-loop cleanup stop condition. Record dependency/test/build/server
+    sessions and any listener PID here before or as soon as they become known.
+    The initial dependency-install attempt in unified exec session `74078`
+    started before archive population had fully materialized, exited `EUSAGE`
+    because it temporarily observed no lockfile, and changed no repository
+    dependency state. Retain its generated log
+    `/Users/hletrd/.npm/_logs/2026-07-17T09_56_42_314Z-debug-0.log` for final-loop
+    provenance cleanup. The populated copy now contains the tracked lockfile;
+    replacement dependency installation is running in unified exec session
+    `80203`, with no listener PID. It completed naturally with exit 0 after
+    about eight minutes: 471 packages added, 472 audited, and 0 vulnerabilities.
+    The first focused Journey unit invocation detached from its output cell and
+    remained active as PID `69927`; it is not stopped or reused and must be left
+    to its natural lifecycle. A separate verbose invocation completed with 10
+    passes and one assertion-only failure: longitude normalization produced
+    `126.89999999999998`/`127.10000000000002` instead of exact decimal equality.
+    This is focused test-authoring evidence, not a product regression or gate
+    fix; the candidate assertion will use numeric tolerance. A later read-only
+    process check found PID `69927` absent, confirming natural exit.
+    The corrected focused Journey unit rerun is running in unified exec session
+    `88190`, with no listener PID. Per loop accounting, the numeric-tolerance
+    assertion correction is retained as one candidate gate-discovered test-root
+    fix pending the final skill-semantic tally. The rerun completed naturally
+    with exit 0: 1 focused file and all 11 tests passed.
+    Focused P01 lint is running in unified exec session `72286`, with no
+    listener PID. It completed naturally with exit 0.
+    Focused P01 Next type generation plus TypeScript check is running in unified
+    exec session `26073`, with no listener PID. It completed naturally with
+    exit 0 after successful route type generation and `tsc --noEmit`.
+    Focused P01 production build is running in unified exec session `25934`,
+    with no listener PID. It completed naturally with exit 0: worker parity was
+    current, Next 16.2.10 compiled successfully, four static pages generated,
+    and postbuild hardened CSP across three HTML files.
+    The retries-disabled, one-worker focused static Journey browser regression
+    uses reserved port `43121` in unified exec session `91116`; its Playwright
+    web-server owner will terminate the listener naturally. Observed listener
+    PID is `89571`. The invocation completed naturally with exit 1 before the
+    focused test body: its `beforeEach` exhausted the 120-second test timeout
+    while waiting for `main#app[data-travelback-app-root="true"]`. The result
+    retained a 1,924-byte, 0.96-second blank-startup video and the 10,889-byte
+    error context under
+    `/tmp/travelback-cycle11-p01-copy.bHAoFV/test-results/travelback-Travelback-App--f5501-uses-an-editable-route-name-chromium/`.
+    Read-only post-exit checks found neither PID `89571` nor a listener on port
+    `43121`. Static-output inspection found the expected app-root marker in
+    `out/index.html`, all 14 unique `/travelback/` HTML asset references were
+    present on disk, and hardened CSP metadata was present. This is currently
+    classified as a browser/server-startup invocation failure separate from
+    the P01 product assertions; a clean readiness check and retries-disabled
+    single-worker rerun on newly inventoried ports must confirm that diagnosis.
+    Read-only TCP probes then found ports `43122` and `43123` unused. Port
+    `43122` is reserved for a standalone static-readiness smoke check and port
+    `43123` for the subsequent isolated Playwright rerun; neither may be reused
+    by another Cycle 11 process.
+    The explicit standalone readiness check on port `43122` is running as
+    `STATIC_SMOKE_PORT=43122 npm run smoke:static` in unified exec session
+    `70358`; its repo-owned runner controls its short-lived listener lifecycle.
+    It completed with exit 0 and `[smoke-static] OK` after serving the expected
+    `/travelback/` base path. A read-only post-exit probe confirmed no remaining
+    listener on `43122`.
+    After that explicit readiness success, the isolated focused Playwright
+    rerun is running on port `43123` in unified exec session `39295`, with
+    `--retries=0 --workers=1`. It writes to `test-results-p01-rerun` and
+    `playwright-report-p01-rerun` so the first failure artifacts remain intact;
+    its web-server owner controls the bounded listener lifecycle. Read-only TCP
+    and process probes observed listener PID `1687` on both localhost families.
+    The rerun completed with exit 1 and reproduced the same 120-second
+    `beforeEach` app-root timeout before any P01 assertion. Its retained
+    `test-results-p01-rerun/.../video.webm` is again exactly 1,924 bytes and
+    0.96 seconds; the adjacent `error-context.md` is 762 bytes. Teardown also
+    exceeded the test timeout. Read-only post-exit probes found no Playwright,
+    Chromium, static-server, PID `1687`, or port `43123` process remaining.
+    Because the standalone HTTP/static smoke passed immediately beforehand,
+    the repeat narrows the root to the browser invocation/runtime path rather
+    than missing static output, HTTP readiness, or P01 test-body behavior.
+    The exact read-only host diagnostic at `2026-07-17 19:52 KST` found load
+    averages `772.53 / 773.57 / 732.84` on only 10 CPUs. Numerous pre-existing,
+    long-lived `.agent-browser` Chrome renderer/GPU processes were consuming
+    sustained CPU (several individual renderers at roughly 77–103%, with
+    elapsed times from about 10 to 22 hours). None belongs to this focused
+    Playwright invocation and none is stopped or modified. This external host
+    saturation accounts for the blank 0.96-second recordings, app-root
+    starvation, and timed-out context teardown despite confirmed static-server
+    readiness. It is not a repository gate-root fix and does not increment
+    `GATE_FIXES`; retain the focused browser assertion for a later sequential
+    rerun when the host can schedule Chromium normally.

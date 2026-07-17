@@ -1071,6 +1071,13 @@ test.describe('Travelback App', () => {
     await addCoordinates(initialPanel)
 
     await initialPanel.getByRole('button', { name: 'Done' }).click()
+    const journeyCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    await expect(journeyCanvas).toHaveAttribute('data-journey-confirming', 'true')
+    await expect.poll(() => journeyCanvas.evaluate((canvas) => canvas.style.pointerEvents)).toBe('none')
+    await initialPanel.getByRole('button', { name: 'Keep Editing' }).click()
+    await expect(journeyCanvas).not.toHaveAttribute('data-journey-confirming')
+    await expect.poll(() => journeyCanvas.evaluate((canvas) => canvas.style.pointerEvents)).toBe('')
+    await initialPanel.getByRole('button', { name: 'Done' }).click()
     const nameInput = initialPanel.getByRole('textbox', { name: 'Route name' })
     await expect(nameInput).toHaveValue('Custom Journey')
     await nameInput.fill('Bali 2026')

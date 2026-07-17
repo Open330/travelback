@@ -89,13 +89,13 @@ function createMapMock(initialStyleLoaded = true) {
   }
 }
 
-async function renderJourneyCreator(mapMock = createMapMock()) {
+async function renderJourneyCreator(mapMock = createMapMock(), onComplete = vi.fn()) {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
   await act(() => root?.render(createElement(JourneyCreator, {
     isActive: true,
-    onComplete: vi.fn(),
+    onComplete,
     onCancel: vi.fn(),
     mapRef: {
       current: {
@@ -104,7 +104,7 @@ async function renderJourneyCreator(mapMock = createMapMock()) {
     },
     units: 'metric',
   })))
-  return mapMock
+  return { ...mapMock, onComplete }
 }
 
 beforeEach(() => {
@@ -178,6 +178,81 @@ describe('JourneyCreator interaction readiness', () => {
     expect(mapMock.map.listenerCount('style.load')).toBe(0)
     expect(mapMock.map.listenerCount('styledata')).toBe(0)
     expect(mapMock.map.listenerCount('idle')).toBe(0)
+  })
+})
+
+describe('JourneyCreator confirmation ownership', () => {
+  it('freezes map mutations and commits a copied valid snapshot', async () => {
+    const { map, canvas, disable, sources, onComplete } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 127.1, lat: 37.7 } }))
+
+    const doneButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.done')
+    await act(() => doneButton?.click())
+
+    expect(canvas.style.pointerEvents).toBe('none')
+    expect(canvas.dataset.journeyConfirming).toBe('true')
+
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 128, lat: 38 } }))
+    await act(() => map.trigger('click', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('mousedown', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    await act(() => map.trigger('mousemove', { lngLat: { lng: 129, lat: 39 } }))
+
+    expect(sources.get('journey-points')?.setData.mock.calls.at(-1)?.[0]).toMatchObject({
+      features: [{ properties: { index: 0 } }, { properties: { index: 1 } }],
+    })
+    expect(disable).not.toHaveBeenCalled()
+    expect(map.listenerCount('mousemove')).toBe(0)
+
+    const createButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent?.includes('journey.confirmCreate'))
+    await act(() => createButton?.click())
+
+    expect(onComplete).toHaveBeenCalledOnce()
+    const committedTrack = onComplete.mock.calls[0][0]
+    expect(committedTrack.points).toHaveLength(2)
+    expect(committedTrack.points[0].lng).toBeCloseTo(126.9, 10)
+    expect(committedTrack.points[0].lat).toBeCloseTo(37.5, 10)
+    expect(committedTrack.points[1].lng).toBeCloseTo(127.1, 10)
+    expect(committedTrack.points[1].lat).toBeCloseTo(37.7, 10)
+    expect(canvas.style.pointerEvents).toBe('')
+    expect(canvas.dataset.journeyConfirming).toBeUndefined()
+
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 130, lat: 40 } }))
+    expect(committedTrack.points).toHaveLength(2)
+  })
+
+  it('restores map editing when confirmation returns to the draft', async () => {
+    const { map, canvas, sources } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 127.1, lat: 37.7 } }))
+
+    const doneButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.done')
+    await act(() => doneButton?.click())
+    expect(canvas.style.pointerEvents).toBe('none')
+
+    const editButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.confirmEdit')
+    await act(() => editButton?.click())
+    expect(canvas.style.pointerEvents).toBe('')
+    expect(canvas.dataset.journeyConfirming).toBeUndefined()
+
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 128, lat: 38 } }))
+    expect(sources.get('journey-points')?.setData.mock.calls.at(-1)?.[0]).toMatchObject({
+      features: [
+        { properties: { index: 0 } },
+        { properties: { index: 1 } },
+        { properties: { index: 2 } },
+      ],
+    })
   })
 })
 
