@@ -1861,7 +1861,7 @@ test.describe('Travelback App', () => {
 
   test('Escape closes only the topmost Camera, modal, or mobile-menu owner', async ({ page }) => {
     await uploadGpx(page)
-    const cameraButton = page.getByText('Camera', { exact: true })
+    const cameraButton = page.getByTestId('track-toolbar').getByRole('button', { name: 'Camera' })
     const sceneEditor = page.getByTestId('scene-editor-panel')
 
     await cameraButton.click({ force: true })
