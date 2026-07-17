@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
-import { translations, detectLocale, t, type Locale } from './i18n'
+import { translations, detectLocale, resolveTrackDisplayName, t, type Locale } from './i18n'
 import { formatImportSizePolicyText } from './parse-utils'
 
 const locales = Object.keys(translations) as Locale[]
@@ -75,6 +75,29 @@ describe('i18n locale key parity', () => {
       '预计时间:',
       'Tiempo estimado:',
     ])
+  })
+
+  it('resolves manufactured track names in every locale without translating explicit names', () => {
+    const expectedNames = {
+      en: ['GPX Track', 'KML Track', 'Google Location History'],
+      ko: ['GPX 경로', 'KML 경로', 'Google 위치 기록'],
+      ja: ['GPX トラック', 'KML トラック', 'Google ロケーション履歴'],
+      zh: ['GPX 轨迹', 'KML 轨迹', 'Google 位置记录'],
+      es: ['Ruta GPX', 'Ruta KML', 'Historial de ubicaciones de Google'],
+    } satisfies Record<Locale, [string, string, string]>
+
+    for (const locale of locales) {
+      const translate = (key: Parameters<typeof t>[0]) => t(key, locale)
+      expect([
+        resolveTrackDisplayName({ name: 'GPX Track', fallbackNameSource: 'gpx' }, translate),
+        resolveTrackDisplayName({ name: 'KML Track', fallbackNameSource: 'kml' }, translate),
+        resolveTrackDisplayName({ name: 'Google Location History', fallbackNameSource: 'google' }, translate),
+      ]).toEqual(expectedNames[locale])
+    }
+
+    for (const explicitName of ['GPX Track', 'KML Track', 'Google Location History']) {
+      expect(resolveTrackDisplayName({ name: explicitName }, (key) => t(key, 'ko'))).toBe(explicitName)
+    }
   })
 
   it('tells users when a ready video still needs to be saved', () => {

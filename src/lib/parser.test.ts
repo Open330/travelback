@@ -190,6 +190,7 @@ describe('parseGoogleLocationHistory — Format 1: Records', () => {
   it('parses locations array with E7 coordinates', () => {
     const track = parseGoogleLocationHistory(recordsJson)
     expect(track.name).toBe('Google Location History')
+    expect(track.fallbackNameSource).toBe('google')
     expect(track.points.length).toBe(3)
     expect(track.points[0].lat).toBeCloseTo(37.4, 5)
     expect(track.points[0].lng).toBeCloseTo(-122.1, 5)
@@ -907,6 +908,7 @@ describe('parseGPX — single segment', () => {
   it('reads track name from trk > name', () => {
     const track = parseGPX(gpxSingleSegment)
     expect(track.name).toBe('Test GPX Track')
+    expect(track.fallbackNameSource).toBeUndefined()
   })
 })
 
@@ -1004,6 +1006,7 @@ describe('parseKML — LineString', () => {
   it('reads track name from Document > name', () => {
     const track = parseKML(kmlLineString)
     expect(track.name).toBe('Test KML Track')
+    expect(track.fallbackNameSource).toBeUndefined()
   })
 })
 
@@ -1043,12 +1046,14 @@ const xmlNameFormats = [
   {
     format: 'GPX',
     fallbackName: 'GPX Track',
+    fallbackKey: 'gpx',
     parse: parseGPX,
     document: (name: string) => `<gpx><trk><name>${name}</name><trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg></trk></gpx>`,
   },
   {
     format: 'KML',
     fallbackName: 'KML Track',
+    fallbackKey: 'kml',
     parse: parseKML,
     document: (name: string) => `<kml><Document><name>${name}</name><Placemark><LineString><coordinates>-122.1,37.4,0</coordinates></LineString></Placemark></Document></kml>`,
   },
@@ -1060,7 +1065,15 @@ for (const format of xmlNameFormats) {
       const track = format.parse(format.document(sourceName))
 
       expect(track.name).toBe(expectedName ?? format.fallbackName)
+      expect(track.fallbackNameSource).toBe(expectedName == null ? format.fallbackKey : undefined)
       expect(Array.from(track.name).length).toBeLessThanOrEqual(MAX_TRACK_NAME_CODE_POINTS)
+    })
+
+    it('does not mark an explicit name that equals the English fallback', () => {
+      const track = format.parse(format.document(format.fallbackName))
+
+      expect(track.name).toBe(format.fallbackName)
+      expect(track.fallbackNameSource).toBeUndefined()
     })
   })
 }
@@ -1590,6 +1603,36 @@ describe('parseTrackFile lifecycle', () => {
     await expect(parseGoogleLocationHistoryInWorkerBuffer(buffer, { workerTimeoutMs: 1_000 }))
       .rejects.toMatchObject({ code: 'INVALID_GOOGLE_JSON' })
     expect(MalformedWorker.instance.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('rejects an unknown worker fallback-name marker', async () => {
+    class InvalidFallbackWorker {
+      static instance: InvalidFallbackWorker
+      onmessage: ((event: MessageEvent<unknown>) => void) | null = null
+      onerror: ((event: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage = vi.fn(() => {
+        queueMicrotask(() => this.onmessage?.({
+          data: {
+            track: {
+              name: 'Unexpected fallback',
+              fallbackNameSource: 'unexpected',
+              points: [{ lat: 37.4, lng: -122.1 }, { lat: 37.5, lng: -122 }],
+            },
+          },
+        } as MessageEvent<unknown>))
+      })
+
+      constructor() {
+        InvalidFallbackWorker.instance = this
+      }
+    }
+    vi.stubGlobal('Worker', InvalidFallbackWorker)
+
+    const buffer = new TextEncoder().encode(recordsJson).buffer
+    await expect(parseGoogleLocationHistoryInWorkerBuffer(buffer, { workerTimeoutMs: 1_000 }))
+      .rejects.toMatchObject({ code: 'INVALID_GOOGLE_JSON' })
+    expect(InvalidFallbackWorker.instance.terminate).toHaveBeenCalledOnce()
   })
 
   it('aborts a pending FileReader once and removes its callbacks', async () => {

@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { MapStyleKey, Scene, Track } from '@/types'
 import type { UnitSystem } from '@/lib/interpolate'
-import { useLocale, type Locale } from '@/lib/i18n'
+import { resolveTrackDisplayName, useLocale, type Locale } from '@/lib/i18n'
 import Controls from '@/components/Controls'
 import ElevationProfile from '@/components/ElevationProfile'
 import SceneEditor from '@/components/SceneEditor'
@@ -92,6 +92,7 @@ export default function TrackWorkspace({
   onFollowCameraToggle,
 }: TrackWorkspaceProps) {
   const { t } = useLocale()
+  const displayName = resolveTrackDisplayName(track, t)
 
   return (
     <>
@@ -128,7 +129,7 @@ export default function TrackWorkspace({
         className="absolute left-4 right-56 top-4 z-20 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
-        {track.name}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
+        {displayName}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
       </div>
 
       <div
@@ -136,7 +137,7 @@ export default function TrackWorkspace({
         className="absolute left-4 right-4 top-16 z-20 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
-        {track.name} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
+        {displayName} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
       </div>
 
       <div data-testid="track-bottom-stack" className="absolute bottom-0 left-0 right-0 z-10">

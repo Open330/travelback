@@ -243,6 +243,7 @@
     let { points, segmentStartIndices } = flattenGoogleSegments(segments);
     return {
       name: "Google Location History",
+      fallbackNameSource: "google",
       points,
       ...segmentStartIndices.length > 0 ? { segmentStartIndices } : {}
     };

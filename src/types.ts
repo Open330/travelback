@@ -9,10 +9,13 @@ export interface TrackPoint {
   time?: Date
 }
 
+export type TrackFallbackNameSource = 'gpx' | 'kml' | 'google'
+
 export interface Track {
   name: string
   points: TrackPoint[]
   segmentStartIndices?: number[]
+  fallbackNameSource?: TrackFallbackNameSource
 }
 
 export type MapStyleKey = 'voyager' | 'positron' | 'dark' | 'liberty' | 'bright'

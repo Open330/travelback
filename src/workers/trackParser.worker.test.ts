@@ -169,9 +169,14 @@ describe('track parser worker entry', () => {
       ],
     })
 
-    expect(parseTrackParserRequest(requestFor(json))).toEqual({
+    const result = parseTrackParserRequest(requestFor(json))
+
+    expect(result).toEqual({
       track: parseGoogleLocationHistory(json),
     })
+    if ('track' in result) {
+      expect(result.track.fallbackNameSource).toBe('google')
+    }
   })
 
   it('preserves a same-segment untimed return through the worker', () => {

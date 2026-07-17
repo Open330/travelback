@@ -6,7 +6,7 @@ import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { computeCumulativeDistances } from '@/lib/interpolate'
 import { generateDefaultScenes } from '@/lib/camera'
-import type { TranslationKey } from '@/lib/i18n'
+import { resolveTrackDisplayName, type TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo, ExportError } from '@/lib/videoEncoder'
 import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
 
@@ -144,6 +144,10 @@ export function useExportController({
 
     const abortController = new AbortController()
     exportAbortRef.current = abortController
+    const trackForExport: Track = {
+      ...track,
+      name: resolveTrackDisplayName(track, tRef.current),
+    }
     const preExportProgress = playbackProgressRef.current
     let pendingVideoUrl: string | null = null
     let pendingVideoUrlStored = false
@@ -203,14 +207,14 @@ export function useExportController({
             requestAnimationFrame(() => {
               resolve({
                 buffer: new TextEncoder().encode('travelback-test-export').buffer,
-                filename: `Travelback - ${track.name}.mp4`,
+                filename: `Travelback - ${trackForExport.name}.mp4`,
                 mimeType: 'video/mp4',
               })
             })
           })
         : await exportVideo(
             canvas,
-            track,
+            trackForExport,
             exportConfig,
             async (nextProgress, cameraState) => {
               await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
+import type { Track, TrackFallbackNameSource } from '@/types'
 
 // ── Supported locales ──
 export type Locale = 'en' | 'ko' | 'ja' | 'zh' | 'es'
@@ -236,6 +237,11 @@ export const translations = {
     // ElevationProfile
     'elevation.label': 'Elevation',
     'elevation.profileAria': 'Elevation profile',
+
+    // Manufactured track names
+    'track.defaultNameGpx': 'GPX Track',
+    'track.defaultNameKml': 'KML Track',
+    'track.defaultNameGoogle': 'Google Location History',
 
     // TimelineSelector
     'timeline.points': 'locations',
@@ -601,6 +607,11 @@ export const translations = {
     'elevation.label': '고도',
     'elevation.profileAria': '고도 프로필',
 
+    // Manufactured track names
+    'track.defaultNameGpx': 'GPX 경로',
+    'track.defaultNameKml': 'KML 경로',
+    'track.defaultNameGoogle': 'Google 위치 기록',
+
     // TimelineSelector
     'timeline.points': '위치',
     'timeline.histogramHint': '높은 막대 = GPS 데이터가 많은 구간',
@@ -964,6 +975,11 @@ export const translations = {
     // ElevationProfile
     'elevation.label': '標高',
     'elevation.profileAria': '標高プロフィール',
+
+    // Manufactured track names
+    'track.defaultNameGpx': 'GPX トラック',
+    'track.defaultNameKml': 'KML トラック',
+    'track.defaultNameGoogle': 'Google ロケーション履歴',
 
     // TimelineSelector
     'timeline.points': '地点',
@@ -1329,6 +1345,11 @@ export const translations = {
     'elevation.label': '海拔',
     'elevation.profileAria': '海拔图',
 
+    // Manufactured track names
+    'track.defaultNameGpx': 'GPX 轨迹',
+    'track.defaultNameKml': 'KML 轨迹',
+    'track.defaultNameGoogle': 'Google 位置记录',
+
     // TimelineSelector
     'timeline.points': '个地点',
     'timeline.histogramHint': '柱子越高 = GPS数据越多',
@@ -1693,6 +1714,11 @@ export const translations = {
     'elevation.label': 'Elevación',
     'elevation.profileAria': 'Perfil de elevación',
 
+    // Manufactured track names
+    'track.defaultNameGpx': 'Ruta GPX',
+    'track.defaultNameKml': 'Ruta KML',
+    'track.defaultNameGoogle': 'Historial de ubicaciones de Google',
+
     // TimelineSelector
     'timeline.points': 'ubicaciones',
     'timeline.histogramHint': 'Barras más altas = más datos GPS',
@@ -1833,6 +1859,21 @@ export const translations = {
 
 // ── Translation key type ──
 export type TranslationKey = keyof typeof translations.en
+
+const TRACK_FALLBACK_NAME_KEYS: Record<TrackFallbackNameSource, TranslationKey> = {
+  gpx: 'track.defaultNameGpx',
+  kml: 'track.defaultNameKml',
+  google: 'track.defaultNameGoogle',
+}
+
+export function resolveTrackDisplayName(
+  track: Pick<Track, 'name' | 'fallbackNameSource'>,
+  translate: (key: TranslationKey) => string,
+): string {
+  return track.fallbackNameSource
+    ? translate(TRACK_FALLBACK_NAME_KEYS[track.fallbackNameSource])
+    : track.name
+}
 
 // ── Detect browser locale ──
 export function detectLocale(): Locale {

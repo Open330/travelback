@@ -1,5 +1,5 @@
 import { gpx, kml } from '@tmcw/togeojson'
-import type { Track, TrackPoint } from '@/types'
+import type { Track, TrackFallbackNameSource, TrackPoint } from '@/types'
 import { basePath } from '@/lib/env'
 import {
   parseOptionalNumber,
@@ -32,6 +32,7 @@ export {
 
 const XML_MAX_TAGS = 150_000
 const XML_MAX_NESTING_DEPTH = 128
+const TRACK_FALLBACK_NAME_SOURCES = new Set<TrackFallbackNameSource>(['gpx', 'kml', 'google'])
 
 function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points: TrackPoint[]; segmentStartIndices: number[] } {
   type CoordinateProperties = { times?: string[] | string[][] }
@@ -212,12 +213,12 @@ export function parseGPX(text: string): Track {
         return acc
       }, { points: [], segmentStartIndices: [] })
     : extractPointsFromGeoJSON(gpx(doc) as GeoJSON.FeatureCollection)
-  const name = normalizeImportedTrackName(doc.querySelector('trk > name')?.textContent)
+  const explicitName = normalizeImportedTrackName(doc.querySelector('trk > name')?.textContent)
     ?? normalizeImportedTrackName(doc.querySelector('metadata > name')?.textContent)
-    ?? 'GPX Track'
   return {
-    name,
+    name: explicitName ?? 'GPX Track',
     points,
+    ...(!explicitName ? { fallbackNameSource: 'gpx' as const } : {}),
     ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
   }
 }
@@ -226,12 +227,12 @@ export function parseKML(text: string): Track {
   const doc = parseXml(text, 'KML')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
-  const name = normalizeImportedTrackName(doc.querySelector('Document > name')?.textContent)
+  const explicitName = normalizeImportedTrackName(doc.querySelector('Document > name')?.textContent)
     ?? normalizeImportedTrackName(doc.querySelector('Placemark > name')?.textContent)
-    ?? 'KML Track'
   return {
-    name,
+    name: explicitName ?? 'KML Track',
     points,
+    ...(!explicitName ? { fallbackNameSource: 'kml' as const } : {}),
     ...(segmentStartIndices.length > 0 ? { segmentStartIndices } : {}),
   }
 }
@@ -283,6 +284,11 @@ function isValidWorkerTrack(value: unknown): value is Track {
     return Number.isFinite(parsedTime.getTime())
   })
   if (!validPoints) return false
+
+  if (candidate.fallbackNameSource != null) {
+    if (typeof candidate.fallbackNameSource !== 'string') return false
+    if (!TRACK_FALLBACK_NAME_SOURCES.has(candidate.fallbackNameSource as TrackFallbackNameSource)) return false
+  }
 
   if (candidate.segmentStartIndices == null) return true
   if (!Array.isArray(candidate.segmentStartIndices)) return false

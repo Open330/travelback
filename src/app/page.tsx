@@ -17,7 +17,7 @@ import { MAP_STYLES } from '@/types'
 import { computeCameraForProgress, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
 import { parseTrackFile } from '@/lib/parser'
-import { LocaleProvider, useLocale } from '@/lib/i18n'
+import { LocaleProvider, resolveTrackDisplayName, useLocale } from '@/lib/i18n'
 import { useExportController } from '@/lib/useExportController'
 import { usePlaybackController, usePlaybackHotkeys } from '@/lib/usePlaybackController'
 import { basePath } from '@/lib/env'
@@ -43,6 +43,7 @@ function buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number):
   return {
     name: fullTrack.name,
     points: slicedPoints,
+    ...(fullTrack.fallbackNameSource ? { fallbackNameSource: fullTrack.fallbackNameSource } : {}),
     ...(fullTrack.segmentStartIndices
       ? {
           segmentStartIndices: fullTrack.segmentStartIndices
@@ -53,6 +54,8 @@ function buildFilteredTrack(fullTrack: Track, startIdx: number, endIdx: number):
       : {}),
   }
 }
+
+type TrackNameDescriptor = Pick<Track, 'name' | 'fallbackNameSource'>
 
 const MAP_STYLE_STORAGE_KEY = 'travelback-mapstyle'
 const MAP_STYLE_EXPLICIT_STORAGE_KEY = 'travelback-mapstyle-explicit'
@@ -133,7 +136,7 @@ function HomeInner() {
   const [acceptedTrimRange, setAcceptedTrimRange] = useState({ startIdx: 0, endIdx: 0 })
   const [trimSelectionRevision, setTrimSelectionRevision] = useState(0)
   const [units, setUnits] = useState<UnitSystem>(() => getUnitPreference())
-  const [loadedTrackStatusName, setLoadedTrackStatusName] = useState<string | null>(null)
+  const [loadedTrackStatus, setLoadedTrackStatus] = useState<TrackNameDescriptor | null>(null)
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const [mapGeneration, setMapGeneration] = useState(0)
@@ -336,7 +339,10 @@ function HomeInner() {
     resetPlaybackSession()
     setIsCreatingJourney(false)
     setTrackSessionKey((key) => key + 1)
-    setLoadedTrackStatusName(nextTrack.name)
+    setLoadedTrackStatus({
+      name: nextTrack.name,
+      ...(nextTrack.fallbackNameSource ? { fallbackNameSource: nextTrack.fallbackNameSource } : {}),
+    })
     setPendingWorkspaceFocus(true)
   }, [resetPlaybackSession, resetTrackWorkspace])
 
@@ -636,7 +642,7 @@ function HomeInner() {
         {track && fullTrack && (
           <>
             <div ref={workspaceStatusRef} tabIndex={-1} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-              {loadedTrackStatusName ? `${t('app.trackLoaded')} ${loadedTrackStatusName}` : ''}
+              {loadedTrackStatus ? `${t('app.trackLoaded')} ${resolveTrackDisplayName(loadedTrackStatus, t)}` : ''}
             </div>
             <TrackWorkspace
               fullTrack={fullTrack}

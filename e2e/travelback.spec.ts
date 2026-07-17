@@ -498,6 +498,46 @@ test.describe('Travelback App', () => {
     await expect(workspaceStatus).toHaveText('트랙이 로드되었습니다: Namsan Tower Walk')
   })
 
+  test('manufactured Google track names follow locale through trim and export', async ({ page }) => {
+    await page.evaluate(() => {
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: async () => {
+          throw new DOMException('Save cancelled', 'AbortError')
+        },
+      })
+    })
+
+    const language = page.getByTestId('global-toolbar').locator('select')
+    await language.selectOption('ko')
+    await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe('ko')
+    await page.locator('input[type="file"]').setInputFiles(JSON_RECORDS_FIXTURE)
+
+    const workspaceStatus = page.getByRole('status')
+    await expect(visibleTrackTitle(page, 'Google 위치 기록')).toContainText('12 / 12 위치', { timeout: 20_000 })
+    await expect(workspaceStatus).toHaveText('트랙이 로드되었습니다: Google 위치 기록')
+
+    await language.selectOption('en')
+    await expect(visibleTrackTitle(page, 'Google Location History')).toContainText('12 / 12 locations')
+    await expect(workspaceStatus).toHaveText('Track loaded: Google Location History')
+
+    await language.selectOption('ko')
+    await expect(visibleTrackTitle(page, 'Google 위치 기록')).toContainText('12 / 12 위치')
+    await expect(workspaceStatus).toHaveText('트랙이 로드되었습니다: Google 위치 기록')
+
+    const endHandle = page.getByTestId('timeline-end-handle')
+    await endHandle.focus()
+    await page.keyboard.press('Home')
+    await expect(visibleTrackTitle(page, 'Google 위치 기록')).toContainText('2 / 12 위치')
+
+    await page.getByText('내보내기', { exact: true }).click({ force: true })
+    const exportPanel = page.getByRole('dialog', { name: '영상 내보내기' })
+    await exportPanel.getByRole('button', { name: '내보내기 시작' }).click({ force: true })
+    await expect(exportPanel.getByRole('link', { name: 'MP4 다운로드' }))
+      .toHaveAttribute('download', 'Travelback - Google 위치 기록.mp4', { timeout: 15_000 })
+  })
+
 
   test('language picker applies Chinese landing copy across primary actions', async ({ page }) => {
     await page.getByTestId('global-toolbar').locator('select').selectOption('zh')

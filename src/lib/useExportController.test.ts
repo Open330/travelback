@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MapViewHandle } from '@/components/MapView'
 import type { ExportRequest, Track } from '@/types'
+import type { TranslationKey } from '@/lib/i18n'
 
 const exportVideo = vi.hoisted(() => vi.fn())
 
@@ -54,7 +55,12 @@ function createMapHandle(waitForIdle = vi.fn().mockResolvedValue(true)): MapView
   }
 }
 
-async function renderController(mapHandle: MapViewHandle, strictMode = false) {
+async function renderController(
+  mapHandle: MapViewHandle,
+  strictMode = false,
+  controllerTrack: Track = track,
+  translate: (key: TranslationKey) => string = (key) => key,
+) {
   const addToast = vi.fn()
   const pausePlayback = vi.fn()
   const setPlaybackProgress = vi.fn()
@@ -62,11 +68,11 @@ async function renderController(mapHandle: MapViewHandle, strictMode = false) {
 
   function Harness() {
     const controller = useExportController({
-      track,
+      track: controllerTrack,
       scenes: [],
       transitionDuration: 0.03,
       mapViewRef: { current: mapHandle },
-      t: (key) => key,
+      t: translate,
       addToast,
       pausePlayback,
       setPlaybackProgress,
@@ -204,5 +210,33 @@ describe('useExportController lifecycle', () => {
     expect(mapHandle.resetSize).toHaveBeenCalledTimes(2)
     expect(consoleError).toHaveBeenCalledWith('Export failed:', 'first failed')
     expect(consoleError).toHaveBeenCalledWith('Export failed:', 'later failed')
+  })
+
+  it('passes a localized fallback name to the encoder without mutating the source track', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const fallbackTrack: Track = {
+      ...track,
+      name: 'Google Location History',
+      fallbackNameSource: 'google',
+    }
+    exportVideo.mockRejectedValue(new Error('stop after input capture'))
+    const { controllerRef } = await renderController(
+      createMapHandle(),
+      false,
+      fallbackTrack,
+      (key) => key === 'track.defaultNameGoogle' ? 'Google 위치 기록' : key,
+    )
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    const encoderTrack = exportVideo.mock.calls[0]?.[1] as Track
+    expect(encoderTrack).toMatchObject({
+      name: 'Google 위치 기록',
+      fallbackNameSource: 'google',
+    })
+    expect(fallbackTrack.name).toBe('Google Location History')
+    expect(consoleError).toHaveBeenCalledWith('Export failed:', 'stop after input capture')
   })
 })
