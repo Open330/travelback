@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle11-implementation-2026-07-17.md` — Planned fixes for three fresh Medium/High findings (Journey confirmation ownership, focused-control Escape routing, and stale FileUpload rejection after Sample) plus the reopened incomplete Cycle 2 sample/drop edge; no deployment or cleanup deletion is authorized
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle

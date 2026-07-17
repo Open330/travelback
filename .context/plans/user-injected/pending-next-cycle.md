@@ -195,3 +195,86 @@ archived into their respective cycle implementation plans once addressed.
     431 tests, 0 vulnerabilities, generated worker current). No final gate
     sessions remain active. Keep this copy and all artifacts until the loop's
     final cleanup stop condition.
+- Run-created exact-HEAD physical Cycle 11 browser-review copy:
+  - `/tmp/travelback-cycle11-review-copy.1u08nn`
+  - Created empty, after a read-only listener inventory, for the Cycle 11
+    designer/non-technical-traveler review at exact source HEAD
+    `7273d464fdce24fc06350ce1444c3a2e8d26829d`. Port `43117` was observed
+    unused and is reserved for this copy's bounded review server. Dependency
+    installation ran in unified exec session `7624` and completed naturally
+    with no listener PID. The exact-HEAD production build (including generated
+    worker parity) ran in unified exec session `94066`, completed naturally,
+    and had no listener PID. The exact-HEAD static review server is available
+    at `http://127.0.0.1:43117/travelback/` in unified exec session `18418`,
+    listener PID `62893`; its wrapper owns a 30-minute bounded lifecycle and
+    will terminate it naturally. Do not stop, reuse after exit, or remove this
+    copy before the loop's final cleanup stop condition.
+    The wrapper subsequently completed its bounded lifecycle naturally; a
+    read-only post-expiry check found neither PID `62893` nor a listener on
+    port `43117`. The server was not manually stopped or reused.
+  - Cycle 11 browser-review sessions (against only the inventoried port
+    `43117`): `cycle11-experience-desktop` and
+    `cycle11-experience-mobile`. Leave both to their natural lifecycle; do not
+    stop or reuse them during the active loop.
+  - Planned Cycle 11 browser-review artifacts:
+    `/tmp/cycle11-landing-desktop.png`,
+    `/tmp/cycle11-workspace-desktop.png`,
+    `/tmp/cycle11-mobile-landing.png`,
+    `/tmp/cycle11-mobile-workspace.png`, and
+    `/tmp/cycle11-browser-a11y-baseline.txt`. Record any additional
+    `/tmp/cycle11-*` evidence path here as soon as it is known, and retain all
+    of them until final-loop cleanup.
+    The reviewer verified all five planned artifacts and additionally created
+    `/tmp/cycle11-mobile-export-panel.png` and
+    `/tmp/cycle11-mobile-export-done.png` for the exact-HEAD mobile export-panel
+    and truthful locally stubbed completion-state review. Retain both; they are
+    experience evidence rather than a fresh real-codec/all-format export claim.
+  - `cycle11-experience-desktop` became unresponsive after opening Camera and
+    is not stopped, closed, or reused. Replacement browser session
+    `cycle11-experience-desktop-2` owns the remaining desktop/Journey review.
+    `/tmp/cycle11-camera-desktop.png` was requested before the first session
+    hung and may or may not have been materialized; retain it if present and
+    recheck provenance only at final-loop cleanup.
+  - `cycle11-journey-confirm` is an additional isolated browser session used
+    only to obtain an unambiguous terminal reproduction after queued commands
+    in `cycle11-experience-desktop-2` made its final create result unclear.
+    Retain `/tmp/cycle11-journey-two-points.png`,
+    `/tmp/cycle11-journey-confirm-one-point.png`, and
+    `/tmp/cycle11-one-point-workspace.png`. The last capture showed two points
+    and is explicitly ambiguous, so it is provenance only and must not be cited
+    as proof of the one-point workspace defect.
+    Visual inspection later showed that
+    `/tmp/cycle11-journey-confirm-one-point.png` also captured the two-point
+    confirmation state due command timing. It is provenance-only and must not
+    be cited for the one-point claim; use the exact DOM probe and the confirmed
+    workspace capture instead.
+    `/tmp/cycle11-one-point-workspace-confirmed.png` is the later clean terminal
+    capture and may be cited as the confirmed one-point workspace evidence.
+    Retain `/tmp/cycle11-empty-track-crash.png` and
+    `/tmp/cycle11-empty-track-after-settle.png` from the clean zero-point
+    reproduction. The former filename overstates the observed result (there was
+    no immediate ErrorBoundary crash), so it is provenance only; the latter is
+    the accurate settled loaded-but-nonrenderable `0 / 0 locations` evidence.
+  - Cycle 11 review provenance also created
+    `/tmp/cycle11-review-inventory.txt` and
+    `/tmp/cycle11-tracked-files.txt`; retain both until the final-loop cleanup
+    stop condition.
+  - `cycle11-experience-desktop-2` later became unresponsive after an Escape
+    screenshot command and is likewise not stopped, closed, or reused.
+    `cycle11-escape` is the clean isolated replacement session used only for an
+    unambiguous focused-button Escape result. Retain
+    `/tmp/cycle11-scene-escape-stays-open.png` if it materializes; it may be
+    absent or incomplete from the unresponsive session and must not be cited
+    until its final status is verified. The clean `cycle11-escape` session
+    subsequently verified that this path materialized correctly and may be
+    cited as evidence that the focused Camera button leaves the Scene Editor
+    open after Escape.
+  - `cycle11-sample-drop-race` is an isolated deterministic browser session
+    for the reopened Cycle 2 sample invalidation edge. It delays only that
+    page's same-origin sample `window.fetch`, dispatches an unsupported `.txt`
+    drop, and observes whether the stale sample installs; it does not mutate
+    the server or network. Retain `/tmp/cycle11-sample-drop-race.png` if it
+    materializes, and cite it only after the reviewer reports the final result.
+    The reviewer subsequently live-confirmed the race in this clean session:
+    the unsupported-drop recovery alert remained while the older held sample
+    installed `Namsan Tower Walk`, so the screenshot is verified evidence.
