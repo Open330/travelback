@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackPoint } from '@/types'
 import {
+  buildFitBoundsCoordinates,
   buildTrackGeometry,
   buildTrailChunkFeatureCollection,
   buildTrailChunks,
@@ -17,6 +18,34 @@ function coordinateCount(geometry: GeoJSON.LineString | GeoJSON.MultiLineString)
 }
 
 describe('map geometry', () => {
+  it('builds ordinary and shifted-antimeridian fit bounds', () => {
+    expect(buildFitBoundsCoordinates([point(126, 37), point(128, 38)])).toEqual([126, 37, 128, 38])
+    expect(buildFitBoundsCoordinates([point(179, 10), point(-179, 20)])).toEqual([179, 10, 181, 20])
+    expect(buildFitBoundsCoordinates([])).toBeNull()
+  })
+
+  it.each([
+    { latitude: 90, expectedSouth: 89.9, expectedNorth: 90 },
+    { latitude: -90, expectedSouth: -90, expectedNorth: -89.9 },
+    { latitude: 89.95, expectedSouth: 89.85, expectedNorth: 90 },
+    { latitude: -89.95, expectedSouth: -90, expectedNorth: -89.85 },
+    { latitude: 37, expectedSouth: 36.9, expectedNorth: 37.1 },
+  ])('keeps degenerate fit bounds valid around latitude $latitude', ({ latitude, expectedSouth, expectedNorth }) => {
+    const bounds = buildFitBoundsCoordinates([point(127, latitude), point(127, latitude)])
+
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    const [west, south, east, north] = bounds
+    expect(west).toBeCloseTo(126.9)
+    expect(east).toBeCloseTo(127.1)
+    expect(south).toBeCloseTo(expectedSouth)
+    expect(north).toBeCloseTo(expectedNorth)
+    expect(north).toBeGreaterThan(south)
+    expect([west, south, east, north].every(Number.isFinite)).toBe(true)
+    expect(south).toBeGreaterThanOrEqual(-90)
+    expect(north).toBeLessThanOrEqual(90)
+  })
+
   it('keeps every segment member valid when visits and paths are mixed', () => {
     const points = [point(0, 0), point(10, 0), point(11, 0), point(20, 0)]
     const geometry = buildTrackGeometry(points, [1, 3])

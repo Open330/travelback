@@ -9,6 +9,7 @@ import { computeCameraForProgress, computeSegmentLocalBearing, normalizeScenes, 
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
+  buildFitBoundsCoordinates,
   buildTrackGeometry,
   buildTrailChunkFeatureCollection,
   buildTrailChunks,
@@ -97,42 +98,10 @@ function smoothCameraState(previous: CameraState, target: CameraState, factor: n
 }
 
 function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
-  const bounds = new maplibregl.LngLatBounds()
-  if (points.length === 0) return bounds
-
-  let minLng = Infinity
-  let maxLng = -Infinity
-  let minLat = Infinity
-  let maxLat = -Infinity
-  for (const point of points) {
-    minLng = Math.min(minLng, point.lng)
-    maxLng = Math.max(maxLng, point.lng)
-    minLat = Math.min(minLat, point.lat)
-    maxLat = Math.max(maxLat, point.lat)
-  }
-  const crossesAntimeridian = maxLng - minLng > 180
-
-  for (const point of points) {
-    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
-    bounds.extend([lng, point.lat])
-  }
-
-  // Guard: degenerate bounds (single point or all coincident points) cause
-  // fitBounds to zoom to maximum level. Expand by a small margin so the
-  // map shows a reasonable view instead. When bounds are in shifted
-  // coordinate space (antimeridian crossing), extend in that same space
-  // so padding does not wrap across the 180/-180 boundary (C15-F08).
-  const DEGENERATE_PADDING = 0.1
-  if (
-    Math.abs(bounds.getSouthWest().lng - bounds.getNorthEast().lng) < 1e-10
-    && Math.abs(bounds.getSouthWest().lat - bounds.getNorthEast().lat) < 1e-10
-  ) {
-    const sw = bounds.getSouthWest()
-    bounds.extend([sw.lng - DEGENERATE_PADDING, sw.lat - DEGENERATE_PADDING])
-    bounds.extend([sw.lng + DEGENERATE_PADDING, sw.lat + DEGENERATE_PADDING])
-  }
-
-  return bounds
+  const coordinates = buildFitBoundsCoordinates(points)
+  return coordinates
+    ? new maplibregl.LngLatBounds(coordinates)
+    : new maplibregl.LngLatBounds()
 }
 
 function removeTrackArtifacts(map: maplibregl.Map) {

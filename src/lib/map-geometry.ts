@@ -19,6 +19,47 @@ export interface TrailChunk {
   coordinateCount: number
 }
 
+export type FitBoundsCoordinates = [west: number, south: number, east: number, north: number]
+
+export function buildFitBoundsCoordinates(points: TrackPoint[]): FitBoundsCoordinates | null {
+  if (points.length === 0) return null
+
+  let rawMinLng = Infinity
+  let rawMaxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+  for (const point of points) {
+    rawMinLng = Math.min(rawMinLng, point.lng)
+    rawMaxLng = Math.max(rawMaxLng, point.lng)
+    minLat = Math.min(minLat, point.lat)
+    maxLat = Math.max(maxLat, point.lat)
+  }
+
+  const crossesAntimeridian = rawMaxLng - rawMinLng > 180
+  let minLng = Infinity
+  let maxLng = -Infinity
+  for (const point of points) {
+    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
+    minLng = Math.min(minLng, lng)
+    maxLng = Math.max(maxLng, lng)
+  }
+
+  const isDegenerate = Math.abs(maxLng - minLng) < 1e-10
+    && Math.abs(maxLat - minLat) < 1e-10
+  if (!isDegenerate) return [minLng, minLat, maxLng, maxLat]
+
+  // Keep degenerate padding in the shifted longitude space used above, and
+  // clamp latitude at the geographic boundary so MapLibre never receives an
+  // invalid LngLat. At a pole the remaining padding expands inward.
+  const padding = 0.1
+  return [
+    minLng - padding,
+    Math.max(-90, minLat - padding),
+    maxLng + padding,
+    Math.min(90, maxLat + padding),
+  ]
+}
+
 function normalizeSegmentStarts(pointCount: number, segmentStartIndices: number[] = []): number[] {
   return [...new Set(
     segmentStartIndices
