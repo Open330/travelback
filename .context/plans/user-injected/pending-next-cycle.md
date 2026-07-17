@@ -84,3 +84,55 @@ archived into their respective cycle implementation plans once addressed.
 - Cycle 9 status: ingested into `cycle9-implementation-2026-07-17.md` and
   retained for the loop's final stop condition. Every Cycle 9 temporary path
   remains inventoried; none was deleted, and this cleanup item remains open.
+- Run-created Cycle 10 browser-review setup paths:
+  - `/tmp/travelback-cycle10-review-0p2TE2`
+    - Exact-HEAD browser copy attempt created by the Cycle 10 experience
+      reviewer. Its unified exec session `23708` exited naturally after
+      Turbopack rejected the out-of-root `node_modules` symlink. It was not
+      stopped or deleted.
+  - `/tmp/travelback-cycle10-review-zXT6qY`
+    - Physical exact-HEAD archive at commit `3d74754369d22ad1bb9e7970634e0f0163d5b777`
+      for the Cycle 10 browser review. Isolated dependency installation runs
+      in unified exec session `88975`. Its exact-HEAD review server is live at
+      `http://127.0.0.1:4177` in unified exec session `94145`, listener PID
+      `41643` (launcher PID `41617`, worker PID `42406`); the initial `/`
+      request returned HTTP 200 after compilation.
+      Do not stop, reuse, or delete this workspace or either process context
+      during the active loop.
+  - `/tmp/travelback-cycle10-verify-0ihDrO`
+    - Physical exact-HEAD verification copy used for isolated lint, typecheck,
+      worker-parity, unit, production-build, and focused browser gates.
+- Cycle 10 experience-review browser sessions against the existing isolated
+  `http://127.0.0.1:4177` server:
+  - `cycle10-experience` — original desktop interaction session; it remained
+    stuck after an upload and was not stopped or reused.
+  - `cycle10-experience-2` — replacement desktop interaction session.
+  - `cycle10-mobile` — iPhone 15 emulation session used for viewport and
+    bottom-stack geometry. The emulation reported a zero-pixel
+    `safe-area-inset-bottom`, so it does not establish real-device notch or
+    dynamic-browser-chrome behavior.
+  - `cycle10-localization` — replacement session used to verify the localized
+    UI around a Google Records import.
+  - These are browser session identifiers rather than additional filesystem
+    paths or listener processes. Leave them to their natural session lifecycle;
+    do not stop or reuse them during the active loop.
+- Cycle 10 experience-review verification artifacts:
+  - `/tmp/cycle10-landing-desktop.png` — desktop landing-state capture.
+  - `/tmp/cycle10-workspace-desktop.png` — desktop loaded-workspace capture.
+  - `/tmp/cycle10-scene-endpoints.png` — expanded Scene Range endpoint geometry
+    capture used to reject the clipping hypothesis.
+  - `/tmp/cycle10-mobile-loaded.png` — iPhone 15 emulation loaded-workspace
+    capture used for viewport/bottom-stack measurements.
+  - `/tmp/cycle10-localized-google.png` — exact-HEAD Korean Google Records
+    import screenshot confirming the visible/live-status English fallback name.
+  - `/tmp/cycle10-mobile-journey.png` — iPhone 15 emulation screenshot of the
+    Journey Creator Cancel control measuring about `20.75×44.09px`.
+  - `/tmp/cycle10-sample-trace.json` — approximately 130 MB focused browser
+    trace captured during the exact-HEAD review.
+  - Unified exec session `75701` — focused retries-disabled exact-HEAD Chromium
+    matrix of 13 landing/import/journey/export cases against the already
+    inventoried isolated server on port `4177`. Leave the session to its
+    bounded natural lifecycle; do not stop, reuse, or delete it.
+- Cycle 10 status: the final cleanup item remains open. No Cycle 10 path has
+  been deleted, and the primary repository plus every pre-existing/user-owned
+  tree and process must remain untouched.

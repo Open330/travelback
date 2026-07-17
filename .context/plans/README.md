@@ -2,6 +2,7 @@
 
 ## Active
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
+- `cycle10-implementation-2026-07-17.md` — Implementing 7 Cycle 10 items covering active-seek ownership, segmented elevation, bounded/localized import names, heading hierarchy, mobile Journey Cancel geometry, and truthful fallback export completion; no deployment or cleanup deletion
 
 ## Completed this cycle
 
