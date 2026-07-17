@@ -164,7 +164,7 @@ function expectStableCameraMotion(samples: { center: [number, number]; bearing: 
 async function waitForApp(page: Page) {
   await expect(page.locator('main#app[data-travelback-app-root="true"]')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('map-container')).toBeAttached({ timeout: 30_000 })
-  await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Travelback', level: 1 })).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('input[type="file"]')).toBeAttached({ timeout: 30_000 })
 }
 
@@ -179,10 +179,7 @@ async function expectPublicMapReady(page: Page) {
 
 /** Helper: upload a GPX file and wait for the track to load */
 function visibleTrackTitle(page: Page, name: string) {
-  return page
-    .locator('[data-testid="track-title"]:visible, [data-testid="track-title-mobile"]:visible')
-    .filter({ hasText: name })
-    .first()
+  return page.getByRole('heading', { level: 1 }).filter({ hasText: name })
 }
 
 async function uploadGpx(page: Page) {
@@ -413,7 +410,23 @@ test.describe('Travelback App', () => {
     const container = page.locator('[data-testid="map-container"]')
     await expect(container).toBeAttached()
     // Heading should be visible
-    await expect(page.getByRole('heading', { name: 'Travelback' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Travelback', level: 1 })).toBeVisible()
+  })
+
+  test('keeps exactly one level-one heading in landing and loaded layouts', async ({ page }) => {
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Travelback')
+
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('/')
+      await waitForApp(page)
+      await uploadGpx(page)
+
+      const heading = page.getByRole('heading', { level: 1 })
+      await expect(heading).toHaveCount(1)
+      await expect(heading).toContainText('Test Route Seoul')
+    }
   })
 
   test('exposes a main landmark at the app root', async ({ page }) => {

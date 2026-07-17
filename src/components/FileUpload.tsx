@@ -256,9 +256,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
             )
           )}
         </div>
-        <h2 id="fileupload-title" className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
+        <h1 id="fileupload-title" className="text-2xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
           {t('fileUpload.title')}
-        </h2>
+        </h1>
         <p className="mb-6" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.subtitle')}
         </p>

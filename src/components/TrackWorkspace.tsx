@@ -124,21 +124,21 @@ export default function TrackWorkspace({
         />
       )}
 
-      <div
+      <h1
         data-testid="track-title"
         className="absolute left-4 right-56 top-4 z-20 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {displayName}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
-      </div>
+      </h1>
 
-      <div
+      <h1
         data-testid="track-title-mobile"
         className="absolute left-4 right-4 top-16 z-20 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {displayName} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
-      </div>
+      </h1>
 
       <div data-testid="track-bottom-stack" className="absolute bottom-0 left-0 right-0 z-10">
         {fullTrack.points.length > 2 && (
