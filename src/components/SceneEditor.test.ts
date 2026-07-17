@@ -5,13 +5,15 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_CAMERA_PARAMS, type Scene } from '@/types'
 
+const localeState = vi.hoisted(() => ({ current: 'ko' as 'en' | 'ko' }))
+
 vi.mock('@/lib/i18n', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/lib/i18n')>()
   return {
     ...original,
     useLocale: () => ({
-      locale: 'ko',
-      t: (key: keyof typeof original.translations.en) => original.translations.ko[key] ?? key,
+      locale: localeState.current,
+      t: (key: keyof typeof original.translations.en) => original.translations[localeState.current][key] ?? key,
     }),
   }
 })
@@ -65,6 +67,7 @@ async function renderRangeEditor(
 }
 
 beforeEach(() => {
+  localeState.current = 'ko'
   Object.defineProperties(HTMLElement.prototype, {
     setPointerCapture: { configurable: true, value: vi.fn() },
     releasePointerCapture: { configurable: true, value: vi.fn() },
@@ -153,6 +156,59 @@ describe('findFirstAvailableSceneRange', () => {
 })
 
 describe('SceneEditor normalization feedback', () => {
+  it('rerenders retained boundary warnings in the current locale', async () => {
+    localeState.current = 'en'
+    const scenes: Scene[] = [
+      {
+        id: 'first',
+        name: 'First',
+        cameraMode: 'flyover',
+        startPercent: 0,
+        endPercent: 0.6,
+        params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+      },
+      {
+        id: 'second',
+        name: 'Second',
+        cameraMode: 'orbit',
+        startPercent: 0.5,
+        endPercent: 1,
+        params: { ...DEFAULT_CAMERA_PARAMS.orbit },
+      },
+    ]
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    const props = {
+      scenes,
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    }
+    const render = async () => {
+      await act(() => root?.render(createElement(SceneEditor, { ...props, onClose: vi.fn() })))
+    }
+
+    await render()
+    const nameInput = container.querySelector<HTMLInputElement>('input[value="First"]')
+    if (!nameInput) throw new Error('Missing first scene name input')
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(nameInput, 'First updated')
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(container.querySelector('[data-testid="scene-editor-status"]')?.textContent).toContain(
+      'Scene "Second" start adjusted from 50% to 60%.',
+    )
+
+    localeState.current = 'ko'
+    await render()
+    const localizedStatus = container.querySelector('[data-testid="scene-editor-status"]')?.textContent
+    expect(localizedStatus).toContain('"Second" 장면의 시작이 50%에서 60%로 조정되었습니다.')
+    expect(localizedStatus).not.toContain('Scene "Second" start adjusted')
+  })
+
   it('fills an interior gap after a scene is deleted and disables Add at full coverage', async () => {
     const fullCoverage: Scene[] = [
       {

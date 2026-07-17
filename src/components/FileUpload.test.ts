@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Track } from '@/types'
 import { ParseError } from '@/lib/parser'
+import { LocaleContext, translations, type Locale, type TranslationKey } from '@/lib/i18n'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -37,6 +38,47 @@ afterEach(async () => {
 })
 
 describe('FileUpload request lifecycle', () => {
+  it('rerenders a retained recovery alert in the current locale', async () => {
+    const onTrackLoaded = vi.fn()
+    let locale: Locale = 'en'
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    const render = async () => {
+      const providerProps = {
+        value: {
+          locale,
+          setLocale: vi.fn(),
+          t: (key: TranslationKey) => translations[locale][key],
+        },
+        children: createElement(FileUpload, {
+          hasTrack: false,
+          onTrackLoaded,
+        }),
+      }
+      await act(() => root?.render(createElement(LocaleContext.Provider, providerProps)))
+    }
+
+    await render()
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [new File(['not a route'], 'notes.txt', { type: 'text/plain' })],
+    })
+    await act(() => fileInput?.dispatchEvent(new Event('change', { bubbles: true })))
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      translations.en['fileUpload.unsupportedFormat'],
+    )
+
+    locale = 'ko'
+    await render()
+    const localizedAlert = container.querySelector('[role="alert"]')?.textContent
+    expect(localizedAlert).toContain(translations.ko['fileUpload.unsupportedFormat'])
+    expect(localizedAlert).toContain(translations.ko['fileUpload.recoveryHint'])
+    expect(localizedAlert).not.toContain(translations.en['fileUpload.unsupportedFormat'])
+  })
+
   it('aborts and ignores an import that resolves after starting a journey', async () => {
     let resolveParse!: (track: Track) => void
     parseTrackFile.mockReturnValue(new Promise<Track>((resolve) => {

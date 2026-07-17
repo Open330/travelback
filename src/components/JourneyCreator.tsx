@@ -6,7 +6,7 @@ import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
 import { totalDistance, formatDistance, shortestLngDelta, normalizeLng, wrapLngNear, type UnitSystem } from '@/lib/interpolate'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type TranslationKey } from '@/lib/i18n'
 import ModalDialog from '@/components/ModalDialog'
 
 interface JourneyCreatorProps {
@@ -169,7 +169,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
   const [searchEnabled, setSearchEnabled] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ParsedLocationResult[]>([])
-  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchError, setSearchError] = useState<TranslationKey | null>(null)
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const [selectedIconId, setSelectedIconId] = useState<TravelIconId>('walk')
   const [journeyName, setJourneyName] = useState('')
@@ -633,14 +633,14 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
     if (!parsedResult) {
       setSearchResults([])
       setActiveSearchIndex(-1)
-      setSearchError(t('journey.searchInvalid'))
+      setSearchError('journey.searchInvalid')
       return
     }
 
     setSearchResults([parsedResult])
     setActiveSearchIndex(0)
     setSearchError(null)
-  }, [t])
+  }, [])
 
   const handleSearchInputChange = useCallback((query: string) => {
     setSearchQuery(query)
@@ -880,7 +880,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               </p>
               {searchError && (
                 <p id="journey-search-error" role="alert" className="mt-1 text-[10px]" style={{ color: 'var(--err)' }}>
-                  {searchError}
+                  {t(searchError)}
                 </p>
             )}
             {searchResults.length > 0 && (

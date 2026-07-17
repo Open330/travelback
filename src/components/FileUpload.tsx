@@ -7,7 +7,7 @@ import { basePath } from '@/lib/env'
 import type { Track } from '@/types'
 import { parseTrackFile, ParseError } from '@/lib/parser'
 import { getImportSizePolicy } from '@/lib/parse-utils'
-import { useLocale } from '@/lib/i18n'
+import { useLocale, type TranslationKey } from '@/lib/i18n'
 
 interface FileUploadProps {
   onTrackLoaded: (track: Track) => void
@@ -19,11 +19,14 @@ interface FileUploadProps {
 }
 
 const VALID_EXTENSIONS = new Set(['gpx', 'kml', 'json'])
+type FileUploadError =
+  | { kind: 'translation'; key: TranslationKey }
+  | { kind: 'message'; message: string }
 
 export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
   const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FileUploadError | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const parseGenerationRef = useRef(0)
@@ -52,6 +55,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     }, 200)
   }, [])
   const withRecoveryHint = useCallback((text: string) => `${text.replace(/[.!?]\s*$/, '')}. ${t('fileUpload.recoveryHint')}`, [t])
+  const errorText = error
+    ? withRecoveryHint(error.kind === 'translation' ? t(error.key) : error.message)
+    : null
 
   const invalidateParse = useCallback(() => {
     parseGenerationRef.current++
@@ -79,7 +85,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     } catch (err) {
       if (requestGeneration !== parseGenerationRef.current || controller.signal.aborted) return
       // Map parser error codes to i18n keys (avoids relying on English message text)
-      const errorCodeMap: Record<string, string> = {
+      const errorCodeMap: Record<string, TranslationKey> = {
         UNSUPPORTED_FORMAT: 'fileUpload.unsupportedFormat',
         TOO_FEW_POINTS: 'fileUpload.tooFewPoints',
         TOO_MANY_POINTS: 'fileUpload.tooManyPoints',
@@ -99,11 +105,11 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
       const isSafe = knownCode || isFileTooLarge
       if (!isSafe) console.error('[Travelback] Parse error:', err instanceof Error ? err.message : 'Unknown error')
       if (knownCode) {
-        setError(withRecoveryHint(t(errorCodeMap[code as keyof typeof errorCodeMap] as Parameters<typeof t>[0])))
+        setError({ kind: 'translation', key: errorCodeMap[code] })
       } else if (isFileTooLarge) {
-        setError(withRecoveryHint(message))
+        setError({ kind: 'message', message })
       } else {
-        setError(withRecoveryHint(t('fileUpload.parseFailed')))
+        setError({ kind: 'translation', key: 'fileUpload.parseFailed' })
       }
     } finally {
       if (requestGeneration !== parseGenerationRef.current) return
@@ -113,7 +119,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
         inputRef.current.value = ''
       }
     }
-  }, [onTrackLoaded, t, withRecoveryHint])
+  }, [onTrackLoaded])
 
   const handleFileIntent = useCallback((file: File) => {
     onImportStart?.()
@@ -121,12 +127,12 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     const extension = file.name.split('.').pop()?.toLowerCase()
     if (!extension || !VALID_EXTENSIONS.has(extension)) {
       setLoading(false)
-      setError(withRecoveryHint(t('fileUpload.unsupportedFormat')))
+      setError({ kind: 'translation', key: 'fileUpload.unsupportedFormat' })
       if (inputRef.current) inputRef.current.value = ''
       return
     }
     void handleFile(file)
-  }, [handleFile, invalidateParse, onImportStart, t, withRecoveryHint])
+  }, [handleFile, invalidateParse, onImportStart])
 
   const handleCreateJourney = useCallback(() => {
     invalidateParse()
@@ -191,9 +197,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
             className="hidden"
           />
         </button>
-        {error && (
+        {errorText && (
           <div role="alert" className="gc max-w-full px-3 py-2 text-xs shadow-lg" style={{ color: 'var(--err)', borderRadius: '10px' }}>
-            {error}
+            {errorText}
           </div>
         )}
       </div>
@@ -324,9 +330,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
             </button>
           </div>
         )}
-        {error && (
+        {errorText && (
           <div className="mt-4 space-y-2 text-sm" style={{ color: 'var(--err)' }}>
-            <p role="alert">{error}</p>
+            <p role="alert">{errorText}</p>
             {onShowGoogleGuide && (
               <button
                 type="button"

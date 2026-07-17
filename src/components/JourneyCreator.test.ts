@@ -6,10 +6,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type maplibregl from 'maplibre-gl'
 import type { MapViewHandle } from './MapView'
 
-vi.mock('@/lib/i18n', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@/lib/i18n')>(),
-  useLocale: () => ({ t: (key: string) => key }),
-}))
+const localeState = vi.hoisted(() => ({ current: 'en' as 'en' | 'ko' }))
+
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/i18n')>()
+  return {
+    ...original,
+    useLocale: () => ({
+      locale: localeState.current,
+      t: (key: keyof typeof original.translations.en) => key === 'journey.searchInvalid'
+        ? original.translations[localeState.current][key]
+        : key,
+    }),
+  }
+})
 
 import JourneyCreator, { syncJourneySources } from './JourneyCreator'
 
@@ -93,7 +103,7 @@ async function renderJourneyCreator(mapMock = createMapMock(), onComplete = vi.f
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
-  await act(() => root?.render(createElement(JourneyCreator, {
+  const props = {
     isActive: true,
     onComplete,
     onCancel: vi.fn(),
@@ -103,11 +113,16 @@ async function renderJourneyCreator(mapMock = createMapMock(), onComplete = vi.f
       } as unknown as MapViewHandle,
     },
     units: 'metric',
-  })))
-  return { ...mapMock, onComplete }
+  } as const
+  const rerender = async () => {
+    await act(() => root?.render(createElement(JourneyCreator, props)))
+  }
+  await rerender()
+  return { ...mapMock, onComplete, rerender }
 }
 
 beforeEach(() => {
+  localeState.current = 'en'
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     callback(0)
     return 1
@@ -156,6 +171,29 @@ describe('syncJourneySources', () => {
 })
 
 describe('JourneyCreator interaction readiness', () => {
+  it('rerenders a retained coordinate error in the current locale', async () => {
+    const { rerender } = await renderJourneyCreator()
+    const enableSearch = container?.querySelector<HTMLButtonElement>('[data-testid="journey-enable-search"]')
+    await act(() => enableSearch?.click())
+
+    const searchInput = container?.querySelector<HTMLInputElement>('[role="combobox"]')
+    if (!searchInput) throw new Error('Missing Journey search input')
+    await act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(searchInput, 'not coordinates')
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const submit = container?.querySelector<HTMLButtonElement>('[data-testid="journey-search-submit"]')
+    await act(() => submit?.click())
+    expect(container?.querySelector('[role="alert"]')?.textContent).toContain('Could not read that location')
+
+    localeState.current = 'ko'
+    await rerender()
+    const localizedAlert = container?.querySelector('[role="alert"]')?.textContent
+    expect(localizedAlert).toContain('위치를 해석할 수 없습니다')
+    expect(localizedAlert).not.toContain('Could not read that location')
+  })
+
   it('recovers when an existing style settles without another style-load event', async () => {
     const mapMock = createMapMock(false)
     await renderJourneyCreator(mapMock)

@@ -78,6 +78,30 @@ function formatSceneAdjustment(template: string, sceneName: string, from: number
   return template.replace(/\{(name|from|to)\}/g, (_match, key: keyof typeof values) => values[key])
 }
 
+type SceneWarning =
+  | { kind: 'removed'; sceneName: string }
+  | { kind: 'adjusted'; boundary: 'start' | 'end'; sceneName: string; from: number; to: number }
+  | { kind: 'rangesAdjusted' }
+  | { kind: 'undoConflict' }
+
+function formatSceneWarning(warning: SceneWarning, t: (key: TranslationKey) => string) {
+  switch (warning.kind) {
+    case 'removed':
+      return `"${warning.sceneName}" ${t('scenes.willBeRemoved')}`
+    case 'adjusted':
+      return formatSceneAdjustment(
+        t(warning.boundary === 'start' ? 'scenes.startAdjusted' : 'scenes.endAdjusted'),
+        warning.sceneName,
+        warning.from,
+        warning.to,
+      )
+    case 'rangesAdjusted':
+      return t('scenes.rangesAdjusted')
+    case 'undoConflict':
+      return t('scenes.undoConflict')
+  }
+}
+
 /** Small inline SVG icons for each camera mode */
 function CameraModeIcon({ mode, size = 16 }: { mode: CameraMode; size?: number }) {
   const s = { width: size, height: size, flexShrink: 0 }
@@ -382,18 +406,18 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
   const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
 
-  const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
+  const [normalizationWarnings, setNormalizationWarnings] = useState<SceneWarning[]>([])
   const availableSceneRange = findFirstAvailableSceneRange(scenes)
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
     const normalized = normalizeScenes(nextScenes)
-    const w: string[] = []
+    const w: SceneWarning[] = []
     // Identify scenes that will be removed by normalization (start >= end)
     // and report them as "will be removed" rather than "has start >= end",
     // since the scene won't exist in the final list.
     for (const s of nextScenes) {
       if (s.startPercent >= s.endPercent) {
-        w.push(`"${s.name}" ${t('scenes.willBeRemoved')}`)
+        w.push({ kind: 'removed', sceneName: s.name })
       }
     }
     // Show specific adjustment details when normalization changed something
@@ -409,25 +433,27 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
           const startDiff = Math.abs(norm.startPercent - orig.startPercent)
           const endDiff = Math.abs(norm.endPercent - orig.endPercent)
           if (startDiff > 0.001) {
-            w.push(formatSceneAdjustment(
-              t('scenes.startAdjusted'),
-              orig.name,
-              orig.startPercent,
-              norm.startPercent,
-            ))
+            w.push({
+              kind: 'adjusted',
+              boundary: 'start',
+              sceneName: orig.name,
+              from: orig.startPercent,
+              to: norm.startPercent,
+            })
           }
           if (endDiff > 0.001) {
-            w.push(formatSceneAdjustment(
-              t('scenes.endAdjusted'),
-              orig.name,
-              orig.endPercent,
-              norm.endPercent,
-            ))
+            w.push({
+              kind: 'adjusted',
+              boundary: 'end',
+              sceneName: orig.name,
+              from: orig.endPercent,
+              to: norm.endPercent,
+            })
           }
         }
         // Fallback if no specific diff found (should not happen)
         if (w.length === 0) {
-          w.push(t('scenes.rangesAdjusted'))
+          w.push({ kind: 'rangesAdjusted' })
         }
       }
     }
@@ -435,7 +461,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
 
     onChange(normalized)
     onScenesCommitted?.(normalized)
-  }, [onChange, onScenesCommitted, t])
+  }, [onChange, onScenesCommitted])
 
   // Swipe-left to dismiss
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -485,10 +511,10 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
       onChange(result.scenes)
       onScenesCommitted?.(result.scenes)
     } else if (result.reason === 'conflict') {
-      setNormalizationWarnings([t('scenes.undoConflict')])
+      setNormalizationWarnings([{ kind: 'undoConflict' }])
     }
     setDeletedScene(null)
-  }, [deletedScene, onChange, onScenesCommitted, scenes, t])
+  }, [deletedScene, onChange, onScenesCommitted, scenes])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null
@@ -549,9 +575,10 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
     onPreviewScene?.(null)
   }, [onPreviewScene])
 
+  const renderedNormalizationWarnings = normalizationWarnings.map(warning => formatSceneWarning(warning, t))
   const statusMessage = deletedScene
     ? `${t('scenes.deleted')} ${deletedScene.scene.name}`
-    : normalizationWarnings.join(' ')
+    : renderedNormalizationWarnings.join(' ')
 
   const localizePresetScenes = useCallback((presetType: PresetType, nextScenes: Scene[]) => {
     const names: Record<PresetType, string[]> = {
@@ -676,7 +703,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
           </div>
           {normalizationWarnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
-              {normalizationWarnings.map((w, i) => (
+              {renderedNormalizationWarnings.map((w, i) => (
                 <p key={i} className="text-[10px]" style={{ color: 'var(--warn)' }}>⚠ {w}</p>
               ))}
             </div>
