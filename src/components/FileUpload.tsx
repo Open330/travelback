@@ -123,6 +123,13 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     onCreateJourney?.()
   }, [invalidateParse, onCreateJourney])
 
+  const handleLoadSample = useCallback(() => {
+    invalidateParse()
+    setLoading(false)
+    setError(null)
+    onLoadSample?.()
+  }, [invalidateParse, onLoadSample])
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     if (loading) return
@@ -219,7 +226,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
             onLoadSample ? (
               <button
                 type="button"
-                onClick={onLoadSample}
+                onClick={handleLoadSample}
                 aria-label={t('fileUpload.trySample')}
                 title={t('fileUpload.trySample')}
                 className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"

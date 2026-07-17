@@ -4,6 +4,7 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Track } from '@/types'
+import { ParseError } from '@/lib/parser'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -152,5 +153,89 @@ describe('FileUpload request lifecycle', () => {
     await dropFile(rejectedXml)
     expect(warn).toHaveBeenCalledOnce()
     warn.mockRestore()
+  })
+
+  it('clears its rejected-file alert when Sample becomes the current intent', async () => {
+    parseTrackFile.mockRejectedValue(new ParseError('Unsupported test file', 'UNSUPPORTED_FORMAT'))
+    const onLoadSample = vi.fn()
+    const onTrackLoaded = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    const render = async (hasTrack: boolean) => {
+      await act(() => root?.render(createElement(FileUpload, {
+        hasTrack,
+        onTrackLoaded,
+        onLoadSample,
+      })))
+    }
+    await render(false)
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+    const rejectedFile = new File(['not a route'], 'notes.txt', { type: 'text/plain' })
+    Object.defineProperty(fileInput, 'files', { configurable: true, value: [rejectedFile] })
+    await act(async () => {
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }))
+      await Promise.resolve()
+    })
+    await vi.waitFor(() => expect(container?.querySelector('[role="alert"]')).not.toBeNull())
+
+    const sampleButton = [...container.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Try with a sample trip'))
+    await act(() => sampleButton?.click())
+    expect(onLoadSample).toHaveBeenCalledOnce()
+
+    await render(true)
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('aborts a held child parse and exits loading before starting Sample', async () => {
+    let resolveParse!: (track: Track) => void
+    const parseSignalRef: { current: AbortSignal | null } = { current: null }
+    const onLoadSample = vi.fn()
+    const onTrackLoaded = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded,
+      onLoadSample,
+    })))
+    const sampleButton = [...container.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Try with a sample trip'))
+    if (!sampleButton) throw new Error('Missing Sample button')
+
+    parseTrackFile.mockImplementation((_file, options: { signal: AbortSignal }) => {
+      parseSignalRef.current = options.signal
+      sampleButton.click()
+      return new Promise<Track>((resolve) => {
+        resolveParse = resolve
+      })
+    })
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+    const heldFile = new File(['pending'], 'trip.gpx', { type: 'application/gpx+xml' })
+    Object.defineProperty(fileInput, 'files', { configurable: true, value: [heldFile] })
+    await act(async () => {
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }))
+      await Promise.resolve()
+    })
+
+    expect(parseSignalRef.current?.aborted).toBe(true)
+    expect(onLoadSample).toHaveBeenCalledOnce()
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    expect(container.contains(sampleButton)).toBe(true)
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+
+    await act(async () => {
+      resolveParse({
+        name: 'Stale import',
+        points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
+      })
+      await Promise.resolve()
+    })
+    expect(onTrackLoaded).not.toHaveBeenCalled()
   })
 })
