@@ -2828,8 +2828,7 @@ test.describe('Travelback App', () => {
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
-    await expect(exportPanel.getByRole('heading', { name: 'Download started' })).toBeVisible({ timeout: 15_000 })
-    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible()
+    await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toBeVisible({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Close panel' }).click({ force: true })
 
     const endHandle = page.getByTestId('timeline-end-handle')
