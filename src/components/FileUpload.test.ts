@@ -78,7 +78,7 @@ describe('FileUpload request lifecycle', () => {
     expect(onTrackLoaded).not.toHaveBeenCalled()
   })
 
-  it('announces an import before parsing starts', async () => {
+  it.each(['picker', 'drop'] as const)('announces an accepted %s intent before parsing starts', async (source) => {
     let resolveParse!: (track: Track) => void
     const onImportStart = vi.fn()
     const onTrackLoaded = vi.fn()
@@ -99,10 +99,17 @@ describe('FileUpload request lifecycle', () => {
       onImportStart,
     })))
 
-    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
     const file = new File(['track'], 'trip.gpx', { type: 'application/gpx+xml' })
-    Object.defineProperty(fileInput, 'files', { configurable: true, value: [file] })
-    await act(() => fileInput?.dispatchEvent(new Event('change', { bubbles: true })))
+    if (source === 'picker') {
+      const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+      Object.defineProperty(fileInput, 'files', { configurable: true, value: [file] })
+      await act(() => fileInput?.dispatchEvent(new Event('change', { bubbles: true })))
+    } else {
+      const dropZone = container.querySelector<HTMLElement>('[role="group"]')
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } })
+      await act(() => dropZone?.dispatchEvent(drop))
+    }
 
     expect(onImportStart).toHaveBeenCalledOnce()
     expect(parseTrackFile).toHaveBeenCalledOnce()
@@ -114,6 +121,37 @@ describe('FileUpload request lifecycle', () => {
     })
     expect(onTrackLoaded).toHaveBeenCalledOnce()
     expect(onTrackLoaded).toHaveBeenCalledWith(importedTrack)
+  })
+
+  it.each(['picker', 'drop'] as const)('announces a rejected %s intent without invoking the parser', async (source) => {
+    const onImportStart = vi.fn()
+    const onTrackLoaded = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded,
+      onImportStart,
+    })))
+
+    const file = new File(['not a route'], 'notes.txt', { type: 'text/plain' })
+    if (source === 'picker') {
+      const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+      Object.defineProperty(fileInput, 'files', { configurable: true, value: [file] })
+      await act(() => fileInput?.dispatchEvent(new Event('change', { bubbles: true })))
+    } else {
+      const dropZone = container.querySelector<HTMLElement>('[role="group"]')
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } })
+      await act(() => dropZone?.dispatchEvent(drop))
+    }
+
+    expect(onImportStart).toHaveBeenCalledOnce()
+    expect(parseTrackFile).not.toHaveBeenCalled()
+    expect(onTrackLoaded).not.toHaveBeenCalled()
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
   })
 
   it('warns only for accepted files near their format-specific limit', async () => {

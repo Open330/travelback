@@ -953,6 +953,42 @@ test.describe('Travelback App', () => {
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toHaveCount(0)
   })
 
+  test('a newer unsupported drop invalidates a delayed sample', async ({ page }) => {
+    let releaseSample!: () => void
+    const sampleReleased = new Promise<void>((resolve) => { releaseSample = resolve })
+    let markSampleRequested!: () => void
+    const sampleRequested = new Promise<void>((resolve) => { markSampleRequested = resolve })
+    let markSampleFulfilled!: () => void
+    const sampleFulfilled = new Promise<void>((resolve) => { markSampleFulfilled = resolve })
+
+    await page.route('**/sample-trip.gpx', async (route) => {
+      markSampleRequested()
+      await sampleReleased
+      await route.fulfill({ path: GPX_FIXTURE, contentType: 'application/gpx+xml' }).catch(() => undefined)
+      markSampleFulfilled()
+    })
+
+    const rejectedFileAlert = page.getByRole('alert').filter({ hasText: 'That file is not a travel route file' })
+    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    await sampleRequested
+    await page.locator('[role="group"][aria-labelledby="fileupload-title"]').evaluate((dropZone) => {
+      const transfer = new DataTransfer()
+      transfer.items.add(new File(['not a route'], 'notes.txt', { type: 'text/plain' }))
+      dropZone.dispatchEvent(new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: transfer,
+      }))
+    })
+    await expect(rejectedFileAlert).toBeVisible()
+
+    releaseSample()
+    await sampleFulfilled
+    await page.waitForTimeout(1_000)
+    await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toHaveCount(0)
+    await expect(rejectedFileAlert).toBeVisible()
+  })
+
   test('moves focus to a visible workspace control after a track loads', async ({ page }) => {
     await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
     await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })

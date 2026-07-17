@@ -62,8 +62,6 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
   useEffect(() => invalidateParse, [invalidateParse])
 
   const handleFile = useCallback(async (file: File) => {
-    onImportStart?.()
-    invalidateParse()
     const requestGeneration = parseGenerationRef.current
     const controller = new AbortController()
     parseControllerRef.current = controller
@@ -115,7 +113,20 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
         inputRef.current.value = ''
       }
     }
-  }, [invalidateParse, onImportStart, onTrackLoaded, t, withRecoveryHint])
+  }, [onTrackLoaded, t, withRecoveryHint])
+
+  const handleFileIntent = useCallback((file: File) => {
+    onImportStart?.()
+    invalidateParse()
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    if (!extension || !VALID_EXTENSIONS.has(extension)) {
+      setLoading(false)
+      setError(withRecoveryHint(t('fileUpload.unsupportedFormat')))
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+    void handleFile(file)
+  }, [handleFile, invalidateParse, onImportStart, t, withRecoveryHint])
 
   const handleCreateJourney = useCallback(() => {
     invalidateParse()
@@ -134,17 +145,9 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
     e.preventDefault()
     if (loading) return
     const file = e.dataTransfer.files[0]
-    if (file) {
-      const ext = file.name.split('.').pop()?.toLowerCase()
-      if (!ext || !VALID_EXTENSIONS.has(ext)) {
-        setError(withRecoveryHint(t('fileUpload.unsupportedFormat')))
-        scheduleDragEnd()
-        return
-      }
-      handleFile(file)
-    }
+    if (file) handleFileIntent(file)
     scheduleDragEnd()
-  }, [handleFile, t, loading, scheduleDragEnd, withRecoveryHint])
+  }, [handleFileIntent, loading, scheduleDragEnd])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -162,8 +165,8 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (loading) return
     const file = e.target.files?.[0]
-    if (file) handleFile(file)
-  }, [handleFile, loading])
+    if (file) handleFileIntent(file)
+  }, [handleFileIntent, loading])
 
   if (hasTrack) {
     return (
