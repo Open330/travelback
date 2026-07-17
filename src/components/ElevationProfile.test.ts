@@ -27,6 +27,15 @@ describe('buildElevationGeometry', () => {
     )
   })
 
+  it('creates independent runs at track segment boundaries', () => {
+    const geometry = buildElevationGeometry([10, 20, 80, 90], [0, 10, 10, 20], [2])
+
+    expect(geometry?.pathD).toBe('M0.00,100.00 L50.00,87.50 M50.00,12.50 L100.00,0.00')
+    expect(geometry?.areaD).toBe(
+      'M0.00,100 L0.00,100.00 L50.00,87.50 L50.00,100 Z M50.00,100 L50.00,12.50 L100.00,0.00 L100.00,100 Z',
+    )
+  })
+
   it('keeps isolated valid samples finite without inventing edges or area', () => {
     const geometry = buildElevationGeometry([null, 10, null, 20, null], [0, 10, 20, 30, 40])
 

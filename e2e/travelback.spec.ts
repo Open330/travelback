@@ -1905,6 +1905,18 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('playback-stats')).toContainText(`/ ${expectedMeters} m`)
   })
 
+  test('segmented tracks render disconnected elevation runs', async ({ page }) => {
+    await page.locator('input[type="file"]').setInputFiles(SEGMENTED_GPX_FIXTURE)
+    await expect(visibleTrackTitle(page, 'Segmented City Hop')).toBeVisible({ timeout: 15_000 })
+
+    const elevationLine = page.locator('svg[aria-label="Elevation profile"] path[fill="none"]')
+    await expect(elevationLine).toBeVisible({ timeout: 10_000 })
+    await expect.poll(async () => {
+      const pathD = await elevationLine.getAttribute('d')
+      return pathD?.match(/M/g)?.length ?? 0
+    }).toBe(2)
+  })
+
   test('imperial unit toggle updates playback stats', async ({ page }) => {
     await uploadGpx(page)
     await page.getByRole('button', { name: /imperial units/i }).click({ force: true })

@@ -23,6 +23,7 @@ interface ElevationGeometry {
 export function buildElevationGeometry(
   elevations: Array<number | null | undefined>,
   cumulativeDistances: number[],
+  segmentStartIndices: number[] = [],
 ): ElevationGeometry | null {
   let minEle = Infinity
   let maxEle = -Infinity
@@ -47,7 +48,15 @@ export function buildElevationGeometry(
 
   const runs: Array<Array<{ x: number; y: number }>> = []
   let currentRun: Array<{ x: number; y: number }> = []
+  const segmentStarts = new Set(
+    segmentStartIndices.filter((index) => Number.isInteger(index) && index > 0 && index < pointCount),
+  )
   for (let index = 0; index < pointCount; index++) {
+    if (segmentStarts.has(index) && currentRun.length > 0) {
+      runs.push(currentRun)
+      currentRun = []
+    }
+
     const elevation = elevations[index]
     if (typeof elevation !== 'number' || !Number.isFinite(elevation)) {
       if (currentRun.length > 0) runs.push(currentRun)
@@ -93,8 +102,8 @@ export default function ElevationProfile({ track, cumulativeDistances, progress,
   const cumulDist = cumulativeDistances
 
   const geometry = useMemo(
-    () => buildElevationGeometry(elevations, cumulDist),
-    [elevations, cumulDist],
+    () => buildElevationGeometry(elevations, cumulDist, track.segmentStartIndices),
+    [elevations, cumulDist, track.segmentStartIndices],
   )
 
   if (!geometry) return null

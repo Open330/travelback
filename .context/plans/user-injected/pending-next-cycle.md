@@ -140,10 +140,11 @@ archived into their respective cycle implementation plans once addressed.
   - `/tmp/travelback-cycle10-focused-copy.Q5iIz7`
   - Created empty before the first Cycle 10 fix verification, then populated
     from the tracked tree plus the candidate playback patch so the incomplete
-    primary `node_modules` tree is not mutated. Focused browser verification
-    uses isolated port `42710`; any bounded dependency/test process is left to
-    its natural lifecycle. Keep this copy until the loop's final cleanup stop
-    condition.
+    primary `node_modules` tree is not mutated. Later Cycle 10 candidate files
+    are overlaid into this same run-owned copy without deleting or resetting
+    its test artifacts. Focused browser verification uses isolated port
+    `42710`; any bounded dependency/test process is left to its natural
+    lifecycle. Keep this copy until the loop's final cleanup stop condition.
   - `/Users/hletrd/.npm/_logs/2026-07-17T04_04_20_957Z-debug-0.log`
     was created by the harmless initial `npm ci` attempt while this copy was
     still empty; the command exited with `EUSAGE` and changed no repository
