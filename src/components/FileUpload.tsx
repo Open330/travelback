@@ -143,11 +143,10 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    if (loading) return
     const file = e.dataTransfer.files[0]
     if (file) handleFileIntent(file)
     scheduleDragEnd()
-  }, [handleFileIntent, loading, scheduleDragEnd])
+  }, [handleFileIntent, scheduleDragEnd])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()

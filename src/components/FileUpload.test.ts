@@ -154,6 +154,71 @@ describe('FileUpload request lifecycle', () => {
     expect(container.querySelector('[role="alert"]')).not.toBeNull()
   })
 
+  it('lets a newer drop abort and replace an in-flight parse', async () => {
+    let resolveFirst!: (track: Track) => void
+    let resolveSecond!: (track: Track) => void
+    const signals: AbortSignal[] = []
+    const onImportStart = vi.fn()
+    const onTrackLoaded = vi.fn()
+    parseTrackFile.mockImplementation((file: File, options: { signal: AbortSignal }) => {
+      signals.push(options.signal)
+      return new Promise<Track>((resolve) => {
+        if (file.name === 'first.gpx') resolveFirst = resolve
+        else resolveSecond = resolve
+      })
+    })
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded,
+      onImportStart,
+    })))
+
+    const dropZone = container.querySelector<HTMLElement>('[role="group"]')
+    const dropFile = async (file: File) => {
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: { files: [file] } })
+      await act(async () => {
+        dropZone?.dispatchEvent(drop)
+        await Promise.resolve()
+      })
+    }
+
+    await dropFile(new File(['first'], 'first.gpx', { type: 'application/gpx+xml' }))
+    await dropFile(new File(['second'], 'second.gpx', { type: 'application/gpx+xml' }))
+
+    expect(onImportStart).toHaveBeenCalledTimes(2)
+    expect(parseTrackFile).toHaveBeenCalledTimes(2)
+    expect(signals).toHaveLength(2)
+    expect(signals[0].aborted).toBe(true)
+    expect(signals[1].aborted).toBe(false)
+
+    await act(async () => {
+      resolveFirst({
+        name: 'Stale first import',
+        points: [{ lat: 37, lng: 127 }, { lat: 38, lng: 128 }],
+      })
+      await Promise.resolve()
+    })
+    expect(onTrackLoaded).not.toHaveBeenCalled()
+    expect(container.querySelector('.animate-spin')).not.toBeNull()
+
+    const secondTrack: Track = {
+      name: 'Current second import',
+      points: [{ lat: 39, lng: 129 }, { lat: 40, lng: 130 }],
+    }
+    await act(async () => {
+      resolveSecond(secondTrack)
+      await Promise.resolve()
+    })
+    expect(onTrackLoaded).toHaveBeenCalledOnce()
+    expect(onTrackLoaded).toHaveBeenCalledWith(secondTrack)
+    expect(container.querySelector('.animate-spin')).toBeNull()
+  })
+
   it('warns only for accepted files near their format-specific limit', async () => {
     const importedTrack: Track = {
       name: 'Imported track',
