@@ -77,3 +77,10 @@ archived into their respective cycle implementation plans once addressed.
   - `/tmp/travelback-cycle9-marker-copy.5RJg4F`
   - Created for the post-fix decorative marker accessibility regression; keep
     it until the loop's final cleanup stop condition.
+- Run-created exact-HEAD physical Cycle 9 full-gate copy:
+  - `/tmp/travelback-cycle9-gates-copy.I4umWo`
+  - Created from implementation HEAD `e193e94` for the complete configured
+    gate matrix; keep it until the loop's final cleanup stop condition.
+- Cycle 9 status: ingested into `cycle9-implementation-2026-07-17.md` and
+  retained for the loop's final stop condition. Every Cycle 9 temporary path
+  remains inventoried; none was deleted, and this cleanup item remains open.

@@ -29,7 +29,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: resolve adjacent scene pairs before ordinary scene lookup. Give a real internal gap exclusive ownership of `[previous.end, next.start]` with its stable elapsed-zero boundary cameras. Give touching scenes one symmetric half-open boundary window using `halfWidth = min(transitionDuration / 2, previousDuration / 2, nextDuration / 2)`, so transitions around a short middle scene can meet but never overlap. Blend moving-mode centers at current global progress while tapering only active rotation elapsed toward stable elapsed-zero anchors at the shared boundary; use explicit right-biased/half-open ordinary scene ownership. Bypass transition math for zero/non-finite duration.
 - Acceptance: touching scenes never reach B then reset toward A; a supported gap traverses A→B exactly once with no backward reset at either endpoint; transition-window edges join ordinary scene motion without center freeze; unequal short/long scenes, progress 0/1, and zero transition duration are finite and deterministic.
 - Focused verification: table-driven numeric samples at left edge / boundary / right edge ± epsilon, both gap endpoints ± epsilon, unequal scene durations, distinct center/zoom/pitch/bearing, and a rotation mode; camera suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `caa4e08`. The camera suite passed 37/37, including the new boundary, gap, unequal-duration, zero-duration, and rotation regressions; lint and typecheck passed.
 
 ## Wave 1 — Responsive scene and timeline interaction geometry
 
@@ -40,7 +40,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: make the mode select a `min-w-0 w-full` flex child and constrain its row/card as needed without clipping option text or the native disclosure affordance.
 - Acceptance: every camera-mode select's border box remains within the Scene Editor panel content box at 1440x1000 and 390x844, including Korean and the longest shipped option labels; selection behavior remains unchanged.
 - Focused verification: retries-disabled Scene Editor E2E geometry/selection case, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `1a067df`. The retries-disabled desktop/mobile/Korean containment regression passed in an isolated browser copy; lint and typecheck passed.
 
 ### P03 — Keep full timeline endpoint hitboxes inside the interaction surface (AG9-05)
 
@@ -49,7 +49,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: clamp each 44px endpoint hitbox inside the timeline container at the 0% and 100% extremes while preserving the represented ratios and drag/keyboard behavior.
 - Acceptance: both endpoint boxes retain at least 44x44 nominal geometry and are wholly inside the viewport/container at 390x844; Home/End still represent exactly 0%/100%; mouse, keyboard, and touch trimming remain correct.
 - Focused verification: mobile endpoint intersection E2E plus existing timeline component suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `4155fb4`. The mobile endpoint geometry regression and 16/16 timeline component tests passed; lint and typecheck passed.
 
 ### P04 — Give selected-region dragging an explicit touch contract (AG9-07)
 
@@ -58,7 +58,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: apply `touchAction: 'none'` to the selected-region gesture owner, matching both endpoint handles. Preserve the passive global listener and cancellation lifecycle; do not claim synthetic CDP proves physical Safari/Android behavior.
 - Acceptance: the region computes `touch-action: none`; a trimmed range moves under a CDP touch drag and commits once; taps still seek; handle behavior and cancellation remain intact.
 - Focused verification: component DOM contract, retries-disabled mobile timeline touch case, existing timeline suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `52cec8a`. The DOM touch contract, 17/17 timeline component tests, and retries-disabled CDP touch-drag regression passed. This remains synthetic coverage, not a claim about representative physical Safari/Android hardware.
 
 ## Wave 2 — Export focus continuity
 
@@ -69,7 +69,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: when the idle form changes to rendering, focus the Cancel control with `preventScroll` after it mounts. Keep focus inside the same modal, retain Escape cancellation, focus the success heading on completion, and restore the opener when the dialog closes.
 - Acceptance: Start Export → rendering never leaves `document.activeElement` on `body`; Cancel is focused during the actionable interval; success/cancel/opener focus contracts remain valid.
 - Focused verification: component rerender regression and held-frame/stub browser transition, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `d8289e3`. The rendering-state component suite passed 4/4 and the deterministic held-picker browser transition passed with retries disabled and one worker; lint and typecheck passed.
 
 ## Wave 3 — Truthful map semantics
 
@@ -80,7 +80,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: assign decorative/presentation semantics to the custom marker element before MapLibre constructs/attaches it so the dependency does not synthesize a generic button role/name. Keep visual animation and pose updates unchanged.
 - Acceptance: no `button "Map marker"` appears in the loaded-route accessibility tree; the HTML marker, GeoJSON marker source, trail head, playback, and export pose remain synchronized.
 - Focused verification: loaded-route role assertion plus related map/pose E2E, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `22ee23b`. The loaded-route semantics and style-replacement pose checks passed 2/2 with retries disabled and one worker; lint and typecheck passed.
 
 ## Wave 4 — Natural Korean map-style names
 
@@ -91,7 +91,7 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 - Work: change Korean Positron/Dark labels from `밝은` / `어두운` to parallel standalone `라이트` / `다크` names. Use the Korean naturalization guidance to verify the complete composed phrases without altering keys or other locales.
 - Acceptance: the toolbar renders `지도: 라이트` and `지도: 다크`; all locale dictionaries remain key-complete; reviewed phrases are pinned.
 - Focused verification: i18n suite, lint, and typecheck.
-- Status: Pending.
+- Status: Completed in `e193e94`. The pre-fix regression failed on `밝은`; the reviewed-label and complete-phrase i18n suite then passed 12/12, with lint and typecheck green.
 
 ## Formal manual-validation work
 
@@ -160,8 +160,21 @@ Implement every authorized Cycle 9 item without deployment, preserve work that r
 
 ## Final verification record
 
-Pending implementation.
+- Implementation gate HEAD: `e193e94`.
+- Exact-HEAD physical mirror: `/tmp/travelback-cycle9-gates-copy.I4umWo` (recorded immediately in the durable cleanup inventory; not deleted).
+- `npm run lint`: passed.
+- `npm run typecheck`: passed, including successful Next route type generation.
+- `npm test`: 17 files and 405 tests passed in 14.80s.
+- `npm audit --audit-level=high`: passed with 0 vulnerabilities.
+- `npm run build`: passed with Next.js 16.2.10; compilation completed in 15.2s, TypeScript in 12.6s, 4 static pages generated, and CSP hardened across 3 HTML files.
+- `npm run smoke:static`: passed; the static-E2E wrapper's second smoke also passed.
+- `npm run test:e2e`: 101 passed and the explicitly gated real-export case skipped as expected in 33.9m on isolated port 42310, one worker; 0 failures and 0 retries triggered.
+- `npm run test:e2e:static:ci`: 101 passed and the explicitly gated real-export case skipped as expected in 34.5m on isolated port 42311, one worker; 0 failures and 0 retries triggered.
+- Production-static real MP4: 1/1 passed in 3.4m on isolated port 42312 with `TRAVELBACK_REAL_EXPORT=1`, retries 0, and one worker; the downloaded file exceeded 1 KiB and contained `ftyp` at bytes 4–7.
+- Gate-driven repairs: 0. Every required full gate passed on its first gate-matrix run.
+- Deployment, workflow edits, publication, production mutation, deletion, and process termination: none.
+- All implementation commits were GPG-signed, pushed only to `codex/review-plan-fix-2026-07-16`, and verified with Good signatures. The requested Ralph helper remained unavailable, so the documented review-plan-fix fallback was used.
 
 ## Completion gate
 
-Pending. P01-P07 and every focused/full gate must pass. M9-01, B01-B04, D01-D04, and final cleanup retain their exact exit criteria.
+Complete for Cycle 9. P01-P07 and every focused/full gate pass. M9-01, B01-B04, D01-D04, and the user-injected final cleanup remain intentionally open with their exact exit criteria; no deferred item was silently treated as completed.

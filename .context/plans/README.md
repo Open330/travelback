@@ -2,10 +2,10 @@
 
 ## Active
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
-- `cycle9-implementation-2026-07-17.md` — Active regression-first plan for 7 Cycle 9 items covering exclusive camera transitions, responsive scene/timeline geometry, export focus continuity, truthful marker semantics, Korean map-style wording, and selected-region touch ownership; no deployment or cleanup deletion is authorized
 
 ## Completed this cycle
 
+- `cycle9-implementation-2026-07-17.md` — Completed all 7 findings covering exclusive camera transitions, responsive scene/timeline geometry, export focus continuity, truthful marker semantics, Korean map-style wording, and selected-region touch ownership; all configured gates and the retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle8-implementation-2026-07-17.md` — Completed all 5 findings covering untimed revisit preservation, bounded post-drag suppression, deterministic locale hydration, reviewed Spanish copy, and gate-discovered map hydration readiness; all configured gates and the clean retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle7-implementation-2026-07-17.md` — Completed all 9 findings covering partial-timestamp order, elevation gaps, Help hit ownership, segmented focus, timeline date announcements, opaque scene interpolation, localized guide art, centralized import-size policy, and the stale Next maintenance note; all configured gates and the clean retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle6-implementation-2026-07-17.md` — Completed all 5 actionable findings covering manual-camera Retry handoff, non-overlapping timeline controls, localized scene corrections, warning-free FileUpload settlement, and accurate legacy Takeout guidance; all eight configured gates and the retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
