@@ -48,7 +48,9 @@ existing exit criterion.
   - Browser coverage proves the map canvas is non-editable during confirmation,
     Edit restores interaction, and Create produces the original two-point route.
   - Zero/one-point `Track` values cannot reach `onComplete` from JourneyCreator.
-- Status: Planned.
+- Status: Completed in signed commit `dcee777`; focused Journey unit coverage
+  passed 11/11, and the confirmation regression passed in both final full
+  browser matrices.
 
 ## P02 — Route Escape before playback-only suppression (AG11-02)
 
@@ -70,7 +72,9 @@ existing exit criterion.
     trigger and an internal control, with focus restored to Camera.
   - The existing KML flow asserts the panel is hidden before Export opens, and
     mobile-menu Escape closes only that menu.
-- Status: Planned.
+- Status: Completed in signed commit `54d75ce`; focused playback/toolbar unit
+  coverage passed 12/12, and the Escape ownership regression passed in both
+  final full browser matrices.
 
 ## P03 — Clear rejected-file state when Sample becomes the current intent (AG11-03)
 
@@ -88,7 +92,9 @@ existing exit criterion.
     loaded state, and finds no stale `role=alert`.
   - A browser regression performs unsupported input → successful Sample and
     requires the Namsan workspace/live status with no rejected-file alert.
-- Status: Planned.
+- Status: Completed in signed commit `dd1a686`; focused FileUpload coverage
+  passed 5/5 before the P04 expansion, and the error-to-Sample regression passed
+  in development and static browser matrices.
 
 ## P04 — Invalidate a held sample before unsupported-drop preflight (R11-01)
 
@@ -107,7 +113,9 @@ existing exit criterion.
   - A deterministic browser regression holds `/sample-trip.gpx`, dispatches a
     newer unsupported `.txt` DragEvent, releases the response, and proves the
     sample never installs while the newer recovery state remains.
-- Status: Planned.
+- Status: Completed in signed commit `094814d`; expanded FileUpload coverage
+  passed 8/8 and the held-sample/unsupported-drop regression passed in focused,
+  development, and static browser runs.
 
 ## P05 — Verification and documentation closure
 
@@ -132,7 +140,21 @@ existing exit criterion.
 - Re-run lint, typecheck, unit, audit, and worker parity after documentation
   closure. Record every new copy, session, listener PID, port, and artifact in
   the durable inventory before use; leave bounded processes to exit naturally.
-- Status: Planned.
+- Status: Completed. Final exact-implementation validation passed:
+  - lint and typecheck;
+  - 19 unit files / 447 tests;
+  - audit with 0 vulnerabilities and current generated worker;
+  - Next 16.2.10 production build, 4 static pages, CSP hardening across 3 HTML
+    files, and static smoke;
+  - development and static Playwright: 109 passed, 0 failed, 1 expected
+    real-export skip each, retries disabled and one worker;
+  - isolated real static MP4: 1/1 passed, output `> 1 KiB` with bytes 4–7
+    equal to `ftyp`.
+  `GATE_FIXES=5`: Journey longitude numeric tolerance, FileUpload test-signal
+  typing, file-alert locator ownership, Camera-trigger locator ownership, and
+  targeted timeline keyboard delivery. Invocation/setup noise and the
+  pre-reboot host-saturation failures are excluded. No deployment or cleanup
+  deletion occurred.
 
 ## Explicit non-implementation ledger
 

@@ -1,11 +1,11 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle11-implementation-2026-07-17.md` — Planned fixes for three fresh Medium/High findings (Journey confirmation ownership, focused-control Escape routing, and stale FileUpload rejection after Sample) plus the reopened incomplete Cycle 2 sample/drop edge; no deployment or cleanup deletion is authorized
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
 
+- `cycle11-implementation-2026-07-17.md` — Completed all three fresh Medium/High findings plus the reopened Cycle 2 sample/drop edge; lint/typecheck, 447 units, audit/worker parity, build/smoke, sequential one-browser development/static matrices, and isolated real MP4 all passed; no deployment or cleanup deletion occurred
 - `cycle10-implementation-2026-07-17.md` — Completed all 7 authorized items covering active-seek ownership, segmented elevation, bounded/localized import names, heading hierarchy, mobile Journey Cancel geometry, and truthful export completion, plus 6 gate-driven repairs; all configured gates and the retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle9-implementation-2026-07-17.md` — Completed all 7 findings covering exclusive camera transitions, responsive scene/timeline geometry, export focus continuity, truthful marker semantics, Korean map-style wording, and selected-region touch ownership; all configured gates and the retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle8-implementation-2026-07-17.md` — Completed all 5 findings covering untimed revisit preservation, bounded post-drag suppression, deterministic locale hydration, reviewed Spanish copy, and gate-discovered map hydration readiness; all configured gates and the clean retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred

@@ -397,9 +397,75 @@ archived into their respective cycle implementation plans once addressed.
     Focused P02 lint is running in unified exec session `86291`, with no
     listener PID.
     It completed naturally with exit 0 and no findings.
+    Corrected P03 Next type generation plus TypeScript validation is running in
+    unified exec session `6213`, with no listener PID.
+    Focused P03 Next type generation plus TypeScript validation is running in
+    unified exec session `97329`, with no listener PID.
+    It completed with exit 2 after successful route type generation because the
+    new test's closure-assigned `parseSignal?.aborted` scalar narrowed to
+    `never` under TypeScript control-flow analysis. This is a test-authoring
+    gate root, not a product regression; correction to a mutable typed ref is
+    retained as a candidate `GATE_FIXES` increment pending the final semantic
+    tally.
+    The minimal test-only correction replaced that scalar with
+    `{ current: AbortSignal | null }`; it was overlaid, byte-compared, and
+    passed `git diff --check` without changing the P03 product implementation.
+    Corrected focused P03 unit validation is running in unified exec session
+    `22156`, with no listener PID.
+    It completed naturally with exit 0: one file and all five tests passed.
+    Corrected P03 lint is running in unified exec session `37428`, with no
+    listener PID.
+    It completed naturally with exit 0 and no findings.
     Focused P02 Next type generation plus TypeScript validation is running in
     unified exec session `36019`, with no listener PID.
     It completed naturally with exit 0 after successful route type generation
     and `tsc --noEmit`. The authored browser regressions remain pending the
     final sequential matrix because the external host saturation has not
     recovered; no focused P02 browser/server process was started.
+- Run-created physical Cycle 11 P03 focused-verification copy:
+  - `/tmp/travelback-cycle11-p03-copy.VXUyba`
+  - Created empty for P03 non-browser validation at signed base HEAD
+    `54d75ce47aab2e741739887f5431c1decfe3514c` plus the three P03 candidate
+    source/test paths. It has no reserved browser port and must not start a
+    browser or server while host load remains saturated. Record dependency,
+    focused-unit, lint, and typecheck sessions here before or as soon as they
+    become known. Do not reuse or remove the copy before final-loop cleanup.
+    Archive population and direct overlay completed; byte comparisons confirmed
+    all three candidate files match the primary diff. Isolated `npm ci` is
+    running in unified exec session `98690`, with no listener PID.
+    While dependency installation continued, the P03 component regression was
+    strengthened to assert a held child parse is aborted, loading exits, its
+    stale resolution is ignored, and no alert remains; the updated test was
+    overlaid and re-compared byte-for-byte without touching dependency paths.
+    Dependency installation completed naturally with exit 0 after six minutes:
+    471 packages added, 472 audited, and 0 vulnerabilities.
+    Focused P03 FileUpload unit validation is running in unified exec session
+    `42100`, with no listener PID.
+    It completed naturally with exit 0: the focused file and all five tests
+    passed, including rejection clearing and held-parse invalidation/loading
+    settlement.
+    Focused P03 lint is running in unified exec session `47277`, with no
+    listener PID.
+    It completed naturally with exit 0 and no findings.
+
+## Cycle 11 reboot and bounded-browser closure
+
+- The user reported that the host rebooted after the earlier browser-session
+  accumulation. The reboot terminated all previously running browser and gate
+  processes. No process was manually killed by the review loop.
+- After the reboot, Cycle 11 used no `agent-browser` sessions and never ran more
+  than one Playwright command or one Playwright worker at a time. Before and
+  after every browser command, read-only checks found zero retained Playwright
+  browser processes and no listener on the selected port.
+- The final development matrix used port `43210` and completed with 109 passed,
+  0 failed, and 1 expected real-export skip. Only after its listener and browser
+  count returned to zero did the static matrix start on port `43211`; it also
+  completed with 109 passed, 0 failed, and 1 expected skip. Only after another
+  zero-process check did the isolated real-MP4 case start on port `43212`; it
+  passed 1/1 and its byte assertions verified `> 1 KiB` plus `ftyp`.
+- `/tmp` verification copies from before the reboot were no longer present when
+  checked after restart. Retain their paths above as provenance, but final-loop
+  cleanup must verify absence rather than recreating or deleting them blindly.
+- Browser concurrency is now a permanent run constraint: one Playwright command,
+  one worker, retries disabled, natural exit confirmed before the next browser
+  command. Do not create additional browser-review sessions.
