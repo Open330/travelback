@@ -1008,17 +1008,23 @@ test.describe('Travelback App', () => {
       .not.toContain('NaN')
   })
 
-  test('journey creator exposes 44px toggle icons at supported mobile widths', async ({ page }) => {
+  test('journey creator exposes 44px actions at supported mobile widths', async ({ page }) => {
     for (const width of [320, 390, 430]) {
       await page.setViewportSize({ width, height: 844 })
-      await page.goto('/')
-      await waitForApp(page)
       const drawRouteBtn = page.getByRole('button', { name: /draw a route/i })
       await expect(drawRouteBtn).toBeVisible({ timeout: 10_000 })
       await drawRouteBtn.click({ force: true })
 
-      await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+      const panel = page.getByRole('region', { name: 'Create Journey' })
+      await expect(panel).toBeVisible({ timeout: 10_000 })
       await expect(page.getByTestId('journey-icon-walk')).toHaveAttribute('aria-pressed', 'true')
+
+      const cancel = panel.getByRole('button', { name: 'Cancel' })
+      const [cancelBox, panelBox] = await Promise.all([cancel.boundingBox(), panel.boundingBox()])
+      expect(cancelBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+      expect(cancelBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      if (!cancelBox || !panelBox) throw new Error('Missing Journey Creator header geometry')
+      expect(cancelBox.x + cancelBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width)
 
       for (const id of ['walk', 'car', 'plane', 'bus', 'train', 'bike']) {
         const icon = page.getByTestId(`journey-icon-${id}`)
@@ -1028,9 +1034,12 @@ test.describe('Travelback App', () => {
         expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
       }
 
-      await page.getByTestId('journey-icon-car').click()
+      await page.getByTestId('journey-icon-car').click({ force: true })
       await expect(page.getByTestId('journey-icon-car')).toHaveAttribute('aria-pressed', 'true')
       await expect(page.getByTestId('journey-icon-walk')).toHaveAttribute('aria-pressed', 'false')
+
+      await cancel.click({ force: true })
+      await expect(panel).toBeHidden()
     }
   })
 

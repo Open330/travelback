@@ -743,7 +743,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             ref={cancelButtonRef}
             type="button"
             onClick={handleCancel}
-            className="text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t3)' }}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center px-2 text-xs cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--t3)' }}
           >
             {t('journey.cancel')}
           </button>
