@@ -84,6 +84,18 @@ export function usePlaybackController(track: Track | null) {
     const safe = Number.isFinite(nextProgress) ? nextProgress : 0
     const clampedProgress = Math.min(1, Math.max(0, safe))
     setPlaybackProgress(clampedProgress)
+
+    if (isPlayingRef.current) {
+      startProgressRef.current = clampedProgress
+      startTimestampRef.current = performance.now()
+      awaitingFirstFrameRef.current = false
+
+      if (clampedProgress >= 1) {
+        isPlayingRef.current = false
+        setIsPlaying(false)
+      }
+    }
+
     setSeekNonce((nonce) => nonce + 1)
   }, [setPlaybackProgress])
 

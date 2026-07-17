@@ -1070,6 +1070,23 @@ test.describe('Travelback App', () => {
     await expect(page.getByRole('button', { name: /camera tracking/i })).toBeVisible()
   })
 
+  test('active playback continues from a requested seek target', async ({ page }) => {
+    await uploadGpx(page)
+    const playButton = page.getByRole('button', { name: 'Play' })
+    await expect(playButton).toBeVisible({ timeout: 10_000 })
+    await playButton.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 10_000 })
+
+    await setPlaybackProgress(page, 0.8)
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+
+    await expect.poll(async () => {
+      return Number(await page.getByLabel('Playback progress').inputValue())
+    }, { timeout: 10_000, intervals: [100, 150, 250] }).toBeGreaterThan(0.8)
+  })
+
   test('map zoom controls do not overlap top toolbars', async ({ page }) => {
     await uploadGpx(page)
 

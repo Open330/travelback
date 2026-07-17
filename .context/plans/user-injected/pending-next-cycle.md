@@ -136,3 +136,15 @@ archived into their respective cycle implementation plans once addressed.
 - Cycle 10 status: the final cleanup item remains open. No Cycle 10 path has
   been deleted, and the primary repository plus every pre-existing/user-owned
   tree and process must remain untouched.
+- Run-created physical Cycle 10 focused-verification copy:
+  - `/tmp/travelback-cycle10-focused-copy.Q5iIz7`
+  - Created empty before the first Cycle 10 fix verification, then populated
+    from the tracked tree plus the candidate playback patch so the incomplete
+    primary `node_modules` tree is not mutated. Focused browser verification
+    uses isolated port `42710`; any bounded dependency/test process is left to
+    its natural lifecycle. Keep this copy until the loop's final cleanup stop
+    condition.
+  - `/Users/hletrd/.npm/_logs/2026-07-17T04_04_20_957Z-debug-0.log`
+    was created by the harmless initial `npm ci` attempt while this copy was
+    still empty; the command exited with `EUSAGE` and changed no repository
+    dependency state. Retain the log for final-loop provenance cleanup.
