@@ -2815,9 +2815,13 @@ test.describe('Travelback App', () => {
     const cancelExport = exportPanel.getByRole('button', { name: 'Cancel export' })
     await expect(cancelExport).toBeVisible()
     await expect(cancelExport).toBeFocused()
+    await page.waitForFunction(() => (
+      typeof (window as Window & { releaseExportPicker?: () => void }).releaseExportPicker === 'function'
+    ))
     await page.evaluate(() => {
       const testWindow = window as Window & { releaseExportPicker?: () => void }
-      testWindow.releaseExportPicker?.()
+      if (!testWindow.releaseExportPicker) throw new Error('Export picker was not ready')
+      testWindow.releaseExportPicker()
     })
     const successHeading = exportPanel.getByRole('heading', { name: 'Video saved!' })
     await expect(successHeading).toBeVisible({ timeout: 15_000 })
