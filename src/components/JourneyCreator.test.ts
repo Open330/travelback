@@ -20,13 +20,14 @@ let container: HTMLDivElement | null = null
 
 type MapHandler = (event?: unknown) => void
 
-function createMapMock() {
+function createMapMock(initialStyleLoaded = true) {
   const handlers = new Map<string, Set<MapHandler>>()
   const sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>()
   const layers = new Map<string, unknown>()
   const canvas = document.createElement('canvas')
   const disable = vi.fn()
   const enable = vi.fn()
+  let styleLoaded = initialStyleLoaded
 
   const eventKey = (event: string, layer?: string) => layer ? `${event}:${layer}` : event
   const map = {
@@ -55,7 +56,7 @@ function createMapMock() {
     listenerCount(event: string) {
       return handlers.get(event)?.size ?? 0
     },
-    isStyleLoaded: () => true,
+    isStyleLoaded: () => styleLoaded,
     getCanvas: () => canvas,
     dragPan: { disable, enable },
     queryRenderedFeatures: () => [],
@@ -76,11 +77,19 @@ function createMapMock() {
     flyTo: vi.fn(),
   }
 
-  return { map, canvas, disable, enable, sources }
+  return {
+    map,
+    canvas,
+    disable,
+    enable,
+    sources,
+    setStyleLoaded(value: boolean) {
+      styleLoaded = value
+    },
+  }
 }
 
-async function renderJourneyCreator() {
-  const mapMock = createMapMock()
+async function renderJourneyCreator(mapMock = createMapMock()) {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -143,6 +152,32 @@ describe('syncJourneySources', () => {
     expect(setLineData.mock.calls.at(-1)?.[0]).toMatchObject({
       geometry: { type: 'LineString', coordinates: [] },
     })
+  })
+})
+
+describe('JourneyCreator interaction readiness', () => {
+  it('recovers when an existing style settles without another style-load event', async () => {
+    const mapMock = createMapMock(false)
+    await renderJourneyCreator(mapMock)
+
+    const panel = container?.querySelector('[data-testid="journey-creator-panel"]')
+    expect(panel?.getAttribute('data-map-interaction-ready')).toBe('false')
+    expect(mapMock.map.listenerCount('styledata')).toBe(1)
+    expect(mapMock.map.listenerCount('idle')).toBe(1)
+
+    mapMock.setStyleLoaded(true)
+    await act(() => mapMock.map.trigger('styledata'))
+    expect(panel?.getAttribute('data-map-interaction-ready')).toBe('true')
+    expect(mapMock.map.listenerCount('idle')).toBe(0)
+
+    await act(() => mapMock.map.trigger('styledata'))
+    expect(panel?.getAttribute('data-map-interaction-ready')).toBe('true')
+
+    await act(() => root?.unmount())
+    root = null
+    expect(mapMock.map.listenerCount('style.load')).toBe(0)
+    expect(mapMock.map.listenerCount('styledata')).toBe(0)
+    expect(mapMock.map.listenerCount('idle')).toBe(0)
   })
 })
 

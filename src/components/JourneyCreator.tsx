@@ -541,17 +541,35 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       map.on('style.load', handleStyleReload)
     }
 
+    const removeInitialStyleReadyListeners = () => {
+      map.off('style.load', handleInitialStyleReady)
+      map.off('styledata', handleInitialStyleReady)
+      map.off('idle', handleInitialStyleReady)
+    }
+
+    const handleInitialStyleReady = () => {
+      if (!ownsActiveMap()) {
+        removeInitialStyleReadyListeners()
+        return
+      }
+      if (!map.isStyleLoaded()) return
+      removeInitialStyleReadyListeners()
+      handleInitialStyleLoad()
+    }
+
     if (map.isStyleLoaded()) {
       handleInitialStyleLoad()
     } else {
-      map.once('style.load', handleInitialStyleLoad)
+      map.on('style.load', handleInitialStyleReady)
+      map.on('styledata', handleInitialStyleReady)
+      map.on('idle', handleInitialStyleReady)
     }
 
     return () => {
       effectIsCurrent = false
       for (const fn of cleanupRef.current) fn()
       cleanupRef.current = []
-      map.off('style.load', handleInitialStyleLoad)
+      removeInitialStyleReadyListeners()
       map.off('styledataloading', markInteractionPending)
       map.off('style.load', handleStyleReload)
       if (mapHandle?.getMap() === map) {

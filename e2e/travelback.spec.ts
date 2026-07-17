@@ -1044,37 +1044,49 @@ test.describe('Travelback App', () => {
   })
 
   test('journey creator uses an editable route name', async ({ page }) => {
+    const addCoordinates = async (activePanel: Locator) => {
+      const activeSearchInput = activePanel.getByRole('combobox')
+      await expect(activeSearchInput).toBeVisible({ timeout: 15_000 })
+
+      for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
+        await activeSearchInput.fill(coordinates)
+        await activeSearchInput.press('Enter')
+        const result = activePanel.getByRole('option')
+        await expect(result).toHaveCount(1)
+        await expect(result).toBeVisible()
+        await activeSearchInput.press('ArrowDown')
+        await expect(activeSearchInput).toHaveAttribute('aria-activedescendant', 'journey-search-option-0')
+        await activeSearchInput.press('Enter')
+        await expect(activeSearchInput).toHaveValue('')
+        await expect(result).toHaveCount(0)
+      }
+    }
+
     await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
-    const panel = page.getByTestId('journey-creator-panel')
+    const initialPanel = page.getByTestId('journey-creator-panel')
+    await expect(initialPanel).toBeVisible({ timeout: 15_000 })
+    await expect(initialPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 30_000 })
     await page.getByTestId('journey-icon-car').click()
     await page.getByTestId('journey-enable-search').click({ force: true })
-    const searchInput = panel.getByRole('combobox')
+    await addCoordinates(initialPanel)
 
-    for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
-      await searchInput.fill(coordinates)
-      await searchInput.press('Enter')
-      await searchInput.press('ArrowDown')
-      await searchInput.press('Enter')
-    }
-
-    await panel.getByRole('button', { name: 'Done' }).click()
-    const nameInput = panel.getByRole('textbox', { name: 'Route name' })
+    await initialPanel.getByRole('button', { name: 'Done' }).click()
+    const nameInput = initialPanel.getByRole('textbox', { name: 'Route name' })
     await expect(nameInput).toHaveValue('Custom Journey')
     await nameInput.fill('Bali 2026')
-    await panel.getByRole('button', { name: 'Create Route' }).click()
+    await initialPanel.getByRole('button', { name: 'Create Route' }).click()
     await expect(visibleTrackTitle(page, '🚗 Bali 2026')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('journey-creator-panel')).toHaveCount(0)
 
     await page.getByTestId('track-toolbar').getByRole('button', { name: 'New Route', exact: true }).click()
+    const freshPanel = page.getByTestId('journey-creator-panel')
+    await expect(freshPanel).toBeVisible({ timeout: 15_000 })
+    await expect(freshPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 30_000 })
     await page.getByTestId('journey-enable-search').click({ force: true })
-    for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
-      await searchInput.fill(coordinates)
-      await searchInput.press('Enter')
-      await searchInput.press('ArrowDown')
-      await searchInput.press('Enter')
-    }
-    await panel.getByRole('button', { name: 'Done' }).click()
-    await panel.getByRole('textbox', { name: 'Route name' }).fill('   ')
-    await panel.getByRole('button', { name: 'Create Route' }).click()
+    await addCoordinates(freshPanel)
+    await freshPanel.getByRole('button', { name: 'Done' }).click()
+    await freshPanel.getByRole('textbox', { name: 'Route name' }).fill('   ')
+    await freshPanel.getByRole('button', { name: 'Create Route' }).click()
     await expect(visibleTrackTitle(page, '🚶 Custom Journey')).toBeVisible({ timeout: 15_000 })
   })
 
