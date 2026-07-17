@@ -57,7 +57,8 @@ existing exit criterion.
     changes the development debug camera without seek/play and produces no map
     error in either development or static execution.
   - Existing parameter-preview and clear-to-live-route behavior remains green.
-- Status: Planned.
+- Status: Completed in signed commit `058e028`; SceneEditor component coverage
+  and the stationary-progress development/static camera regression passed.
 
 ## P02 — Keep degenerate fit bounds inside the latitude domain (AG12-02)
 
@@ -78,7 +79,9 @@ existing exit criterion.
     retains nonzero latitude span, and MapLibre receives no out-of-domain bound.
   - If a browser case is added, a valid two-point coincident polar GPX reaches a
     loaded workspace with no map error.
-- Status: Planned.
+- Status: Completed in signed commit `048eb21`; 17 pure geometry regressions
+  cover both poles, near-pole inputs, ordinary points, empty input, and the
+  antimeridian while preserving valid latitude output.
 
 ## P03 — Let a newer drop replace an in-flight parse (R12-03)
 
@@ -99,7 +102,8 @@ existing exit criterion.
     publishes only B.
   - Unsupported B also invalidates A and leaves its own localized recovery
     state; existing sample/Journey invalidation coverage remains green.
-- Status: Planned.
+- Status: Completed in signed commit `60ea9f7`; all 9 FileUpload component
+  regressions passed, including held parse A replaced by newer drop B.
 
 ## P04 — Establish More as the opener before launching mobile modals (R12-01)
 
@@ -118,7 +122,8 @@ existing exit criterion.
     callback fires and confirms the menu is closed.
   - Mobile `More → Help → Escape` and `More → import guide → Close` both restore
     focus to More; desktop Help and scene-editor Escape ownership still pass.
-- Status: Planned.
+- Status: Completed in signed commit `f71d58c`; all 4 TrackToolbar component
+  regressions and both mobile modal focus-return browser paths passed.
 
 ## P05 — Hand export cancellation/failure focus back to the idle panel (R12-02)
 
@@ -141,7 +146,8 @@ existing exit criterion.
   - A controllable cancelled export leaves focus inside the restored idle
     dialog, Tab remains contained, and closing the dialog returns focus to the
     toolbar Export trigger.
-- Status: Planned.
+- Status: Completed in signed commit `b0fbb76`; all 7 ExportPanel component
+  regressions and the controllable browser cancellation/focus path passed.
 
 ## P06 — Authorize generated inline error-page styles by hash (R12-04)
 
@@ -164,7 +170,9 @@ existing exit criterion.
   - Static smoke proves every nonempty inline style is covered by both
     directives and still rejects `unsafe-inline` in `style-src` or
     `style-src-elem`.
-- Status: Planned.
+- Status: Completed in signed commit `50d1d6d`; production hardening authorized
+  each generated inline style in both element-capable directives, and the
+  independent static smoke recomputation passed without a broad allowance.
 
 ## P07 — Verification and documentation closure
 
@@ -188,7 +196,20 @@ existing exit criterion.
 - Re-run lint, typecheck, unit, audit, and worker parity after documentation
   closure. Record any gate-driven source repair as its own signed/pushed commit
   and count it in `GATE_FIXES`.
-- Status: Planned.
+- Status: Completed. Final exact-implementation validation passed:
+  - lint and Next type generation plus typecheck;
+  - 19 unit files / 457 tests;
+  - audit with 0 vulnerabilities and current generated worker;
+  - Next 16.2.10 production build, 4 static pages, CSP hardening across 3 HTML
+    files, and static smoke;
+  - development and static Playwright: 110 passed, 0 failed, 1 expected
+    real-export skip each, retries disabled and one worker;
+  - isolated real static MP4: 1/1 passed, output `> 1 KiB` with bytes 4–7
+    equal to `ftyp`;
+  - every browser lifecycle ended naturally with zero Playwright/Chromium
+    processes and its dedicated port free.
+  `GATE_FIXES=0`: no gate-driven source or harness repair was required. No
+  deployment or cleanup deletion occurred.
 
 ## Explicit non-implementation ledger
 
