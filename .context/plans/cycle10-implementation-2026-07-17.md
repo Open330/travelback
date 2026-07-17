@@ -2,6 +2,11 @@
 
 Source: `.context/reviews/_aggregate.md` (4 genuinely new roots, 3 reopened confirmed historical gaps, 2 formal manual-validation items, 4 authority/legal/evidence-gated carryovers, and 4 measured performance deferrals).
 
+Status: Completed on 2026-07-17. All seven authorized items and six
+gate-driven repairs are implemented and pushed; the evidence/authority-gated
+items and final-cleanup instruction remain open under their recorded exit
+criteria. Deployment: none.
+
 ## Objective
 
 Implement all seven authorized Cycle 10 items without deployment, preserve work that needs new authority or representative evidence, and retain the user's final-cleanup instruction for the loop's final stop condition. No recorded temporary path, browser session, or process is deleted or stopped during this cycle.
@@ -28,7 +33,8 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: when `seekTo` runs during playback, update public progress, `progressRef`, `startProgressRef`, and `startTimestampRef` as one ownership transition. Clear or reconcile `awaitingFirstFrameRef` so a seek before the first callback survives. Seeking to 100% must settle playback at the endpoint instead of scheduling another stale frame.
 - Acceptance: a seek before the first RAF and a seek during established playback both advance from the requested target; keyboard/range/elevation/timeline consumers keep playback active except at 100%; replay from the endpoint remains correct.
 - Focused verification: fake-clock/fake-RAF hook cases for pre-first-frame, mid-playback, and endpoint; a retries-disabled browser case that seeks through the progress range while Pause is visible; lint/typecheck.
-- Status: Pending.
+- Status: Completed in `a496f3ce6661776ebe80d0cfdfc5e9ad3dc60d13`.
+  Focused hook, browser, lint, and typecheck regressions passed.
 
 ### P02 — Split elevation geometry at track segment boundaries (AG10-02)
 
@@ -37,7 +43,8 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: extend `buildElevationGeometry` with normalized segment starts and end the current SVG run before each valid boundary sample. Preserve existing missing-elevation gaps, distance/index fallback behavior, finite one-point/flat geometry, and progress seeking.
 - Acceptance: two valid-elevation segments generate two `M` line subpaths and independent area polygons; no zero-distance vertical bridge is drawn; existing all-valid and missing-elevation geometry stays stable.
 - Focused verification: pure geometry tests plus a loaded segmented-elevation browser assertion; lint/typecheck.
-- Status: Pending.
+- Status: Completed in `e6782c01ba66937994779f6e2095545ce0be357c`.
+  Pure geometry, segmented browser, lint, and typecheck regressions passed.
 
 ## Wave 1 — Parser output bounds and locale ownership
 
@@ -48,7 +55,10 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: define one documented parser-boundary helper for GPX/KML names. Collapse controls and whitespace, treat empty/whitespace-only values as missing, and cap retained text at 256 Unicode code points without splitting surrogate pairs. Preserve source-provided names below the limit and existing format fallbacks.
 - Acceptance: no parsed GPX/KML display name exceeds 256 code points; blank/control-heavy names use the established fallback; ordinary CJK/emoji names remain valid; visible/live-region consumers receive only the canonical value.
 - Focused verification: table-driven GPX/KML tests for blank, whitespace/control-heavy, exact-boundary, over-limit, CJK, and emoji names; parser suite, lint/typecheck.
-- Status: Pending. The runtime stall impact remains unmeasured, but security hardening is scheduled under the non-deferral rule.
+- Status: Completed in `6fe0b565535f9fb1acd800fe54cd5116574bf6c2`.
+  Boundary/parser, lint, and typecheck regressions passed. The runtime-stall
+  impact remains unmeasured; this item was implemented as bounded parser-output
+  hardening under the non-deferral rule.
 
 ### P04 — Localize manufactured GPX/KML/Google fallback names (R10-02)
 
@@ -57,7 +67,8 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: add stable optional source/fallback metadata to `Track` without making parsers locale-dependent. Mark only manufactured GPX/KML/Google names, preserve explicit source names (including a real name equal to an English fallback), carry metadata through trimming/worker validation, and resolve display/live-status/export names through five-locale i18n.
 - Acceptance: unnamed GPX, KML, and Google imports use locale-owned fallback copy; switching locale updates the title and live status; exported filenames use the current localized fallback; explicit source names remain opaque and unchanged; worker/main-thread parity remains intact.
 - Focused verification: parser fallback-marker tests for all three sources, five-locale key/phrase tests, worker parity, and a retries-disabled Korean Google import/local-switch browser regression.
-- Status: Pending.
+- Status: Completed in `1e22689838b910a995ead5ee03c1784caeb237cd`.
+  Parser/i18n/worker, localized browser, lint, and typecheck regressions passed.
 
 ## Wave 2 — Semantic hierarchy and mobile action geometry
 
@@ -68,7 +79,8 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: promote the visible landing `Travelback` title to H1. Render the mutually exclusive responsive loaded track title as H1 so the same route retains exactly one accessible top-level heading after import without visual changes.
 - Acceptance: landing exposes exactly one H1 named Travelback; the loaded workspace exposes exactly one visible/accessibility-tree H1 containing the track name at desktop and mobile widths; no heading-level skip is introduced in dialogs/panels.
 - Focused verification: role/level queries in the shared landing and visible-track helpers across desktop/mobile; lint/typecheck.
-- Status: Pending.
+- Status: Completed in `3cacb3d530f0a11d00c621559ed6d60699297a9f`.
+  Landing/loaded desktop/mobile heading, lint, and typecheck regressions passed.
 
 ### P06 — Make Journey Creator Cancel finger-sized (AG10-04)
 
@@ -77,7 +89,9 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: give the header Cancel action a minimum 44px width or equivalent padding, retain its 44px height, focus indicator, text, and header containment, and avoid falsely labeling the prior state a WCAG violation.
 - Acceptance: Cancel measures at least 44×44px at 320, 390, and 430px mobile widths; the title/subtitle remain contained; cancel/discard-confirm behavior and focus remain unchanged.
 - Focused verification: extend the existing coarse-pointer Journey Creator geometry test and run the focused journey cases; lint/typecheck.
-- Status: Pending.
+- Status: Completed in `153a994c5757c3c0321f48d6c9e49a310338da8d`.
+  The 320/390/430px geometry and focused Journey regressions passed without a
+  forced icon click.
 
 ## Wave 3 — Truthful export completion
 
@@ -88,7 +102,9 @@ Implement all seven authorized Cycle 10 items without deployment, preserve work 
 - Work: make the existing `ready | fallback | picker` completion union exhaustive for heading copy. Add reviewed five-locale download-started heading text for fallback, reserve `export.success` for confirmed picker saves, retain ready copy after picker cancellation, and keep the accurate supporting paragraph, Download recovery action, and success-heading focus.
 - Acceptance: `ready` never claims a download/save; `fallback` says download started but never saved; `picker` says saved only after `saved:true`; every branch retains a usable Download action and focused heading.
 - Focused verification: table-driven rendered-state unit assertions for ready/fallback/picker plus existing picker-cancel/local-export E2E; i18n parity/phrase tests; lint/typecheck.
-- Status: Pending.
+- Status: Completed in `94caeb91c5ae081fd8821f38303db2e63e3c349e`.
+  Ready/fallback/picker units, five-locale truthfulness checks, and all three
+  retries-disabled completion-path browser regressions passed.
 
 ## Formal manual-validation work
 
@@ -144,6 +160,55 @@ Run from a new exact-implementation-HEAD physical copy on unique, non-reserved p
 8. `npm run test:e2e:static:ci` with one worker and retries disabled by configuration.
 9. Production-static real MP4 with `TRAVELBACK_REAL_EXPORT=1`, Playwright retries 0, one worker, output larger than 1 KiB, and `ftyp` at bytes 4–7.
 
+## Gate-driven repair record
+
+Six right-reason repairs were required while executing the approved plan:
+
+1. Kept the P01 hook harness callback-pure so lint verifies the production fix
+   rather than tolerating test-only render side effects.
+2. Synchronized the P01 browser activation path with the actual active-playback
+   state instead of relying on timing luck.
+3. Bounded the P06 repeated mobile reload checks with an explicit cumulative
+   timeout.
+4. Removed the forced Journey car-icon click so the geometry regression also
+   proves the control is genuinely actionable.
+5. Recovered Journey interaction readiness when an already-installed style
+   settles via `styledata` or `idle` without another `style.load`; added
+   duplicate-safe listener cleanup plus unit/E2E coverage in
+   `9c3b91616e2fc4f96e42d04ec3fda86aafbf6d89`.
+6. Kept the export-reset regression method-neutral by awaiting its Download
+   action, while leaving the dedicated completion-method heading assertions
+   intact, in `cc720a2eaafe936ae2186d282145856d71673e3c`.
+
+## Accepted final verification
+
+The accepted matrix ran from the inventoried physical copy
+`/tmp/travelback-cycle10-final-gates-copy.xnjqnp`, created from exact code HEAD
+`cc720a2eaafe936ae2186d282145856d71673e3c`. Browser gates ran strictly
+sequentially on isolated ports 42730, 42731, and 42732; every managed listener
+exited naturally and was absent in the post-exit read-only check.
+
+- `npm ci`: 471 packages installed; 472 packages audited; 0 vulnerabilities.
+- Lint and typecheck: passed.
+- Unit: 18 files, 431 tests passed.
+- `npm audit --audit-level=high`: passed with 0 vulnerabilities.
+- Generated-worker parity: current.
+- Production build: Next.js 16.2.10 passed; 4 static pages generated; CSP
+  hardened across 3 HTML files.
+- Static smoke: passed.
+- Full development E2E: 106 passed, 1 expected real-export skip, 0 failed in
+  32.9 minutes; retries 0, one worker.
+- Full production-static E2E: 106 passed, 1 expected real-export skip, 0 failed
+  in 32.5 minutes; retries 0, one worker.
+- Isolated production-static real MP4: 1 passed in 3.1 minutes; retries 0, one
+  worker; downloaded output exceeded 1 KiB and bytes 4–7 were `ftyp`.
+- Final post-check: lint, typecheck, 18-file/431-test unit suite, high-severity
+  audit, and worker parity all passed again.
+- Deployment: none.
+
 ## Completion gate
 
-P01–P07 implemented in focused signed commits and pushed; every focused/full gate passes; gate-driven repairs are separately recorded and committed. M10-01, M9-01, B01–B04, D01–D04, and final cleanup retain their exact exit criteria and are not silently treated as complete. Deployment remains none.
+Satisfied. P01–P07 are implemented in focused signed commits and pushed; every
+focused and accepted full gate passes, and all six gate-driven repairs are
+recorded above. M10-01, M9-01, B01–B04, D01–D04, and final cleanup retain their
+exact exit criteria and are not treated as complete. Deployment remains none.

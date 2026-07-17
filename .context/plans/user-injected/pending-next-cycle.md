@@ -133,9 +133,10 @@ archived into their respective cycle implementation plans once addressed.
     matrix of 13 landing/import/journey/export cases against the already
     inventoried isolated server on port `4177`. Leave the session to its
     bounded natural lifecycle; do not stop, reuse, or delete it.
-- Cycle 10 status: the final cleanup item remains open. No Cycle 10 path has
-  been deleted, and the primary repository plus every pre-existing/user-owned
-  tree and process must remain untouched.
+- Cycle 10 implementation status: all seven authorized items, six gate-driven
+  repairs, and the accepted final matrix are complete. The final cleanup item
+  remains open. No Cycle 10 path has been deleted, and the primary repository
+  plus every pre-existing/user-owned tree and process must remain untouched.
 - Run-created physical Cycle 10 focused-verification copy:
   - `/tmp/travelback-cycle10-focused-copy.Q5iIz7`
   - Created empty before the first Cycle 10 fix verification, then populated
@@ -149,3 +150,48 @@ archived into their respective cycle implementation plans once addressed.
     was created by the harmless initial `npm ci` attempt while this copy was
     still empty; the command exited with `EUSAGE` and changed no repository
     dependency state. Retain the log for final-loop provenance cleanup.
+- Run-created exact-implementation-HEAD physical Cycle 10 full-gate copy:
+  - `/tmp/travelback-cycle10-gates-copy.56BD0H`
+  - Created empty for the complete gate matrix at implementation HEAD
+    `94caeb91c5ae081fd8821f38303db2e63e3c349e`. It will be populated from the
+    tracked commit, use isolated development/static/real-export ports 42720,
+    42721, and 42722, and remain untouched until the loop's final cleanup stop
+    condition. Any dependency, build, Playwright, or server process is bounded
+    by its invoking gate and must be left to its natural lifecycle.
+- Run-created final exact-HEAD physical Cycle 10 full-gate copy:
+  - `/tmp/travelback-cycle10-final-gates-copy.xnjqnp`
+  - Created empty before population for the accepted final matrix at HEAD
+    `cc720a2eaafe936ae2186d282145856d71673e3c`. It will use isolated
+    development/static/real-export ports 42730, 42731, and 42732 in that
+    strictly sequential order. Dependency installation runs in unified exec
+    session `95338` and has no listener PID. The initial final-copy lint,
+    typecheck, unit, and audit gates run in unified exec sessions `80562`,
+    `54013`, `15184`, and `35297`, respectively, with no listener PIDs. Later
+    worker parity completed directly without a retained unified session; the
+    production build runs in unified exec session `87326`, with no listener
+    PID. Static smoke used port 42731 in unified exec session `62920`; its
+    short-lived listener exited before a PID could be observed and the runner
+    completed naturally with exit 0. The full development E2E gate uses port
+    42730 in unified exec session `4105`, with observed listener PID `6154`;
+    it completed naturally with exit 0 (106 passed, 1 expected skipped), and a
+    post-exit read-only listener check confirmed that PID/port was gone.
+    The strictly subsequent full static E2E gate uses port 42731 in unified
+    exec session `62593`, with observed listener PID `66341`; it completed
+    naturally with exit 0 (106 passed, 1 expected skipped), and a post-exit
+    read-only listener check confirmed that PID/port was gone.
+    The final isolated real-MP4 static gate uses port 42732 in unified exec
+    session `66108`, with result artifacts under
+    `/tmp/travelback-cycle10-final-gates-copy.xnjqnp/test-results-final-real-export`;
+    its observed listener PID is `26964`. It completed naturally with exit 0
+    (1 passed in 3.1 minutes); the in-browser downloaded MP4 passed the explicit
+    `byteLength > 1024` assertion and exposed `ftyp` at container bytes 4–7.
+    Playwright owns the downloaded file's ephemeral path and removed it with
+    the completed browser context, so the persistent run artifact is the
+    inventoried result tree. A post-exit read-only listener check confirmed
+    that PID/port was gone.
+    Final post-check lint, typecheck, unit, audit, and worker-parity commands
+    run in unified exec sessions `59882`, `8640`, `10401`, `35067`, and
+    `97549`, respectively, with no listener PIDs; all passed (18 unit files,
+    431 tests, 0 vulnerabilities, generated worker current). No final gate
+    sessions remain active. Keep this copy and all artifacts until the loop's
+    final cleanup stop condition.
