@@ -1769,6 +1769,13 @@ test.describe('Travelback App', () => {
     await uploadGpx(page)
     await page.waitForTimeout(750)
 
+    const playbackMarker = page.locator('.maplibregl-marker')
+    await expect(playbackMarker).toHaveCount(1, { timeout: 15_000 })
+    await expect(playbackMarker).toHaveAttribute('aria-hidden', 'true')
+    await expect(playbackMarker).toHaveAttribute('role', 'presentation')
+    await expect(playbackMarker).toHaveAttribute('aria-label', '')
+    await expect(page.getByRole('button', { name: 'Map marker' })).toHaveCount(0)
+
     if (IS_STATIC_E2E) {
       await expectProductionDebugApiAbsent(page)
       await expectPublicMapReady(page)

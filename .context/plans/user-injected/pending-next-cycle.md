@@ -73,3 +73,7 @@ archived into their respective cycle implementation plans once addressed.
   - Created without deleting the first copy after its naturally terminated
     Playwright server left a `.next/dev/lock`; do not remove either copy until
     the loop's final cleanup stop condition.
+- Run-created physical Cycle 9 marker-E2E copy:
+  - `/tmp/travelback-cycle9-marker-copy.5RJg4F`
+  - Created for the post-fix decorative marker accessibility regression; keep
+    it until the loop's final cleanup stop condition.

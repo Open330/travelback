@@ -775,6 +775,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const ensureMarker = useCallback((map: maplibregl.Map, startPoint: Track['points'][number]) => {
     if (!markerEl.current) {
       markerEl.current = document.createElement('div')
+      markerEl.current.setAttribute('aria-hidden', 'true')
+      markerEl.current.setAttribute('role', 'presentation')
+      markerEl.current.setAttribute('aria-label', '')
       const wrapper = document.createElement('div')
       Object.assign(wrapper.style, { position: 'relative', width: '20px', height: '20px' })
       const pulse = document.createElement('div')
