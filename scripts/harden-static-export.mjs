@@ -22,8 +22,8 @@ const STYLE_POLICY = [
   "form-action 'self'",
   "script-src __SCRIPT_HASHES__",
   "script-src-attr 'none'",
-  "style-src 'self'",
-  "style-src-elem 'self'",
+  'style-src __STYLE_HASHES__',
+  'style-src-elem __STYLE_HASHES__',
   "style-src-attr 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' blob: data:",
@@ -81,6 +81,25 @@ function computeScriptHashes(html) {
     const scriptContent = decodeHtmlEntities(match[1])
     if (!scriptContent || scriptContent.trim() === '') continue
     const hash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
+    hashes.add(`'sha256-${hash}'`)
+  }
+
+  return [...hashes].sort()
+}
+
+/**
+ * Hash nonempty inline <style> blocks exactly as serialized. Style elements
+ * are raw-text elements, so their text is not HTML-entity decoded before the
+ * browser performs the CSP inline check.
+ */
+function computeStyleHashes(html) {
+  const hashes = new Set()
+  const stylePattern = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+
+  for (const match of html.matchAll(stylePattern)) {
+    const styleContent = match[1]
+    if (!styleContent || styleContent.trim() === '') continue
+    const hash = crypto.createHash('sha256').update(styleContent, 'utf8').digest('base64')
     hashes.add(`'sha256-${hash}'`)
   }
 
@@ -155,7 +174,11 @@ function assertStaticCspMeta(html, htmlFile) {
   }
 
   const cspMeta = decodeHtmlEntities(matches[0])
-  if (cspMeta.includes('data-travelback-csp="placeholder"') || cspMeta.includes("script-src 'self' 'unsafe-inline'")) {
+  if (
+    cspMeta.includes('data-travelback-csp="placeholder"')
+    || cspMeta.includes("script-src 'self' 'unsafe-inline'")
+    || cspMeta.includes('__STYLE_HASHES__')
+  ) {
     throw new Error(`Refusing to publish HTML with placeholder script CSP in ${htmlFile}`)
   }
 
@@ -185,7 +208,14 @@ for (const htmlFile of htmlFiles) {
     ? [`'self'`, ...hashes].join(' ')
     : "'self'"
 
-  const csp = STYLE_POLICY.replace('__SCRIPT_HASHES__', scriptSrc)
+  const styleHashes = computeStyleHashes(html)
+  const styleSrc = styleHashes.length > 0
+    ? [`'self'`, ...styleHashes].join(' ')
+    : "'self'"
+
+  const csp = STYLE_POLICY
+    .replace('__SCRIPT_HASHES__', scriptSrc)
+    .replaceAll('__STYLE_HASHES__', styleSrc)
   const nextHtml = replaceCspMeta(html, csp)
   if (nextHtml === html) {
     throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)

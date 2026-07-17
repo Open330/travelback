@@ -1,6 +1,7 @@
 import { constants } from 'node:fs'
 import { access, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createServer as createTcpServer } from 'node:net'
 
@@ -162,6 +163,14 @@ function assertStaticCspWasHardenedInHtml(html, htmlFile) {
     .replace(/&#x27;/g, "'")
     .replace(/&amp;/g, '&')
 
+  const directiveSources = (directiveName) => {
+    const directive = csp
+      .split(';')
+      .map(value => value.trim())
+      .find(value => value === directiveName || value.startsWith(`${directiveName} `))
+    return new Set(directive?.split(/\s+/).slice(1) ?? [])
+  }
+
   if (csp.includes("script-src 'self' 'unsafe-inline'")) {
     throw new Error('Static CSP still allows unsafe-inline scripts')
   }
@@ -182,8 +191,10 @@ function assertStaticCspWasHardenedInHtml(html, htmlFile) {
     throw new Error("Static CSP must keep style elements restricted to self-hosted stylesheets")
   }
 
-  if (csp.includes("style-src 'self' 'unsafe-inline'")) {
-    throw new Error('Static CSP still allows unsafe-inline in style-src')
+  const styleSources = directiveSources('style-src')
+  const styleElementSources = directiveSources('style-src-elem')
+  if (styleSources.has("'unsafe-inline'") || styleElementSources.has("'unsafe-inline'")) {
+    throw new Error('Static CSP still allows unsafe-inline style elements')
   }
 
   if (!csp.includes("style-src-attr 'unsafe-inline'")) {
@@ -209,6 +220,17 @@ function assertStaticCspWasHardenedInHtml(html, htmlFile) {
   }
   if (!csp.includes("base-uri 'none'")) {
     throw new Error("Static CSP must declare base-uri 'none'")
+  }
+
+  const inlineStylePattern = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+  for (const match of html.matchAll(inlineStylePattern)) {
+    const styleContent = match[1]
+    if (!styleContent || styleContent.trim() === '') continue
+    const hash = crypto.createHash('sha256').update(styleContent, 'utf8').digest('base64')
+    const source = `'sha256-${hash}'`
+    if (!styleSources.has(source) || !styleElementSources.has(source)) {
+      throw new Error(`Static CSP does not authorize an inline style in ${relativeFile}`)
+    }
   }
 
   const head = html.match(/<head(?:\s[^>]*)?>([\s\S]*?)<\/head>/i)
