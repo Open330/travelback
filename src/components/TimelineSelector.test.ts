@@ -69,9 +69,10 @@ async function renderTimeline(onRangeChange = vi.fn(), track = TRACK) {
   })))
 
   const timeline = container.querySelector<HTMLElement>('[data-testid="timeline-selector"] > div')
+  const selectedRegion = container.querySelector<HTMLElement>('[data-testid="timeline-selected-region"]')
   const startHandle = container.querySelector<HTMLElement>('[data-testid="timeline-start-handle"]')
   const endHandle = container.querySelector<HTMLElement>('[data-testid="timeline-end-handle"]')
-  if (!timeline || !startHandle || !endHandle) throw new Error('Missing timeline controls')
+  if (!timeline || !selectedRegion || !startHandle || !endHandle) throw new Error('Missing timeline controls')
   timeline.getBoundingClientRect = () => ({
     x: 0,
     y: 0,
@@ -84,7 +85,7 @@ async function renderTimeline(onRangeChange = vi.fn(), track = TRACK) {
     toJSON: () => ({}),
   })
   onRangeChange.mockClear()
-  return { onRangeChange, startHandle, endHandle }
+  return { onRangeChange, selectedRegion, startHandle, endHandle }
 }
 
 beforeEach(() => {
@@ -172,6 +173,12 @@ describe('clampTimelineRatios', () => {
 })
 
 describe('TimelineSelector drag lifecycle', () => {
+  it('reserves selected-region touch gestures for range dragging', async () => {
+    const { selectedRegion } = await renderTimeline()
+
+    expect(selectedRegion.style.touchAction).toBe('none')
+  })
+
   it('restores the origin and never commits a cancelled touch drag', async () => {
     const { onRangeChange, endHandle } = await renderTimeline()
 

@@ -1603,6 +1603,39 @@ test.describe('Travelback App', () => {
     }).toBeCloseTo(0.5, 1)
   })
 
+  test('touch dragging a trimmed selected region moves the active range', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await uploadGpx(page)
+    const timeline = page.getByTestId('timeline-selector')
+    const timelineBox = await timeline.boundingBox()
+    const startHandle = page.getByTestId('timeline-start-handle')
+    const endHandle = page.getByTestId('timeline-end-handle')
+    if (!timelineBox) throw new Error('Missing timeline geometry for selected-region touch test')
+
+    const dragHandleTo = async (handle: Locator, ratio: number) => {
+      const box = await handle.boundingBox()
+      if (!box) throw new Error('Missing handle geometry for selected-region touch test')
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(timelineBox.x + timelineBox.width * ratio, box.y + box.height / 2, { steps: 8 })
+      await page.mouse.up()
+    }
+
+    await dragHandleTo(endHandle, 0.75)
+    await dragHandleTo(startHandle, 0.25)
+    const beforeStart = Number(await startHandle.getAttribute('aria-valuenow'))
+    const beforeEnd = Number(await endHandle.getAttribute('aria-valuenow'))
+    const selectedRegion = page.getByTestId('timeline-selected-region')
+    await expect(selectedRegion).toHaveCSS('touch-action', 'none')
+
+    await touchDrag(page, selectedRegion, 24)
+
+    await expect.poll(async () => (
+      Number(await startHandle.getAttribute('aria-valuenow')) > beforeStart
+      && Number(await endHandle.getAttribute('aria-valuenow')) > beforeEnd
+    ), { timeout: 5_000, intervals: [100, 200, 300] }).toBe(true)
+  })
+
   test('timeline keyboard trimming updates the track without scrubbing playback', async ({ page }) => {
     await uploadGpx(page)
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })

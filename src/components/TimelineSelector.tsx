@@ -541,6 +541,7 @@ function TimelineSelector({
             backgroundColor: 'rgba(var(--gl),.08)',
             borderLeft: '2px solid rgba(var(--gl),.4)',
             borderRight: '2px solid rgba(var(--gl),.4)',
+            touchAction: 'none',
           }}
           onMouseDown={(e) => {
             e.stopPropagation()
