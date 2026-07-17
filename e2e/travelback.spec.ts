@@ -1973,6 +1973,39 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('scene-editor-status')).toContainText('Deleted Scene 1')
   })
 
+  test('scene camera-mode selects stay inside the editor panel', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await uploadGpx(page)
+    await page.getByText('Camera', { exact: true }).click({ force: true })
+
+    const panel = page.getByTestId('scene-editor-panel')
+    await panel.getByRole('button', { name: 'Cinematic' }).click()
+    await expect(panel.locator('select')).toHaveCount(6)
+
+    const expectSelectsContained = async () => {
+      const overflow = await panel.evaluate((panelElement) => {
+        const panelBox = panelElement.getBoundingClientRect()
+        return [...panelElement.querySelectorAll('select')]
+          .map((select) => {
+            const box = select.getBoundingClientRect()
+            return {
+              left: box.left - panelBox.left,
+              right: box.right - panelBox.right,
+            }
+          })
+          .filter(({ left, right }) => left < -0.5 || right > 0.5)
+      })
+      expect(overflow).toEqual([])
+    }
+
+    await expectSelectsContained()
+
+    await page.getByTestId('global-toolbar').getByRole('combobox').selectOption('ko')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(panel).toBeVisible()
+    await expectSelectsContained()
+  })
+
   test('scene delete undo preserves edits made after deletion', async ({ page }) => {
     await uploadGpx(page)
     await page.getByText('Camera', { exact: true }).click({ force: true })

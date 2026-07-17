@@ -62,3 +62,9 @@ archived into their respective cycle implementation plans once addressed.
     served by this review's own `scripts/serve-static.mjs` process on isolated
     port `48179` (unified exec session `6306`). Leave it to the bounded session
     lifecycle; do not reuse, stop, or kill it manually.
+- Run-created physical Cycle 9 focused-E2E copy:
+  - `/tmp/travelback-cycle9-focused-copy.H60PO9`
+  - Created after the primary worktree correctly refused a second Next dev
+    server because its pre-existing lock belongs to PID `80360` on reserved
+    port `3106`. Do not reuse, stop, or kill that process; all later Cycle 9
+    browser work runs from isolated copies and ports.

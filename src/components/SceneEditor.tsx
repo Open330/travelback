@@ -675,7 +675,7 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
               <span style={{ color: 'var(--t3)' }}><CameraModeIcon mode={scene.cameraMode} /></span>
               <select value={scene.cameraMode}
                 onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
-                className="vitro-select min-h-11 flex-1 px-3 py-2 text-sm">
+                className="vitro-select min-h-11 min-w-0 w-full flex-1 px-3 py-2 text-sm">
                 {MODES.map(m => (
                   <option key={m} value={m}>
                     {t(`camera.${m}` as TranslationKey)} — {t(`camera.${m}Desc` as TranslationKey)}
