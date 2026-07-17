@@ -1420,6 +1420,26 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
   })
 
+  test('mobile timeline endpoint targets stay fully inside the viewport', async ({ page }) => {
+    const viewport = { width: 390, height: 844 }
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await waitForApp(page)
+    await uploadGpx(page)
+
+    for (const handle of [
+      page.getByTestId('timeline-start-handle'),
+      page.getByTestId('timeline-end-handle'),
+    ]) {
+      const box = await handle.boundingBox()
+      if (!box) throw new Error('Missing mobile timeline handle geometry')
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+    }
+  })
+
   test('timeline trimming never collapses to a one-point track', async ({ page }) => {
     await page.locator('input[type=\"file\"]').setInputFiles(TINY_TRIM_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Tiny Trim Track')).toBeVisible({ timeout: 15_000 })

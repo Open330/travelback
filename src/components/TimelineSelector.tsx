@@ -18,7 +18,7 @@ interface TimelineSelectorProps {
 }
 
 const BUCKET_COUNT = 60
-const HANDLE_RADIUS = 14
+const HANDLE_TARGET_SIZE = 44
 const KEYBOARD_RATIO_STEP = 0.01
 const DRAG_EPSILON_PX = 0.5
 const RATIO_EPSILON = 0.000001
@@ -570,9 +570,9 @@ function TimelineSelector({
           aria-valuemax={Math.round(endRatio * 100)}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
           style={{
-            left: `calc(${startRatio * 100}% - ${HANDLE_RADIUS}px)`,
-            width: Math.max(HANDLE_RADIUS * 2, 44),
-            height: Math.max(HANDLE_RADIUS * 2 + 8, 44),
+            left: `clamp(0px, calc(${startRatio * 100}% - ${HANDLE_TARGET_SIZE / 2}px), calc(100% - ${HANDLE_TARGET_SIZE}px))`,
+            width: HANDLE_TARGET_SIZE,
+            height: HANDLE_TARGET_SIZE,
             touchAction: 'none',
           }}
           onMouseDown={(e) => {
@@ -632,9 +632,9 @@ function TimelineSelector({
           aria-valuemax={100}
           className="absolute top-1/2 -translate-y-1/2 cursor-ew-resize z-10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
           style={{
-            left: `calc(${endRatio * 100}% - ${HANDLE_RADIUS}px)`,
-            width: Math.max(HANDLE_RADIUS * 2, 44),
-            height: Math.max(HANDLE_RADIUS * 2 + 8, 44),
+            left: `clamp(0px, calc(${endRatio * 100}% - ${HANDLE_TARGET_SIZE / 2}px), calc(100% - ${HANDLE_TARGET_SIZE}px))`,
+            width: HANDLE_TARGET_SIZE,
+            height: HANDLE_TARGET_SIZE,
             touchAction: 'none',
           }}
           onMouseDown={(e) => {
