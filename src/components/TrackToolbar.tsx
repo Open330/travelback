@@ -126,6 +126,14 @@ export default function TrackToolbar({
     closeMenu()
   }
 
+  const runModalActionFromMenu = (action: () => void) => {
+    closeMenu(false)
+    requestAnimationFrame(() => {
+      menuTriggerRef.current?.focus({ preventScroll: true })
+      action()
+    })
+  }
+
   return (
     <div
       data-testid="track-toolbar"
@@ -238,7 +246,7 @@ export default function TrackToolbar({
               </button>
               <button
                     type="button"
-                onClick={() => runAndCloseMenu(onOpenImportGuide)}
+                onClick={() => runModalActionFromMenu(onOpenImportGuide)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
@@ -246,7 +254,7 @@ export default function TrackToolbar({
               </button>
               <button
                     type="button"
-                onClick={() => runAndCloseMenu(onOpenHelp)}
+                onClick={() => runModalActionFromMenu(onOpenHelp)}
                 className="gi flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >

@@ -60,6 +60,29 @@ afterEach(async () => {
 })
 
 describe('TrackToolbar Escape ownership', () => {
+  it.each([
+    ['Help', 'app.help', 'onOpenHelp'],
+    ['import guide', 'fileUpload.importGuideLink', 'onOpenImportGuide'],
+  ] as const)('establishes More as the focus owner before opening %s', async (_label, buttonText, callbackName) => {
+    let trigger: HTMLButtonElement | null = null
+    const callback = vi.fn(() => {
+      expect(document.activeElement).toBe(trigger)
+    })
+    await renderToolbar({ [callbackName]: callback })
+    trigger = container?.querySelector<HTMLButtonElement>('[aria-label="app.moreControls"]') ?? null
+    if (!trigger) throw new Error('Missing mobile menu trigger')
+    await act(() => trigger?.click())
+
+    const action = [...(container?.querySelectorAll<HTMLButtonElement>('[data-testid="track-toolbar-mobile-menu"] button') ?? [])]
+      .find((button) => button.textContent === buttonText)
+    if (!action) throw new Error(`Missing ${buttonText} action`)
+    await act(() => action.click())
+
+    expect(callback).toHaveBeenCalledOnce()
+    expect(container?.querySelector('[data-testid="track-toolbar-mobile-menu"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it('consumes mobile-menu Escape and restores its trigger', async () => {
     await renderToolbar()
     const trigger = container?.querySelector<HTMLButtonElement>('[aria-label="app.moreControls"]')

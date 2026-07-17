@@ -1504,7 +1504,21 @@ test.describe('Travelback App', () => {
     await moreControls.click()
     const mobileMenu = page.getByTestId('track-toolbar-mobile-menu')
     await mobileMenu.getByRole('button', { name: 'Help', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeVisible()
+    const mobileHelpDialog = page.getByRole('dialog', { name: 'Keyboard Shortcuts' })
+    await expect(mobileHelpDialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(mobileHelpDialog).toBeHidden()
+    await expect(moreControls).toBeFocused()
+
+    await moreControls.click()
+    await page.getByTestId('track-toolbar-mobile-menu')
+      .getByRole('button', { name: 'Need help finding your file?' })
+      .click()
+    const importGuide = page.getByRole('dialog', { name: 'How to Get Your Travel Data' })
+    await expect(importGuide).toBeVisible()
+    await importGuide.getByRole('button', { name: 'Close' }).click()
+    await expect(importGuide).toBeHidden()
+    await expect(moreControls).toBeFocused()
   })
 
   test('mobile journey creator panel stays below the top toolbar', async ({ page }) => {
