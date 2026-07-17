@@ -56,3 +56,9 @@ archived into their respective cycle implementation plans once addressed.
   - `/tmp/travelback-cycle8-gates.6rt2wr`
   - `/var/folders/kz/t1c9x6qj5zgb2sg_4lv0nh900000gn/T/next-panic-bf60c17b5b8689ba538a03942566ec45.log`
   - `/tmp/travelback-cycle8-gates-copy.UhGz9D`
+- Run-created isolated Cycle 9 UX review workspace/artifact root:
+  - `/tmp/travelback-cycle9-ux-review`
+  - Review helper context: the exact-HEAD static bundle under this root is
+    served by this review's own `scripts/serve-static.mjs` process on isolated
+    port `48179` (unified exec session `6306`). Leave it to the bounded session
+    lifecycle; do not reuse, stop, or kill it manually.

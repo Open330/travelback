@@ -2,6 +2,7 @@
 
 ## Active
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
+- `cycle9-implementation-2026-07-17.md` — Active regression-first plan for 7 Cycle 9 items covering exclusive camera transitions, responsive scene/timeline geometry, export focus continuity, truthful marker semantics, Korean map-style wording, and selected-region touch ownership; no deployment or cleanup deletion is authorized
 
 ## Completed this cycle
 
