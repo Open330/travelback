@@ -1,14 +1,5 @@
 import { describe, it, expect } from 'vitest'
-
-// We test the internal normalizeBasePath logic indirectly by importing the
-// module. Since basePath is computed at module load time from an env var
-// that vitest doesn't set, we test the normalization logic directly.
-function normalizeBasePath(value: string | undefined): string {
-  if (!value || value === '/') return ''
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  if (trimmed.includes('..')) return ''
-  return trimmed ? `/${trimmed}` : ''
-}
+import { normalizeBasePath } from './base-path.mjs'
 
 describe('normalizeBasePath', () => {
   it('returns empty for undefined', () => {
@@ -35,23 +26,22 @@ describe('normalizeBasePath', () => {
     expect(normalizeBasePath('  /travelback  ')).toBe('/travelback')
   })
 
-  it('rejects path traversal with ..', () => {
-    expect(normalizeBasePath('/foo/..')).toBe('')
-  })
-
-  it('rejects path traversal mid-path', () => {
-    expect(normalizeBasePath('/foo/../bar')).toBe('')
-  })
-
-  it('rejects bare ..', () => {
-    expect(normalizeBasePath('..')).toBe('')
-  })
-
-  it('rejects .. at start', () => {
-    expect(normalizeBasePath('../foo')).toBe('')
-  })
-
   it('accepts valid nested paths', () => {
     expect(normalizeBasePath('/a/b/c')).toBe('/a/b/c')
+  })
+
+  it('accepts literal dots inside a path segment', () => {
+    expect(normalizeBasePath('/release..candidate')).toBe('/release..candidate')
+  })
+
+  it.each(['/foo/..', '/foo/../bar', '..', '../foo', '/foo/%2e%2e/bar'])(
+    'rejects traversal segment %s',
+    (value) => {
+      expect(() => normalizeBasePath(value)).toThrow(/segments are not allowed/)
+    },
+  )
+
+  it('rejects malformed percent-encoding explicitly', () => {
+    expect(() => normalizeBasePath('/release%2')).toThrow(/malformed percent-encoding/)
   })
 })

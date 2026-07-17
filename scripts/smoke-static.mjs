@@ -4,16 +4,11 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createServer as createTcpServer } from 'node:net'
+import { normalizeBasePath } from '../src/lib/base-path.mjs'
 
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
 const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.omx', '.claude', '.codex', '.git'])
-
-function normalizeBasePath(value) {
-  if (!value || value === '/') return ''
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : ''
-}
 
 const basePath = normalizeBasePath(process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback')
 

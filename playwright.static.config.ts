@@ -1,13 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
+import { normalizeBasePath } from './src/lib/base-path.mjs'
 
 const PORT = Number(process.env.PLAYWRIGHT_STATIC_PORT ?? '4173')
 const RAW_BASE_PATH = process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback'
-
-function normalizeBasePath(value: string): string {
-  if (!value || value === '/') return ''
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : ''
-}
 
 const BASE_PATH = normalizeBasePath(RAW_BASE_PATH)
 const BASE_URL_PATH = BASE_PATH ? `${BASE_PATH}/` : '/'

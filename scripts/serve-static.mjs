@@ -3,6 +3,7 @@ import { constants } from 'node:fs'
 import { createReadStream } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { normalizeBasePath } from '../src/lib/base-path.mjs'
 
 const args = process.argv.slice(2)
 
@@ -10,12 +11,6 @@ function readArg(name, fallback) {
   const index = args.indexOf(`--${name}`)
   if (index === -1) return fallback
   return args[index + 1] ?? fallback
-}
-
-function normalizeBasePath(value) {
-  if (!value || value === '/') return '/'
-  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : '/'
 }
 
 function isInside(parent, child) {
@@ -27,7 +22,7 @@ const port = Number(readArg('port', process.env.PORT ?? '3000'))
 const basePath = normalizeBasePath(readArg(
   'base-path',
   process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback',
-))
+)) || '/'
 
 if (!Number.isInteger(port) || port <= 0) {
   console.error(`[serve-static] Invalid port: ${port}`)

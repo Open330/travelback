@@ -1,16 +1,9 @@
 import type { NextConfig } from 'next'
-
-function normalizeBasePath(value: string | undefined, fallback: string): string {
-  const raw = value ?? fallback
-  if (!raw || raw === '/') return ''
-  const trimmed = raw.trim().replace(/^\/+/, '').replace(/\/+$/, '')
-  return trimmed ? `/${trimmed}` : ''
-}
+import { normalizeBasePath } from './src/lib/base-path.mjs'
 
 const defaultBasePath = process.env.NODE_ENV === 'production' ? '/travelback' : ''
 const basePath = normalizeBasePath(
-  process.env.TRAVELBACK_BASE_PATH ?? process.env.NEXT_PUBLIC_BASE_PATH,
-  defaultBasePath,
+  process.env.TRAVELBACK_BASE_PATH ?? process.env.NEXT_PUBLIC_BASE_PATH ?? defaultBasePath,
 )
 
 const nextConfig: NextConfig = {
