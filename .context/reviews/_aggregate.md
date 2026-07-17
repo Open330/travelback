@@ -1,30 +1,35 @@
-# Aggregate Review — Travelback (Cycle 11, 2026-07-17)
+# Aggregate Review — Travelback (Cycle 12, 2026-07-17)
 
 ## Outcome
 
-All twelve required role reviews completed against `7273d464fdce24fc06350ce1444c3a2e8d26829d`, were read independently, and produced their canonical artifacts. Cross-report and historical deduplication retained **3 genuinely new Medium/High roots** plus **1 Medium/High reopened incomplete edge** of Cycle 2 `AG2-02/P04`. No fresh performance or security root survived the final sweep. Prompt 2 must cover all four actionable items without relabeling the reopened edge as new.
+Exactly two source-only reviewer artifacts completed against
+`d62b13ce3f7b89aefe71fbc2ad6bf0b3fbc0d789`, covering all twelve requested
+roles plus Mina. Both artifacts were read in full. Independent source tracing
+and historical deduplication retained **2 genuinely new Medium/High roots**
+plus **4 Medium/High reopened or incomplete historical edges**. Prompt 2 must
+cover all six actionable items without relabeling the four historical edges as
+new.
 
-Fresh exact-HEAD evidence:
-
-- A physical exact-HEAD review copy installed dependencies, passed generated-worker parity and a production build, and served the static app from a bounded isolated listener. The primary worktree's pre-existing dependency tree was incomplete, so no fresh primary lint/type/unit/full-Playwright claim is made. Cycle 10's accepted matrix applies to identical application code at `cc720a2` only as historical provenance.
-- Live desktop reproduction proved that two valid Journey points can become one or zero behind the confirmation card while Create remains enabled. The resulting workspaces settled at `1 / 1 locations` or `0 / 0 locations`; the latter had no hydrated track layers but did **not** immediately crash.
-- In a clean session, opening Camera left focus on the Camera button; after Escape the result was `{ panel: true, focus: 'Camera' }`, contradicting the advertised panel-close shortcut.
-- Unsupported input followed by a successful sample left the prior red rejection alert visible over the loaded Namsan workspace. A separate held-sample plus newer unsupported-drop probe showed the older sample still wins, confirming the incomplete Cycle 2 edge.
-- At 393×852, landing/workspace width stayed within the document, primary controls remained visible, playback and active seek advanced, and the locally stubbed export result used truthful `Video ready` copy. This is not physical-iOS, real-codec, save-picker, or external-share evidence.
+No browser, Playwright, server, build, test suite, or long-lived process was
+started during Prompt 1. The accepted Cycle 11 matrix remains historical
+evidence only. Current source and the existing generated static output were
+inspected read-only; implementation and runtime validation belong to Prompt 3.
 
 ## New actionable findings
 
 | ID | Severity / confidence | Evidence | Finding and required outcome |
 | --- | --- | --- | --- |
-| AG11-01 | Medium / High | `src/components/JourneyCreator.tsx:336-369,705-721,925-962`; `src/app/page.tsx:196-210,332-347,409-412`; CR/ARCH/DEBUG/TRACE/CRITIC/VR/TE/DESIGN/Mina; live exact-HEAD Journey probe | **Journey confirmation validates one route and can commit a later zero/one-point route.** Make confirmation own a stable valid draft or invalidate it when live editing drops below two points; disable Create, provide localized feedback, revalidate at commit, and pass a copied waypoint array. Add component and browser regressions that mutate between Done and Create and prove no invalid Track reaches the workspace. |
-| AG11-02 | Medium / High | `src/lib/usePlaybackController.ts:189-249`; `src/app/page.tsx:237-259`; `src/components/KeyboardHelp.tsx:43-50`; all correctness/experience roles; live focused-Camera probe | **The interactive-target guard returns before Escape dispatch, so the advertised nonmodal panel-close command is unreachable from ordinary focused controls.** Resolve Escape before playback-only suppression while preserving export/modal/menu ownership. Assert SceneEditor becomes hidden from its trigger and representative input/select/button/slider focus; strengthen the misleading KML E2E comment with a terminal assertion. |
-| AG11-03 | Medium / High | `src/components/FileUpload.tsx:23-27,64-80,161-190,219-244`; `src/app/page.tsx:414-447,603-611`; CRITIC/VR/TE/DOC/DESIGN/Mina; live unsupported-input → sample probe | **A successful sample leaves FileUpload's previous rejected-file alert visible indefinitely.** Clear child-owned rejection state whenever a newer valid sample/import intent starts or succeeds, keep the alert tied to its owning intent, and add a composed component/browser regression that requires loaded success to contain no stale alert. |
+| AG12-01 | Medium / High | `src/app/page.tsx:487-523`; `src/components/SceneEditor.tsx:356-490,591-603,857-864`; `src/components/MapView.tsx:406-451,1147-1223`; reviewer A; independent dependency trace | **Committed scene changes do not refresh a paused map pose.** MapView updates scene refs and clears its previous-camera cache, but its camera effect is not keyed by scenes or a committed-scene revision. Mode, preset, add/delete, range, and transition changes can therefore leave the visible paused map on the old pose while playback/export uses the new scenes. Add one committed-current-pose refresh boundary that preserves temporary parameter preview, plus component/browser coverage at stationary progress. |
+| AG12-02 | Medium / High | `src/components/MapView.tsx:99-135,897-899`; parser coordinate guards and boundary regression; MapLibre `LngLat` validation; reviewer A; independent source validation | **Degenerate pole-adjacent tracks create invalid fit-bounds latitudes.** The accepted latitude domain includes ±90, but the fixed ±0.1° degenerate padding can extend past it and throw before `fitBounds`. Clamp latitude padding and make it inward/asymmetric at a pole while preserving shifted-longitude antimeridian behavior. Extract a pure bounds contract and test ±90 plus near-pole coincident points. |
 
 ## Reopened confirmed historical gaps
 
 | ID | Current severity / confidence | Historical provenance | Required outcome |
 | --- | --- | --- | --- |
-| R11-01 | Medium / High | Cycle 2 `AG2-02/P04` created the page-owned generation/AbortController boundary, but its tests covered valid import and manual Journey replacement rather than child-local rejection; current sources `src/components/FileUpload.tsx:64-66,126-140`, `src/app/page.tsx:145-156,414-447,603-610` | **An unsupported drop returns before `onImportStart`, so a previously held sample remains current and later overwrites the newer rejected-drop intent.** Notify the page owner before extension preflight (or remove the duplicate child preflight), preserve parser authority, and add a deterministic held-sample plus unsupported DragEvent regression that proves the stale sample never installs. |
+| R12-01 | Medium / High | Cycle 7 `P03` explicitly required mobile More → Help focus restoration, but the browser case asserted opening only; `src/components/TrackToolbar.tsx:72-77,124-127,207-254`; `src/components/ModalDialog.tsx:93-166`; reviewer B | **A modal launched from mobile More loses the More trigger as its return-focus owner.** The action opens the parent modal in the same batch that removes the focused menu item; ModalDialog captures focus only after that removal. Establish More as the opener before Help/import-guide opens, and assert both modal close paths restore it. |
+| R12-02 | Medium / High | Cycle 9 `AG9-03/P05` required success, cancellation, and opener focus continuity, but covered only idle → rendering and success; `src/components/ExportPanel.tsx:256-307,371-513`; reviewer B | **Export cancellation or failure removes the focused Cancel button without handing focus to the still-open idle panel.** Add an exporting → idle focus transfer to a stable panel target, preserve success and opener restoration, and cover cancellation plus keyboard containment. |
+| R12-03 | Medium / High | Cycle 11 `R11-01/P04` required `onImportStart` exactly once for every newer file intent; the older loading guard at `src/components/FileUpload.tsx:165-169` still bypasses the unified abort/generation owner; reviewer A | **A newer drop during an in-flight parse is silently ignored, allowing the older file to win.** Let a drop replace the active parse through the existing generation/AbortController protocol, keep the native picker disabled, and prove parse A aborts/stales while B alone completes. |
+| R12-04 | Medium / High | Cycle 1 `P05` required strict production style CSP while allowing Next development styles, but smoke only checks policy strings; `scripts/harden-static-export.mjs:18-31,71-86,177-191`; `scripts/smoke-static.mjs:149-222`; existing `out/404.html` and `out/_not-found.html` each contain one nonempty inline style | **The hardened static CSP blocks Next's own inline 404-page style.** `style-src` and `style-src-elem` contain only `'self'`, while the hardener hashes scripts only. Compute deterministic hashes for every nonempty inline style, authorize them in both style directives without `unsafe-inline`, and make static smoke verify that every inline style is covered. |
 
 ## Formal manual-validation items
 
@@ -51,10 +56,29 @@ Fresh exact-HEAD evidence:
 
 ## Cross-review agreement and rejected hypotheses
 
-All six core roles converged on AG11-01, AG11-02, and R11-01; performance and security correctly retained those as non-performance/non-security product failures. Critic, verifier, test engineer, designer, and the non-technical traveler independently converged on all four current failures, while documentation confirmed the three fresh user-facing contracts. AG11-03 was retained after the main agent independently traced FileUpload's local `error` ownership, inspected the live capture, and found no matching historical aggregate/plan.
+Reviewer A supplied the three application/data-path candidates; reviewer B
+supplied the two focus-lifecycle candidates. The main agent independently
+validated all five causes against the current source, added R12-04 from a
+separate CSP/output trace, and searched historical plans/reviews before
+classification. AG12-01 and AG12-02 have no matching owned historical exit.
+R12-01 through R12-04 each map to explicit older acceptance language and are
+therefore reopened/incomplete edges, not fresh roots.
 
-The initial zero-point ErrorBoundary hypothesis was rejected: exact live evidence stayed mounted at `0 / 0 locations`, and `MapView.hydrateCurrentStyle` returns before layer hydration when cumulative distances are empty. `/tmp/cycle11-empty-track-crash.png`, `/tmp/cycle11-journey-confirm-one-point.png`, and `/tmp/cycle11-one-point-workspace.png` are provenance-only because their filenames or timing overstate their visible state; the aggregate relies on the exact DOM probes plus `/tmp/cycle11-one-point-workspace-confirmed.png` and `/tmp/cycle11-empty-track-after-settle.png`. Chromium's zero safe-area inset and the localhost export stub were not misrepresented as physical-iOS or real-MP4/save/share proof.
+The broad historical `style-src-attr 'unsafe-inline'` debt was not relabeled:
+R12-04 concerns blocked `<style>` elements on generated error pages, while
+legacy React style attributes remain isolated under their existing policy.
+The fixed loading-time no-op was likewise not called a new parser race; only
+the unreconciled Cycle 11 replacement contract is reopened. Uppercase extension
+warnings, confirmation search polish, generic scene-performance concerns, and
+older antimeridian padding discussion did not establish additional current
+actionable roots.
 
 ## Agent, process, and cleanup notes
 
-All twelve Cycle 11 artifacts completed and were read before this aggregate. The durable inventory in `.context/plans/user-injected/pending-next-cycle.md` records the physical exact-HEAD review copy, dependency/build sessions, bounded server/port/PID, browser sessions, provenance lists, accessibility snapshot, and every visual capture. Two desktop browser sessions became nonresponsive and were left untouched; clean replacement sessions produced the terminal evidence. The 30-minute server wrapper exited naturally, and a read-only check found neither PID `62893` nor a listener on port `43117`. No temporary path, process, browser session, pre-existing server, or reserved port was stopped, killed, reused, or deleted. The user's final-cleanup instruction remains open for the loop's final stop condition. No deployment, workflow edit/dispatch, production mutation, external communication, or publication occurred.
+Both source-only artifacts completed and were read before this aggregate. The
+reviewers used no browser, server, Playwright, build, test suite, temporary
+copy, child agent, commit, or push. Prompt 1 created no process/session/port
+inventory and stopped or killed nothing. The user's final-cleanup instruction
+remains open for the loop's final stop condition. No deployment, workflow
+edit/dispatch, production mutation, external communication, or publication
+occurred.
