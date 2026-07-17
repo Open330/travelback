@@ -68,3 +68,8 @@ archived into their respective cycle implementation plans once addressed.
     server because its pre-existing lock belongs to PID `80360` on reserved
     port `3106`. Do not reuse, stop, or kill that process; all later Cycle 9
     browser work runs from isolated copies and ports.
+- Run-created replacement physical Cycle 9 focused-E2E copy:
+  - `/tmp/travelback-cycle9-focused-copy2.CRIVQB`
+  - Created without deleting the first copy after its naturally terminated
+    Playwright server left a `.next/dev/lock`; do not remove either copy until
+    the loop's final cleanup stop condition.

@@ -130,3 +130,38 @@ describe('ExportPanel ready state', () => {
     expect(document.body.textContent).not.toContain('export.tipTikTok')
   })
 })
+
+describe('ExportPanel rendering focus', () => {
+  it('moves focus to cancel when rendering replaces the idle form', async () => {
+    const onClose = vi.fn()
+    const onExport = vi.fn()
+    const onResetExport = vi.fn()
+    const onCancelExport = vi.fn()
+    await renderExportPanel(onClose, { onExport, onResetExport, onCancelExport })
+    await vi.waitFor(() => expect(isCodecSupported).toHaveBeenCalledTimes(3))
+
+    const startButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('export.startExport'))
+    if (!startButton) throw new Error('Missing Start Export button')
+    startButton.focus()
+    expect(document.activeElement).toBe(startButton)
+
+    await act(async () => {
+      root?.render(createElement(ExportPanel, {
+        isOpen: true,
+        onClose,
+        onExport,
+        isExporting: true,
+        exportProgress: 0.25,
+        exportState: 'exporting',
+        onResetExport,
+        onCancelExport,
+      }))
+      await Promise.resolve()
+    })
+
+    const cancelButton = document.querySelector<HTMLButtonElement>('button[aria-label="app.cancelExportAria"]')
+    if (!cancelButton) throw new Error('Missing Cancel Export button')
+    expect(document.activeElement).toBe(cancelButton)
+  })
+})

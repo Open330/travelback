@@ -82,6 +82,7 @@ export default function ExportPanel({
   const [fps, setFps] = useState(30)
   const [duration, setDuration] = useState(playbackDuration ?? 30)
   const panelOpenedRef = useRef(false)
+  const cancelExportButtonRef = useRef<HTMLButtonElement>(null)
   const successHeadingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (isOpen) {
@@ -240,6 +241,15 @@ export default function ExportPanel({
   }, [])
 
   useEffect(() => {
+    if (!isOpen || !isExporting) return
+
+    const frame = requestAnimationFrame(() => {
+      cancelExportButtonRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [isExporting, isOpen])
+
+  useEffect(() => {
     if (!isOpen || exportState !== 'done') return
 
     const frame = requestAnimationFrame(() => {
@@ -368,6 +378,7 @@ export default function ExportPanel({
               )
             })()}
             <button
+              ref={cancelExportButtonRef}
               type="button"
               onClick={onCancelExport}
               aria-label={t('app.cancelExportAria')}

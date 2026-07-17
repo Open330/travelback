@@ -2525,13 +2525,36 @@ test.describe('Travelback App', () => {
   })
 
   test('export panel can complete the local export path', async ({ page }) => {
-    await page.evaluate(() => window.localStorage.setItem('travelback-export-test-stub', '1'))
+    await page.evaluate(() => {
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      const testWindow = window as Window & { releaseExportPicker?: () => void }
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: () => new Promise((resolve) => {
+          testWindow.releaseExportPicker = () => resolve({
+            createWritable: async () => ({
+              write: async () => undefined,
+              close: async () => undefined,
+            }),
+          })
+        }),
+      })
+    })
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
 
     const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
     await expect(exportPanel).toBeVisible()
-    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    const startExport = exportPanel.getByRole('button', { name: 'Start Export' })
+    await startExport.focus()
+    await startExport.click({ force: true })
+    const cancelExport = exportPanel.getByRole('button', { name: 'Cancel export' })
+    await expect(cancelExport).toBeVisible()
+    await expect(cancelExport).toBeFocused()
+    await page.evaluate(() => {
+      const testWindow = window as Window & { releaseExportPicker?: () => void }
+      testWindow.releaseExportPicker?.()
+    })
     const successHeading = exportPanel.getByRole('heading', { name: /Video (ready|saved)!?/ })
     await expect(successHeading).toBeVisible({ timeout: 15_000 })
     await expect(successHeading).toBeFocused()
