@@ -27,8 +27,10 @@
 
   --ok: #10B981;
   --err: #F43F5E;
+  --err-fg: #BE123C;
   --err-rgb: 244, 63, 94;
   --warn: #F59E0B;
+  --warn-fg: #92400E;
   --wrn: #F59E0B;
   --info: #0EA5E9;
 
@@ -311,6 +313,8 @@ body {
   --bg2: #101420;
   --upload-overlay: rgba(0, 0, 0, .52);
   --gc-solid-bg: rgba(10, 13, 20, .92);
+  --err-fg: #FB7185;
+  --warn-fg: #F59E0B;
 
   --t1: #FFFFFF;
   --t2: #D8E0F4;

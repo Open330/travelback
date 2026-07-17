@@ -704,7 +704,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
           {normalizationWarnings.length > 0 && (
             <div className="mt-1 space-y-0.5">
               {renderedNormalizationWarnings.map((w, i) => (
-                <p key={i} className="text-[10px]" style={{ color: 'var(--warn)' }}>⚠ {w}</p>
+                <p key={i} className="text-[10px]" style={{ color: 'var(--warn-fg)' }}>⚠ {w}</p>
               ))}
             </div>
           )}

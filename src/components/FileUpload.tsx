@@ -198,7 +198,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
           />
         </button>
         {errorText && (
-          <div role="alert" className="gc max-w-full px-3 py-2 text-xs shadow-lg" style={{ color: 'var(--err)', borderRadius: '10px' }}>
+          <div role="alert" className="gc max-w-full px-3 py-2 text-xs shadow-lg" style={{ color: 'var(--err-fg)', borderRadius: '10px' }}>
             {errorText}
           </div>
         )}
@@ -331,7 +331,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
           </div>
         )}
         {errorText && (
-          <div className="mt-4 space-y-2 text-sm" style={{ color: 'var(--err)' }}>
+          <div className="mt-4 space-y-2 text-sm" style={{ color: 'var(--err-fg)' }}>
             <p role="alert">{errorText}</p>
             {onShowGoogleGuide && (
               <button

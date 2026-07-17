@@ -879,7 +879,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 {t('journey.searchPrivacy')}
               </p>
               {searchError && (
-                <p id="journey-search-error" role="alert" className="mt-1 text-[10px]" style={{ color: 'var(--err)' }}>
+                <p id="journey-search-error" role="alert" className="mt-1 text-[10px]" style={{ color: 'var(--err-fg)' }}>
                   {t(searchError)}
                 </p>
             )}

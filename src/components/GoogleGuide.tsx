@@ -382,7 +382,7 @@ export default function GoogleGuide({ isOpen, onClose }: GoogleGuideProps) {
           </div>
 
           <div className="gi p-4" style={{ borderRadius: '10px', borderLeft: '3px solid var(--warn)' }}>
-            <p className="mb-2 text-sm font-semibold" style={{ color: 'var(--warn)' }}>
+            <p className="mb-2 text-sm font-semibold" style={{ color: 'var(--warn-fg)' }}>
               {t('google.tips')}
             </p>
             <ul className="space-y-1">

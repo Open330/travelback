@@ -375,7 +375,7 @@ export default function ExportPanel({
                 </button>
               )}
               {shareError && (
-                <p role="alert" className="col-span-full text-xs" style={{ color: 'var(--warn)' }}>
+                <p role="alert" className="col-span-full text-xs" style={{ color: 'var(--warn-fg)' }}>
                   {t('export.shareFailed')}
                 </p>
               )}
@@ -498,12 +498,12 @@ export default function ExportPanel({
               {' '}· ~{estimatedOutputMb.toFixed(0)} MB · ~{estimatedMemoryMb.toFixed(0)} MB {t('export.browserMemory')}
             </p>
             {exportTooLarge && (
-              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>
+              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn-fg)' }}>
                 {t('export.tooLarge')}
               </p>
             )}
             {codecUnavailable && (
-              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn)' }}>
+              <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn-fg)' }}>
                 {t('export.codecUnavailable')}
               </p>
             )}
