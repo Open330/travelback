@@ -6,6 +6,9 @@
 /** Maximum number of track points allowed in a single track */
 export const MAX_TRACK_POINTS = 250_000
 
+/** Maximum retained GPX/KML display-name length, measured in Unicode code points. */
+export const MAX_TRACK_NAME_CODE_POINTS = 256
+
 const MEBIBYTE = 1024 * 1024
 
 export type ImportSizeKind = 'json' | 'xml'
@@ -81,6 +84,25 @@ export function parseOptionalDate(value: unknown): Date | undefined {
   }
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
+/** Canonicalize an imported XML display name without splitting surrogate pairs. */
+export function normalizeImportedTrackName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const normalized = value
+    .replace(/[\u0000-\u001F\u007F-\u009F]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+  if (normalized.length === 0) return undefined
+
+  let bounded = ''
+  let codePointCount = 0
+  for (const codePoint of normalized) {
+    if (codePointCount >= MAX_TRACK_NAME_CODE_POINTS) break
+    bounded += codePoint
+    codePointCount++
+  }
+  return bounded.trimEnd()
 }
 
 /** Throw ParseError if adding nextCount points would exceed the track point budget */

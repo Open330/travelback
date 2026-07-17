@@ -14,7 +14,7 @@ import {
   parseGoogleLocationHistoryInWorkerBuffer,
   parseTrackFile,
 } from './parser'
-import { parseOptionalDate, parseOptionalNumber } from './parse-utils'
+import { MAX_TRACK_NAME_CODE_POINTS, parseOptionalDate, parseOptionalNumber } from './parse-utils'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -1027,6 +1027,43 @@ describe('parseKML — DOCTYPE rejection', () => {
     }
   })
 })
+
+const exactBoundaryXmlName = '界'.repeat(MAX_TRACK_NAME_CODE_POINTS)
+const overLimitXmlName = '😀'.repeat(MAX_TRACK_NAME_CODE_POINTS + 1)
+const xmlDisplayNameCases = [
+  { caseName: 'blank', sourceName: ' \n\t ', expectedName: undefined },
+  { caseName: 'whitespace and controls', sourceName: '  Silk&#x9;   Road&#xA; Route  ', expectedName: 'Silk Road Route' },
+  { caseName: 'the exact boundary', sourceName: exactBoundaryXmlName, expectedName: exactBoundaryXmlName },
+  { caseName: 'an over-limit emoji value', sourceName: overLimitXmlName, expectedName: '😀'.repeat(MAX_TRACK_NAME_CODE_POINTS) },
+  { caseName: 'ordinary CJK text', sourceName: '서울에서 東京까지', expectedName: '서울에서 東京까지' },
+  { caseName: 'ordinary emoji text', sourceName: '🚲🌏 route', expectedName: '🚲🌏 route' },
+] as const
+
+const xmlNameFormats = [
+  {
+    format: 'GPX',
+    fallbackName: 'GPX Track',
+    parse: parseGPX,
+    document: (name: string) => `<gpx><trk><name>${name}</name><trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg></trk></gpx>`,
+  },
+  {
+    format: 'KML',
+    fallbackName: 'KML Track',
+    parse: parseKML,
+    document: (name: string) => `<kml><Document><name>${name}</name><Placemark><LineString><coordinates>-122.1,37.4,0</coordinates></LineString></Placemark></Document></kml>`,
+  },
+] as const
+
+for (const format of xmlNameFormats) {
+  describe(`parse${format.format} — display name canonicalization`, () => {
+    it.each(xmlDisplayNameCases)('handles $caseName', ({ sourceName, expectedName }) => {
+      const track = format.parse(format.document(sourceName))
+
+      expect(track.name).toBe(expectedName ?? format.fallbackName)
+      expect(Array.from(track.name).length).toBeLessThanOrEqual(MAX_TRACK_NAME_CODE_POINTS)
+    })
+  })
+}
 
 describe('parseGoogleLocationHistory — additional edge cases', () => {
   it('handles empty object', () => {

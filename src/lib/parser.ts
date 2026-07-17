@@ -12,6 +12,7 @@ import {
   JSON_MAX_FILE_SIZE,
   IMPORT_SIZE_POLICY,
   getImportSizePolicy,
+  normalizeImportedTrackName,
 } from '@/lib/parse-utils'
 import {
   parseGoogleLocationHistory as parseGoogleLocationHistoryCore,
@@ -211,8 +212,8 @@ export function parseGPX(text: string): Track {
         return acc
       }, { points: [], segmentStartIndices: [] })
     : extractPointsFromGeoJSON(gpx(doc) as GeoJSON.FeatureCollection)
-  const name = doc.querySelector('trk > name')?.textContent
-    ?? doc.querySelector('metadata > name')?.textContent
+  const name = normalizeImportedTrackName(doc.querySelector('trk > name')?.textContent)
+    ?? normalizeImportedTrackName(doc.querySelector('metadata > name')?.textContent)
     ?? 'GPX Track'
   return {
     name,
@@ -225,8 +226,8 @@ export function parseKML(text: string): Track {
   const doc = parseXml(text, 'KML')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
-  const name = doc.querySelector('Document > name')?.textContent
-    ?? doc.querySelector('Placemark > name')?.textContent
+  const name = normalizeImportedTrackName(doc.querySelector('Document > name')?.textContent)
+    ?? normalizeImportedTrackName(doc.querySelector('Placemark > name')?.textContent)
     ?? 'KML Track'
   return {
     name,
