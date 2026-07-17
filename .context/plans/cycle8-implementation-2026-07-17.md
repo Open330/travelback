@@ -70,7 +70,7 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 - Work: when immediate track hydration cannot complete, listen for revision-owned `style.load`, `styledata`, and `idle` events and retry until `hydrateCurrentStyle` succeeds. Remove all listeners on success, stale revision, dependency cleanup, or unmount. Replace the scene-camera fixed delay with `waitForDebugPose` in development/public readiness in static output, and exercise a full-track Simple Flyover scene so load cannot move sampling outside the authored range.
 - Acceptance: uploading while the local style is transiently not ready still attaches route/trail/marker state and initializes the track camera; stale style callbacks cannot hydrate a superseded revision; the scene-camera motion regression passes retries-disabled without weakening movement or smoothness thresholds.
 - Focused verification: retries-disabled scene-camera E2E, related route/map readiness cases, lint, typecheck, and diff check.
-- Status: Root repair complete; the readiness-gated scene case and the 3-case route/map/camera set pass retries-disabled, with lint, typecheck, and diff check green. Pending signed commit and complete final matrix.
+- Status: Completed in `df1955b`; the readiness-gated scene case and the 3-case route/map/camera set passed retries-disabled, with lint, typecheck, and diff check green. Both complete development and production-static matrices then passed the repaired scene-camera case in full-suite order without a retry.
 
 ## Carried-forward blocked work
 
@@ -127,6 +127,17 @@ Implement every authorized Cycle 8 finding without deployment, preserve the know
 8. `npm run test:e2e:static:ci`.
 9. Production-static real-MP4 smoke with `TRAVELBACK_REAL_EXPORT=1`, retries disabled, output >1 KiB, and `ftyp` asserted.
 
+## Final verification record
+
+- Exact code gate HEAD: `df1955b` in the physical validation mirror `/tmp/travelback-cycle8-gates-copy.UhGz9D`; the earlier symlinked mirror and its Next panic log remain inventoried for final cleanup rather than being deleted during the loop.
+- Static analysis and unit gates: lint and typecheck passed; Vitest passed 17 files / 400 tests; `npm audit --audit-level=high` reported 0 vulnerabilities; generated-worker parity passed.
+- Production build and smoke: Next 16.2.10 compiled and typechecked, generated all 4 static pages, hardened CSP in 3 HTML files, and passed `smoke:static`.
+- Development E2E: 98 passed, 1 intentionally disabled real-export case skipped, 0 failed, and 0 retried in 30.1 minutes on isolated port 42187.
+- Production-static E2E: `smoke:static` passed, then 98 passed, 1 intentionally disabled real-export case skipped, 0 failed, and 0 retried in 27.7 minutes on isolated port 42188.
+- Real production-static export: with `TRAVELBACK_REAL_EXPORT=1`, static targeting, one worker, and `--retries=0`, the WebCodecs test passed 1/1 in the original 2.6-minute run and a warning-free 2.8-minute confirmation. The test downloaded the MP4, asserted more than 1 KiB, and asserted bytes 4-7 were `ftyp`.
+- Gate-driven repair count: 1. The first complete development gate reproducibly exposed AG8-05; the root lifecycle repair was committed in `df1955b`, and every final exact-HEAD gate passed afterward.
+- No deployment, workflow edit or dispatch, production mutation, process stop, deletion, or interaction with ports 3114/3106 occurred. B01-B04 and D01-D04 retain their exact exit criteria, and U-2026-07-17-01 deliberately remains incomplete for the loop's final stop condition.
+
 ## Completion gate
 
-Pending. Complete only after P01-P05, all focused regressions, the full configured gate matrix, and the clean retries-disabled real-MP4 smoke pass on the named review branch. Preserve B01-B04 and D01-D04 with their exact exit criteria; final cleanup remains deliberately incomplete until the loop's final stop condition.
+Completed. P01-P05, every focused regression, the full configured gate matrix, and the clean retries-disabled real-MP4 smoke passed on `codex/review-plan-fix-2026-07-16`. B01-B04 and D01-D04 remain preserved with their exact exit criteria; final cleanup remains deliberately incomplete until the loop's final stop condition.

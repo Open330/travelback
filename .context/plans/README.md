@@ -1,11 +1,11 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle8-implementation-2026-07-17.md` — Implement the 5 Cycle 8 findings covering untimed revisit preservation, bounded post-drag suppression, deterministic locale hydration, reviewed Spanish copy, and gate-discovered map hydration readiness; full gates and final-cleanup retention required
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
 
+- `cycle8-implementation-2026-07-17.md` — Completed all 5 findings covering untimed revisit preservation, bounded post-drag suppression, deterministic locale hydration, reviewed Spanish copy, and gate-discovered map hydration readiness; all configured gates and the clean retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle7-implementation-2026-07-17.md` — Completed all 9 findings covering partial-timestamp order, elevation gaps, Help hit ownership, segmented focus, timeline date announcements, opaque scene interpolation, localized guide art, centralized import-size policy, and the stale Next maintenance note; all configured gates and the clean retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle6-implementation-2026-07-17.md` — Completed all 5 actionable findings covering manual-camera Retry handoff, non-overlapping timeline controls, localized scene corrections, warning-free FileUpload settlement, and accurate legacy Takeout guidance; all eight configured gates and the retries-disabled real-MP4 smoke passed; no deployment or cleanup deletion occurred
 - `cycle5-implementation-2026-07-16.md` — Completed all 5 actionable findings covering style-ready pose hydration, deterministic Journey readiness, attribution geometry and accessibility, live-status localization, and safe reviewer E2E guidance; all eight configured gates and the real-MP4 smoke passed; four blocked/evidence-gated items and four measured performance deferrals retain explicit exit criteria; no deployment occurred
