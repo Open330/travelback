@@ -537,10 +537,75 @@ export function computeCameraForProgress(
     return computeDefaultFollowCamera(track, cumulDist, globalProgress)
   }
 
-  // Find which scene contains globalProgress
+  // Give each pair-owned interval one resolver before ordinary scene lookup.
+  // This prevents both neighboring scenes from replaying the same transition.
+  const hasTransition = Number.isFinite(transitionDuration) && transitionDuration > 0
+  for (let i = 0; i < normalizedScenes.length - 1; i++) {
+    const previousScene = normalizedScenes[i]
+    const nextScene = normalizedScenes[i + 1]
+    const previousDuration = previousScene.endPercent - previousScene.startPercent
+    const nextDuration = nextScene.endPercent - nextScene.startPercent
+    const boundary = previousScene.endPercent
+    const nextStart = nextScene.startPercent
+
+    if (nextStart > boundary) {
+      if (globalProgress < boundary || globalProgress > nextStart) continue
+
+      // A real gap owns its complete interval. Stable elapsed-zero endpoint
+      // cameras keep rotation modes from turning the interpolation targets.
+      const gapT = (globalProgress - boundary) / (nextStart - boundary)
+      const previousCamera = computeCameraForScene(track, cumulDist, previousScene, 1, 0)
+      const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0, 0)
+      return lerpCamera(previousCamera, nextCamera, clampUnit(gapT, 0))
+    }
+
+    if (!hasTransition || nextStart !== boundary) continue
+
+    const halfWidth = Math.min(
+      transitionDuration / 2,
+      previousDuration / 2,
+      nextDuration / 2,
+    )
+    if (!(halfWidth > 0)) continue
+
+    const windowStart = boundary - halfWidth
+    const windowEnd = boundary + halfWidth
+    if (globalProgress < windowStart || globalProgress >= windowEnd) continue
+
+    // Extrapolated local progress maps both moving-mode centers back to the
+    // current global progress. Taper only rotation time toward zero at the
+    // shared boundary, then restore it at the far edge, so the boundary has
+    // stable anchors without freezing or snapping at either window edge.
+    const previousLocalProgress = (globalProgress - previousScene.startPercent) / previousDuration
+    const nextLocalProgress = (globalProgress - nextScene.startPercent) / nextDuration
+    const previousElapsed = elapsedSec * clampUnit((boundary - globalProgress) / halfWidth, 0)
+    const nextElapsed = elapsedSec * clampUnit((globalProgress - boundary) / halfWidth, 0)
+    const previousCamera = computeCameraForScene(
+      track,
+      cumulDist,
+      previousScene,
+      previousLocalProgress,
+      previousElapsed,
+    )
+    const nextCamera = computeCameraForScene(
+      track,
+      cumulDist,
+      nextScene,
+      nextLocalProgress,
+      nextElapsed,
+    )
+    const blendT = (globalProgress - windowStart) / (windowEnd - windowStart)
+    return lerpCamera(previousCamera, nextCamera, clampUnit(blendT, 0))
+  }
+
+  // Ordinary scenes use right-biased, half-open ownership. Only the final
+  // scene owns its end so a zero-duration transition hard-cuts to the scene
+  // on the right at a shared boundary.
   let sceneIdx = -1
   for (let i = 0; i < normalizedScenes.length; i++) {
-    if (globalProgress >= normalizedScenes[i].startPercent && globalProgress <= normalizedScenes[i].endPercent) {
+    const scene = normalizedScenes[i]
+    const ownsFinalEndpoint = i === normalizedScenes.length - 1 && globalProgress <= scene.endPercent
+    if (globalProgress >= scene.startPercent && (globalProgress < scene.endPercent || ownsFinalEndpoint)) {
       sceneIdx = i
       break
     }
@@ -557,9 +622,8 @@ export function computeCameraForProgress(
     }
 
     if (prevIdx >= 0 && nextIdx >= 0) {
-      // Between-scenes gap: use elapsedSec=0 for both boundary cameras so
-      // rotation-dependent modes (orbit, ground) produce a stable lerp start
-      // and end point instead of a moving target that causes bearing wobble.
+      // Defensive fallback for malformed or non-finite progress. Valid
+      // normalized interior gaps were already resolved by their pair owner.
       const prevScene = normalizedScenes[prevIdx]
       const nextScene = normalizedScenes[nextIdx]
       const gapStart = prevScene.endPercent
@@ -608,28 +672,5 @@ export function computeCameraForProgress(
     : 0
 
   const mainCamera = computeCameraForScene(track, cumulDist, scene, localProgress, elapsedSec)
-
-  // Transition blending at scene boundaries
-  const effectiveHalfTrans = Math.min(transitionDuration / 2, sceneDuration / 2)
-
-  if (sceneIdx > 0 && sceneDuration > 0 && localProgress < effectiveHalfTrans / sceneDuration) {
-    const prevScene = normalizedScenes[sceneIdx - 1]
-    // Use elapsedSec=0 for the previous scene's end-state camera so
-    // rotation-dependent modes (orbit, overview) produce a stable lerp
-    // start point instead of a moving target that causes bearing wobble.
-    const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
-    const blendT = (localProgress * sceneDuration) / effectiveHalfTrans
-    return lerpCamera(prevCamera, mainCamera, Math.max(0, Math.min(1, blendT)))
-  }
-
-  if (sceneIdx < normalizedScenes.length - 1 && sceneDuration > 0 && localProgress > 1 - effectiveHalfTrans / sceneDuration) {
-    const nextScene = normalizedScenes[sceneIdx + 1]
-    // Use elapsedSec=0 for the next scene's start-state camera so
-    // rotation-dependent modes produce a stable lerp end point.
-    const nextCamera = computeCameraForScene(track, cumulDist, nextScene, 0.0, 0)
-    const blendT = ((1 - localProgress) * sceneDuration) / effectiveHalfTrans
-    return lerpCamera(mainCamera, nextCamera, 1 - Math.max(0, Math.min(1, blendT)))
-  }
-
   return mainCamera
 }

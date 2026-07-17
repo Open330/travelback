@@ -282,16 +282,144 @@ describe('computeCameraForProgress', () => {
     expect(result.zoom).toBeGreaterThan(0)
   })
 
-  it('blends at scene boundaries with transition', () => {
+  it('blends touching scenes once across a centered transition window', () => {
     const scenes = [
       makeScene('a', 0, 0.5),
       makeScene('b', 0.5, 1),
     ]
+    scenes[0].params = { zoom: 10, pitch: 20, bearingOffset: 0, rotationSpeed: 0 }
+    scenes[1].params = { zoom: 18, pitch: 70, bearingOffset: 90, rotationSpeed: 0 }
     const normalized = normalizeScenes(scenes)
-    // At the boundary between scenes, the transition blending should kick in
-    const result = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 0, 0.03, true)
-    expect(result.center).toBeDefined()
-    expect(result.zoom).toBeGreaterThan(0)
+
+    const expected = [
+      { progress: 0.48, zoom: 10, pitch: 20, bearing: 90 },
+      { progress: 0.49, zoom: 11.25, pitch: 27.8125, bearing: 104.0625 },
+      { progress: 0.5, zoom: 14, pitch: 45, bearing: 135 },
+      { progress: 0.51, zoom: 16.75, pitch: 62.1875, bearing: 165.9375 },
+      { progress: 0.52, zoom: 18, pitch: 70, bearing: 180 },
+    ]
+
+    for (const sample of expected) {
+      const camera = computeCameraForProgress(
+        testTrack,
+        testCumulDist,
+        normalized,
+        sample.progress,
+        0,
+        0.04,
+        true,
+      )
+      expect(camera.center[0]).toBeCloseTo(sample.progress, 5)
+      expect(camera.zoom).toBeCloseTo(sample.zoom, 5)
+      expect(camera.pitch).toBeCloseTo(sample.pitch, 5)
+      expect(camera.bearing).toBeCloseTo(sample.bearing, 5)
+    }
+
+    const before = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.499999, 0, 0.04, true)
+    const atBoundary = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 0, 0.04, true)
+    const after = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.500001, 0, 0.04, true)
+    expect(before.zoom).toBeLessThan(atBoundary.zoom)
+    expect(after.zoom).toBeGreaterThan(atBoundary.zoom)
+    expect(Math.abs(after.zoom - before.zoom)).toBeLessThan(0.01)
+  })
+
+  it('lets an internal gap own its interpolation without endpoint replays', () => {
+    const scenes = [
+      makeScene('a', 0, 0.4),
+      makeScene('b', 0.6, 1),
+    ]
+    scenes[0].params = { zoom: 10, pitch: 20, bearingOffset: 0, rotationSpeed: 0 }
+    scenes[1].params = { zoom: 18, pitch: 70, bearingOffset: 90, rotationSpeed: 0 }
+    const normalized = normalizeScenes(scenes)
+    const expected = [
+      { progress: 0.4, center: 0.4, zoom: 10 },
+      { progress: 0.45, center: 0.43125, zoom: 11.25 },
+      { progress: 0.5, center: 0.5, zoom: 14 },
+      { progress: 0.55, center: 0.56875, zoom: 16.75 },
+      { progress: 0.6, center: 0.6, zoom: 18 },
+    ]
+
+    for (const sample of expected) {
+      const camera = computeCameraForProgress(
+        testTrack,
+        testCumulDist,
+        normalized,
+        sample.progress,
+        0,
+        0.04,
+        true,
+      )
+      expect(camera.center[0]).toBeCloseTo(sample.center, 5)
+      expect(camera.zoom).toBeCloseTo(sample.zoom, 5)
+    }
+
+    const gapStartLeft = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.4 - 1e-6, 0, 0.04, true)
+    const gapStartRight = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.4 + 1e-6, 0, 0.04, true)
+    const gapEndLeft = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.6 - 1e-6, 0, 0.04, true)
+    const gapEndRight = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.6 + 1e-6, 0, 0.04, true)
+    expect(Math.abs(gapStartRight.center[0] - gapStartLeft.center[0])).toBeLessThan(0.001)
+    expect(Math.abs(gapEndRight.center[0] - gapEndLeft.center[0])).toBeLessThan(0.001)
+  })
+
+  it('stabilizes rotation anchors without breaking transition-window edges', () => {
+    const scenes = [
+      makeScene('a', 0, 0.5, 'orbit'),
+      makeScene('b', 0.5, 1, 'orbit'),
+    ]
+    scenes[0].params = { zoom: 10, pitch: 20, bearingOffset: 10, rotationSpeed: 10 }
+    scenes[1].params = { zoom: 18, pitch: 70, bearingOffset: 100, rotationSpeed: 5 }
+    const normalized = normalizeScenes(scenes)
+    const expected = [
+      { progress: 0.48, bearing: 70 },
+      { progress: 0.49, bearing: 49.375 },
+      { progress: 0.5, bearing: 55 },
+      { progress: 0.51, bearing: 98.59375 },
+      { progress: 0.52, bearing: 130 },
+    ]
+
+    for (const sample of expected) {
+      const camera = computeCameraForProgress(
+        testTrack,
+        testCumulDist,
+        normalized,
+        sample.progress,
+        6,
+        0.04,
+        true,
+      )
+      expect(camera.center[0]).toBeCloseTo(sample.progress, 5)
+      expect(camera.bearing).toBeCloseTo(sample.bearing, 5)
+    }
+
+    const boundaryAtZero = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 0, 0.04, true)
+    const boundaryAtSix = computeCameraForProgress(testTrack, testCumulDist, normalized, 0.5, 6, 0.04, true)
+    expect(boundaryAtSix.bearing).toBeCloseTo(boundaryAtZero.bearing, 5)
+  })
+
+  it('uses one owner for zero transitions and adjacent short-scene windows', () => {
+    const cutScenes = [
+      makeScene('a', 0, 0.5),
+      makeScene('b', 0.5, 1),
+    ]
+    cutScenes[0].params = { zoom: 10, pitch: 20, bearingOffset: 0, rotationSpeed: 0 }
+    cutScenes[1].params = { zoom: 18, pitch: 70, bearingOffset: 90, rotationSpeed: 0 }
+    const hardCut = computeCameraForProgress(testTrack, testCumulDist, cutScenes, 0.5, 0, 0, true)
+    expect(hardCut.center[0]).toBeCloseTo(0.5, 5)
+    expect(hardCut.zoom).toBe(18)
+    expect(hardCut.pitch).toBe(70)
+    expect(hardCut.bearing).toBeCloseTo(180, 5)
+
+    const shortMiddleScenes = [
+      makeScene('a', 0, 0.49),
+      makeScene('middle', 0.49, 0.51),
+      makeScene('b', 0.51, 1),
+    ]
+    shortMiddleScenes[0].params.zoom = 10
+    shortMiddleScenes[1].params.zoom = 14
+    shortMiddleScenes[2].params.zoom = 18
+    const midpoint = computeCameraForProgress(testTrack, testCumulDist, shortMiddleScenes, 0.5, 0, 0.1, true)
+    expect(midpoint.center[0]).toBeCloseTo(0.5, 5)
+    expect(midpoint.zoom).toBe(14)
   })
 
   it('handles zero-duration scene gracefully (filtered by normalization)', () => {
