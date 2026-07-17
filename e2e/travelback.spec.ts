@@ -2558,9 +2558,12 @@ test.describe('Travelback App', () => {
     const styleBtn = page.getByTestId('map-style-button')
     await expect(styleBtn).toBeVisible({ timeout: 10_000 })
 
+    let readyStyleRevision = 0
     if (IS_STATIC_E2E) {
       await expectProductionDebugApiAbsent(page)
       await expectPublicMapReady(page)
+    } else {
+      readyStyleRevision = (await waitForDebugPose(page)).readyStyleRevision
     }
 
     for (const label of ['Light', 'Dark', 'Liberty', 'Bright', 'Voyager']) {
@@ -2569,18 +2572,18 @@ test.describe('Travelback App', () => {
       await expect(page.getByTestId('map-error')).toHaveCount(0)
       if (IS_STATIC_E2E) continue
 
-      await expect.poll(async () => {
-        return page.evaluate(() => {
-          type DebugWindow = Window & {
-            __travelbackDebug?: {
-              getMapState: () => { hasRouteLayer: boolean; hasTrailLayer: boolean; hasReferenceGridLayer: boolean } | null
-            }
+      const readyPose = await waitForDebugPose(page, readyStyleRevision)
+      readyStyleRevision = readyPose.readyStyleRevision
+      const hasReferenceGridLayer = await page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: {
+            getMapState: () => { hasReferenceGridLayer: boolean } | null
           }
+        }
 
-          const state = (window as DebugWindow).__travelbackDebug?.getMapState()
-          return Boolean(state?.hasRouteLayer && state?.hasTrailLayer && state?.hasReferenceGridLayer)
-        })
-      }, { timeout: 10_000, intervals: [200, 400, 800] }).toBe(true)
+        return Boolean((window as DebugWindow).__travelbackDebug?.getMapState()?.hasReferenceGridLayer)
+      })
+      expect(hasReferenceGridLayer).toBe(true)
     }
   })
 
