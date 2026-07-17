@@ -2825,6 +2825,49 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
   })
 
+  test('cancelled export keeps focus in the idle panel and restores its opener', async ({ page }) => {
+    await page.evaluate(() => {
+      const testWindow = window as Window & {
+        exportPickerStarted?: boolean
+        rejectExportPicker?: () => void
+      }
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: () => {
+          testWindow.exportPickerStarted = true
+          return new Promise((_resolve, reject) => {
+            testWindow.rejectExportPicker = () => reject(new DOMException('Save cancelled', 'AbortError'))
+          })
+        },
+      })
+    })
+    await uploadGpx(page)
+
+    const exportOpener = page.getByRole('button', { name: 'Export', exact: true })
+    await exportOpener.click()
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click({ force: true })
+    const cancelExport = exportPanel.getByRole('button', { name: 'Cancel export' })
+    await expect(cancelExport).toBeFocused()
+    await page.waitForFunction(() => (window as Window & { exportPickerStarted?: boolean }).exportPickerStarted === true)
+
+    await cancelExport.click()
+    await page.evaluate(() => {
+      (window as Window & { rejectExportPicker?: () => void }).rejectExportPicker?.()
+    })
+
+    const idleHeading = exportPanel.getByRole('heading', { name: 'Export Video' })
+    await expect(exportPanel.getByRole('button', { name: 'Start Export' })).toBeVisible({ timeout: 15_000 })
+    await expect(idleHeading).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect.poll(() => activeElementState(page)).toMatchObject({ insideDialog: true })
+
+    await exportPanel.getByRole('button', { name: 'Close panel' }).click()
+    await expect(exportPanel).toBeHidden()
+    await expect(exportOpener).toBeFocused()
+  })
+
   test('picker cancellation explains that the ready video is not saved yet', async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('travelback-export-test-stub', '1')

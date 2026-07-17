@@ -179,5 +179,23 @@ describe('ExportPanel rendering focus', () => {
     const cancelButton = document.querySelector<HTMLButtonElement>('button[aria-label="app.cancelExportAria"]')
     if (!cancelButton) throw new Error('Missing Cancel Export button')
     expect(document.activeElement).toBe(cancelButton)
+
+    await act(async () => {
+      root?.render(createElement(ExportPanel, {
+        isOpen: true,
+        onClose,
+        onExport,
+        isExporting: false,
+        exportProgress: 0,
+        exportState: 'idle',
+        onResetExport,
+        onCancelExport,
+      }))
+      await Promise.resolve()
+    })
+
+    const idleHeading = document.querySelector<HTMLHeadingElement>('#export-panel-title')
+    if (!idleHeading) throw new Error('Missing idle Export heading')
+    expect(document.activeElement).toBe(idleHeading)
   })
 })

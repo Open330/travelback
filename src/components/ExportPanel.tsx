@@ -96,7 +96,9 @@ export default function ExportPanel({
   const [duration, setDuration] = useState(playbackDuration ?? 30)
   const panelOpenedRef = useRef(false)
   const cancelExportButtonRef = useRef<HTMLButtonElement>(null)
+  const idleHeadingRef = useRef<HTMLHeadingElement>(null)
   const successHeadingRef = useRef<HTMLHeadingElement>(null)
+  const wasExportingRef = useRef(isExporting)
   useEffect(() => {
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
@@ -263,6 +265,17 @@ export default function ExportPanel({
   }, [isExporting, isOpen])
 
   useEffect(() => {
+    const wasExporting = wasExportingRef.current
+    wasExportingRef.current = isExporting
+    if (!isOpen || !wasExporting || isExporting || exportState !== 'idle') return
+
+    const frame = requestAnimationFrame(() => {
+      idleHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [exportState, isExporting, isOpen])
+
+  useEffect(() => {
     if (!isOpen || exportState !== 'done') return
 
     const frame = requestAnimationFrame(() => {
@@ -291,7 +304,7 @@ export default function ExportPanel({
     >
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={clearTouchStart} data-disable-playback-hotkeys="true">
         <div className="mb-6 flex items-center justify-between gap-4" data-export-swipe-handle="true">
-          <h3 id="export-panel-title" className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
+          <h3 ref={idleHeadingRef} id="export-panel-title" tabIndex={-1} className="text-lg font-bold" style={{ color: 'var(--t1)' }}>
             {t('export.title')}
           </h3>
           {!isExporting && (
