@@ -54,7 +54,20 @@ export default function TrackToolbar({
   const menuRef = useRef<HTMLDivElement | null>(null)
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const sceneEditorTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const wasSceneEditorOpenRef = useRef(showSceneEditor)
   useFocusFirstOnOpen(menuOpen, menuPanelRef)
+
+  useEffect(() => {
+    const didClose = wasSceneEditorOpenRef.current && !showSceneEditor
+    wasSceneEditorOpenRef.current = showSceneEditor
+    if (!didClose || document.activeElement === sceneEditorTriggerRef.current) return
+
+    const frame = requestAnimationFrame(() => {
+      sceneEditorTriggerRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [showSceneEditor])
 
   const closeMenu = useCallback((restoreFocus = true) => {
     setMenuOpen(false)
@@ -73,6 +86,10 @@ export default function TrackToolbar({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        const target = event.target instanceof Element ? event.target : null
+        if (target?.closest('[role="dialog"][aria-modal="true"]')) return
+        event.preventDefault()
+        event.stopPropagation()
         closeMenu()
         return
       }
@@ -127,6 +144,7 @@ export default function TrackToolbar({
       </button>
 
       <button
+        ref={sceneEditorTriggerRef}
         type="button"
         onClick={onToggleSceneEditor}
         title={t('app.openSceneEditor')}

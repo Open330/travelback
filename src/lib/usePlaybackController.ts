@@ -198,11 +198,18 @@ export function usePlaybackHotkeys({
 }: PlaybackHotkeysOptions) {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
+      const target = event.target instanceof Element ? event.target : null
       const tagName = target?.tagName
       const isInteractiveTarget = Boolean(
         target?.closest('button, a, summary, canvas.maplibregl-canvas, [role="dialog"], [role="slider"], [role="spinbutton"], [contenteditable="true"], [data-disable-playback-hotkeys="true"]')
       )
+
+      if (event.key === 'Escape') {
+        if (isExporting || event.defaultPrevented || target?.closest('[role="dialog"]')) return
+        event.preventDefault()
+        onClosePanels()
+        return
+      }
 
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || isInteractiveTarget) {
         return
@@ -242,9 +249,6 @@ export function usePlaybackHotkeys({
           break
         case '?':
           onToggleKeyboardHelp()
-          break
-        case 'Escape':
-          onClosePanels()
           break
       }
     }

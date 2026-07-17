@@ -1806,6 +1806,58 @@ test.describe('Travelback App', () => {
     await expect(playbackProgress).toHaveValue('0.02')
   })
 
+  test('Escape closes only the topmost Camera, modal, or mobile-menu owner', async ({ page }) => {
+    await uploadGpx(page)
+    const cameraButton = page.getByText('Camera', { exact: true })
+    const sceneEditor = page.getByTestId('scene-editor-panel')
+
+    await cameraButton.click({ force: true })
+    await expect(sceneEditor).toBeVisible({ timeout: 10_000 })
+    await cameraButton.focus()
+    await page.keyboard.press('Escape')
+    await expect(sceneEditor).toBeHidden()
+    await expect(cameraButton).toBeFocused()
+
+    await cameraButton.click({ force: true })
+    const addScene = sceneEditor.getByRole('button', { name: '+ Add' })
+    await addScene.focus()
+    await page.keyboard.press('Escape')
+    await expect(sceneEditor).toBeHidden()
+    await expect(cameraButton).toBeFocused()
+
+    await cameraButton.click({ force: true })
+    await addScene.click({ force: true })
+    const sceneName = sceneEditor.getByRole('textbox').first()
+    await sceneName.focus()
+    await page.keyboard.press('Escape')
+    await expect(sceneEditor).toBeHidden()
+    await expect(cameraButton).toBeFocused()
+
+    await cameraButton.click({ force: true })
+    const helpButton = page.getByTestId('desktop-keyboard-help')
+    await helpButton.click({ force: true })
+    const helpDialog = page.getByRole('dialog', { name: 'Keyboard Shortcuts' })
+    await expect(helpDialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(helpDialog).toBeHidden()
+    await expect(sceneEditor).toBeVisible()
+    await expect(helpButton).toBeFocused()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const moreControls = page.getByRole('button', { name: 'More controls' })
+    await moreControls.click()
+    const mobileMenu = page.getByTestId('track-toolbar-mobile-menu')
+    await expect(mobileMenu).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(mobileMenu).toBeHidden()
+    await expect(sceneEditor).toBeVisible()
+    await expect(moreControls).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(sceneEditor).toBeHidden()
+    await expect(cameraButton).toBeFocused()
+  })
+
   test('mobile scene editor panel stays below the stacked header controls', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
@@ -3010,6 +3062,8 @@ test.describe('Travelback App', () => {
 
     // Open export panel — close scene editor first via Escape
     await page.keyboard.press('Escape')
+    await expect(page.getByTestId('scene-editor-panel')).toBeHidden()
+    await expect(scenesBtn).toBeFocused()
     await page.getByText('Export', { exact: true }).click({ force: true })
     await expect(page.getByText('Export Video')).toBeVisible()
     await expect(page.getByText('Resolution')).toBeVisible()

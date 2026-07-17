@@ -369,3 +369,37 @@ archived into their respective cycle implementation plans once addressed.
     readiness. It is not a repository gate-root fix and does not increment
     `GATE_FIXES`; retain the focused browser assertion for a later sequential
     rerun when the host can schedule Chromium normally.
+- Run-created physical Cycle 11 P02 focused-verification copy:
+  - `/tmp/travelback-cycle11-p02-copy.fAyv5h`
+  - Created empty for P02 non-browser validation at signed base HEAD
+    `dcee777e920bd6721f55443502db040d0a444fd3` plus the five P02 candidate
+    source/test paths. It has no reserved browser port and must not start a
+    browser or server while host load remains saturated. Record dependency,
+    focused-unit, lint, and typecheck sessions here before or as soon as they
+    become known. Do not reuse or remove the copy before the loop's final
+    cleanup stop condition; all bounded processes must finish through their
+    owning command lifecycle.
+    Archive population plus an incorrectly targeted multi-file overlay ran in
+    unified exec session `80731`: the tracked archive materialized, then `cp`
+    exited 1 because its proposed staging destination was not a directory. It
+    did not alter dependencies or the primary worktree; the five candidate
+    files will be overlaid directly into their already-created tracked paths.
+    Direct overlay comparison then confirmed all five candidate files match the
+    primary diff byte-for-byte. Isolated dependency installation is running as
+    `npm ci` in unified exec session `12014`, with no listener PID.
+    It completed naturally with exit 0 after 11 minutes: 471 packages added,
+    472 audited, and 0 vulnerabilities.
+    Focused P02 hook/toolbar unit validation is running in unified exec session
+    `24188` with no listener PID.
+    It completed naturally with exit 0: both focused files and all 12 tests
+    passed, covering interactive Escape routing, dialog/export precedence,
+    mobile-menu consumption, and Camera focus restoration.
+    Focused P02 lint is running in unified exec session `86291`, with no
+    listener PID.
+    It completed naturally with exit 0 and no findings.
+    Focused P02 Next type generation plus TypeScript validation is running in
+    unified exec session `36019`, with no listener PID.
+    It completed naturally with exit 0 after successful route type generation
+    and `tsc --noEmit`. The authored browser regressions remain pending the
+    final sequential matrix because the external host saturation has not
+    recovered; no focused P02 browser/server process was started.
