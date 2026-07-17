@@ -16,7 +16,7 @@ vi.mock('@/lib/i18n', async (importOriginal) => {
   }
 })
 
-import SceneEditor, { SceneRangeEditor } from './SceneEditor'
+import SceneEditor, { findFirstAvailableSceneRange, SceneRangeEditor } from './SceneEditor'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -132,7 +132,93 @@ describe('SceneRangeEditor pointer lifecycle', () => {
   })
 })
 
+describe('findFirstAvailableSceneRange', () => {
+  it.each([
+    { caseName: 'empty coverage', scenes: [], expectedStart: 0, expectedEnd: 0.15 },
+    { caseName: 'leading gap', scenes: [{ startPercent: 0.2, endPercent: 1 }], expectedStart: 0, expectedEnd: 0.15 },
+    { caseName: 'interior gap', scenes: [{ startPercent: 0, endPercent: 0.3 }, { startPercent: 0.7, endPercent: 1 }], expectedStart: 0.3, expectedEnd: 0.45 },
+    { caseName: 'trailing gap', scenes: [{ startPercent: 0, endPercent: 0.9 }], expectedStart: 0.9, expectedEnd: 1 },
+  ])('returns the first usable range for $caseName', ({ scenes, expectedStart, expectedEnd }) => {
+    const result = findFirstAvailableSceneRange(scenes)
+    expect(result?.startPercent).toBeCloseTo(expectedStart)
+    expect(result?.endPercent).toBeCloseTo(expectedEnd)
+  })
+
+  it('returns null when coverage has no minimum-size gap', () => {
+    expect(findFirstAvailableSceneRange([
+      { startPercent: 0, endPercent: 0.5 },
+      { startPercent: 0.505, endPercent: 1 },
+    ])).toBeNull()
+  })
+})
+
 describe('SceneEditor normalization feedback', () => {
+  it('fills an interior gap after a scene is deleted and disables Add at full coverage', async () => {
+    const fullCoverage: Scene[] = [
+      {
+        id: 'first',
+        name: 'First',
+        cameraMode: 'flyover',
+        startPercent: 0,
+        endPercent: 0.3,
+        params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+      },
+      {
+        id: 'middle',
+        name: 'Middle',
+        cameraMode: 'orbit',
+        startPercent: 0.3,
+        endPercent: 0.7,
+        params: { ...DEFAULT_CAMERA_PARAMS.orbit },
+      },
+      {
+        id: 'last',
+        name: 'Last',
+        cameraMode: 'ground',
+        startPercent: 0.7,
+        endPercent: 1,
+        params: { ...DEFAULT_CAMERA_PARAMS.ground },
+      },
+    ]
+    const onChange = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    const render = async (scenes: Scene[]) => {
+      await act(() => root?.render(createElement(SceneEditor, {
+        scenes,
+        onChange,
+        onClose: vi.fn(),
+        transitionDuration: 0.03,
+        onTransitionDurationChange: vi.fn(),
+      })))
+    }
+
+    await render(fullCoverage)
+    const addButton = container.querySelector<HTMLButtonElement>('button.vitro-btn-primary')
+    expect(addButton?.disabled).toBe(true)
+
+    const deleteMiddle = container.querySelector<HTMLButtonElement>('button[aria-label*="Middle"]')
+    if (!deleteMiddle) throw new Error('Missing Middle delete button')
+    await act(() => deleteMiddle.click())
+    const scenesAfterDelete = onChange.mock.calls.at(-1)?.[0] as Scene[]
+    expect(scenesAfterDelete.map(scene => scene.id)).toEqual(['first', 'last'])
+
+    await render(scenesAfterDelete)
+    const enabledAddButton = container.querySelector<HTMLButtonElement>('button.vitro-btn-primary')
+    expect(enabledAddButton?.disabled).toBe(false)
+    await act(() => enabledAddButton?.click())
+
+    const scenesAfterAdd = onChange.mock.calls.at(-1)?.[0] as Scene[]
+    expect(scenesAfterAdd).toHaveLength(3)
+    expect(scenesAfterAdd[0]).toEqual(fullCoverage[0])
+    expect(scenesAfterAdd[2]).toEqual(fullCoverage[2])
+    expect(scenesAfterAdd[1].cameraMode).toBe('flyover')
+    expect(scenesAfterAdd[1].startPercent).toBeCloseTo(0.3)
+    expect(scenesAfterAdd[1].endPercent).toBeCloseTo(0.45)
+  })
+
   it('publishes the exact committed snapshot after a camera-mode change', async () => {
     const scenes: Scene[] = [{
       id: 'first',

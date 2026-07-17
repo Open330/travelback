@@ -26,6 +26,36 @@ interface SceneEditorProps {
 
 const MODES: CameraMode[] = ['overview', 'flyover', 'orbit', 'ground', 'closeup', 'birdeye']
 type PresetType = 'cinematic' | 'simple' | 'birdeye' | 'dynamic'
+const DEFAULT_NEW_SCENE_SPAN = 0.15
+
+export function findFirstAvailableSceneRange(
+  scenes: Pick<Scene, 'startPercent' | 'endPercent'>[],
+): { startPercent: number; endPercent: number } | null {
+  const orderedCoverage = scenes
+    .map(scene => ({
+      startPercent: Math.max(0, Math.min(scene.startPercent, 1)),
+      endPercent: Math.max(0, Math.min(scene.endPercent, 1)),
+    }))
+    .filter(scene => scene.endPercent > scene.startPercent)
+    .sort((a, b) => a.startPercent - b.startPercent)
+
+  let coveredUntil = 0
+  for (const scene of orderedCoverage) {
+    if (scene.startPercent - coveredUntil >= MIN_SCENE_SPAN) {
+      return {
+        startPercent: coveredUntil,
+        endPercent: Math.min(scene.startPercent, coveredUntil + DEFAULT_NEW_SCENE_SPAN),
+      }
+    }
+    coveredUntil = Math.max(coveredUntil, scene.endPercent)
+  }
+
+  if (1 - coveredUntil < MIN_SCENE_SPAN) return null
+  return {
+    startPercent: coveredUntil,
+    endPercent: Math.min(1, coveredUntil + DEFAULT_NEW_SCENE_SPAN),
+  }
+}
 
 function scenesWereAdjusted(inputScenes: Scene[], normalizedScenes: Scene[]): boolean {
   if (inputScenes.length !== normalizedScenes.length) return true
@@ -353,6 +383,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
 
   const [normalizationWarnings, setNormalizationWarnings] = useState<string[]>([])
+  const availableSceneRange = findFirstAvailableSceneRange(scenes)
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
     const normalized = normalizeScenes(nextScenes)
@@ -428,20 +459,17 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
   }, [])
 
   const addScene = useCallback(() => {
-    const last = scenes[scenes.length - 1]
-    const start = last ? last.endPercent : 0
-    if (start >= 1) return
-    const end = Math.min(start + 0.15, 1)
+    if (!availableSceneRange) return
     const newScene: Scene = {
       id: `scene-${generateId().slice(0, 8)}`,
       name: t('scenes.newSceneName').replace('{n}', String(scenes.length + 1)),
       cameraMode: 'flyover',
-      startPercent: start,
-      endPercent: end,
+      startPercent: availableSceneRange.startPercent,
+      endPercent: availableSceneRange.endPercent,
       params: { ...DEFAULT_CAMERA_PARAMS.flyover },
     }
     commitScenes([...scenes, newScene])
-  }, [commitScenes, scenes, t])
+  }, [availableSceneRange, commitScenes, scenes, t])
 
   const removeScene = useCallback((id: string) => {
     const idx = scenes.findIndex(s => s.id === id)
@@ -576,8 +604,8 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
           {statusMessage}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={addScene}
-            className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer">
+          <button type="button" onClick={addScene} disabled={!availableSceneRange}
+            className="vitro-btn-primary min-h-11 px-3 py-2 text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-50">
             {t('scenes.add')}
           </button>
           <button type="button" onClick={onClose}
