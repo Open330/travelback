@@ -489,6 +489,22 @@ function HomeInner() {
     setScenes(value)
   }, [resetExportSession])
 
+  const applyCommittedSceneCamera = useCallback((
+    committedScenes: Scene[],
+    committedTransitionDuration = transitionDuration,
+  ) => {
+    if (!track) return
+    const cameraState = computeCameraForProgress(
+      track,
+      cumulativeDistances,
+      committedScenes,
+      progress,
+      progress * duration,
+      committedTransitionDuration,
+    )
+    mapViewRef.current?.applyCameraState(cameraState)
+  }, [track, cumulativeDistances, progress, duration, transitionDuration])
+
   // Clear stale pendingTrimRange when scenes are emptied — avoids applying a
   // stale trim confirmation range after the user deletes all scenes.
   useEffect(() => {
@@ -501,26 +517,19 @@ function HomeInner() {
   const handleTransitionDurationChange = useCallback((value: number) => {
     resetExportSession()
     setTransitionDuration(value)
-  }, [resetExportSession])
+    applyCommittedSceneCamera(scenes, value)
+  }, [applyCommittedSceneCamera, resetExportSession, scenes])
 
   const handlePreviewScene = useCallback((scene: Scene | null) => {
     if (!track) return
     if (!scene) {
-      const cameraState = computeCameraForProgress(
-        track,
-        cumulativeDistances,
-        scenes,
-        progress,
-        progress * duration,
-        transitionDuration,
-      )
-      mapViewRef.current?.applyCameraState(cameraState)
+      applyCommittedSceneCamera(scenes)
       return
     }
 
     const cameraState = computeCameraForScene(track, cumulativeDistances, scene, 0.5, 0)
     mapViewRef.current?.applyCameraState(cameraState)
-  }, [track, cumulativeDistances, scenes, progress, duration, transitionDuration])
+  }, [applyCommittedSceneCamera, track, cumulativeDistances, scenes])
 
   const handleModeChange = useCallback((mode: 'dark' | 'light') => {
     setHasExplicitThemeChoice(true)
@@ -662,6 +671,7 @@ function HomeInner() {
               onOpenHelp={() => setShowKeyboardHelp(true)}
               onOpenImportGuide={handleOpenGoogleGuide}
               onScenesChange={handleScenesChange}
+              onScenesCommitted={applyCommittedSceneCamera}
               transitionDuration={transitionDuration}
               onTransitionDurationChange={handleTransitionDurationChange}
               onPreviewScene={handlePreviewScene}

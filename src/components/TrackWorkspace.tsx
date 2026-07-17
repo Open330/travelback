@@ -28,6 +28,7 @@ interface TrackWorkspaceProps {
   onOpenHelp: () => void
   onOpenImportGuide: () => void
   onScenesChange: Dispatch<SetStateAction<Scene[]>>
+  onScenesCommitted: (scenes: Scene[]) => void
   transitionDuration: number
   onTransitionDurationChange: (duration: number) => void
   onPreviewScene: (scene: Scene | null) => void
@@ -69,6 +70,7 @@ export default function TrackWorkspace({
   onOpenHelp,
   onOpenImportGuide,
   onScenesChange,
+  onScenesCommitted,
   transitionDuration,
   onTransitionDurationChange,
   onPreviewScene,
@@ -117,6 +119,7 @@ export default function TrackWorkspace({
         <SceneEditor
           scenes={scenes}
           onChange={onScenesChange}
+          onScenesCommitted={onScenesCommitted}
           onClose={onCloseSceneEditor}
           transitionDuration={transitionDuration}
           onTransitionDurationChange={onTransitionDurationChange}

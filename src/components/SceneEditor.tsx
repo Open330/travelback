@@ -17,6 +17,7 @@ const SCENE_COLORS = [
 interface SceneEditorProps {
   scenes: Scene[]
   onChange: (scenes: Scene[]) => void
+  onScenesCommitted?: (scenes: Scene[]) => void
   onClose: () => void
   transitionDuration: number
   onTransitionDurationChange: (v: number) => void
@@ -344,7 +345,7 @@ export function SceneRangeEditor({
   )
 }
 
-function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
+function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
@@ -402,7 +403,8 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     setNormalizationWarnings(w)
 
     onChange(normalized)
-  }, [onChange, t])
+    onScenesCommitted?.(normalized)
+  }, [onChange, onScenesCommitted, t])
 
   // Swipe-left to dismiss
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -453,11 +455,12 @@ function SceneEditor({ scenes, onChange, onClose, transitionDuration, onTransiti
     if (result.restored) {
       setNormalizationWarnings([])
       onChange(result.scenes)
+      onScenesCommitted?.(result.scenes)
     } else if (result.reason === 'conflict') {
       setNormalizationWarnings([t('scenes.undoConflict')])
     }
     setDeletedScene(null)
-  }, [deletedScene, onChange, scenes, t])
+  }, [deletedScene, onChange, onScenesCommitted, scenes, t])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
     let previewTarget: Scene | null = null

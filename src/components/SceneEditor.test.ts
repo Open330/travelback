@@ -133,6 +133,47 @@ describe('SceneRangeEditor pointer lifecycle', () => {
 })
 
 describe('SceneEditor normalization feedback', () => {
+  it('publishes the exact committed snapshot after a camera-mode change', async () => {
+    const scenes: Scene[] = [{
+      id: 'first',
+      name: '첫 번째',
+      cameraMode: 'flyover',
+      startPercent: 0,
+      endPercent: 1,
+      params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+    }]
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(SceneEditor, {
+      scenes,
+      onChange,
+      onScenesCommitted,
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    })))
+
+    const modeSelect = container.querySelector<HTMLSelectElement>('select')
+    if (!modeSelect) throw new Error('Missing camera-mode select')
+    await act(() => {
+      modeSelect.value = 'orbit'
+      modeSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    const expectedScene = expect.objectContaining({
+      id: 'first',
+      cameraMode: 'orbit',
+      params: DEFAULT_CAMERA_PARAMS.orbit,
+    })
+    expect(onChange).toHaveBeenCalledWith([expectedScene])
+    expect(onScenesCommitted).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledWith([expectedScene])
+  })
+
   it.each([
     { caseName: 'ordinary scene names', secondSceneName: '두 번째' },
     { caseName: 'placeholder-like scene names', secondSceneName: '{from} / {to}' },

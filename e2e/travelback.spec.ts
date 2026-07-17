@@ -2492,6 +2492,16 @@ test.describe('Travelback App', () => {
   test('scene editor can change camera mode', async ({ page }) => {
     await uploadGpx(page)
 
+    const playbackProgress = page.getByLabel('Playback progress')
+    await playbackProgress.evaluate((element) => {
+      const input = element as HTMLInputElement
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, '0.08')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await expect(playbackProgress).toHaveValue('0.08')
+
     // Open scene editor (Camera button, renamed from Scenes)
     const scenesBtn = page.getByText('Camera', { exact: true })
     await expect(scenesBtn).toBeVisible({ timeout: 10_000 })
@@ -2503,10 +2513,29 @@ test.describe('Travelback App', () => {
     await expect(addBtn).toBeVisible({ timeout: 5_000 })
     await addBtn.click({ force: true })
 
+    if (!IS_STATIC_E2E) {
+      await expect.poll(async () => page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: { getCamera: () => { zoom: number } | null }
+        }
+        return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+      }), { timeout: 10_000, intervals: [120, 200, 300] }).toBe(13)
+    }
+
     // Change camera mode to Orbit
     const modeSelect = page.locator('.space-y-2 select').first()
     await modeSelect.selectOption('orbit')
     await expect(modeSelect).toHaveValue('orbit')
+    await expect(page.getByTestId('map-error')).toHaveCount(0)
+
+    if (!IS_STATIC_E2E) {
+      await expect.poll(async () => page.evaluate(() => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: { getCamera: () => { zoom: number } | null }
+        }
+        return (window as DebugWindow).__travelbackDebug?.getCamera()?.zoom ?? null
+      }), { timeout: 10_000, intervals: [120, 200, 300] }).toBe(14)
+    }
   })
 
   test('map style cycling works across all bundled themes without breaking the map', async ({ page }) => {
