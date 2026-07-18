@@ -150,6 +150,33 @@ its existing exit criterion.
   closure. Record any gate-driven repair as its own signed/pushed commit and
   count it in `GATE_FIXES`.
 
+## Completion — 2026-07-18
+
+- P01–P05 are complete. Scene creation now fills the first usable coverage
+  gap, every build/runtime/static consumer shares the same strict base-path
+  grammar, Toast announcements remain outside a modal's inert subtree,
+  retained recovery state follows the current locale, and semantic warning/
+  error text uses contrast-safe foreground tokens.
+- Two E2E-only gate repairs are complete: export completion waits for the
+  save-picker callback handshake, and map-style cycling waits for each
+  requested style revision before advancing. Both previously flaky cases
+  passed in the final full static matrix.
+- Exact-head non-browser gates passed: lint, typecheck, 21 Vitest files / 472
+  tests, audit with 0 vulnerabilities, generated-worker parity, Next 16.2.10
+  production build, and static smoke.
+- Development Playwright passed 110 tests with the one opt-in real-export case
+  expectedly skipped; the final static Playwright rerun passed the same 110 +
+  1 expected skip in 5.8 minutes. Both used one worker and zero retries.
+- The isolated production-static WebCodecs export passed 1/1 in 49.2 seconds
+  with one worker and zero retries. Its assertion verified output larger than
+  1 KiB and `ftyp` at bytes 4–7.
+- Every browser command ran sequentially and ended naturally with its dedicated
+  port free and zero Playwright/Chromium/agent-browser processes. No deployment,
+  workflow edit/dispatch, production mutation, destructive cleanup, or manual
+  process termination occurred.
+- All five findings, P01–P06, and both gate-driven repairs are complete. The
+  explicit non-implementation ledger below retains its existing exit criteria.
+
 ## Explicit non-implementation ledger
 
 - `M10-01`: physical iOS Safari safe-area and dynamic browser-chrome evidence.
