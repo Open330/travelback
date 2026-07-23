@@ -922,6 +922,132 @@ describe('parseGPX — multi-segment', () => {
   })
 })
 
+describe('parseGPX — semantic segment ownership and allocation budget', () => {
+  it('rejects nested track segments before reading any point attributes', () => {
+    const getAttribute = vi.spyOn(Element.prototype, 'getAttribute')
+    const nestedSegments = `<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1" />
+      <trkseg>
+        <trkpt lat="37.41" lon="-122.09" />
+      </trkseg>
+    </trkseg>
+  </trk>
+</gpx>`
+
+    expect(() => parseGPX(nestedSegments)).toThrowError(
+      expect.objectContaining({ code: 'XML_PARSE_ERROR' }),
+    )
+    expect(getAttribute).not.toHaveBeenCalled()
+  })
+
+  it('retains only schema-owned direct trkpt children', () => {
+    const wrappedPoint = `<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <extensions>
+        <trkpt lat="10" lon="20" />
+      </extensions>
+      <trkpt lat="37.4" lon="-122.1">
+        <extensions><ele>999</ele><time>1999-01-01T00:00:00Z</time></extensions>
+        <ele>42</ele>
+        <time>2024-01-15T10:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+    const track = parseGPX(wrappedPoint)
+
+    expect(track.points).toHaveLength(1)
+    expect(track.points[0]).toMatchObject({ lat: 37.4, lng: -122.1, ele: 42 })
+    expect(track.points[0].time?.toISOString()).toBe('2024-01-15T10:00:00.000Z')
+  })
+
+  it('ignores extension-namespace segments and points inside a real GPX segment', () => {
+    const namespacedExtensions = `<gpx
+  version="1.1"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:ext="https://example.test/travelback-extension">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1">
+        <ele>42</ele>
+        <ext:ele>999</ext:ele>
+      </trkpt>
+      <extensions>
+        <ext:trkseg>
+          <ext:trkpt lat="10" lon="20" />
+        </ext:trkseg>
+      </extensions>
+    </trkseg>
+  </trk>
+</gpx>`
+
+    const track = parseGPX(namespacedExtensions)
+
+    expect(track.points).toEqual([
+      expect.objectContaining({ lat: 37.4, lng: -122.1, ele: 42 }),
+    ])
+  })
+
+  it('does not treat extension-only segment names as semantic GPX route data', () => {
+    const extensionOnly = `<gpx
+  version="1.1"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:ext="https://example.test/travelback-extension">
+  <extensions>
+    <ext:trkseg>
+      <ext:trkpt lat="10" lon="20" />
+      <ext:trkpt lat="11" lon="21" />
+    </ext:trkseg>
+  </extensions>
+</gpx>`
+
+    expect(parseGPX(extensionOnly).points).toEqual([])
+  })
+
+  it('keeps route fallback conversion when no semantic track segment exists', () => {
+    const routeOnly = `<gpx version="1.1">
+  <rte>
+    <rtept lat="37.4" lon="-122.1" />
+    <rtept lat="37.41" lon="-122.09" />
+  </rte>
+</gpx>`
+
+    const track = parseGPX(routeOnly)
+
+    expect(track.points).toHaveLength(2)
+    expect(track.points.map(({ lat, lng }) => ({ lat, lng }))).toEqual([
+      { lat: 37.4, lng: -122.1 },
+      { lat: 37.41, lng: -122.09 },
+    ])
+  })
+
+  it('stops querying direct points when the running budget is exhausted', () => {
+    const getAttribute = vi.spyOn(Element.prototype, 'getAttribute')
+    const overBudget = `<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.40" lon="-122.10"><ele>1</ele></trkpt>
+      <trkpt lat="37.41" lon="-122.09"><ele>2</ele></trkpt>
+      <trkpt lat="37.42" lon="-122.08"><ele>3</ele></trkpt>
+      <trkpt lat="37.43" lon="-122.07"><ele>4</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+    expect(() => parseGPX(overBudget, 2)).toThrowError(
+      expect.objectContaining({ code: 'TOO_MANY_POINTS' }),
+    )
+    // The third coordinate is validated, then the budget rejects it before
+    // optional-child traversal or TrackPoint allocation. The fourth point is
+    // never queried.
+    expect(getAttribute).toHaveBeenCalledTimes(6)
+  })
+})
+
 describe('parseGPX — invalid coordinates', () => {
   it('filters out points with invalid lat/lng', () => {
     const track = parseGPX(gpxInvalidCoords)
@@ -1459,6 +1585,31 @@ const xmlLexicalPreflightFormats = [
 ] as const
 
 describe.each(xmlLexicalPreflightFormats)('$format XML lexical preflight', ({ parse, document }) => {
+  it.each([
+    ['comment', '<!-- inert <!DOCTYPE and <!ENTITY documentation -->'],
+    ['CDATA', '<![CDATA[inert <!DOCTYPE and <!ENTITY documentation]]>'],
+    ['processing instruction', '<?travelback note="inert <!DOCTYPE and <!ENTITY documentation"?>'],
+  ])('preserves declaration-like text inside a %s', (_context, inertText) => {
+    expect(parse(document(inertText)).points.length).toBeGreaterThan(0)
+  })
+
+  it('rejects active declaration openers case-insensitively before DOMParser', () => {
+    const parseFromString = vi.spyOn(DOMParser.prototype, 'parseFromString')
+    const activeDeclarations = [
+      '<!DOCTYPE route SYSTEM "https://example.invalid/route.dtd">',
+      '<!dOcTyPe route SYSTEM "https://example.invalid/route.dtd">',
+      '<!ENTITY route "value">',
+      '<!eNtItY route "value">',
+    ]
+
+    for (const declaration of activeDeclarations) {
+      expect(() => parse(document(declaration))).toThrowError(
+        expect.objectContaining({ code: 'XML_PARSE_ERROR' }),
+      )
+    }
+    expect(parseFromString).not.toHaveBeenCalled()
+  })
+
   it('rejects real nesting beyond the limit despite fake close tags in a comment', () => {
     const wrapperCount = 129
     const openingTags = '<extension><!-- </extension> -->'.repeat(wrapperCount)
@@ -1487,6 +1638,35 @@ describe.each(xmlLexicalPreflightFormats)('$format XML lexical preflight', ({ pa
     const shallowXml = document(selfClosingTags)
 
     expect(parse(shallowXml).points.length).toBeGreaterThan(0)
+  })
+})
+
+describe.each([
+  {
+    format: 'GPX',
+    parse: parseGPX,
+    document: (name: string) => `<gpx version="1.1">
+  <trk>
+    <name><![CDATA[${name}]]></name>
+    <trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg>
+  </trk>
+</gpx>`,
+  },
+  {
+    format: 'KML',
+    parse: parseKML,
+    document: (name: string) => `<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name><![CDATA[${name}]]></name>
+    <Placemark><LineString><coordinates>-122.1,37.4,0</coordinates></LineString></Placemark>
+  </Document>
+</kml>`,
+  },
+])('$format inert XML declaration text', ({ parse, document }) => {
+  it('retains observable CDATA text unchanged', () => {
+    const inertName = 'Field note: <!DOCTYPE route> and <!ENTITY camp>'
+
+    expect(parse(document(inertName)).name).toBe(inertName)
   })
 })
 

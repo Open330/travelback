@@ -5,6 +5,8 @@ import {
   parseOptionalNumber,
   parseOptionalDate,
   assertPointBudget,
+  createPointBudget,
+  consumePointBudget,
   ParseError,
   MAX_TRACK_POINTS,
   MAX_FILE_SIZE,
@@ -137,13 +139,6 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
   }
 }
 
-function stripXmlEntities(text: string): string {
-  return text
-    .replace(/<!DOCTYPE[\s\S]*?\]>/gi, '')
-    .replace(/<!DOCTYPE[^>]*>/gi, '')
-    .replace(/<!ENTITY[\s\S]*?>/gi, '')
-}
-
 function isXmlWhitespace(char: string): boolean {
   return char === ' ' || char === '\t' || char === '\n' || char === '\r'
 }
@@ -212,11 +207,17 @@ function findXmlDeclarationEnd(text: string, startIndex: number): number {
   return text.length
 }
 
-function preflightXml(text: string, formatName: string): void {
-  if (/<!DOCTYPE|<!ENTITY/i.test(text)) {
-    throw new ParseError(`Invalid ${formatName}: XML entity declarations are not supported`, 'XML_PARSE_ERROR')
+function matchesAsciiCaseInsensitive(text: string, startIndex: number, expected: string): boolean {
+  if (startIndex + expected.length > text.length) return false
+  for (let offset = 0; offset < expected.length; offset++) {
+    if ((text.charCodeAt(startIndex + offset) | 32) !== (expected.charCodeAt(offset) | 32)) {
+      return false
+    }
   }
+  return true
+}
 
+function preflightXml(text: string, formatName: string): void {
   let tagCount = 0
   let depth = 0
   let index = 0
@@ -240,6 +241,13 @@ function preflightXml(text: string, formatName: string): void {
       continue
     }
     if (text.startsWith('<!', tagStart)) {
+      const declarationNameStart = tagStart + 2
+      if (
+        matchesAsciiCaseInsensitive(text, declarationNameStart, 'DOCTYPE') ||
+        matchesAsciiCaseInsensitive(text, declarationNameStart, 'ENTITY')
+      ) {
+        throw new ParseError(`Invalid ${formatName}: XML entity declarations are not supported`, 'XML_PARSE_ERROR')
+      }
       index = findXmlDeclarationEnd(text, tagStart + 2)
       continue
     }
@@ -276,47 +284,112 @@ function preflightXml(text: string, formatName: string): void {
 }
 
 function parseXml(text: string, formatName: string): Document {
-  // Reject dangerous constructs first, then sanitize as defense-in-depth.
-  // preflightXml is the primary rejection guard on the raw input;
-  // stripXmlEntities removes any entities that slipped past for DOMParser safety.
+  // Reject dangerous active declarations before handing the unchanged source
+  // to DOMParser. The lexical pass deliberately skips inert comments, CDATA,
+  // and processing instructions before classifying declaration openers.
   preflightXml(text, formatName)
-  const safeText = stripXmlEntities(text)
-  const doc = new DOMParser().parseFromString(safeText, 'application/xml')
+  const doc = new DOMParser().parseFromString(text, 'application/xml')
   const parseError = doc.querySelector('parsererror')
   if (parseError) throw new ParseError(`Invalid ${formatName}: XML parse error`, 'XML_PARSE_ERROR')
   return doc
 }
 
-export function parseGPX(text: string): Track {
-  const doc = parseXml(text, 'GPX')
-  const segments = Array.from(doc.getElementsByTagName('trkseg'))
-    .map((segment) => Array.from(segment.getElementsByTagName('trkpt'))
-      .map<TrackPoint | null>((point) => {
-        const lat = parseOptionalNumber(point.getAttribute('lat'))
-        const lng = parseOptionalNumber(point.getAttribute('lon'))
-        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
-        const children = Array.from(point.children)
-        const elevationText = children.find(c => c.localName === 'ele')?.textContent
-        const timeText = children.find(c => c.localName === 'time')?.textContent
-        return {
-          lat,
-          lng,
-          ele: parseOptionalNumber(elevationText),
-          time: parseOptionalDate(timeText),
-        }
-      })
-      .filter((point): point is TrackPoint => point !== null))
-    .filter((segment) => segment.length > 0)
+function isOwnedGpxElement(
+  element: Element,
+  localName: string,
+  namespaceUri: string | null,
+): boolean {
+  return element.localName === localName && element.namespaceURI === namespaceUri
+}
 
-  const { points, segmentStartIndices } = segments.length > 0
-    ? segments.reduce<{ points: TrackPoint[]; segmentStartIndices: number[] }>((acc, segment) => {
-        if (acc.points.length > 0) {
-          acc.segmentStartIndices.push(acc.points.length)
+function hasOwnedGpxAncestor(
+  element: Element,
+  localName: string,
+  namespaceUri: string | null,
+): boolean {
+  let ancestor = element.parentElement
+  while (ancestor) {
+    if (isOwnedGpxElement(ancestor, localName, namespaceUri)) return true
+    ancestor = ancestor.parentElement
+  }
+  return false
+}
+
+function extractPointsFromGpxSegments(
+  doc: Document,
+  maxPoints?: number,
+): { points: TrackPoint[]; segmentStartIndices: number[] } | null {
+  const namespaceUri = doc.documentElement.namespaceURI
+  const segments = Array.from(doc.getElementsByTagNameNS('*', 'trkseg'))
+    .filter((element) => element.namespaceURI === namespaceUri)
+  if (segments.length === 0) return null
+
+  // Validate the segment tree before reading any point attributes. Descendant
+  // extraction from nested segments would otherwise multiply the same
+  // physical points once per ancestor.
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+    if (hasOwnedGpxAncestor(segments[segmentIndex], 'trkseg', namespaceUri)) {
+      throw new ParseError('Invalid GPX: nested track segments are not supported', 'XML_PARSE_ERROR')
+    }
+  }
+
+  const budget = createPointBudget(maxPoints)
+  const points: TrackPoint[] = []
+  const segmentStartIndices: number[] = []
+
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+    const segment = segments[segmentIndex]
+    const segmentPointStart = points.length
+    for (let childIndex = 0; childIndex < segment.children.length; childIndex++) {
+      const point = segment.children[childIndex]
+      if (!isOwnedGpxElement(point, 'trkpt', namespaceUri)) continue
+
+      const lat = parseOptionalNumber(point.getAttribute('lat'))
+      const lng = parseOptionalNumber(point.getAttribute('lon'))
+      if (
+        lat == null ||
+        lng == null ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        Math.abs(lat) > 90 ||
+        Math.abs(lng) > 180
+      ) {
+        continue
+      }
+
+      // Reserve capacity after coordinate validation but before optional
+      // field traversal or TrackPoint allocation.
+      consumePointBudget(budget)
+      let elevationText: string | null | undefined = undefined
+      let timeText: string | null | undefined = undefined
+      for (let pointChildIndex = 0; pointChildIndex < point.children.length; pointChildIndex++) {
+        const pointChild = point.children[pointChildIndex]
+        if (isOwnedGpxElement(pointChild, 'ele', namespaceUri) && elevationText === undefined) {
+          elevationText = pointChild.textContent
+        } else if (isOwnedGpxElement(pointChild, 'time', namespaceUri) && timeText === undefined) {
+          timeText = pointChild.textContent
         }
-        assertPointBudget(acc.points, segment.length)
-        acc.points.push(...segment)
-        return acc
-      }, { points: [], segmentStartIndices: [] })
+      }
+      points.push({
+        lat,
+        lng,
+        ele: parseOptionalNumber(elevationText),
+        time: parseOptionalDate(timeText),
+      })
+    }
+    if (segmentPointStart > 0 && points.length > segmentPointStart) {
+      segmentStartIndices.push(segmentPointStart)
+    }
+  }
+
+  return { points, segmentStartIndices }
+}
+
+export function parseGPX(text: string, maxPoints?: number): Track {
+  const doc = parseXml(text, 'GPX')
+  const semanticTrack = extractPointsFromGpxSegments(doc, maxPoints)
+  const { points, segmentStartIndices } = semanticTrack
+    ? semanticTrack
     : extractPointsFromGeoJSON(gpx(doc) as GeoJSON.FeatureCollection)
   const explicitName = normalizeImportedTrackName(doc.querySelector('trk > name')?.textContent)
     ?? normalizeImportedTrackName(doc.querySelector('metadata > name')?.textContent)
