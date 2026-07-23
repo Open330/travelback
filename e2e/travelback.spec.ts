@@ -1227,10 +1227,12 @@ test.describe('Travelback App', () => {
 
   test('journey creator exposes 44px actions at supported mobile widths', async ({ page }) => {
     for (const width of [320, 390, 430]) {
-      await page.setViewportSize({ width, height: 844 })
+      const viewport = { width, height: 844 }
+      await page.setViewportSize(viewport)
       const drawRouteBtn = page.getByRole('button', { name: /draw a route/i })
-      await expect(drawRouteBtn).toBeVisible({ timeout: 10_000 })
-      await drawRouteBtn.click({ force: true })
+      await expectVisibleInViewportAndHitOwned(drawRouteBtn, viewport)
+      await drawRouteBtn.click()
+      await expect(page.getByRole('dialog', { name: 'How to Get Your Travel Data' })).toHaveCount(0)
 
       const panel = page.getByRole('region', { name: 'Create Journey' })
       await expect(panel).toBeVisible({ timeout: 10_000 })
