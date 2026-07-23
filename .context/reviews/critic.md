@@ -1,76 +1,115 @@
-# Critic Review — Cycle 1
+# Critic Review — Cycle 2 (2026-07-23)
 
-Date: 2026-07-23
-Reviewed revision: `994820a71b0b`
+Reviewed revision: `279f5676eb34baa4929a536fa0c20e9cbc556f34`
 Deployment: not performed
 
 ## Result
 
-Three actionable product/operational findings were confirmed: two user-facing workflow defects and one interrupted-test process-lifecycle defect. No browser process was started by this review.
+**Three new actionable product/operational findings were confirmed.**
+
+- **CRIT2-01 (Medium / High):** a default export is not the animation the traveler previewed.
+- **CRIT2-02 (Medium / High):** Windows test runs can report successful cleanup while their server/browser remains alive.
+- **CRIT2-03 (Medium / High):** some legitimate multi-country routes are framed using almost a whole-world span and the wrong center.
+
+No browser or E2E process was started under the task's source-review constraint. Findings are based on deterministic control flow and, for CRIT2-03, a reproducible longitude calculation.
 
 ## Inventory and method
 
-The review inventoried the current implementation with `rg --files`, then read the governing README and `.context` project/development instructions before tracing the application end to end. The reviewed surface includes all 60 files under `src/` (including all 21 Vitest files), all 111 Playwright test declarations and 19 fixtures, all 7 scripts, all 19 public assets, package/build/lint/typecheck/Playwright/Vitest configuration, the Pages workflow, and cross-file state ownership. Historical review/plan artifacts were excluded from fresh evidence except the governing indexes and current pending-user-instruction ledger.
+All 970 tracked paths were inventoried. The review read/traced all 131 current runtime, component, test, fixture, public-text-asset, script, configuration, workflow, and governing-context paths. Historical review/plan artifacts were searched for already-known roots and explicit deferrals. Cross-file walkthroughs covered landing/import, map/playback, Camera authoring, trim/session replacement, export/save/share, responsive layouts, map recovery, static delivery, and local/CI test operation.
 
-Fresh non-browser verification:
-
-- `npm test -- --reporter=dot`: 21 files and 472 tests passed.
-- `npm run check:worker`: generated worker is current.
+Fixed Cycle 1 findings were not repeated. The three retained Cycle 1 deferrals were not relabeled.
 
 ## Findings
 
-### CRIT-01 — “New Route” destroys the current session before the replacement exists
+### CRIT2-01 — “No scenes” export is not what the traveler previewed
 
 Severity: **Medium**
 Confidence: **High**
 Status: **Confirmed**
 
-Evidence:
+Exact regions:
 
-- `src/components/TrackToolbar.tsx:145` and `src/components/TrackToolbar.tsx:232` invoke `onStartNewTrack` directly from the desktop and mobile actions.
-- `src/app/page.tsx:324-330` clears the export result, scene editor, all scenes, and transition configuration.
-- `src/app/page.tsx:349-360` then clears `track`, `fullTrack`, trim state, playback, and the rendered map before opening Journey Creator.
-- `src/app/page.tsx:462-464` handles Journey Creator cancellation only by closing the creator; it cannot restore the session that was already discarded.
-- `e2e/travelback.spec.ts:2026-2067` codifies immediate artifact clearing, but there is no confirmation or restoration assertion.
+- `src/lib/i18n.ts:89,462,835,1208,1581`
+- `src/lib/useExportController.ts:169-176`
+- `src/components/MapView.tsx:813-840`
+- `src/lib/camera.ts:381-388,394-445,525-538`
+- `src/lib/useExportController.test.ts:61-96`
 
-Concrete failure scenario: a user trims an imported track and authors several camera scenes, clicks “New Route” accidentally, then clicks Cancel in Journey Creator. They return to the landing state with the track, trim, scenes, and completed export result irrecoverably gone. The same loss is worse for a manually created route because there may be no source file to reload.
+What the traveler is told:
 
-Suggested fix: keep the current workspace intact while a replacement journey is drafted, then swap sessions only after “Create Route.” At minimum, show a clear discard confirmation when the current session contains authored state and make Cancel return to it. Add E2E coverage for both confirmation cancellation and successful replacement.
+The Camera empty state now says that without scenes the camera follows the route and that Cinematic is something to choose. The live map does follow the route.
 
-### CRIT-02 — “Export Again” closes the export panel instead of starting another export flow
+What the product does:
 
-Severity: **Low**
-Confidence: **High**
-Status: **Confirmed**
+At export time, an empty list is silently replaced with the six-scene Cinematic preset. The resulting video opens and closes on overviews and switches through Bird's Eye, Flyover, Orbit, and Ground modes even though the traveler selected none of them. The local E2E export stub cannot reveal this because it skips real frame computation, and the controller unit harness never inspects the scene list passed to the encoder.
 
-Evidence:
+Concrete failure scenario:
 
-- `src/components/ExportPanel.tsx:358-366` labels the completion-state action “Export Again” and invokes `onResetExport`.
-- `src/app/page.tsx:482-485` implements that callback by resetting the export session and immediately calling `setShowExport(false)`.
-- The user must reopen Export to reach the idle form, so the action behaves like “Close and clear,” not “Export Again.”
-- `src/components/ExportPanel.test.ts:120-200` verifies completion copy and focus transitions but never clicks this action; the export E2E block at `e2e/travelback.spec.ts:2794-3076` also omits it.
+A traveler likes the simple preview, presses Export, waits through an expensive browser-side render, and discovers only afterward that the saved video uses a different camera program. Re-exporting does not help unless they understand that they must enter Camera and author an explicit replacement.
 
-Concrete failure scenario: after a successful export, a user clicks “Export Again” expecting to adjust codec or duration. The dialog disappears, focus is restored outside it, and a second Export click is required.
+Recommendation:
 
-Suggested fix: reset the export result while leaving `showExport` true, return the panel to its idle form, and focus the export heading or first setting. If closing is intentional, relabel the action accordingly.
+Export the exact selected camera program. Empty must stay empty, Cinematic must remain opt-in, and preview/export should use one shared default-follow camera calculation. Add a cheap controller assertion plus sampled camera parity coverage so this promise does not depend on slow visual review.
 
-### CRIT-03 — The E2E wrappers do not supervise descendants when the wrapper itself is interrupted
+### CRIT2-02 — Windows can leave an E2E server or browser behind and still report cleanup success
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed design defect; orphan scenario is conditional on a parent-only signal**
+Status: **Confirmed platform control flow; runtime consequence conditional on a surviving descendant**
 
-Evidence:
+Exact regions:
 
-- `scripts/run-dev-e2e.mjs:60-76` and `scripts/run-static-e2e.mjs:44-60` spawn Playwright and handle only the child’s eventual `exit`.
-- Neither wrapper registers `SIGINT`, `SIGTERM`, uncaught-error, or normal-exit cleanup that forwards termination and waits for the exact child tree.
-- Playwright in turn owns a Next/static web server and Chromium processes through `playwright.config.ts:44-49` or `playwright.static.config.ts:50-55`.
-- `scripts/smoke-static.mjs:62-72` already demonstrates the safer local pattern: TERM, bounded wait, then KILL for the exact still-live owned child.
+- `scripts/e2e-process-supervisor.mjs:203-240,323-341`
+- `scripts/e2e-process-supervisor.test.mjs:115-223`
+- `scripts/fixtures/fake-process-tree.mjs:28-68`
 
-Concrete failure scenario: a repeated review cycle or CI controller terminates only the Node wrapper PID after a timeout/failure. The Playwright CLI remains alive and retains its web server and Chromium descendants. Later cycles encounter occupied ports, `.next/dev/lock` contention, higher CPU/GPU load, and misleading flaky results.
+What happens:
 
-Suggested fix: extract a shared subprocess supervisor for both E2E wrappers. On wrapper termination, forward the original signal to the exact owned process group/tree, wait for graceful exit, escalate only the still-live owned descendants, and preserve the child exit code. Add a deterministic integration test using a fake long-lived child; never use broad `pkill`/name matching.
+The Windows supervisor remembers only Playwright's root PID. If that PID has exited, cleanup immediately succeeds without checking the web server or Chromium descendants. The repository already contains an `orphan-stubborn` fixture representing this exact case, but the test and every other lifecycle assertion are skipped on Windows.
+
+Concrete failure scenario:
+
+A Windows contributor runs the canonical E2E command. Playwright exits unexpectedly while a server or Chromium child survives. The command returns the Playwright status and says nothing about the leak. The next run sees an occupied port, stale browser state, or unexplained CPU/memory usage and appears flaky for reasons outside the test that failed.
+
+Recommendation:
+
+Contain the Windows tree in a durable Job Object (or equivalent exact-identity owner) so descendants remain reachable after the root exits. Run the fake-tree lifecycle contract on Windows CI. Until that ownership exists, do not claim successful tree cleanup based only on the root PID.
+
+### CRIT2-03 — A wide route can be centered 91° away from its actual midpoint
+
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed by counterexample**
+
+Exact regions:
+
+- `src/lib/map-geometry.ts:36-72,113-127`
+- `src/lib/camera.ts:214-268`
+- `src/components/MapView.tsx:222-251`
+- `src/lib/map-geometry.test.ts:21-48`
+- `e2e/travelback.spec.ts:2339-2393`
+
+What happens:
+
+Whenever raw longitude span is over 180°, three different code paths add 360° to every negative longitude. This works for the test fixture's simple `179° → -179°` hop, but not for every multi-stop trip.
+
+For `[-179, -1, 2]`:
+
+- the route-ordered extent is 181° with center `-88.5°`;
+- the current shifted extent is 357° with center normalized to `-179.5°`.
+
+The product can therefore zoom initial fit almost to the whole world, use a coarse background grid, and center an Overview scene far from the route's meaningful midpoint.
+
+Concrete failure scenario:
+
+A traveler imports a long multi-country or global history rather than a short dateline hop. The map initially looks mostly empty, and the “Overview” camera—the mode meant to establish geographic context—places the journey near an edge or outside the expected frame.
+
+Recommendation:
+
+Use the same route-ordered, segment-aware longitude unwrapping for rendering, fit, grid, and Overview camera. Add multi-stop and multi-wrap fixtures, not just a two-point dateline fixture, and assert bounds/center directly before relying on visual E2E.
 
 ## Missed-issue sweep
 
-A final pass rechecked track replacement, modal ownership, scene mutation, import cancellation, export cleanup, static serving/hardening, generated-worker parity, CI gates, public asset locality, and the complete test-name inventory. No additional finding met the evidence threshold for this critic report.
+The final sweep rechecked the complete import-to-export flow, error and cancellation recovery, modal/focus ownership, track replacement, trim/scenes, map retry/style hydration, export cleanup/save states, responsive interaction ownership, local static delivery, and test process lifecycle.
+
+The root playback commit-frequency, session-wide `preserveDrawingBuffer`, and offline-geographic-context items remain explicit evidence-gated deferrals. No fourth critic finding met the actionable-evidence threshold.

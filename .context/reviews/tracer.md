@@ -1,89 +1,84 @@
-# Tracer — Repository-Wide Causal Flow Review (Cycle 1, 2026-07-23)
+# Tracer — Repository-Wide Causal-Flow Review (Cycle 2, 2026-07-23)
 
-Reviewed revision: `994820a`
+Reviewed revision: `279f5676eb34baa4929a536fa0c20e9cbc556f34`
 
 ## Result
 
-**Three actionable causal findings:** two independent failure modes in the E2E launcher lifecycle and one export error-classification defect. No browser, Playwright, Chrome, dev server, or static server was started for this review.
+**Two genuinely new actionable causal findings:** one cleanup-failure branch in POSIX E2E supervision and one export-restoration state transition that disables future device-DPR tracking. No browser, Playwright, E2E, dev server, static server, or test suite was run for this review.
 
 ## Coverage
 
-I inventoried the complete tracked repository and traced producer → state owner → asynchronous boundary → consumer → cleanup across:
+I inventoried all 970 tracked files and traced relevant producer → owner → asynchronous boundary → consumer → cleanup paths across:
 
-- track import, parser/worker parity, replacement generations, trim, segmented interpolation, Journey Creator, scenes, playback, and map/style hydration;
-- frame rendering, map-idle waits, canvas staging, encoder backpressure/finalization, cancellation, download/result ownership, and localized export errors;
-- React components and hooks, every unit-test suite, the complete Playwright specification and fixtures, both Playwright configurations, all seven scripts, static serving/hardening, package/build/type/lint configuration, public assets/styles, README, and current `.context` architecture/convention material.
+- import/worker generations, trim/replacement, Journey Creator, scenes, playback, and map/style generations;
+- pointer/keyboard gesture drafts, animation-frame publication, terminal commit/cancel, unmount, blur, visibility loss, and pointer-capture loss;
+- prepared route/elevation geometry, trail filters/head data, camera state, render/idle waits, and retry ownership;
+- export validation, temporary DPR/size override, frame capture, encoder finalization/cancellation, save fallback, result URL ownership, repeated export, and teardown;
+- dev/static E2E launch, POSIX/Windows process ownership, signals, normal/nonzero exits, escalation, lock reuse, wrapper error handling, and platform-gated tests.
 
-`npm run check:worker` passed, confirming the generated parser worker matches its source. Static inspection was used for process-lifecycle findings so this reviewer would not create or disturb a browser tree owned by another review.
+Cycle 1 findings that are fixed at this revision were not re-counted. The three documented evidence/product deferrals were also excluded.
 
 ## Findings
 
-### TRACE-01 — Interrupting an E2E wrapper does not terminate the process tree it owns
+### TRACE-01 — A teardown-time `ps` failure bypasses the supervisor’s fallback cleanup
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed design defect; activation requires a wrapper-only interrupt**
+Status: **Confirmed control-flow defect; inducing the host/process-table failure remains manual**
 
 #### Causal trace
 
-1. The ordinary E2E entry points route through `scripts/run-dev-e2e.mjs` and `scripts/run-static-e2e.mjs` (`package.json:17-20`).
-2. Each wrapper spawns the Playwright CLI with inherited stdio (`scripts/run-dev-e2e.mjs:60-68`; `scripts/run-static-e2e.mjs:44-52`).
-3. Playwright then owns a Next/static web server and Chromium (`playwright.config.ts:25-49`; `playwright.static.config.ts:31-55`).
-4. The wrappers listen only for the Playwright child’s eventual `exit` (`scripts/run-dev-e2e.mjs:70-76`; `scripts/run-static-e2e.mjs:54-60`). They register no `SIGINT`, `SIGTERM`, or `SIGHUP` handler, do not forward parent termination, do not wait for graceful descendant cleanup, and do not escalate an exact owned tree.
-5. Consequently, a controller that times out or cancels the wrapper PID can remove the wrapper while leaving Playwright, its web server, and Chromium descendants alive. A later cycle can inherit CPU/GPU pressure, occupied ports, or a Next development lock from that stale tree.
+1. POSIX ownership refresh depends on a separate `ps` process and rejects on command failure, timeout, or output-buffer failure (`scripts/e2e-process-supervisor.mjs:49-82`).
+2. `signalAndWait()` awaits a fresh snapshot before it signals or verifies any owned group (`scripts/e2e-process-supervisor.mjs:187-195`), and `stopOwnedProcessTree()` propagates that rejection (`scripts/e2e-process-supervisor.mjs:237-240`).
+3. The exact-root fallback is wrapped only around the initial `tracker.start()` call (`scripts/e2e-process-supervisor.mjs:315-321`, using `243-254`).
+4. If refresh instead fails after Playwright has run—on wrapper signal or after the root child exits—the outer `finally` only stops polling and unregisters handlers (`scripts/e2e-process-supervisor.mjs:323-347`). It does not signal the root group or the last successfully inventoried descendant groups.
+5. Both wrappers catch the rejection, log it, and set an exit code without a second cleanup attempt (`scripts/run-dev-e2e.mjs:19-35`; `scripts/run-static-e2e.mjs:17-33`).
 
-#### Competing hypothesis
+#### Concrete scenario
 
-Playwright normally cleans up its server and browser after an ordinary completed run, and a controller that deliberately signals the entire process group may also clean up. Neither behavior covers the wrapper-PID-only termination path: POSIX does not automatically forward a signal from a terminated parent to its child, and the wrappers provide no supervision for that case.
+Playwright has spawned a detached Chromium or report/server group. Its root exits, and the supervisor begins normal cleanup, but the final `ps` call exceeds the two-second deadline under host load. The wrapper reports that it could not stop the tree and exits while the already-inventoried detached group remains alive. A signal-first failure can similarly leave the live root/tree attached until a later external timeout.
 
-#### Suggested fix
+#### Root cause
 
-Extract one shared subprocess supervisor for both wrappers. Give each run an exact ownership boundary, forward `INT`/`TERM`/`HUP`, wait for graceful exit, then escalate only still-live owned descendants. On POSIX, a dedicated child process group can provide that boundary; use a scoped Windows tree/job equivalent there. Preserve the original signal/exit status and never use broad browser-name or port-based killing. Add deterministic fake-child integration tests for normal exit, failed exit, each parent signal, bounded escalation, and unrelated-process preservation.
+Process-table observation is both the ownership-discovery mechanism and a hard prerequisite for every cleanup step. The code preserves no teardown path based on the last successful ownership snapshot, and its tracking-failure fallback is scoped only to startup.
 
-### TRACE-02 — A failed interactive E2E run can intentionally stay open in the HTML reporter
+#### Recommended fix
+
+Make cleanup failure-safe across the entire supervised lifecycle. Retain the last validated owned PID/group identities and, if a final refresh fails after bounded retries, best-effort signal those cached exact groups plus the root group before returning the tracking error. A stronger fix is an OS containment primitive whose close/kill behavior does not depend on a fresh process-table read. Inject the process-table reader and add deterministic tests for failure on normal-exit cleanup, wrapper-signal cleanup, and forced escalation; assert that the fake root/grandchild exit and an unrelated sentinel remains alive.
+
+### TRACE-02 — Export restoration converts automatic device-DPR tracking into a stale numeric override
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed against the installed Playwright 1.61.1 behavior; TTY-dependent**
+Status: **Confirmed state transition; visible/resource impact requires a post-export DPR change**
 
 #### Causal trace
 
-1. Both configurations select the HTML reporter without setting its `open` policy (`playwright.config.ts:16`; `playwright.static.config.ts:22`).
-2. Both wrappers inherit the caller environment and terminal through `stdio: 'inherit'`, but neither sets `PLAYWRIGHT_HTML_OPEN` (`scripts/run-dev-e2e.mjs:53-68`; `scripts/run-static-e2e.mjs:37-52`).
-3. The installed `@playwright/test` version is 1.61.1 (`package.json:34`). Its HTML reporter defaults `open` to `on-failure` and, for a failed TTY run outside CI/coding-agent detection, awaits `showHTMLReport` before reporter exit (`node_modules/playwright/lib/runner/index.js:3282,3320-3322`).
-4. The wrapper therefore never receives the child `exit` it is waiting for while that report server is open. A failed local/review cycle can block instead of returning a nonzero result so the next cycle can proceed; an external timeout then reaches TRACE-01’s orphan path.
+1. `MapView` creates MapLibre without a `pixelRatio` option, so the interactive map begins in MapLibre’s automatic `devicePixelRatio` mode (`src/components/MapView.tsx:928-947`).
+2. Export capture stores only the numeric result of `map.getPixelRatio()` (`src/lib/map-export-presentation.ts:7-21`).
+3. Export correctly installs a temporary numeric override of `1` for deterministic output size (`src/lib/map-export-presentation.ts:24-34`).
+4. Restoration calls `map.setPixelRatio(snapshot.pixelRatio)` with the old numeric value (`src/lib/map-export-presentation.ts:36-44`). In locked MapLibre 5.24.0, `getPixelRatio()` returns `_overridePixelRatio ?? devicePixelRatio`, while `setPixelRatio()` assigns the override; `null` is the documented way to return to device tracking (`package.json:30`; `package-lock.json:6537-6550`; installed `maplibre-gl/src/ui/map.ts:1089-1108`).
+5. The unit harness models pixel ratio as one mutable number, so it verifies immediate restoration but cannot detect the lost automatic mode or a later DPR change (`src/lib/map-export-presentation.test.ts:11-49`).
 
-#### Competing hypothesis
+#### Concrete scenario
 
-CI and reliably noninteractive invocations generally suppress automatic report opening. That narrows activation but does not make the repository entry points deterministic: their behavior changes with TTY/agent detection, and the intended repeated-cycle contract requires failure to return without an interactive server.
+A traveler exports on a DPR-2 display, then moves the browser to a DPR-1 display or changes browser zoom. MapLibre remains pinned at 2 after subsequent resizes, allocating roughly four physical pixels per CSS pixel instead of one. The reverse transition leaves the map pinned at 1 and visibly soft on the higher-DPR display. The stale mode lasts until the map is recreated.
 
-#### Suggested fix
+#### Root cause
 
-Configure both reporters explicitly as `[['html', { open: 'never' }]]`, or set `PLAYWRIGHT_HTML_OPEN=never` in the noninteractive wrapper entry points while retaining an explicit opt-in command for manual report viewing. Add a failing wrapper integration test under a pseudo-TTY and assert prompt nonzero exit plus no live report-server descendant.
+The snapshot captures the current numeric value, not whether that value came from an explicit override or the device-derived default. Restoring a value is not equivalent to restoring the prior mode.
 
-### TRACE-03 — A map-frame timeout is reported as unsupported WebCodecs
+#### Recommended fix
 
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed reachable error-classification defect**
-
-#### Causal trace
-
-1. Every export frame calls `MapView.renderFrameAndWait` through the export controller (`src/lib/useExportController.ts:215-220`).
-2. `renderFrameAndWait` delegates to `mutateMapAndWaitForRender` without translating its failures (`src/components/MapView.tsx:490-516`).
-3. If a frame does not emit/render within five seconds, the map helper rejects a plain `Error('Timed out waiting for the map frame to render')` (`src/lib/map-render.ts:14,79-81`).
-4. `exportVideo` cancels its output and rethrows that error unchanged (`src/lib/videoEncoder.ts:272-274`).
-5. The controller recognizes only selected `ExportError` codes; every other error falls back to `app.exportFailedSuffix` (`src/lib/useExportController.ts:17-23,273-285`).
-6. That fallback tells the traveler that their browser may not support WebCodecs for the selected codec (`src/lib/i18n.ts:315-320`), even though the failed subsystem was map rendering. Changing codecs does not address the failure. The same misleading fallback is used for the distinct staging-canvas allocation error `EXPORT_CAPTURE_CANVAS` (`src/lib/videoEncoder.ts:190-203`), which is absent from the mapping.
-
-#### Competing hypothesis
-
-The controller already maps its resize/idle failures to `app.exportMapRenderFailed` (`src/lib/useExportController.ts:180-197`). That mapping does not catch the separate per-frame render timeout because the error is created later as a plain `Error`; it therefore follows the generic codec path.
-
-#### Suggested fix
-
-Preserve cancellation, but translate non-abort failures from `renderFrameAndWait` into a typed map-render export error before they cross into the encoder. Add a localized resource/canvas failure key for `EXPORT_CAPTURE_CANVAS` rather than treating it as codec incompatibility. Unit-test the complete helper → map handle → controller message chain for a per-frame timeout and a null staging context.
+Track pixel-ratio ownership/mode explicitly. Because this application creates the map in automatic mode and owns the only temporary override, reset the override to `null` after export (with a local type adaptation for MapLibre’s narrower TypeScript signature), then resize. If explicit interactive overrides are added later, snapshot a separate application-owned mode rather than inferring it from `getPixelRatio()`. Replace the test harness with separate `devicePixelRatio` and nullable override state; change the simulated device DPR after restoration and assert that the map follows it. Cover success, cancellation, failure, and repeated export.
 
 ## Closed traces and final missed-issue sweep
 
-The final sweep challenged stale parser completions, worker termination, segmented trim boundaries, scene mutation/undo ownership, drag terminal events, map-style and retry generations, playback frame cleanup, export cancellation/finalization, object-URL lifetime, static base paths/CSP, port fallback, and tests that could pass on the wrong state. Current generation guards, owner-identity checks, listener cleanup, bounded parser limits, and worker parity closed those paths. The known non-cancellable mediabunny finalization limitation is already documented and was not duplicated as a new finding. No additional causal chain met the actionable evidence threshold.
+- Missing-map and per-frame render failures now cross the map boundary as typed `EXPORT_MAP_RENDER` failures; cancellation remains tied to the active abort signal.
+- Export result/save ownership retains a completed blob after picker write failure, revokes superseded URLs, and keeps repeated-export cleanup lease-scoped.
+- Journey, timeline, and scene gestures flush exact terminal state and clean queued frames/listeners on cancel, blur, visibility change, capture loss, style replacement, and unmount.
+- Prepared track identity, style revision, marker/trail source state, and retry camera state remain generation-guarded through map replacement.
+- Playback pause/reset synchronously clears authorization and queued frame/timer handles.
+- POSIX startup fallback, normal observed cleanup, and unrelated-process preservation are covered; the Windows root-exit blind spot is reported once in `debugger.md`.
+
+The final sweep revisited every changed async boundary, swallowed error, abort lease, timer/frame handle, listener pair, process exit/signal branch, map generation, export restore path, and object URL. No other new causal defect met the actionable evidence threshold.

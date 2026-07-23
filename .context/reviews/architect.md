@@ -1,55 +1,117 @@
-# Architect Review — Cycle 1 (2026-07-23)
+# Architect Review — Cycle 2 (2026-07-23)
 
-Reviewed revision: `994820a71b0b87de78fdfd2a1fd2c17e7ad3b516`
+Reviewed revision: `279f5676eb34baa4929a536fa0c20e9cbc556f34`
+Comparison base: `994820a71b0b87de78fdfd2a1fd2c17e7ad3b516`
 
 ## Result
 
-**New architecture findings: 1.** ARCH1-01 is the architectural root of CR1-01: E2E process ownership is duplicated across two leaf scripts, and neither boundary owns shutdown in both directions.
+**New architecture findings: 3.**
+
+- **ARCH2-01 (Medium / High):** the no-scene camera program has three conflicting authorities.
+- **ARCH2-02 (Medium / High):** `OwnedProcessTracker` exposes one cleanup contract but its Windows implementation owns only a root PID.
+- **ARCH2-03 (Medium / High):** rendered geometry owns ordered longitude unwrapping, while three viewport consumers independently choose a different world copy.
+
+These are the architecture roots of CR2-01 through CR2-03. The three explicit Cycle 1 deferrals remain excluded.
 
 ## System coverage
 
-The review traced the client-only trust boundary, static delivery/base path, parser and generated-worker ownership, full/trimmed track models, segmented interpolation and camera flow, app-shell/session state, MapLibre construction/style/pose generations, Journey Creator gestures, scene authoring/preview/commit, playback/export leases, modal/toast composition, build hardening, and development/static test orchestration. All authored source, tests, fixtures, scripts, configuration, workflow, public text assets, and current architecture/development context were covered. Superseded plans and reviews were searched for provenance and duplicate suppression.
+The review inventoried all 970 tracked paths and fully traced the 131 current product-relevant paths: static delivery and base-path policy; parser and generated-worker ownership; full/trimmed track models; segmented interpolation; camera/scene state; MapLibre construction, style revisions, retries, and export presentation; Journey and Scene Editor gesture boundaries; playback/export leases; modal/toast composition; static hardening/serving; and development/static test orchestration. All authored source, tests, fixtures, scripts, configuration, workflow, public text assets, and governing project/development context were covered. Historical reports/plans were searched for provenance and duplicate suppression.
 
-Fresh lint, no-emit typecheck, all 472 unit/component tests, and generated-worker parity passed. This role started no browser, Playwright, Chrome/Chromium, server, build, or deployment process.
+No browser, Playwright, E2E suite, server, build, deployment, or source mutation was run by this role.
 
-## Finding
+## Findings
 
-### ARCH1-01 — The E2E harness has no single bidirectional process owner
+### ARCH2-01 — No-scene camera behavior has three conflicting authorities
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed architecture boundary defect**
-Related code finding: **CR1-01**
+Status: **Confirmed boundary inconsistency**
+Related code finding: **CR2-01**
 
-Evidence:
+Exact regions:
 
-- `scripts/run-dev-e2e.mjs:6-33` and `scripts/run-static-e2e.mjs:5-32` separately implement the same port validation/reservation policy.
-- `scripts/run-dev-e2e.mjs:52-76` and `scripts/run-static-e2e.mjs:36-60` separately resolve/spawn Playwright and propagate only child-to-parent exit.
-- `playwright.config.ts:9-50` and `playwright.static.config.ts:15-56` repeat the worker/project/Chromium launch policy around target-specific server details.
-- In both target paths, ownership flows downward—wrapper → Playwright → server/browser—but shutdown ownership is assumed to flow upward without an explicit contract. A signal received only by the wrapper crosses no boundary.
-- The same missing cleanup appears in both wrappers today, demonstrating that this is not merely hypothetical future drift. Fixing only one entry point would leave the other capable of leaking the same descendants.
+- `src/components/MapView.tsx:813-840,1193-1217`
+- `src/lib/camera.ts:381-388,525-538`
+- `src/lib/useExportController.ts:169-176`
+- `src/components/SceneEditor.tsx:790-822,853-879`
+- `.context/project/02-architecture.md:98-105`
 
-Concrete failure scenario:
+Architecture evidence:
 
-A repeated verification cycle interrupts the wrapper process on timeout. Because no common orchestrator owns the complete child lifecycle, Playwright remains live and retains its Next/static server and Chromium descendants. The next cycle sees occupied ports, a dev lock, stale browser resources, or a misleading reusable-server candidate. Static and development suites can fail differently depending on which duplicated runner was interrupted.
+- `MapView` owns one default-follow definition: point center, 600 m segment-local bearing, pitch 45, zoom 13.
+- `camera.ts` owns a second: point center, interpolation bearing, pitch 45, zoom 14.
+- `useExportController` bypasses both as a policy decision and converts an empty scene list into the Cinematic preset.
+- `SceneEditor` correctly models Cinematic as an explicit user action, while the export boundary silently models it as a default.
+- Cycle 1 corrected documentation and UI copy to match the first interpretation without changing the contradictory executable boundary.
+
+The architectural problem is not merely a stale conditional. “Camera program” is implicit state reconstructed differently by the live renderer, encoder, and controller. Consequently preview/export equivalence cannot be stated or tested as one invariant.
 
 Recommended boundary:
 
-Introduce a shared `runPlaywrightTarget`-style orchestration module with explicit ownership metadata:
+Represent camera intent explicitly:
 
-1. reserve or discover the target port;
-2. distinguish reused external resources from processes created by this run;
-3. spawn one Playwright child;
-4. relay wrapper termination to that exact owned child/tree;
-5. wait for natural teardown, then perform bounded exact-tree escalation;
-6. settle once and mirror child status.
+- `CameraProgram = { kind: 'follow'; params: ... } | { kind: 'scenes'; scenes; transitionDuration }`;
+- keep preset factories in the authoring layer and require the user action to turn a preset into a scene program;
+- expose one pure `computeCameraForProgram(track, distances, program, progress, elapsed)` function to both MapView and export;
+- make the controller transport the selected program, not invent one.
 
-Keep target-specific values—config path, environment, and optional active-Next reuse—as data passed to that owner. A shared base Playwright configuration can also hold the common Chromium/project policy, but lifecycle consolidation is the correctness-critical boundary.
+Contract tests should feed the same program and progress samples to preview and export and assert identical target camera states. Smoothing may remain a presentation concern after the shared target is computed.
 
-Required regression:
+### ARCH2-02 — Windows does not implement the ownership promised by `OwnedProcessTracker`
 
-Use a fake process tree to test the orchestration contract without launching a browser. Verify normal completion, nonzero exit, wrapper `SIGINT`/`SIGTERM`, bounded escalation, and preservation of a reused/unrelated sentinel. Then retain the existing sequential one-browser development/static suites as integration coverage.
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed abstraction-contract violation**
+Related code finding: **CR2-02**
 
-## Existing architecture debt and final sweep
+Exact regions:
 
-The broad app-shell prop surface and large `MapView` remain known deferred architecture debt with existing exit criteria; the playback/elevation/drag/export performance boundaries remain evidence-gated. Parser semantics now have a generated worker source of truth, base-path consumers share one normalizer, and map style/pose hydration has an explicit generation model. No second new architecture root met the reporting threshold.
+- `scripts/e2e-process-supervisor.mjs:85-240,262-348`
+- `scripts/e2e-process-supervisor.test.mjs:115-223`
+
+Architecture evidence:
+
+- The orchestration layer is written against a common lifecycle shape—`start`, `stop`, `signalAndWait`, `describe`—and `stopOwnedProcessTree` assumes that a successful return means all owned descendants exited.
+- The POSIX implementation establishes durable identities and discovers descendants/groups. The Windows implementation establishes no inventory or durable container; it retains only the root PID.
+- The ordinary completion order is root status first, cleanup second. Once the Windows root is gone, its implementation cannot even attempt tree cleanup and nevertheless returns success.
+- The platform contract suite is actually a POSIX-only suite. Every descendant-ownership assertion is skipped on Windows.
+
+This means the interface name and success value overstate the capability of one implementation. Callers cannot distinguish “complete owned tree is gone” from “root PID is gone.”
+
+Recommended boundary:
+
+Make durable containment a prerequisite of `OwnedProcessTracker.start()`. On Windows, attach the spawned process to a Job Object before accepting ownership and close/terminate the job during cleanup. If that cannot be guaranteed, return an unsupported/error state rather than a successful tree cleanup. Keep exact process identity and “unrelated sentinel survives” as platform-neutral conformance tests, with Windows included in CI. Target-specific wrappers should continue to consume the supervisor as data; they must not gain platform cleanup branches of their own.
+
+### ARCH2-03 — World-copy selection sits outside the prepared-geometry source of truth
+
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed duplicated domain policy**
+Related code finding: **CR2-03**
+
+Exact regions:
+
+- `src/lib/map-geometry.ts:34-72,113-240`
+- `src/lib/camera.ts:207-268`
+- `src/components/MapView.tsx:184-293,843-924`
+
+Architecture evidence:
+
+- Cycle 1 established `PreparedTrackGeometry.wrappedSegments` as the single prepared graph for route and trail rendering.
+- Fit bounds are computed earlier from raw points, Overview has a private `BoundingBox`, and reference-grid construction repeats another private bounds pass.
+- All three external consumers use the same sign-based shift, but none consumes the actual ordered world copies in `wrappedSegments`.
+- The counterexample `[-179, -1, 2]` proves the duplicated rule can map a 181° sequential extent to a 357° viewport and change its center by 91°.
+
+The rendered line and its viewport therefore do not share a geographic coordinate-space owner. Any future correction must be made in at least three places and can still diverge from the route graph.
+
+Recommended boundary:
+
+Extend prepared geometry with canonical, segment-aware display bounds (and, if useful, a canonical display center). Compute them during the same ordered `wrapLngNear` pass, with explicit alignment policy for disconnected segments. Pass that prepared value to fit, reference-grid, and Overview-camera consumers. If camera purity requires a smaller shared value, expose a pure `computeTrackDisplayBounds(track)` helper used both while preparing geometry and while computing camera state; do not keep private sign-based variants.
+
+Regression coverage should compare the shared bounds across ordinary, simple dateline, wide non-dateline, reverse traversal, multi-wrap, and disconnected-segment tracks.
+
+## Existing debt and final sweep
+
+The final architecture pass rechecked session and gesture ownership, map generation/style state, parser/worker duplication, export lifecycle boundaries, responsive measurement ownership, static-server trust boundaries, and test orchestration. The large app-shell/MapView surfaces remain existing debt rather than newly evidenced defects.
+
+Cycle 1 deferrals D01-D03 were not reopened. No fourth architecture root met the reporting threshold.
