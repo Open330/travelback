@@ -11,6 +11,11 @@ import { computeScriptHashes } from './harden-static-export.mjs'
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
 const FORBIDDEN_HIDDEN_DIRS = new Set(['.omc', '.omx', '.claude', '.codex', '.git'])
+const SOCIAL_PREVIEW_FILENAME = 'social-preview.png'
+const SOCIAL_PREVIEW_TYPE = 'image/png'
+const SOCIAL_PREVIEW_WIDTH = 1200
+const SOCIAL_PREVIEW_HEIGHT = 630
+const SOCIAL_PREVIEW_ALT = 'Travelback animated journey route on a dark map with playback controls'
 
 const basePath = normalizeBasePath(process.env.TRAVELBACK_BASE_PATH ?? process.env.STATIC_BASE_PATH ?? '/travelback')
 
@@ -149,6 +154,153 @@ async function findHtmlFiles(directory) {
     }
   }
   return files
+}
+
+function decodeHtmlAttribute(value) {
+  const namedEntities = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    quot: '"',
+  }
+
+  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (entity, decimal, hex, named) => {
+    if (decimal || hex) {
+      const codePoint = Number.parseInt(decimal ?? hex, decimal ? 10 : 16)
+      return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10FFFF
+        ? String.fromCodePoint(codePoint)
+        : entity
+    }
+    return named ? namedEntities[named.toLowerCase()] ?? entity : entity
+  })
+}
+
+function parseHtmlAttributes(tag) {
+  const attributes = new Map()
+  const attributePattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+  for (const match of tag.matchAll(attributePattern)) {
+    const name = match[1].toLowerCase()
+    if (name === 'meta') continue
+    const rawValue = match[2] ?? match[3] ?? match[4]
+    if (rawValue !== undefined) {
+      attributes.set(name, decodeHtmlAttribute(rawValue))
+    }
+  }
+  return attributes
+}
+
+function requireSingleMetaContent(head, attributeName, metadataName, htmlFile) {
+  const matches = []
+  for (const tagMatch of head.matchAll(/<meta\b[^>]*>/gi)) {
+    const attributes = parseHtmlAttributes(tagMatch[0])
+    if (attributes.get(attributeName) === metadataName && attributes.has('content')) {
+      matches.push(attributes.get('content'))
+    }
+  }
+
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected one ${attributeName}="${metadataName}" meta tag in ${path.relative(cwd, htmlFile)}, found ${matches.length}`,
+    )
+  }
+  return matches[0]
+}
+
+async function assertSocialPreviewMetadata() {
+  const htmlFile = path.resolve(cwd, 'out', 'index.html')
+  const html = await readFile(htmlFile, 'utf8')
+  const headMatch = html.match(/<head(?:\s[^>]*)?>([\s\S]*?)<\/head>/i)
+  if (!headMatch) {
+    throw new Error(`Missing complete head element in ${path.relative(cwd, htmlFile)}`)
+  }
+  const head = headMatch[1]
+
+  const twitterCard = requireSingleMetaContent(head, 'name', 'twitter:card', htmlFile)
+  if (twitterCard !== 'summary_large_image') {
+    throw new Error(`twitter:card was "${twitterCard}", expected "summary_large_image"`)
+  }
+
+  const openGraphUrl = requireSingleMetaContent(head, 'property', 'og:url', htmlFile)
+  const openGraphImage = requireSingleMetaContent(head, 'property', 'og:image', htmlFile)
+  const twitterImage = requireSingleMetaContent(head, 'name', 'twitter:image', htmlFile)
+  if (openGraphImage !== twitterImage) {
+    throw new Error(`og:image and twitter:image differ: "${openGraphImage}" vs "${twitterImage}"`)
+  }
+
+  let pageUrl
+  let imageUrl
+  try {
+    pageUrl = new URL(openGraphUrl)
+    imageUrl = new URL(openGraphImage)
+  } catch {
+    throw new Error('Social metadata URLs must be absolute URLs')
+  }
+  if (!['http:', 'https:'].includes(pageUrl.protocol) || !['http:', 'https:'].includes(imageUrl.protocol)) {
+    throw new Error('Social metadata URLs must use HTTP or HTTPS')
+  }
+
+  const expectedMountPath = basePath ? `${basePath}/` : '/'
+  if (pageUrl.pathname !== expectedMountPath) {
+    throw new Error(`og:url path was "${pageUrl.pathname}", expected configured mount "${expectedMountPath}"`)
+  }
+  const expectedImageUrl = new URL(SOCIAL_PREVIEW_FILENAME, pageUrl).toString()
+  if (openGraphImage !== expectedImageUrl) {
+    throw new Error(`Social image URL was "${openGraphImage}", expected app-relative URL "${expectedImageUrl}"`)
+  }
+
+  const expectedImagePath = `${basePath}/${SOCIAL_PREVIEW_FILENAME}`
+  if (imageUrl.pathname !== expectedImagePath || imageUrl.search || imageUrl.hash) {
+    throw new Error(`Social image must resolve exactly under the configured mount at "${expectedImagePath}"`)
+  }
+
+  const openGraphType = requireSingleMetaContent(head, 'property', 'og:image:type', htmlFile)
+  const openGraphWidth = requireSingleMetaContent(head, 'property', 'og:image:width', htmlFile)
+  const openGraphHeight = requireSingleMetaContent(head, 'property', 'og:image:height', htmlFile)
+  const openGraphAlt = requireSingleMetaContent(head, 'property', 'og:image:alt', htmlFile)
+  const twitterType = requireSingleMetaContent(head, 'name', 'twitter:image:type', htmlFile)
+  const twitterWidth = requireSingleMetaContent(head, 'name', 'twitter:image:width', htmlFile)
+  const twitterHeight = requireSingleMetaContent(head, 'name', 'twitter:image:height', htmlFile)
+  const twitterAlt = requireSingleMetaContent(head, 'name', 'twitter:image:alt', htmlFile)
+
+  if (openGraphType !== SOCIAL_PREVIEW_TYPE || twitterType !== SOCIAL_PREVIEW_TYPE) {
+    throw new Error(`Social image metadata must declare ${SOCIAL_PREVIEW_TYPE}`)
+  }
+  if (openGraphWidth !== String(SOCIAL_PREVIEW_WIDTH)
+    || twitterWidth !== String(SOCIAL_PREVIEW_WIDTH)
+    || openGraphHeight !== String(SOCIAL_PREVIEW_HEIGHT)
+    || twitterHeight !== String(SOCIAL_PREVIEW_HEIGHT)) {
+    throw new Error(`Social image metadata must declare ${SOCIAL_PREVIEW_WIDTH}x${SOCIAL_PREVIEW_HEIGHT}`)
+  }
+  if (openGraphAlt !== SOCIAL_PREVIEW_ALT || twitterAlt !== SOCIAL_PREVIEW_ALT) {
+    throw new Error('Open Graph and Twitter social images must keep the meaningful Travelback alt text')
+  }
+}
+
+function assertPngHeader(bytes) {
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+  if (bytes.length < 24 || !bytes.subarray(0, pngSignature.length).equals(pngSignature)) {
+    throw new Error('Social preview response is not a valid PNG')
+  }
+  if (bytes.toString('ascii', 12, 16) !== 'IHDR') {
+    throw new Error('Social preview PNG is missing its IHDR chunk')
+  }
+
+  const width = bytes.readUInt32BE(16)
+  const height = bytes.readUInt32BE(20)
+  if (width !== SOCIAL_PREVIEW_WIDTH || height !== SOCIAL_PREVIEW_HEIGHT) {
+    throw new Error(`Social preview PNG is ${width}x${height}, expected ${SOCIAL_PREVIEW_WIDTH}x${SOCIAL_PREVIEW_HEIGHT}`)
+  }
+}
+
+async function assertSocialPreviewAsset() {
+  const url = appUrl(`/${SOCIAL_PREVIEW_FILENAME}`)
+  const res = await assertStatus(url, 200)
+  const contentType = (res.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase()
+  if (contentType !== SOCIAL_PREVIEW_TYPE) {
+    throw new Error(`${url} content-type was "${contentType}", expected "${SOCIAL_PREVIEW_TYPE}"`)
+  }
+  assertPngHeader(Buffer.from(await res.arrayBuffer()))
 }
 
 function assertStaticCspWasHardenedInHtml(html, htmlFile) {
@@ -459,6 +611,8 @@ try {
   await assertSymlinkEscapeDenied(symlinkFixture)
   await assertStatus(appUrl('/sample-trip.gpx'), 200)
   await assertHeadStatus(appUrl('/sample-trip.gpx'), 200)
+  await assertSocialPreviewMetadata()
+  await assertSocialPreviewAsset()
   const chunkUrl = await findChunkAssetUrl()
   await assertStatus(chunkUrl, 200)
   await assertStatus(appUrl('/_not-found.html'), 200)
