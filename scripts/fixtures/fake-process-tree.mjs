@@ -36,11 +36,16 @@ if (role === 'grandchild') {
     setInterval(() => {}, 1_000)
   }
 } else if (role === 'root') {
+  const grandchildEnvironment = { ...process.env }
+  if (mode === 'stripped-marker-stubborn') {
+    delete grandchildEnvironment.TRAVELBACK_E2E_OWNER
+  }
   const grandchild = spawn(
     process.execPath,
     [fixturePath, 'grandchild', mode, stateDirectory],
     {
       detached: process.platform !== 'win32',
+      env: grandchildEnvironment,
       stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
     },
   )
@@ -52,6 +57,8 @@ if (role === 'grandchild') {
       grandchildPid: message.pid,
     }))
     if (mode === 'orphan-stubborn') {
+      setTimeout(() => process.exit(0), 250)
+    } else if (mode === 'stripped-marker-stubborn') {
       setTimeout(() => process.exit(0), 250)
     } else if (mode === 'immediate-orphan-stubborn') {
       process.exit(0)
