@@ -3395,11 +3395,9 @@ test.describe('Travelback App', () => {
       video.muted = true
 
       const decodeAt = async (time: number) => {
+        video.pause()
         const seeked = waitForVideoEvent('seeked')
-        video.currentTime = time
-        await seeked
-
-        const frameTime = await new Promise<number>((resolve, reject) => {
+        const decodedFrame = new Promise<number>((resolve, reject) => {
           const timeout = window.setTimeout(() => {
             reject(new Error(`Timed out decoding video frame at ${time}s`))
           }, 10_000)
@@ -3407,12 +3405,9 @@ test.describe('Travelback App', () => {
             window.clearTimeout(timeout)
             resolve(metadata.mediaTime)
           })
-          video.play().catch((error) => {
-            window.clearTimeout(timeout)
-            reject(error)
-          })
         })
-        video.pause()
+        video.currentTime = time
+        const [, frameTime] = await Promise.all([seeked, decodedFrame])
 
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth
