@@ -3140,6 +3140,34 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('Start Export')).toBeVisible()
   })
 
+  test('export duration preserves sequential typing and validates an empty draft', async ({ page }) => {
+    await uploadGpx(page)
+    await page.getByText('Export', { exact: true }).click({ force: true })
+
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    const durationInput = exportPanel.getByRole('spinbutton', { name: 'Duration' })
+
+    await expect(exportPanel.getByRole('button', { name: 'Close panel' })).toBeFocused()
+    await durationInput.focus()
+    await durationInput.selectText()
+    await durationInput.pressSequentially('15', { delay: 75 })
+    await expect(durationInput).toHaveValue('15')
+
+    await durationInput.selectText()
+    await page.keyboard.press('Backspace')
+    await expect(durationInput).toHaveValue('')
+    await page.keyboard.press('Tab')
+    await expect(exportPanel.getByRole('alert')).toContainText('Enter a duration from 5 to 180 seconds.')
+    await expect(durationInput).toHaveAttribute('aria-invalid', 'true')
+
+    await durationInput.focus()
+    await page.keyboard.type('15', { delay: 75 })
+    await page.keyboard.press('Enter')
+    await expect(durationInput).toHaveValue('15')
+    await expect(durationInput).toHaveAttribute('aria-invalid', 'false')
+    await expect(exportPanel.getByText('Enter a duration from 5 to 180 seconds.')).toHaveCount(0)
+  })
+
   test('export panel defaults to vertical short-form output', async ({ page }) => {
     await uploadGpx(page)
     await page.getByText('Export', { exact: true }).click({ force: true })
@@ -3257,6 +3285,116 @@ test.describe('Travelback App', () => {
     await exportPanel.getByRole('button', { name: 'Close panel' }).click()
     await expect(exportPanel).toBeHidden()
     await expect(exportOpener).toBeFocused()
+  })
+
+  test('a rendered export frame restores the Follow-off camera and pose after cancellation', async ({ page }) => {
+    test.skip(IS_STATIC_E2E, 'The production static build intentionally omits the camera debug API')
+
+    await page.evaluate(() => {
+      const testWindow = window as Window & {
+        exportPickerStarted?: boolean
+        rejectExportPicker?: () => void
+      }
+      window.localStorage.setItem('travelback-export-test-stub', '1')
+      window.localStorage.setItem('travelback-export-frame-test', '1')
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: () => {
+          testWindow.exportPickerStarted = true
+          return new Promise((_resolve, reject) => {
+            testWindow.rejectExportPicker = () => reject(new DOMException('Save cancelled', 'AbortError'))
+          })
+        },
+      })
+    })
+    await uploadGpx(page)
+    await setPlaybackProgress(page, 0.42)
+
+    const fittedPose = await waitForDebugPose(page)
+    await page.getByRole('button', { name: 'Disable camera tracking' }).click()
+    await expect(page.getByRole('button', { name: 'Enable camera tracking' })).toBeVisible()
+
+    const mapCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    await mapCanvas.focus()
+    for (const key of ['ArrowRight', 'Equal', 'Shift+ArrowRight', 'Shift+ArrowUp']) {
+      await page.keyboard.press(key)
+      await page.waitForTimeout(250)
+    }
+    await expect.poll(async () => {
+      const pose = await readDebugMapSnapshot(page)
+      return Boolean(
+        pose
+        && coordinateDistanceMeters(pose.camera.center, fittedPose.camera.center) > 100
+        && Math.abs(pose.camera.zoom - fittedPose.camera.zoom) > 0.5
+        && Math.abs(pose.camera.pitch - fittedPose.camera.pitch) > 5
+        && shortestAngleDelta(pose.camera.bearing, fittedPose.camera.bearing) > 10,
+      )
+    }, { timeout: 10_000, intervals: [100, 200, 400] }).toBe(true)
+
+    let previousCamera: NonNullable<DebugMapSnapshot>['camera'] | null = null
+    let stableCameraSamples = 0
+    await expect.poll(async () => {
+      const pose = await readDebugMapSnapshot(page)
+      if (!pose) return false
+      const camera = pose.camera
+      if (
+        previousCamera
+        && coordinateDistanceMeters(camera.center, previousCamera.center) < 0.1
+        && Math.abs(camera.zoom - previousCamera.zoom) < 0.001
+        && Math.abs(camera.pitch - previousCamera.pitch) < 0.01
+        && shortestAngleDelta(camera.bearing, previousCamera.bearing) < 0.01
+      ) {
+        stableCameraSamples += 1
+      } else {
+        stableCameraSamples = 0
+      }
+      previousCamera = camera
+      return stableCameraSamples >= 2
+    }, { timeout: 10_000, intervals: [100, 150, 200] }).toBe(true)
+
+    const manualPose = await readDebugMapSnapshot(page)
+    if (!manualPose) throw new Error('Missing manual Follow-off pose before export')
+
+    await page.getByRole('button', { name: 'Export', exact: true }).click()
+    const exportPanel = page.getByRole('dialog', { name: 'Export Video' })
+    await exportPanel.getByRole('button', { name: 'Start Export' }).click()
+    await page.waitForFunction(() => (
+      (window as Window & { exportPickerStarted?: boolean }).exportPickerStarted === true
+    ))
+
+    const renderedPose = await readDebugMapSnapshot(page)
+    if (!renderedPose) throw new Error('Missing pose after the test export frame')
+    expect(coordinateDistanceMeters(
+      renderedPose.htmlMarkerPosition,
+      manualPose.htmlMarkerPosition,
+    )).toBeGreaterThan(1)
+    expect(
+      coordinateDistanceMeters(renderedPose.camera.center, manualPose.camera.center) > 100
+      || Math.abs(renderedPose.camera.zoom - manualPose.camera.zoom) > 0.5
+      || shortestAngleDelta(renderedPose.camera.bearing, manualPose.camera.bearing) > 10,
+    ).toBe(true)
+
+    await exportPanel.getByRole('button', { name: 'Cancel export' }).click()
+    await page.evaluate(() => {
+      (window as Window & { rejectExportPicker?: () => void }).rejectExportPicker?.()
+    })
+    await expect(exportPanel.getByRole('button', { name: 'Start Export' })).toBeVisible({ timeout: 15_000 })
+
+    await expect.poll(async () => {
+      const pose = await readDebugMapSnapshot(page)
+      if (!pose) return false
+      return coordinateDistanceMeters(pose.camera.center, manualPose.camera.center) < 2
+        && Math.abs(pose.camera.zoom - manualPose.camera.zoom) < 0.02
+        && Math.abs(pose.camera.pitch - manualPose.camera.pitch) < 0.1
+        && shortestAngleDelta(pose.camera.bearing, manualPose.camera.bearing) < 0.2
+        && coordinateDistanceMeters(pose.htmlMarkerPosition, manualPose.htmlMarkerPosition) < 1
+        && coordinateDistanceMeters(pose.geoJsonMarkerPosition, manualPose.geoJsonMarkerPosition) < 1
+        && coordinateDistanceMeters(pose.trailHeadPosition, manualPose.trailHeadPosition) < 1
+    }, { timeout: 15_000, intervals: [100, 200, 400] }).toBe(true)
+
+    const restoredPose = await readDebugMapSnapshot(page)
+    if (!restoredPose) throw new Error('Missing restored Follow-off pose after export cancellation')
+    expectPoseToMatch(restoredPose, manualPose)
   })
 
   test('picker cancellation explains that the ready video is not saved yet', async ({ page }) => {
