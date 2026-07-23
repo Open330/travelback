@@ -1633,7 +1633,17 @@ test.describe('Travelback App', () => {
         await expect(mobileTitle).toBeVisible()
         const titleBox = await mobileTitle.boundingBox()
         if (!titleBox) throw new Error(`Missing mobile title geometry at ${viewport.width}x${viewport.height}`)
-        expect(navigationBox.y - (titleBox.y + titleBox.height)).toBeGreaterThanOrEqual(4)
+        expect(boxesOverlap(navigationBox, titleBox)).toBe(false)
+
+        const horizontalGap = Math.max(
+          titleBox.x - (navigationBox.x + navigationBox.width),
+          navigationBox.x - (titleBox.x + titleBox.width),
+        )
+        const verticalGap = Math.max(
+          titleBox.y - (navigationBox.y + navigationBox.height),
+          navigationBox.y - (titleBox.y + titleBox.height),
+        )
+        expect(Math.max(horizontalGap, verticalGap)).toBeGreaterThanOrEqual(4)
       }
 
       await expect.poll(async () => {

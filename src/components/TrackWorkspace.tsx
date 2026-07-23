@@ -192,7 +192,7 @@ export default function TrackWorkspace({
 
       <h1
         data-testid="track-title-mobile"
-        className="absolute left-4 right-4 top-16 z-20 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
+        className="track-title-mobile absolute left-4 right-4 top-16 z-20 overflow-hidden text-ellipsis whitespace-nowrap gi px-3 py-2 text-xs font-medium leading-tight text-center md:hidden"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {displayName} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
