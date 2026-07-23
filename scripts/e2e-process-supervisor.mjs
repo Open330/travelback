@@ -418,11 +418,23 @@ export async function stopOwnedProcessTree(
   const cleanupError = tracker.cleanupError?.()
   if (cleanupError) {
     throw new Error(
-      `Cleanup of ${tracker.describe()} could not be fully verified: ${cleanupError.message}`,
+      `Cleanup of ${describeTracker(tracker)} could not be fully verified: ${cleanupError.message}`,
       { cause: cleanupError },
     )
   }
-  if (!stopped) throw new Error(`${tracker.describe()} survived forced termination`)
+  if (!stopped) {
+    throw new Error(`${describeTracker(tracker)} survived forced termination`)
+  }
+}
+
+function describeTracker(tracker) {
+  try {
+    const description = tracker.describe?.()
+    if (typeof description === 'string' && description.trim()) return description
+  } catch {
+    // Diagnostic formatting must never replace cleanup evidence.
+  }
+  return 'owned process tracker'
 }
 
 async function forceRootGroupExitAfterTrackingFailure({
@@ -511,10 +523,11 @@ function assertTrackerContract(tracker) {
     !tracker
     || typeof tracker.start !== 'function'
     || typeof tracker.signalAndWait !== 'function'
+    || typeof tracker.describe !== 'function'
     || typeof tracker.stop !== 'function'
   ) {
     throw new TypeError(
-      'Process tracker must provide start, signalAndWait, and stop',
+      'Process tracker must provide start, signalAndWait, describe, and stop',
     )
   }
   return tracker

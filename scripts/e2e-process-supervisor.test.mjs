@@ -667,7 +667,7 @@ test('a malformed post-spawn tracker also cleans a detached marker child before 
     error => {
       assert.ok(error instanceof AggregateError)
       assert.ok(error.cause instanceof TypeError)
-      assert.match(error.cause.message, /must provide start, signalAndWait, and stop/)
+      assert.match(error.cause.message, /must provide start, signalAndWait, describe, and stop/)
       assert.equal(error.errors[0], error.cause)
       assert.ok(error.errors.includes(fallbackStopError))
       return true
@@ -1144,6 +1144,51 @@ test('final marker rescan catches a detached child forked after TERM discovery',
   assert.equal(livePids.size, 0)
 })
 
+test('cleanup survivor evidence is not masked by a missing diagnostic formatter', async () => {
+  const signals = []
+  const tracker = {
+    async signalAndWait(signal) {
+      signals.push(signal)
+      return false
+    },
+  }
+
+  await assert.rejects(
+    stopOwnedProcessTree(tracker, 'SIGTERM', 0, 0),
+    error => {
+      assert.equal(error.name, 'Error')
+      assert.equal(error.message, 'owned process tracker survived forced termination')
+      return true
+    },
+  )
+
+  assert.deepEqual(signals, ['SIGTERM', 'SIGKILL'])
+})
+
+test('cleanup errors retain their cause without a diagnostic formatter', async () => {
+  const cleanupError = new Error('injected ownership snapshot failure')
+  const tracker = {
+    async signalAndWait() {
+      return true
+    },
+    cleanupError() {
+      return cleanupError
+    },
+  }
+
+  await assert.rejects(
+    stopOwnedProcessTree(tracker, 'SIGTERM', 0, 0),
+    error => {
+      assert.equal(
+        error.message,
+        'Cleanup of owned process tracker could not be fully verified: injected ownership snapshot failure',
+      )
+      assert.equal(error.cause, cleanupError)
+      return true
+    },
+  )
+})
+
 test('Windows refuses to launch without durable Job Object containment', async () => {
   await assertWindowsContainmentRefusal()
 })
@@ -1225,6 +1270,9 @@ test('an atomic provider is disposed when contained cleanup fails', async () => 
       events.push('cleanup')
       throw cleanupError
     },
+    describe() {
+      return 'provider cleanup-failure tracker'
+    },
     stop() {
       events.push('stop')
     },
@@ -1261,6 +1309,48 @@ test('an atomic provider is disposed when contained cleanup fails', async () => 
     'stop',
     'dispose',
   ])
+})
+
+test('an atomic provider tracker must supply its diagnostic contract before start', async () => {
+  const events = []
+  const tracker = {
+    async start() {
+      events.push('start')
+    },
+    async signalAndWait() {
+      events.push('cleanup')
+      return true
+    },
+    stop() {
+      events.push('stop')
+    },
+  }
+
+  await assert.rejects(
+    runSupervisedProcess('provider-owned.exe', [], {
+      stdio: 'ignore',
+      processOperations: {
+        platform: 'win32',
+        signalEmitter: new EventEmitter(),
+        async launchContainedProcess(specification) {
+          events.push('launch')
+          specification.registerRollback(async () => {
+            events.push('rollback')
+          })
+          return {
+            completion: Promise.resolve({ code: 0, signal: null }),
+            tracker,
+            async dispose() {
+              events.push('dispose')
+            },
+          }
+        },
+      },
+    }),
+    /must provide start, signalAndWait, describe, and stop/,
+  )
+
+  assert.deepEqual(events, ['launch', 'rollback'])
 })
 
 test('an invalid atomic provider result invokes its pre-registered rollback', async () => {
@@ -1454,6 +1544,9 @@ test('completion and provider-dispose failures preserve the completion cause', a
     async signalAndWait() {
       events.push('cleanup')
       return true
+    },
+    describe() {
+      return 'completion-failure tracker'
     },
     stop() {
       events.push('stop')
