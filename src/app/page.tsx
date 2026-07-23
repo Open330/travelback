@@ -513,6 +513,7 @@ function HomeInner() {
   const applyCommittedSceneCamera = useCallback((
     committedScenes: Scene[],
     committedTransitionDuration = transitionDuration,
+    committedDuration = duration,
   ) => {
     if (!track) return
     const cameraState = computeCameraForProgress(
@@ -520,11 +521,24 @@ function HomeInner() {
       cumulativeDistances,
       committedScenes,
       progress,
-      progress * duration,
+      progress * committedDuration,
       committedTransitionDuration,
     )
     mapViewRef.current?.applyCameraState(cameraState)
   }, [track, cumulativeDistances, progress, duration, transitionDuration])
+
+  const handleDurationChange = useCallback((proposedDuration: number) => {
+    setDuration(proposedDuration)
+    if (!track || !followCamera) return
+    applyCommittedSceneCamera(scenes, transitionDuration, proposedDuration)
+  }, [
+    applyCommittedSceneCamera,
+    followCamera,
+    scenes,
+    setDuration,
+    track,
+    transitionDuration,
+  ])
 
   // Clear stale pendingTrimRange when scenes are emptied — avoids applying a
   // stale trim confirmation range after the user deletes all scenes.
@@ -722,7 +736,7 @@ function HomeInner() {
               onTogglePlay={togglePlay}
               onSeek={seekTo}
               onSpeedChange={setSpeed}
-              onDurationChange={setDuration}
+              onDurationChange={handleDurationChange}
               onFollowCameraToggle={toggleFollowCamera}
             />
           </>

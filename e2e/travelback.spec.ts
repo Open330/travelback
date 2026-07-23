@@ -2587,6 +2587,122 @@ test.describe('Travelback App', () => {
     expectStableCameraMotion(samples)
   })
 
+  test('paused Orbit camera refreshes on duration changes without moving a Follow-off manual camera', async ({ page }) => {
+    await uploadGpx(page)
+
+    if (IS_STATIC_E2E) {
+      await expectPublicMapReady(page)
+    } else {
+      await waitForDebugPose(page)
+    }
+
+    const cameraButton = page.getByText('Camera', { exact: true })
+    await cameraButton.click({ force: true })
+    const sceneEditor = page.getByTestId('scene-editor-panel')
+    await expect(sceneEditor).toBeVisible({ timeout: 10_000 })
+    await sceneEditor.getByRole('button', { name: 'Cinematic' }).click({ force: true })
+    await expect(sceneEditor.getByRole('combobox', {
+      name: /^Camera mode for scene 4:/,
+    })).toHaveValue('orbit')
+    await sceneEditor.getByRole('button', { name: 'Close panel' }).click()
+
+    await startPlayback(page)
+    const pauseButton = page.getByRole('button', { name: 'Pause' })
+    await pauseButton.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+    await setPlaybackProgress(page, 0.55)
+
+    const animationDuration = page.getByLabel('Animation duration')
+    await expect(animationDuration).toHaveValue('30')
+
+    const waitForStableDebugCamera = async () => {
+      let previousCamera: DebugCameraState | null = null
+      let stableSamples = 0
+      await expect.poll(async () => {
+        const snapshot = await readDebugMapSnapshot(page)
+        if (!snapshot) return false
+        const camera = snapshot.camera
+        if (
+          previousCamera
+          && coordinateDistanceMeters(camera.center, previousCamera.center) < 0.1
+          && Math.abs(camera.zoom - previousCamera.zoom) < 0.001
+          && Math.abs(camera.pitch - previousCamera.pitch) < 0.01
+          && shortestAngleDelta(camera.bearing, previousCamera.bearing) < 0.01
+        ) {
+          stableSamples += 1
+        } else {
+          stableSamples = 0
+        }
+        previousCamera = camera
+        return stableSamples >= 2
+      }, { timeout: 10_000, intervals: [100, 150, 200] }).toBe(true)
+
+      const snapshot = await readDebugMapSnapshot(page)
+      if (!snapshot) throw new Error('Missing stable paused Orbit camera')
+      return snapshot.camera
+    }
+
+    let followedCamera: DebugCameraState | null = null
+    if (!IS_STATIC_E2E) {
+      followedCamera = await waitForStableDebugCamera()
+    }
+
+    await animationDuration.selectOption('60')
+    await expect(animationDuration).toHaveValue('60')
+
+    if (!IS_STATIC_E2E && followedCamera) {
+      const followedBearing = followedCamera.bearing
+      await expect.poll(async () => {
+        const snapshot = await readDebugMapSnapshot(page)
+        return snapshot
+          ? shortestAngleDelta(followedBearing, snapshot.camera.bearing)
+          : 0
+      }, { timeout: 10_000, intervals: [100, 150, 250] }).toBeGreaterThan(20)
+    }
+
+    const disableCameraTracking = page.getByRole('button', { name: 'Disable camera tracking' })
+    await disableCameraTracking.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: 'Enable camera tracking' })).toBeVisible()
+
+    let manualCamera: DebugCameraState | null = null
+    if (!IS_STATIC_E2E) {
+      const followedAfterDurationChange = await waitForStableDebugCamera()
+      const mapCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+      await mapCanvas.focus()
+      for (const key of ['ArrowRight', 'Equal', 'Shift+ArrowRight', 'Shift+ArrowUp']) {
+        await page.keyboard.press(key)
+        await page.waitForTimeout(350)
+      }
+
+      await expect.poll(async () => {
+        const snapshot = await readDebugMapSnapshot(page)
+        return Boolean(
+          snapshot
+          && coordinateDistanceMeters(snapshot.camera.center, followedAfterDurationChange.center) > 100
+          && Math.abs(snapshot.camera.zoom - followedAfterDurationChange.zoom) > 0.5
+          && shortestAngleDelta(snapshot.camera.bearing, followedAfterDurationChange.bearing) > 10,
+        )
+      }, { timeout: 10_000, intervals: [100, 200, 400] }).toBe(true)
+
+      manualCamera = await waitForStableDebugCamera()
+    }
+
+    await animationDuration.selectOption('120')
+    await expect(animationDuration).toHaveValue('120')
+
+    if (IS_STATIC_E2E) {
+      await expectPublicMapReady(page)
+    } else if (manualCamera) {
+      const cameraAfterDurationChange = await waitForStableDebugCamera()
+      expect(coordinateDistanceMeters(cameraAfterDurationChange.center, manualCamera.center)).toBeLessThan(2)
+      expect(Math.abs(cameraAfterDurationChange.zoom - manualCamera.zoom)).toBeLessThan(0.02)
+      expect(Math.abs(cameraAfterDurationChange.pitch - manualCamera.pitch)).toBeLessThan(0.1)
+      expect(shortestAngleDelta(cameraAfterDurationChange.bearing, manualCamera.bearing)).toBeLessThan(0.2)
+    }
+  })
+
   test('scene overview camera frames antimeridian tracks without zooming to the world', async ({ page }) => {
     await uploadCustomFile(page, ANTIMERIDIAN_GPX_FIXTURE)
     await expect(visibleTrackTitle(page, 'Antimeridian Hop')).toBeVisible({ timeout: 15_000 })
