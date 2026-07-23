@@ -1,10 +1,12 @@
 import { constants } from 'node:fs'
-import { access, readdir, readFile } from 'node:fs/promises'
+import { access, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import os from 'node:os'
 import { spawn } from 'node:child_process'
 import { createServer as createTcpServer } from 'node:net'
 import { normalizeBasePath } from '../src/lib/base-path.mjs'
+import { computeScriptHashes } from './harden-static-export.mjs'
 
 const cwd = process.cwd()
 const outSample = path.resolve(cwd, 'out', 'sample-trip.gpx')
@@ -44,31 +46,32 @@ const origin = `http://127.0.0.1:${port}`
 const appPath = basePath ? `${basePath}/` : '/'
 const appUrl = (pathname = '/') => `${origin}${basePath}${pathname}`
 
-await access(outSample, constants.R_OK)
-
-const serverProcess = spawn(
-  process.execPath,
-  ['scripts/serve-static.mjs', '--port', String(port), '--base-path', basePath || '/'],
-  {
-    cwd,
-    stdio: 'inherit',
-  },
-)
+let serverProcess
+let serverExit
+let serverSpawnError
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 async function stopServerProcess() {
+  if (!serverProcess || !serverExit) return
   if (serverProcess.exitCode !== null || serverProcess.signalCode !== null) return
-  const exited = new Promise(resolve => {
-    serverProcess.once('exit', resolve)
-  })
+
   serverProcess.kill('SIGTERM')
-  await Promise.race([exited, delay(2000)])
-  if (serverProcess.exitCode === null && serverProcess.signalCode === null) {
+  const terminated = await Promise.race([
+    serverExit.then(() => true),
+    delay(2000).then(() => false),
+  ])
+  if (!terminated && serverProcess.exitCode === null && serverProcess.signalCode === null) {
     serverProcess.kill('SIGKILL')
-    await Promise.race([exited, delay(1000)])
+    const killed = await Promise.race([
+      serverExit.then(() => true),
+      delay(2000).then(() => false),
+    ])
+    if (!killed) {
+      throw new Error(`Static server process ${serverProcess.pid ?? '(unknown PID)'} did not exit after SIGKILL`)
+    }
   }
 }
 
@@ -76,6 +79,13 @@ async function waitForReady(url) {
   const deadline = Date.now() + 20_000
 
   while (Date.now() < deadline) {
+    if (serverSpawnError) {
+      throw serverSpawnError
+    }
+    if (serverProcess && (serverProcess.exitCode !== null || serverProcess.signalCode !== null)) {
+      throw new Error(`Static server exited before it became ready: code=${serverProcess.exitCode} signal=${serverProcess.signalCode}`)
+    }
+
     try {
       const res = await fetch(url, { redirect: 'manual' })
       if (res.status === 200 || res.status === 302) return
@@ -188,6 +198,7 @@ function assertStaticCspWasHardenedInHtml(html, htmlFile) {
 
   const styleSources = directiveSources('style-src')
   const styleElementSources = directiveSources('style-src-elem')
+  const scriptSources = directiveSources('script-src')
   if (styleSources.has("'unsafe-inline'") || styleElementSources.has("'unsafe-inline'")) {
     throw new Error('Static CSP still allows unsafe-inline style elements')
   }
@@ -225,6 +236,17 @@ function assertStaticCspWasHardenedInHtml(html, htmlFile) {
     const source = `'sha256-${hash}'`
     if (!styleSources.has(source) || !styleElementSources.has(source)) {
       throw new Error(`Static CSP does not authorize an inline style in ${relativeFile}`)
+    }
+  }
+
+  const inlineScriptPattern = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
+  for (const match of html.matchAll(inlineScriptPattern)) {
+    const scriptContent = match[1]
+    if (!scriptContent || scriptContent.trim() === '') continue
+    const hash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
+    const source = `'sha256-${hash}'`
+    if (!scriptSources.has(source)) {
+      throw new Error(`Static CSP does not authorize the literal body of an inline script in ${relativeFile}`)
     }
   }
 
@@ -357,10 +379,84 @@ async function assertRuntimePublicAssetCachePolicy() {
   }
 }
 
+function assertLiteralInlineScriptHashing() {
+  const scriptContent = 'globalThis.__travelbackEntityFixture = "&amp;&#39;&#x27;&lt;&gt;"'
+  const fixtureHtml = `<script data-fixture="entity-shaped-raw-text">${scriptContent}</script>`
+  const expectedHash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
+  const expectedSource = `'sha256-${expectedHash}'`
+  const hashes = computeScriptHashes(fixtureHtml)
+
+  if (hashes.length !== 1 || hashes[0] !== expectedSource) {
+    throw new Error('Inline script CSP hashing changed entity-shaped raw text before hashing')
+  }
+}
+
+async function createSymlinkEscapeFixture() {
+  const fixtureDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-static-smoke-'))
+  const sentinel = `TRAVELBACK_STATIC_ESCAPE_SENTINEL_${process.pid}`
+  const targetPath = path.join(fixtureDirectory, 'outside-root.txt')
+  const linkName = `.travelback-symlink-escape-${path.basename(fixtureDirectory)}.txt`
+  const linkPath = path.resolve(cwd, 'out', linkName)
+
+  try {
+    await writeFile(targetPath, sentinel)
+    await symlink(targetPath, linkPath)
+    return {
+      fixtureDirectory,
+      linkName,
+      linkPath,
+      sentinel,
+    }
+  } catch (error) {
+    await rm(linkPath, { force: true }).catch(() => {})
+    await rm(fixtureDirectory, { recursive: true, force: true }).catch(() => {})
+    throw error
+  }
+}
+
+async function removeSymlinkEscapeFixture(fixture) {
+  if (!fixture) return
+  await rm(fixture.linkPath, { force: true })
+  await rm(fixture.fixtureDirectory, { recursive: true, force: true })
+}
+
+async function assertSymlinkEscapeDenied(fixture) {
+  const url = appUrl(`/${fixture.linkName}`)
+  const res = await fetch(url, { redirect: 'manual' })
+  const body = await res.text()
+  if (res.status !== 403) {
+    throw new Error(`${url} returned ${res.status}, expected 403 for an out-of-tree symlink`)
+  }
+  if (body.includes(fixture.sentinel)) {
+    throw new Error('Static server disclosed the out-of-tree symlink target')
+  }
+}
+
 let failed = false
+let symlinkFixture
 
 try {
+  await access(outSample, constants.R_OK)
+  assertLiteralInlineScriptHashing()
+  symlinkFixture = await createSymlinkEscapeFixture()
+
+  serverProcess = spawn(
+    process.execPath,
+    ['scripts/serve-static.mjs', '--port', String(port), '--base-path', basePath || '/'],
+    {
+      cwd,
+      stdio: 'inherit',
+    },
+  )
+  serverExit = new Promise(resolve => {
+    serverProcess.once('exit', resolve)
+  })
+  serverProcess.once('error', (error) => {
+    serverSpawnError = error
+  })
+
   await waitForReady(`${origin}${appPath}`)
+  await assertSymlinkEscapeDenied(symlinkFixture)
   await assertStatus(appUrl('/sample-trip.gpx'), 200)
   await assertHeadStatus(appUrl('/sample-trip.gpx'), 200)
   const chunkUrl = await findChunkAssetUrl()
@@ -382,7 +478,18 @@ try {
   failed = true
   console.error('[smoke-static] FAILED:', err instanceof Error ? err.message : String(err))
 } finally {
-  await stopServerProcess()
+  try {
+    await stopServerProcess()
+  } catch (err) {
+    failed = true
+    console.error('[smoke-static] FAILED to stop server:', err instanceof Error ? err.message : String(err))
+  }
+  try {
+    await removeSymlinkEscapeFixture(symlinkFixture)
+  } catch (err) {
+    failed = true
+    console.error('[smoke-static] FAILED to clean fixture:', err instanceof Error ? err.message : String(err))
+  }
 }
 
 if (failed) {

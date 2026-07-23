@@ -1,9 +1,8 @@
 import { readFile, writeFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 
-const outDir = path.resolve(process.cwd(), 'out')
-const htmlFiles = []
 // Match the CSP <meta> tag injected by Next.js so we can replace it with a
 // hardened version containing SHA-256 hashes of all inline scripts.
 const CSP_META_REGEX = /<meta\s+[^>]*http-equiv=(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/i
@@ -35,11 +34,11 @@ const STYLE_POLICY = [
 ].join('; ')
 
 /** Recursively find all .html files under the output directory. */
-async function walk(directory) {
+async function walk(directory, htmlFiles) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
-      await walk(absolutePath)
+      await walk(absolutePath, htmlFiles)
       continue
     }
 
@@ -50,12 +49,11 @@ async function walk(directory) {
 }
 
 /**
- * Decode common HTML entities so that script content extracted from inline
- * <script> tags can be hashed as the browser would interpret it, not as the
- * HTML-encoded source form. Without this, SHA-256 hashes would not match the
- * CSP hashes the browser computes from the decoded script body.
+ * Decode the entities used in a quoted HTML attribute. This is intentionally
+ * limited to attribute inspection: script elements are raw-text elements, so
+ * entity-shaped text in a script body must remain literal for CSP hashing.
  */
-function decodeHtmlEntities(text) {
+function decodeHtmlAttributeEntities(text) {
   return text
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -69,16 +67,16 @@ function decodeHtmlEntities(text) {
 
 /**
  * Find all inline (non-src) <script> elements in the HTML and compute
- * SHA-256 hashes of their decoded content. These hashes are injected into
- * the CSP script-src directive so the browser allows only these known
- * inline scripts to execute — blocking any injected malicious scripts.
+ * SHA-256 hashes of their exact serialized bodies. Script elements are
+ * raw-text elements: browsers do not decode `&amp;`, numeric references, or
+ * other entity-shaped source text before applying CSP's inline check.
  */
-function computeScriptHashes(html) {
+export function computeScriptHashes(html) {
   const hashes = new Set()
   const scriptPattern = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
 
   for (const match of html.matchAll(scriptPattern)) {
-    const scriptContent = decodeHtmlEntities(match[1])
+    const scriptContent = match[1]
     if (!scriptContent || scriptContent.trim() === '') continue
     const hash = crypto.createHash('sha256').update(scriptContent, 'utf8').digest('base64')
     hashes.add(`'sha256-${hash}'`)
@@ -173,7 +171,7 @@ function assertStaticCspMeta(html, htmlFile) {
     throw new Error(`Expected one hardened CSP meta tag in ${htmlFile}, found ${matches.length}`)
   }
 
-  const cspMeta = decodeHtmlEntities(matches[0])
+  const cspMeta = decodeHtmlAttributeEntities(matches[0])
   if (
     cspMeta.includes('data-travelback-csp="placeholder"')
     || cspMeta.includes("script-src 'self' 'unsafe-inline'")
@@ -194,34 +192,44 @@ function assertStaticCspMeta(html, htmlFile) {
   }
 }
 
-await stat(outDir)
-await walk(outDir)
+export async function hardenStaticExport(outDir = path.resolve(process.cwd(), 'out')) {
+  const htmlFiles = []
+  await stat(outDir)
+  await walk(outDir, htmlFiles)
 
-if (htmlFiles.length === 0) {
-  throw new Error(`No static HTML files found in ${outDir}`)
-}
-
-for (const htmlFile of htmlFiles) {
-  const html = inlineTravelbackBootstrap(await readFile(htmlFile, 'utf8'))
-  const hashes = computeScriptHashes(html)
-  const scriptSrc = hashes.length > 0
-    ? [`'self'`, ...hashes].join(' ')
-    : "'self'"
-
-  const styleHashes = computeStyleHashes(html)
-  const styleSrc = styleHashes.length > 0
-    ? [`'self'`, ...styleHashes].join(' ')
-    : "'self'"
-
-  const csp = STYLE_POLICY
-    .replace('__SCRIPT_HASHES__', scriptSrc)
-    .replaceAll('__STYLE_HASHES__', styleSrc)
-  const nextHtml = replaceCspMeta(html, csp)
-  if (nextHtml === html) {
-    throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
+  if (htmlFiles.length === 0) {
+    throw new Error(`No static HTML files found in ${outDir}`)
   }
-  assertStaticCspMeta(nextHtml, htmlFile)
-  await writeFile(htmlFile, nextHtml)
+
+  for (const htmlFile of htmlFiles) {
+    const html = inlineTravelbackBootstrap(await readFile(htmlFile, 'utf8'))
+    const hashes = computeScriptHashes(html)
+    const scriptSrc = hashes.length > 0
+      ? [`'self'`, ...hashes].join(' ')
+      : "'self'"
+
+    const styleHashes = computeStyleHashes(html)
+    const styleSrc = styleHashes.length > 0
+      ? [`'self'`, ...styleHashes].join(' ')
+      : "'self'"
+
+    const csp = STYLE_POLICY
+      .replace('__SCRIPT_HASHES__', scriptSrc)
+      .replaceAll('__STYLE_HASHES__', styleSrc)
+    const nextHtml = replaceCspMeta(html, csp)
+    if (nextHtml === html) {
+      throw new Error(`CSP meta tag not found or not replaced in ${htmlFile}`)
+    }
+    assertStaticCspMeta(nextHtml, htmlFile)
+    await writeFile(htmlFile, nextHtml)
+  }
+
+  console.log(`[harden-static-export] Hardened CSP across ${htmlFiles.length} HTML file(s)`)
 }
 
-console.log(`[harden-static-export] Hardened CSP across ${htmlFiles.length} HTML file(s)`)
+const isMain = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isMain) {
+  await hardenStaticExport()
+}
