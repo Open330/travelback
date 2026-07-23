@@ -1,6 +1,6 @@
 # Cycle 6 Review Remediation Plan — 2026-07-24
 
-Status: **Completed**
+Status: **Completed and archived**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `099e85d8860456dea5e59cfa293a12defb27bd99`
