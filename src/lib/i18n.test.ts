@@ -117,6 +117,14 @@ describe('i18n locale key parity', () => {
     }
   })
 
+  it('provides scene-specific camera-mode labels in every locale', () => {
+    for (const locale of locales) {
+      const label = translations[locale]['scenes.cameraModeAria']
+      expect(label).toContain('{index}')
+      expect(label).toContain('{name}')
+    }
+  })
+
   it('uses concise estimated-time labels in every locale', () => {
     expect(locales.map((locale) => translations[locale]['export.estimatedTime'])).toEqual([
       'Estimated time:',

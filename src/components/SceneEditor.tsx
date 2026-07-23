@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { X, ChevronDown } from 'lucide-react'
-import type { Scene, CameraMode } from '@/types'
+import type { Scene, CameraMode, CameraParams } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
 import { generateId } from '@/lib/id'
 import { generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, MIN_SCENE_SPAN, normalizeScenes, restoreDeletedScene } from '@/lib/camera'
@@ -78,6 +78,15 @@ function formatSceneAdjustment(template: string, sceneName: string, from: number
   return template.replace(/\{(name|from|to)\}/g, (_match, key: keyof typeof values) => values[key])
 }
 
+function formatSceneCameraModeLabel(template: string, sceneName: string, sceneNumber: number) {
+  const values = {
+    name: sceneName,
+    index: String(sceneNumber),
+  }
+
+  return template.replace(/\{(name|index)\}/g, (_match, key: keyof typeof values) => values[key])
+}
+
 type SceneWarning =
   | { kind: 'removed'; sceneName: string }
   | { kind: 'adjusted'; boundary: 'start' | 'end'; sceneName: string; from: number; to: number }
@@ -125,15 +134,13 @@ export function SceneRangeEditor({
   sceneName,
   startPercent,
   endPercent,
-  onChange,
   onCommit,
   ariaLabel,
 }: {
   sceneName: string
   startPercent: number
   endPercent: number
-  onChange: (startPercent: number, endPercent: number) => void
-  onCommit?: (startPercent: number, endPercent: number) => void
+  onCommit: (startPercent: number, endPercent: number) => void
   ariaLabel: string
 }) {
   const { t } = useLocale()
@@ -148,23 +155,39 @@ export function SceneRangeEditor({
   }>({ type: null, pointerId: null, captureTarget: null, originX: 0, originStart: 0, originEnd: 1 })
   const dragWidthRef = useRef(0)
   const lastDragValuesRef = useRef<{ start: number; end: number } | null>(null)
+  const draftRangeRef = useRef({ start: startPercent, end: endPercent })
+  const draftFrameRef = useRef<number | null>(null)
+  const [draftRange, setDraftRange] = useState({ start: startPercent, end: endPercent })
   const [dragging, setDragging] = useState(false)
-  const onChangeRef = useRef(onChange)
-  useEffect(() => { onChangeRef.current = onChange }, [onChange])
   const onCommitRef = useRef(onCommit)
   useEffect(() => { onCommitRef.current = onCommit }, [onCommit])
-  const startPercentRef = useRef(startPercent)
-  useEffect(() => { startPercentRef.current = startPercent }, [startPercent])
-  const endPercentRef = useRef(endPercent)
-  useEffect(() => { endPercentRef.current = endPercent }, [endPercent])
+
+  const cancelDraftFrame = useCallback(() => {
+    if (draftFrameRef.current == null) return
+    cancelAnimationFrame(draftFrameRef.current)
+    draftFrameRef.current = null
+  }, [])
+
+  const publishDraftOnNextFrame = useCallback((start: number, end: number) => {
+    const next = { start, end }
+    draftRangeRef.current = next
+    lastDragValuesRef.current = next
+    if (draftFrameRef.current != null) return
+    draftFrameRef.current = requestAnimationFrame(() => {
+      draftFrameRef.current = null
+      setDraftRange(draftRangeRef.current)
+    })
+  }, [])
+
+  useEffect(() => () => cancelDraftFrame(), [cancelDraftFrame])
 
   const commitKeyboardRange = useCallback((start: number, end: number) => {
-    if (onCommitRef.current) {
-      onCommitRef.current(start, end)
-      return
-    }
-    onChangeRef.current(start, end)
-  }, [])
+    cancelDraftFrame()
+    const next = { start, end }
+    draftRangeRef.current = next
+    setDraftRange(next)
+    onCommitRef.current(start, end)
+  }, [cancelDraftFrame])
 
   const clampRange = useCallback((start: number, end: number): [number, number] => {
     let nextStart = Math.max(0, Math.min(start, 1 - MIN_SCENE_SPAN))
@@ -188,13 +211,13 @@ export function SceneRangeEditor({
       pointerId: event.pointerId,
       captureTarget: event.currentTarget,
       originX: event.clientX,
-      originStart: startPercentRef.current,
-      originEnd: endPercentRef.current,
+      originStart: startPercent,
+      originEnd: endPercent,
     }
     lastDragValuesRef.current = null
     dragWidthRef.current = containerRef.current?.getBoundingClientRect().width || 1
     setDragging(true)
-  }, [])
+  }, [endPercent, startPercent])
 
   const settleDrag = useCallback((
     outcome: 'commit' | 'cancel',
@@ -221,8 +244,14 @@ export function SceneRangeEditor({
     if (updateDraggingState) setDragging(false)
 
     if (outcome === 'cancel') {
-      onChangeRef.current(current.originStart, current.originEnd)
-    } else if (lastDrag && onCommitRef.current) {
+      cancelDraftFrame()
+      const origin = { start: current.originStart, end: current.originEnd }
+      draftRangeRef.current = origin
+      if (updateDraggingState) setDraftRange(origin)
+    } else if (lastDrag) {
+      cancelDraftFrame()
+      draftRangeRef.current = lastDrag
+      if (updateDraggingState) setDraftRange(lastDrag)
       onCommitRef.current(lastDrag.start, lastDrag.end)
     }
 
@@ -235,7 +264,7 @@ export function SceneRangeEditor({
         // Capture may already have been released by the browser.
       }
     }
-  }, [])
+  }, [cancelDraftFrame])
 
   useEffect(() => {
     if (!dragging) return
@@ -247,15 +276,13 @@ export function SceneRangeEditor({
 
       if (dragState.current.type === 'start') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart + dx, dragState.current.originEnd)
-        lastDragValuesRef.current = { start: nextStart, end: nextEnd }
-        onChangeRef.current(nextStart, nextEnd)
+        publishDraftOnNextFrame(nextStart, nextEnd)
         return
       }
 
       if (dragState.current.type === 'end') {
         const [nextStart, nextEnd] = clampRange(dragState.current.originStart, dragState.current.originEnd + dx)
-        lastDragValuesRef.current = { start: nextStart, end: nextEnd }
-        onChangeRef.current(nextStart, nextEnd)
+        publishDraftOnNextFrame(nextStart, nextEnd)
         return
       }
 
@@ -270,8 +297,7 @@ export function SceneRangeEditor({
         nextEnd = 1
         nextStart = 1 - span
       }
-      lastDragValuesRef.current = { start: nextStart, end: nextEnd }
-      onChangeRef.current(nextStart, nextEnd)
+      publishDraftOnNextFrame(nextStart, nextEnd)
     }
 
     const onPointerUp = (event: PointerEvent) => settleDrag('commit', event.pointerId)
@@ -293,7 +319,11 @@ export function SceneRangeEditor({
       captureTarget?.removeEventListener('lostpointercapture', onLostPointerCapture)
       if (dragState.current.type) settleDrag('cancel', undefined, false)
     }
-  }, [clampRange, dragging, settleDrag])
+  }, [clampRange, dragging, publishDraftOnNextFrame, settleDrag])
+
+  const renderedRange = dragging
+    ? draftRange
+    : { start: startPercent, end: endPercent }
 
   return (
     <div>
@@ -306,8 +336,8 @@ export function SceneRangeEditor({
         <div
           className="absolute inset-y-1 rounded-lg cursor-grab active:cursor-grabbing"
           style={{
-            left: `${startPercent * 100}%`,
-            width: `${Math.max(endPercent - startPercent, MIN_SCENE_SPAN) * 100}%`,
+            left: `${renderedRange.start * 100}%`,
+            width: `${Math.max(renderedRange.end - renderedRange.start, MIN_SCENE_SPAN) * 100}%`,
             background: 'rgba(var(--gl),.28)',
             border: '1px solid rgba(var(--gl),.45)',
             touchAction: 'none',
@@ -323,8 +353,8 @@ export function SceneRangeEditor({
         </div>
 
         {([
-          ['start', startPercent],
-          ['end', endPercent],
+          ['start', renderedRange.start],
+          ['end', renderedRange.end],
         ] as const).map(([type, value]) => (
           <div
             key={type}
@@ -333,9 +363,9 @@ export function SceneRangeEditor({
             aria-label={type === 'start' ? `${ariaLabel} ${t('scenes.rangeStart')}` : `${ariaLabel} ${t('scenes.rangeEnd')}`}
             aria-valuenow={Math.round(value * 100)}
             aria-valuetext={`${Math.round(value * 100)}% ${type === 'start' ? t('scenes.rangeStart') : t('scenes.rangeEnd')}`}
-            aria-valuemin={type === 'start' ? 0 : Math.round(startPercent * 100)}
-            aria-valuemax={type === 'end' ? 100 : Math.round(endPercent * 100)}
-            className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+            aria-valuemin={type === 'start' ? 0 : Math.round(renderedRange.start * 100)}
+            aria-valuemax={type === 'end' ? 100 : Math.round(renderedRange.end * 100)}
+            className="absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 -translate-x-1/2 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-indicator)]"
             style={{ left: `${value * 100}%`, touchAction: 'none' }}
             onPointerDown={(event) => {
               event.stopPropagation()
@@ -343,45 +373,47 @@ export function SceneRangeEditor({
             }}
             onKeyDown={(e) => {
               const step = 0.01
+              const currentStart = renderedRange.start
+              const currentEnd = renderedRange.end
               if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
-                  const [s] = clampRange(Math.min(startPercent + step, endPercent - MIN_SCENE_SPAN), endPercent)
-                  commitKeyboardRange(s, endPercent)
+                  const [s] = clampRange(Math.min(currentStart + step, currentEnd - MIN_SCENE_SPAN), currentEnd)
+                  commitKeyboardRange(s, currentEnd)
                 } else {
-                  const [, en] = clampRange(startPercent, Math.min(endPercent + step, 1))
-                  commitKeyboardRange(startPercent, en)
+                  const [, en] = clampRange(currentStart, Math.min(currentEnd + step, 1))
+                  commitKeyboardRange(currentStart, en)
                 }
               } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
-                  const [s] = clampRange(Math.max(startPercent - step, 0), endPercent)
-                  commitKeyboardRange(s, endPercent)
+                  const [s] = clampRange(Math.max(currentStart - step, 0), currentEnd)
+                  commitKeyboardRange(s, currentEnd)
                 } else {
-                  const [, en] = clampRange(startPercent, Math.max(endPercent - step, startPercent + MIN_SCENE_SPAN))
-                  commitKeyboardRange(startPercent, en)
+                  const [, en] = clampRange(currentStart, Math.max(currentEnd - step, currentStart + MIN_SCENE_SPAN))
+                  commitKeyboardRange(currentStart, en)
                 }
               } else if (e.key === 'Home') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
-                  const [s] = clampRange(0, endPercent)
-                  commitKeyboardRange(s, endPercent)
+                  const [s] = clampRange(0, currentEnd)
+                  commitKeyboardRange(s, currentEnd)
                 } else {
-                  const [, en] = clampRange(startPercent, startPercent + MIN_SCENE_SPAN)
-                  commitKeyboardRange(startPercent, en)
+                  const [, en] = clampRange(currentStart, currentStart + MIN_SCENE_SPAN)
+                  commitKeyboardRange(currentStart, en)
                 }
               } else if (e.key === 'End') {
                 e.preventDefault()
                 e.stopPropagation()
                 if (type === 'start') {
-                  const [s] = clampRange(endPercent - MIN_SCENE_SPAN, endPercent)
-                  commitKeyboardRange(s, endPercent)
+                  const [s] = clampRange(currentEnd - MIN_SCENE_SPAN, currentEnd)
+                  commitKeyboardRange(s, currentEnd)
                 } else {
-                  const [, en] = clampRange(startPercent, 1)
-                  commitKeyboardRange(startPercent, en)
+                  const [, en] = clampRange(currentStart, 1)
+                  commitKeyboardRange(currentStart, en)
                 }
               }
             }}
@@ -399,15 +431,223 @@ export function SceneRangeEditor({
   )
 }
 
+type CameraParameter = keyof CameraParams
+
+function CameraParameterSlider({
+  scene,
+  parameter,
+  min,
+  max,
+  step,
+  ariaLabel,
+  ariaValueText,
+  onPreview,
+  onPreviewEnd,
+  onCommit,
+}: {
+  scene: Scene
+  parameter: CameraParameter
+  min: number
+  max: number
+  step: number
+  ariaLabel: string
+  ariaValueText: (value: number) => string
+  onPreview: (scene: Scene) => void
+  onPreviewEnd: (restoreCommittedCamera: boolean) => void
+  onCommit: (value: number) => void
+}) {
+  const committedValue = scene.params[parameter]
+  const [draftValue, setDraftValue] = useState(committedValue)
+  const [pointerActive, setPointerActive] = useState(false)
+  const pointerStateRef = useRef<{
+    active: boolean
+    pointerId: number | null
+    captureTarget: HTMLInputElement | null
+    originValue: number
+    latestValue: number
+  }>({
+    active: false,
+    pointerId: null,
+    captureTarget: null,
+    originValue: committedValue,
+    latestValue: committedValue,
+  })
+  const onPreviewRef = useRef(onPreview)
+  const onPreviewEndRef = useRef(onPreviewEnd)
+  const onCommitRef = useRef(onCommit)
+  useEffect(() => { onPreviewRef.current = onPreview }, [onPreview])
+  useEffect(() => { onPreviewEndRef.current = onPreviewEnd }, [onPreviewEnd])
+  useEffect(() => { onCommitRef.current = onCommit }, [onCommit])
+
+  const previewValue = useCallback((value: number) => {
+    onPreviewRef.current({
+      ...scene,
+      params: {
+        ...scene.params,
+        [parameter]: value,
+      },
+    })
+  }, [parameter, scene])
+
+  const settlePointer = useCallback((
+    outcome: 'commit' | 'cancel',
+    pointerId?: number,
+    updatePointerState = true,
+  ) => {
+    const current = pointerStateRef.current
+    if (!current.active) return
+    if (pointerId != null && current.pointerId !== pointerId) return
+
+    pointerStateRef.current = {
+      active: false,
+      pointerId: null,
+      captureTarget: null,
+      originValue: current.originValue,
+      latestValue: current.latestValue,
+    }
+    if (updatePointerState) setPointerActive(false)
+
+    if (outcome === 'commit') {
+      onPreviewEndRef.current(false)
+      if (current.latestValue !== current.originValue) {
+        if (updatePointerState) setDraftValue(current.latestValue)
+        onCommitRef.current(current.latestValue)
+      }
+    } else {
+      if (updatePointerState) setDraftValue(current.originValue)
+      onPreviewEndRef.current(true)
+    }
+
+    if (current.captureTarget && current.pointerId != null) {
+      try {
+        if (!current.captureTarget.hasPointerCapture || current.captureTarget.hasPointerCapture(current.pointerId)) {
+          current.captureTarget.releasePointerCapture(current.pointerId)
+        }
+      } catch {
+        // Capture may already have been released by the browser.
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pointerActive) return
+
+    const onPointerUp = (event: PointerEvent) => settlePointer('commit', event.pointerId)
+    const onPointerCancel = (event: PointerEvent) => settlePointer('cancel', event.pointerId)
+    const onWindowBlur = () => settlePointer('cancel')
+    const captureTarget = pointerStateRef.current.captureTarget
+    const onLostPointerCapture = (event: PointerEvent) => settlePointer('cancel', event.pointerId)
+
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
+    window.addEventListener('blur', onWindowBlur)
+    captureTarget?.addEventListener('lostpointercapture', onLostPointerCapture)
+    return () => {
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
+      window.removeEventListener('blur', onWindowBlur)
+      captureTarget?.removeEventListener('lostpointercapture', onLostPointerCapture)
+      if (pointerStateRef.current.active) settlePointer('cancel', undefined, false)
+    }
+  }, [pointerActive, settlePointer])
+
+  const renderedValue = pointerActive ? draftValue : committedValue
+
+  return (
+    <>
+      <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{ariaValueText(renderedValue)}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={renderedValue}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'mouse' && event.button !== 0) return
+          try {
+            event.currentTarget.setPointerCapture(event.pointerId)
+          } catch {
+            // Capture can fail if the pointer already ended between dispatch and handler.
+          }
+          pointerStateRef.current = {
+            active: true,
+            pointerId: event.pointerId,
+            captureTarget: event.currentTarget,
+            originValue: committedValue,
+            latestValue: committedValue,
+          }
+          setDraftValue(committedValue)
+          setPointerActive(true)
+        }}
+        onChange={(event) => {
+          const value = Number.parseFloat(event.target.value)
+          if (!Number.isFinite(value)) return
+          setDraftValue(value)
+          if (pointerStateRef.current.active) {
+            pointerStateRef.current.latestValue = value
+            previewValue(value)
+            return
+          }
+          onCommitRef.current(value)
+          previewValue(value)
+        }}
+        onKeyUp={() => {
+          if (!pointerStateRef.current.active) onPreviewEndRef.current(true)
+        }}
+        onBlur={() => {
+          if (pointerStateRef.current.active) {
+            settlePointer('cancel')
+            return
+          }
+          onPreviewEndRef.current(true)
+        }}
+        aria-label={ariaLabel}
+        aria-valuetext={ariaValueText(renderedValue)}
+        className="w-full h-1 cursor-pointer"
+        style={{ accentColor: 'rgb(var(--gl))' }}
+      />
+    </>
+  )
+}
+
 function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionDuration, onTransitionDurationChange, onPreviewScene }: SceneEditorProps) {
   const { t } = useLocale()
   const [deletedScene, setDeletedScene] = useState<{ scene: Scene; index: number } | null>(null)
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null)
   const [pendingPresetType, setPendingPresetType] = useState<PresetType | null>(null)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
+  const previewFrameRef = useRef<number | null>(null)
+  const pendingPreviewRef = useRef<Scene | null>(null)
+  const onPreviewSceneRef = useRef(onPreviewScene)
+  useEffect(() => { onPreviewSceneRef.current = onPreviewScene }, [onPreviewScene])
 
   const [normalizationWarnings, setNormalizationWarnings] = useState<SceneWarning[]>([])
   const availableSceneRange = findFirstAvailableSceneRange(scenes)
+
+  const schedulePreview = useCallback((scene: Scene) => {
+    if (!onPreviewSceneRef.current) return
+    pendingPreviewRef.current = scene
+    if (previewFrameRef.current != null) return
+    previewFrameRef.current = requestAnimationFrame(() => {
+      previewFrameRef.current = null
+      const pendingPreview = pendingPreviewRef.current
+      pendingPreviewRef.current = null
+      if (pendingPreview) onPreviewSceneRef.current?.(pendingPreview)
+    })
+  }, [])
+
+  const endPreview = useCallback((restoreCommittedCamera: boolean) => {
+    if (previewFrameRef.current != null) {
+      cancelAnimationFrame(previewFrameRef.current)
+      previewFrameRef.current = null
+    }
+    pendingPreviewRef.current = null
+    if (restoreCommittedCamera) onPreviewSceneRef.current?.(null)
+  }, [])
+
+  useEffect(() => () => {
+    if (previewFrameRef.current != null) cancelAnimationFrame(previewFrameRef.current)
+  }, [])
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
     const normalized = normalizeScenes(nextScenes)
@@ -517,7 +757,6 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
   }, [deletedScene, onChange, onScenesCommitted, scenes])
 
   const updateScene = useCallback((id: string, patch: Partial<Scene>) => {
-    let previewTarget: Scene | null = null
     commitScenes(scenes.map(s => {
       if (s.id !== id) return s
       const updated = { ...s, ...patch }
@@ -539,41 +778,9 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
       if (patch.cameraMode && patch.cameraMode !== s.cameraMode) {
         updated.params = { ...DEFAULT_CAMERA_PARAMS[patch.cameraMode] }
       }
-      // Trigger live preview when params change
-      if (patch.params) previewTarget = updated
       return updated
     }))
-    if (previewTarget && onPreviewScene) onPreviewScene(previewTarget)
-  }, [commitScenes, scenes, onPreviewScene])
-
-  /** Apply a scene patch without normalizing — used during active drag so
-   *  the user's gesture is not immediately counteracted by normalization. */
-  const updateSceneRaw = useCallback((id: string, patch: Partial<Scene>) => {
-    const next = scenes.map(s => {
-      if (s.id !== id) return s
-      const updated = { ...s, ...patch }
-      if (patch.startPercent != null || patch.endPercent != null) {
-        let nextStart = Math.max(0, Math.min(updated.startPercent, 1 - MIN_SCENE_SPAN))
-        let nextEnd = Math.max(MIN_SCENE_SPAN, Math.min(updated.endPercent, 1))
-        if (nextEnd - nextStart < MIN_SCENE_SPAN) {
-          if (patch.startPercent != null && patch.endPercent == null) {
-            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
-          } else {
-            nextEnd = Math.min(1, nextStart + MIN_SCENE_SPAN)
-            nextStart = Math.max(0, nextEnd - MIN_SCENE_SPAN)
-          }
-        }
-        updated.startPercent = nextStart
-        updated.endPercent = nextEnd
-      }
-      return updated
-    })
-    onChange(next)
-  }, [scenes, onChange])
-
-  const clearPreview = useCallback(() => {
-    onPreviewScene?.(null)
-  }, [onPreviewScene])
+  }, [commitScenes, scenes])
 
   const renderedNormalizationWarnings = normalizationWarnings.map(warning => formatSceneWarning(warning, t))
   const statusMessage = deletedScene
@@ -712,7 +919,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-        {scenes.map((scene) => (
+        {scenes.map((scene, sceneIndex) => (
           <div key={scene.id}
             className="gi nh p-3 space-y-2" style={{ borderRadius: '10px' }}>
             <div className="flex items-center justify-between">
@@ -733,6 +940,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
               <span style={{ color: 'var(--t3)' }}><CameraModeIcon mode={scene.cameraMode} /></span>
               <select value={scene.cameraMode}
                 onChange={e => updateScene(scene.id, { cameraMode: e.target.value as CameraMode })}
+                aria-label={formatSceneCameraModeLabel(t('scenes.cameraModeAria'), scene.name, sceneIndex + 1)}
                 className="vitro-select min-h-11 min-w-0 w-full flex-1 px-3 py-2 text-sm">
                 {MODES.map(m => (
                   <option key={m} value={m}>
@@ -792,43 +1000,40 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
                   startPercent={scene.startPercent}
                   endPercent={scene.endPercent}
                   ariaLabel={`${scene.name} ${t('scenes.startPct')} / ${t('scenes.endPct')}`}
-                  onChange={(startPercent, endPercent) => updateSceneRaw(scene.id, { startPercent, endPercent })}
                   onCommit={(startPercent, endPercent) => updateScene(scene.id, { startPercent, endPercent })}
                 />
 
                 <div className="flex gap-2">
                   <label className="flex-1">
-                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.zoom')} {scene.params.zoom}</span>
-                    <input type="range" min={1} max={20} step={0.5}
-                      value={scene.params.zoom}
-                      onChange={e => {
-                        const value = parseFloat(e.target.value)
-                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, zoom: value } })
-                      }}
-                      onPointerUp={clearPreview}
-                      onKeyUp={clearPreview}
-                      onBlur={clearPreview}
-                      aria-label={t('scenes.zoomAria').replace('{name}', scene.name)}
-                      aria-valuetext={`${t('scenes.zoom')} ${scene.params.zoom}`}
-                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <CameraParameterSlider
+                      scene={scene}
+                      parameter="zoom"
+                      min={1}
+                      max={20}
+                      step={0.5}
+                      onPreview={schedulePreview}
+                      onPreviewEnd={endPreview}
+                      onCommit={value => updateScene(scene.id, { params: { ...scene.params, zoom: value } })}
+                      ariaLabel={t('scenes.zoomAria').replace('{name}', scene.name)}
+                      ariaValueText={value => `${t('scenes.zoom')} ${value}`}
+                    />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.zoomFar')}</span><span>{t('scenes.zoomClose')}</span>
                     </span>
                   </label>
                   <label className="flex-1">
-                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.pitch')} {scene.params.pitch}°</span>
-                    <input type="range" min={0} max={85} step={1}
-                      value={scene.params.pitch}
-                      onChange={e => {
-                        const value = parseFloat(e.target.value)
-                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, pitch: value } })
-                      }}
-                      onPointerUp={clearPreview}
-                      onKeyUp={clearPreview}
-                      onBlur={clearPreview}
-                      aria-label={t('scenes.pitchAria').replace('{name}', scene.name)}
-                      aria-valuetext={`${t('scenes.pitch')} ${scene.params.pitch}°`}
-                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <CameraParameterSlider
+                      scene={scene}
+                      parameter="pitch"
+                      min={0}
+                      max={85}
+                      step={1}
+                      onPreview={schedulePreview}
+                      onPreviewEnd={endPreview}
+                      onCommit={value => updateScene(scene.id, { params: { ...scene.params, pitch: value } })}
+                      ariaLabel={t('scenes.pitchAria').replace('{name}', scene.name)}
+                      ariaValueText={value => `${t('scenes.pitch')} ${value}°`}
+                    />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.pitchFlat')}</span><span>{t('scenes.pitchAngled')}</span>
                     </span>
@@ -837,37 +1042,35 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
 
                 <div className="flex gap-2">
                   <label className="flex-1">
-                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.bearing')} {scene.params.bearingOffset}°</span>
-                    <input type="range" min={-180} max={180} step={1}
-                      value={scene.params.bearingOffset}
-                      onChange={e => {
-                        const value = parseFloat(e.target.value)
-                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, bearingOffset: value } })
-                      }}
-                      onPointerUp={clearPreview}
-                      onKeyUp={clearPreview}
-                      onBlur={clearPreview}
-                      aria-label={t('scenes.bearingAria').replace('{name}', scene.name)}
-                      aria-valuetext={`${t('scenes.bearing')} ${scene.params.bearingOffset}°`}
-                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <CameraParameterSlider
+                      scene={scene}
+                      parameter="bearingOffset"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      onPreview={schedulePreview}
+                      onPreviewEnd={endPreview}
+                      onCommit={value => updateScene(scene.id, { params: { ...scene.params, bearingOffset: value } })}
+                      ariaLabel={t('scenes.bearingAria').replace('{name}', scene.name)}
+                      ariaValueText={value => `${t('scenes.bearing')} ${value}°`}
+                    />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.bearingLeft')}</span><span>{t('scenes.bearingRight')}</span>
                     </span>
                   </label>
                   <label className="flex-1">
-                    <span className="text-[10px]" style={{ color: 'var(--t4)' }}>{t('scenes.rotation')} {scene.params.rotationSpeed}°/s</span>
-                    <input type="range" min={0} max={90} step={1}
-                      value={scene.params.rotationSpeed}
-                      onChange={e => {
-                        const value = parseFloat(e.target.value)
-                        if (Number.isFinite(value)) updateScene(scene.id, { params: { ...scene.params, rotationSpeed: value } })
-                      }}
-                      onPointerUp={clearPreview}
-                      onKeyUp={clearPreview}
-                      onBlur={clearPreview}
-                      aria-label={t('scenes.rotationAria').replace('{name}', scene.name)}
-                      aria-valuetext={`${t('scenes.rotation')} ${scene.params.rotationSpeed}°/s`}
-                      className="w-full h-1 cursor-pointer" style={{ accentColor: 'rgb(var(--gl))' }} />
+                    <CameraParameterSlider
+                      scene={scene}
+                      parameter="rotationSpeed"
+                      min={0}
+                      max={90}
+                      step={1}
+                      onPreview={schedulePreview}
+                      onPreviewEnd={endPreview}
+                      onCommit={value => updateScene(scene.id, { params: { ...scene.params, rotationSpeed: value } })}
+                      ariaLabel={t('scenes.rotationAria').replace('{name}', scene.name)}
+                      ariaValueText={value => `${t('scenes.rotation')} ${value}°/s`}
+                    />
                     <span className="text-[9px] flex justify-between" style={{ color: 'var(--t5, var(--t4))' }}>
                       <span>{t('scenes.rotationStill')}</span><span>{t('scenes.rotationSpin')}</span>
                     </span>
@@ -892,7 +1095,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
             {t('scenes.deleted')} &ldquo;{deletedScene.scene.name}&rdquo;
           </span>
           <button type="button" onClick={undoDelete}
-            className="text-xs px-2 py-0.5 font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'rgb(var(--gl))' }}>
+            className="text-xs px-2 py-0.5 font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]" style={{ color: 'var(--accent-text)' }}>
             {t('scenes.undo')}
           </button>
         </div>

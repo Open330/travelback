@@ -24,6 +24,8 @@ import SceneEditor, { findFirstAvailableSceneRange, SceneRangeEditor } from './S
 
 let root: Root | null = null
 let container: HTMLDivElement | null = null
+let nextAnimationFrameId = 1
+let animationFrames = new Map<number, FrameRequestCallback>()
 
 function pointerEvent(type: string, pointerId: number, clientX: number) {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, button: 0 })
@@ -35,7 +37,6 @@ function pointerEvent(type: string, pointerId: number, clientX: number) {
 }
 
 async function renderRangeEditor(
-  onChange: (startPercent: number, endPercent: number) => void,
   onCommit: (startPercent: number, endPercent: number) => void,
 ) {
   container = document.createElement('div')
@@ -45,7 +46,6 @@ async function renderRangeEditor(
     sceneName: 'Scene 1',
     startPercent: 0,
     endPercent: 0.5,
-    onChange,
     onCommit,
     ariaLabel: 'Scene 1 range',
   })))
@@ -66,8 +66,30 @@ async function renderRangeEditor(
   return { range, endHandle: handles[1] }
 }
 
+function flushAnimationFrames() {
+  const pendingFrames = [...animationFrames.values()]
+  animationFrames = new Map()
+  for (const callback of pendingFrames) callback(performance.now())
+}
+
+function changeInputValue(input: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+  valueSetter?.call(input, value)
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
 beforeEach(() => {
   localeState.current = 'ko'
+  nextAnimationFrameId = 1
+  animationFrames = new Map()
+  vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+    const id = nextAnimationFrameId++
+    animationFrames.set(id, callback)
+    return id
+  }))
+  vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+    animationFrames.delete(id)
+  }))
   Object.defineProperties(HTMLElement.prototype, {
     setPointerCapture: { configurable: true, value: vi.fn() },
     releasePointerCapture: { configurable: true, value: vi.fn() },
@@ -81,35 +103,44 @@ afterEach(async () => {
   root = null
   container = null
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('SceneRangeEditor pointer lifecycle', () => {
-  it('commits a completed drag exactly once', async () => {
-    const onChange = vi.fn()
+  it('coalesces a pointer burst and commits its final range exactly once', async () => {
     const onCommit = vi.fn()
-    const { endHandle } = await renderRangeEditor(onChange, onCommit)
+    const { endHandle } = await renderRangeEditor(onCommit)
 
     await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 1, 50)))
-    await act(() => window.dispatchEvent(pointerEvent('pointermove', 1, 70)))
-    await act(() => window.dispatchEvent(pointerEvent('pointerup', 1, 70)))
-    await act(() => endHandle.dispatchEvent(pointerEvent('lostpointercapture', 1, 70)))
+    await act(() => {
+      window.dispatchEvent(pointerEvent('pointermove', 1, 60))
+      window.dispatchEvent(pointerEvent('pointermove', 1, 70))
+      window.dispatchEvent(pointerEvent('pointermove', 1, 80))
+    })
 
-    expect(onChange).toHaveBeenLastCalledWith(0, 0.7)
+    expect(requestAnimationFrame).toHaveBeenCalledOnce()
+    expect(onCommit).not.toHaveBeenCalled()
+    await act(() => flushAnimationFrames())
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('80')
+
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 1, 80)))
+    await act(() => endHandle.dispatchEvent(pointerEvent('lostpointercapture', 1, 80)))
+
     expect(onCommit).toHaveBeenCalledOnce()
-    expect(onCommit).toHaveBeenCalledWith(0, 0.7)
+    expect(onCommit).toHaveBeenCalledWith(0, 0.8)
   })
 
   it('restores the original range on pointer cancellation and can drag again', async () => {
-    const onChange = vi.fn()
     const onCommit = vi.fn()
-    const { endHandle } = await renderRangeEditor(onChange, onCommit)
+    const { endHandle } = await renderRangeEditor(onCommit)
 
     await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 1, 50)))
     await act(() => window.dispatchEvent(pointerEvent('pointermove', 1, 70)))
+    await act(() => flushAnimationFrames())
     await act(() => window.dispatchEvent(pointerEvent('pointercancel', 1, 70)))
     await act(() => endHandle.dispatchEvent(pointerEvent('lostpointercapture', 1, 70)))
 
-    expect(onChange).toHaveBeenLastCalledWith(0, 0.5)
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('50')
     expect(onCommit).not.toHaveBeenCalled()
 
     await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 2, 50)))
@@ -120,18 +151,32 @@ describe('SceneRangeEditor pointer lifecycle', () => {
   })
 
   it('ignores other pointers and cancels the active drag on blur', async () => {
-    const onChange = vi.fn()
     const onCommit = vi.fn()
-    const { endHandle } = await renderRangeEditor(onChange, onCommit)
+    const { endHandle } = await renderRangeEditor(onCommit)
 
     await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 3, 50)))
     await act(() => window.dispatchEvent(pointerEvent('pointermove', 4, 90)))
-    expect(onChange).not.toHaveBeenCalled()
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
     await act(() => window.dispatchEvent(pointerEvent('pointermove', 3, 65)))
     await act(() => window.dispatchEvent(new Event('blur')))
 
-    expect(onChange).toHaveBeenLastCalledWith(0, 0.5)
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('50')
     expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  it('commits keyboard changes immediately without waiting for a frame', async () => {
+    const onCommit = vi.fn()
+    const { endHandle } = await renderRangeEditor(onCommit)
+
+    await act(() => endHandle.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+      cancelable: true,
+    })))
+
+    expect(onCommit).toHaveBeenCalledOnce()
+    expect(onCommit).toHaveBeenCalledWith(0, 0.49)
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
   })
 })
 
@@ -152,6 +197,195 @@ describe('findFirstAvailableSceneRange', () => {
       { startPercent: 0, endPercent: 0.5 },
       { startPercent: 0.505, endPercent: 1 },
     ])).toBeNull()
+  })
+})
+
+describe('SceneEditor camera controls', () => {
+  const scene: Scene = {
+    id: 'first',
+    name: '첫 번째',
+    cameraMode: 'flyover',
+    startPercent: 0,
+    endPercent: 1,
+    params: { ...DEFAULT_CAMERA_PARAMS.flyover },
+  }
+
+  async function renderExpandedEditor(overrides: {
+    onChange?: (scenes: Scene[]) => void
+    onScenesCommitted?: (scenes: Scene[]) => void
+    onPreviewScene?: (scene: Scene | null) => void
+  } = {}) {
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    const callbacks = {
+      onChange: overrides.onChange ?? vi.fn(),
+      onScenesCommitted: overrides.onScenesCommitted ?? vi.fn(),
+      onPreviewScene: overrides.onPreviewScene ?? vi.fn(),
+    }
+    await act(() => root?.render(createElement(SceneEditor, {
+      scenes: [scene],
+      ...callbacks,
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    })))
+    const customizeButton = container.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')
+    if (!customizeButton) throw new Error('Missing scene customization button')
+    await act(() => customizeButton.click())
+    const zoomSlider = container.querySelector<HTMLInputElement>('input[aria-label="첫 번째의 줌"]')
+    if (!zoomSlider) throw new Error('Missing zoom slider')
+    return { ...callbacks, zoomSlider }
+  }
+
+  it('coalesces camera pointer previews to one frame and commits once on pointerup', async () => {
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onChange, onScenesCommitted, onPreviewScene })
+
+    await act(() => zoomSlider.dispatchEvent(pointerEvent('pointerdown', 7, 0)))
+    await act(() => {
+      changeInputValue(zoomSlider, '14')
+      changeInputValue(zoomSlider, '15')
+      changeInputValue(zoomSlider, '16')
+    })
+
+    expect(requestAnimationFrame).toHaveBeenCalledOnce()
+    expect(onPreviewScene).not.toHaveBeenCalled()
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onScenesCommitted).not.toHaveBeenCalled()
+    expect(zoomSlider.previousElementSibling?.textContent).toBe('줌 16')
+
+    await act(() => flushAnimationFrames())
+    expect(onPreviewScene).toHaveBeenCalledOnce()
+    expect(onPreviewScene).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'first',
+      params: expect.objectContaining({ zoom: 16 }),
+    }))
+
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 7, 0)))
+    const committedScenes = onChange.mock.calls[0]?.[0] as Scene[]
+    expect(onChange).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledWith(committedScenes)
+    expect(committedScenes[0].params.zoom).toBe(16)
+    expect(onPreviewScene).toHaveBeenCalledOnce()
+  })
+
+  it('rolls a cancelled camera pointer gesture back without publishing root scenes', async () => {
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onChange, onScenesCommitted, onPreviewScene })
+
+    await act(() => zoomSlider.dispatchEvent(pointerEvent('pointerdown', 8, 0)))
+    await act(() => changeInputValue(zoomSlider, '18'))
+    await act(() => flushAnimationFrames())
+    await act(() => window.dispatchEvent(pointerEvent('pointercancel', 8, 0)))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onScenesCommitted).not.toHaveBeenCalled()
+    expect(onPreviewScene).toHaveBeenLastCalledWith(null)
+    expect(zoomSlider.value).toBe(String(scene.params.zoom))
+  })
+
+  it('publishes keyboard camera changes immediately before the preview frame', async () => {
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onChange, onScenesCommitted, onPreviewScene })
+
+    await act(() => changeInputValue(zoomSlider, '14.5'))
+
+    expect(onChange).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledOnce()
+    expect((onChange.mock.calls[0]?.[0] as Scene[])[0].params.zoom).toBe(14.5)
+    expect(onPreviewScene).not.toHaveBeenCalled()
+    expect(requestAnimationFrame).toHaveBeenCalledOnce()
+
+    await act(() => flushAnimationFrames())
+    expect(onPreviewScene).toHaveBeenCalledWith(expect.objectContaining({
+      params: expect.objectContaining({ zoom: 14.5 }),
+    }))
+  })
+
+  it('publishes one normalized parent snapshot at the end of a scene-range drag', async () => {
+    const scenes: Scene[] = [
+      { ...scene, id: 'first', name: '첫 번째', startPercent: 0, endPercent: 0.5 },
+      { ...scene, id: 'second', name: '두 번째', startPercent: 0.5, endPercent: 1 },
+    ]
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(SceneEditor, {
+      scenes,
+      onChange,
+      onScenesCommitted,
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    })))
+    const customizeButton = container.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')
+    if (!customizeButton) throw new Error('Missing scene customization button')
+    await act(() => customizeButton.click())
+    const range = container.querySelector<HTMLElement>('[aria-label="첫 번째 시작 % / 끝 %"]')
+    if (!range) throw new Error('Missing scene range editor')
+    range.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 100,
+      bottom: 32,
+      width: 100,
+      height: 32,
+      toJSON: () => ({}),
+    })
+    const endHandle = range.querySelectorAll<HTMLElement>('[role="slider"]')[1]
+
+    await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 9, 50)))
+    await act(() => {
+      window.dispatchEvent(pointerEvent('pointermove', 9, 60))
+      window.dispatchEvent(pointerEvent('pointermove', 9, 70))
+    })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onScenesCommitted).not.toHaveBeenCalled()
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 9, 70)))
+
+    const normalizedScenes = onChange.mock.calls[0]?.[0] as Scene[]
+    expect(onChange).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledOnce()
+    expect(onScenesCommitted).toHaveBeenCalledWith(normalizedScenes)
+    expect(normalizedScenes[0].endPercent).toBeCloseTo(0.7)
+    expect(normalizedScenes[1].startPercent).toBeCloseTo(0.7)
+  })
+
+  it('gives duplicate-name camera-mode comboboxes unique localized names', async () => {
+    const duplicateNameScenes: Scene[] = [
+      { ...scene, id: 'first', name: '같은 이름', startPercent: 0, endPercent: 0.5 },
+      { ...scene, id: 'second', name: '같은 이름', startPercent: 0.5, endPercent: 1 },
+    ]
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(SceneEditor, {
+      scenes: duplicateNameScenes,
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+      transitionDuration: 0.03,
+      onTransitionDurationChange: vi.fn(),
+    })))
+
+    const comboboxes = [...container.querySelectorAll<HTMLSelectElement>('select')]
+    expect(comboboxes.map(combobox => combobox.getAttribute('aria-label'))).toEqual([
+      '1번 장면 같은 이름의 카메라 모드',
+      '2번 장면 같은 이름의 카메라 모드',
+    ])
   })
 })
 
@@ -299,7 +533,9 @@ describe('SceneEditor normalization feedback', () => {
       onTransitionDurationChange: vi.fn(),
     })))
 
-    const modeSelect = container.querySelector<HTMLSelectElement>('select')
+    const modeSelect = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="1번 장면 첫 번째의 카메라 모드"]',
+    )
     if (!modeSelect) throw new Error('Missing camera-mode select')
     await act(() => {
       modeSelect.value = 'orbit'
