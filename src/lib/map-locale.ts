@@ -1,6 +1,7 @@
 import type { TranslationKey } from '@/lib/i18n'
 
 export interface MapLibreLocalePatch {
+  [localeKey: string]: string
   'Map.Title': string
   'NavigationControl.ZoomIn': string
   'NavigationControl.ZoomOut': string
