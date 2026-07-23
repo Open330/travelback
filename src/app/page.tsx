@@ -226,6 +226,7 @@ function HomeInner() {
     exportedVideoFilename,
     downloadMethod,
     cancelExport,
+    cancelExportAndWait,
     exportTrack,
     resetExportSession,
   } = useExportController({
@@ -336,7 +337,8 @@ function HomeInner() {
     resetExportSession()
   }, [resetExportSession])
 
-  const loadTrackIntoSession = useCallback((nextTrack: Track) => {
+  const loadTrackIntoSession = useCallback(async (nextTrack: Track) => {
+    await cancelExportAndWait()
     resetTrackWorkspace()
     mapViewRef.current?.clearTrackArtifacts()
     setFullTrack(nextTrack)
@@ -351,7 +353,7 @@ function HomeInner() {
       ...(nextTrack.fallbackNameSource ? { fallbackNameSource: nextTrack.fallbackNameSource } : {}),
     })
     setPendingWorkspaceFocus(true)
-  }, [resetPlaybackSession, resetTrackWorkspace])
+  }, [cancelExportAndWait, resetPlaybackSession, resetTrackWorkspace])
 
   const startFreshJourneySession = useCallback(() => {
     invalidateSampleLoad()
@@ -404,15 +406,15 @@ function HomeInner() {
     setTrimSelectionRevision((revision) => revision + 1)
   }, [])
 
-  const handleTrackLoaded = useCallback((nextTrack: Track) => {
+  const handleTrackLoaded = useCallback(async (nextTrack: Track) => {
     invalidateSampleLoad()
-    loadTrackIntoSession(nextTrack)
+    await loadTrackIntoSession(nextTrack)
   }, [invalidateSampleLoad, loadTrackIntoSession])
 
-  const handleJourneyComplete = useCallback((nextTrack: Track) => {
+  const handleJourneyComplete = useCallback(async (nextTrack: Track) => {
     resumePlaybackAfterJourneyRef.current = false
     invalidateSampleLoad()
-    loadTrackIntoSession(nextTrack)
+    await loadTrackIntoSession(nextTrack)
   }, [invalidateSampleLoad, loadTrackIntoSession])
 
   const handleLoadSample = useCallback(async () => {
@@ -435,7 +437,7 @@ function HomeInner() {
       const sampleFile = new File([text], 'sample-trip.gpx', { type: 'application/gpx+xml' })
       const parsedTrack = await parseTrackFile(sampleFile, { signal: controller.signal })
       if (requestGeneration !== sampleLoadGenerationRef.current || controller.signal.aborted) return
-      loadTrackIntoSession(parsedTrack)
+      await loadTrackIntoSession(parsedTrack)
     } catch (error) {
       if (requestGeneration !== sampleLoadGenerationRef.current || controller.signal.aborted) return
       console.error('Sample load failed:', {

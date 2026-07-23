@@ -10,7 +10,7 @@ import { getImportSizePolicy } from '@/lib/parse-utils'
 import { useLocale, type TranslationKey } from '@/lib/i18n'
 
 interface FileUploadProps {
-  onTrackLoaded: (track: Track) => void
+  onTrackLoaded: (track: Track) => void | Promise<void>
   hasTrack: boolean
   onImportStart?: () => void
   onShowGoogleGuide?: () => void
@@ -90,7 +90,7 @@ export default function FileUpload({
       }
       const track = await parseTrackFile(file, { signal: controller.signal })
       if (requestGeneration !== parseGenerationRef.current || controller.signal.aborted) return
-      onTrackLoaded(track)
+      await onTrackLoaded(track)
     } catch (err) {
       if (requestGeneration !== parseGenerationRef.current || controller.signal.aborted) return
       // Map parser error codes to i18n keys (avoids relying on English message text)

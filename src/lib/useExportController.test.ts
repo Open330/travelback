@@ -225,7 +225,60 @@ describe('useExportController lifecycle', () => {
     expect(consoleError).toHaveBeenCalledWith('Export failed:', 'restart failed')
   })
 
-  it('retains ownership through cleanup and releases it afterward', async () => {
+  it('silently aborts replacement exports and waits for their cleanup to settle', async () => {
+    let rejectAbortedExport!: () => void
+    let ownerSignal: AbortSignal | undefined
+    exportVideo.mockImplementation((...args: unknown[]) => {
+      ownerSignal = args[6] as AbortSignal
+      return new Promise((_resolve, reject) => {
+        ownerSignal?.addEventListener('abort', () => {
+          rejectAbortedExport = () => reject(new DOMException('Export cancelled', 'AbortError'))
+        }, { once: true })
+      })
+    })
+    const cleanupOrder: string[] = []
+    const mapHandle = createMapHandle()
+    mapHandle.resetSize = vi.fn(() => {
+      cleanupOrder.push('reset')
+    })
+    const { addToast, controllerRef } = await renderController(mapHandle)
+
+    let ownerExport!: Promise<void>
+    await act(async () => {
+      ownerExport = controllerRef.current!.exportTrack(request)
+      await vi.waitFor(() => expect(exportVideo).toHaveBeenCalledOnce())
+    })
+
+    let replacementSettled = false
+    let replacementWait!: Promise<void>
+    await act(async () => {
+      replacementWait = controllerRef.current!.cancelExportAndWait().then(() => {
+        cleanupOrder.push('settled')
+        replacementSettled = true
+      })
+      await Promise.resolve()
+    })
+
+    expect(ownerSignal?.aborted).toBe(true)
+    expect(replacementSettled).toBe(false)
+    expect(mapHandle.resetSize).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
+
+    await act(async () => {
+      rejectAbortedExport()
+      await Promise.all([ownerExport, replacementWait])
+    })
+
+    expect(cleanupOrder).toEqual(['reset', 'settled'])
+    expect(controllerRef.current).toMatchObject({
+      isExporting: false,
+      exportProgress: 0,
+      exportState: 'idle',
+    })
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('retains ownership through cleanup and releases waiting replacements afterward', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     let finishCleanup!: () => void
     const cleanupWait = new Promise<boolean>((resolve) => {
@@ -247,10 +300,17 @@ describe('useExportController lifecycle', () => {
       await vi.waitFor(() => expect(waitForIdle).toHaveBeenCalledTimes(2))
     })
 
+    let replacementSettled = false
+    let replacementWait!: Promise<void>
     await act(async () => {
+      replacementWait = controllerRef.current!.cancelExportAndWait().then(() => {
+        replacementSettled = true
+      })
       await controllerRef.current!.exportTrack(request)
+      await Promise.resolve()
     })
 
+    expect(replacementSettled).toBe(false)
     expect(exportVideo).toHaveBeenCalledOnce()
     expect(pausePlayback).toHaveBeenCalledOnce()
     expect(mapHandle.resize).toHaveBeenCalledOnce()
@@ -258,8 +318,9 @@ describe('useExportController lifecycle', () => {
 
     await act(async () => {
       finishCleanup()
-      await firstExport
+      await Promise.all([firstExport, replacementWait])
     })
+    expect(replacementSettled).toBe(true)
     await act(async () => {
       await controllerRef.current!.exportTrack(request)
     })

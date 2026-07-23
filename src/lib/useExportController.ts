@@ -12,6 +12,13 @@ import { isLocalExportTestStubEnabled, LOCAL_EXPORT_TEST_STUB_PAYLOAD } from '@/
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 
+interface ExportLease {
+  abortController: AbortController
+  settlement: Promise<void>
+  release: () => void
+  suppressCancellationToast: boolean
+}
+
 /** Map ExportError codes to i18n keys for localized toast messages */
 const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
   EXPORT_TOO_LARGE: 'app.exportFailedSuffix',
@@ -55,7 +62,7 @@ export function useExportController({
   const [exportedVideoFilename, setExportedVideoFilename] = useState<string | null>(null)
   const [downloadMethod, setDownloadMethod] = useState<DownloadMethod | null>(null)
 
-  const exportAbortRef = useRef<AbortController | null>(null)
+  const exportLeaseRef = useRef<ExportLease | null>(null)
   const exportedVideoUrlRef = useRef<string | null>(null)
   const exportProgressRef = useRef<number | undefined>(undefined)
   const lastProgressUpdateTimeRef = useRef<number>(0)
@@ -90,7 +97,7 @@ export function useExportController({
       // Abort any in-progress export when the owning component unmounts.
       // Without this, the export loop continues against a destroyed map,
       // producing a video with blank/stale frames.
-      exportAbortRef.current?.abort()
+      exportLeaseRef.current?.abortController.abort()
     }
   }, [])
 
@@ -125,7 +132,16 @@ export function useExportController({
   }, [revokeExportedVideoUrl])
 
   const cancelExport = useCallback(() => {
-    exportAbortRef.current?.abort()
+    exportLeaseRef.current?.abortController.abort()
+  }, [])
+
+  const cancelExportAndWait = useCallback(async () => {
+    const lease = exportLeaseRef.current
+    if (!lease) return
+
+    lease.suppressCancellationToast = true
+    lease.abortController.abort()
+    await lease.settlement
   }, [])
 
   const exportTrack = useCallback(async (config: ExportRequest) => {
@@ -133,7 +149,7 @@ export function useExportController({
     // cannot serialize two calls made in the same tick. The abort controller is
     // also the export lease: acquire it synchronously and let only its owner run
     // export and cleanup work.
-    if (exportAbortRef.current) return
+    if (exportLeaseRef.current) return
 
     const mapHandle = mapViewRef.current
     const canvas = mapHandle?.getCanvas()
@@ -143,7 +159,16 @@ export function useExportController({
     }
 
     const abortController = new AbortController()
-    exportAbortRef.current = abortController
+    let releaseSettlement!: () => void
+    const lease: ExportLease = {
+      abortController,
+      settlement: new Promise<void>((resolve) => {
+        releaseSettlement = resolve
+      }),
+      release: () => releaseSettlement(),
+      suppressCancellationToast: false,
+    }
+    exportLeaseRef.current = lease
     const trackForExport: Track = {
       ...track,
       name: resolveTrackDisplayName(track, tRef.current),
@@ -277,7 +302,9 @@ export function useExportController({
       }
       if (mountedRef.current) {
         if (abortController.signal.aborted) {
-          addToast(tRef.current('app.exportCancelled'), 'info')
+          if (!lease.suppressCancellationToast) {
+            addToast(tRef.current('app.exportCancelled'), 'info')
+          }
         } else {
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')
           const detailKey: TranslationKey = error instanceof ExportError && EXPORT_ERROR_I18N[error.code]
@@ -332,9 +359,10 @@ export function useExportController({
         // A stale invocation must never clear a newer export's cancellation
         // handle. Retain the lease through map/progress cleanup so re-entry
         // cannot start while the previous owner is still restoring shared state.
-        if (exportAbortRef.current === abortController) {
-          exportAbortRef.current = null
+        if (exportLeaseRef.current === lease) {
+          exportLeaseRef.current = null
         }
+        lease.release()
       }
     }
   }, [
@@ -357,6 +385,7 @@ export function useExportController({
     exportedVideoFilename,
     downloadMethod,
     cancelExport,
+    cancelExportAndWait,
     exportTrack,
     resetExportSession,
   }
