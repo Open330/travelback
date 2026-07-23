@@ -27,6 +27,11 @@
 - `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `archive/cycle11-implementation-2026-07-24.md` — Completed the fresh
+  imperative-camera ownership finding so duration-adjusted paused poses hand
+  off smoothly when playback resumes; every configured gate, the final-HEAD
+  development reconciliation, and exact browser cleanup passed, and no
+  deployment occurred
 - `archive/cycle10-implementation-2026-07-24.md` — Completed all 3 fresh
   findings covering schema-owned XML display names, immediate paused
   duration-camera publication, and retained-trip hotkey suspension during

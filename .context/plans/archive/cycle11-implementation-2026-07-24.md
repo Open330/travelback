@@ -1,6 +1,6 @@
 # Cycle 11 Review Remediation Plan — 2026-07-24
 
-Status: **Planned**
+Status: **Complete**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `a7adcdc1ff2b9a296a77f125c39a538320dd22f7`
@@ -114,6 +114,37 @@ Use explicit alternate ports and do not touch any unrelated owner.
 
 ## Progress
 
-- P01: Pending
-- Full verification: Pending
-- Signed commits and no-deploy branch push: Pending
+- P01: Complete
+- Full verification: Complete (all eight gates)
+- Signed commits and no-deploy branch push: Complete
+
+## Completion record
+
+- Implemented the single scheduled finding with no deferral:
+  `applyCameraState` now gives the published imperative camera state ownership
+  of the smoothing reference through an exact clone, so resumed declarative
+  playback advances from the visible duration-adjusted pose.
+- Extended the existing paused Orbit duration regression through resume and
+  reproduced the old backward handoff as a signed bearing step of about
+  -140 degrees before the production fix. The corrected focused regression
+  passed while retaining the Follow-off manual-camera checks.
+- Full gates passed: lint; typecheck; 623 unit tests; 40 process-supervisor
+  tests; production build; 118 development E2E tests with 1 expected skip;
+  static smoke plus 117 static E2E tests with 2 expected skips; zero audit
+  vulnerabilities; and the isolated real WebCodecs MP4 export. A final-HEAD
+  development E2E reconciliation repeated the 118-pass/1-skip result with no
+  retries.
+- Two gate-driven test-harness repairs were completed: the camera sampler now
+  stops at the first resumed publication instead of crossing a later scene
+  boundary, and the retained-session New Route regression now waits for the
+  Journey Creator's scheduled Cancel autofocus before moving focus to the app
+  root. The repaired complete static matrix and final development matrix both
+  passed.
+- Every browser-capable run used an explicit alternate listener, unique
+  temporary root/profile, and exact PID/process-tree audit. Owned processes,
+  generated locks, profiles, listeners, and temporary roots were absent
+  after cleanup. Protected user Chrome PID/PGID 1368 was unchanged, and
+  unrelated browser/server owners were left untouched.
+- All Cycle 11 commits were GPG-signed and pushed only to
+  `review-plan-fix/no-deploy-20260723`. No deployment command, workflow
+  dispatch, deployment-state mutation, or push to `main` occurred.
