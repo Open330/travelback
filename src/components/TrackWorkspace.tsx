@@ -1,6 +1,6 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { MapStyleKey, Scene, Track } from '@/types'
 import type { UnitSystem } from '@/lib/interpolate'
 import { resolveTrackDisplayName, useLocale, type Locale } from '@/lib/i18n'
@@ -95,6 +95,61 @@ export default function TrackWorkspace({
 }: TrackWorkspaceProps) {
   const { t } = useLocale()
   const displayName = resolveTrackDisplayName(track, t)
+  const bottomStackRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    const bottomStack = bottomStackRef.current
+    const appRoot = bottomStack?.closest<HTMLElement>('[data-travelback-app-root="true"]')
+    const toolbar = appRoot?.querySelector<HTMLElement>('[data-testid="track-toolbar"]')
+    if (!bottomStack || !appRoot || !toolbar) return
+
+    const bottomStackProperty = '--track-bottom-stack-height'
+    const toolbarProperty = '--track-toolbar-reserved-inline-end'
+    const previousBottomStackValue = appRoot.style.getPropertyValue(bottomStackProperty)
+    const previousToolbarValue = appRoot.style.getPropertyValue(toolbarProperty)
+
+    const updateMeasurements = () => {
+      const stackRect = bottomStack.getBoundingClientRect()
+      const stackHeight = Math.max(stackRect.height, bottomStack.offsetHeight)
+      if (stackHeight > 0) {
+        appRoot.style.setProperty(bottomStackProperty, `${Math.ceil(stackHeight)}px`)
+      }
+
+      const appRect = appRoot.getBoundingClientRect()
+      const toolbarRect = toolbar.getBoundingClientRect()
+      const appWidth = Math.max(appRect.width, appRoot.clientWidth)
+      const toolbarWidth = Math.max(toolbarRect.width, toolbar.offsetWidth)
+      if (appWidth > 0 && toolbarWidth > 0) {
+        const toolbarInlineStart = toolbarRect.left - appRect.left
+        const reservedInlineEnd = Math.max(0, appWidth - toolbarInlineStart)
+        appRoot.style.setProperty(toolbarProperty, `${Math.ceil(reservedInlineEnd)}px`)
+      }
+    }
+
+    updateMeasurements()
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateMeasurements)
+    resizeObserver?.observe(bottomStack)
+    resizeObserver?.observe(toolbar)
+    resizeObserver?.observe(appRoot)
+    window.addEventListener('resize', updateMeasurements)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateMeasurements)
+      if (previousBottomStackValue) {
+        appRoot.style.setProperty(bottomStackProperty, previousBottomStackValue)
+      } else {
+        appRoot.style.removeProperty(bottomStackProperty)
+      }
+      if (previousToolbarValue) {
+        appRoot.style.setProperty(toolbarProperty, previousToolbarValue)
+      } else {
+        appRoot.style.removeProperty(toolbarProperty)
+      }
+    }
+  }, [locale, mapStyleKey, showSceneEditor])
 
   return (
     <>
@@ -129,7 +184,7 @@ export default function TrackWorkspace({
 
       <h1
         data-testid="track-title"
-        className="absolute left-4 right-56 top-4 z-20 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
+        className="track-title-desktop absolute left-4 top-4 z-20 hidden overflow-hidden text-ellipsis whitespace-nowrap gi px-4 py-2 text-sm font-medium leading-tight text-center md:block"
         style={{ color: 'var(--t1)', pointerEvents: 'none' }}
       >
         {displayName}<span className="hidden xl:inline"> — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}</span>
@@ -143,7 +198,7 @@ export default function TrackWorkspace({
         {displayName} — {track.points.length.toLocaleString(locale)} / {fullTrack.points.length.toLocaleString(locale)} {t('timeline.points')}
       </h1>
 
-      <div data-testid="track-bottom-stack" className="absolute bottom-0 left-0 right-0 z-10">
+      <div ref={bottomStackRef} data-testid="track-bottom-stack" className="track-bottom-stack absolute bottom-0 left-0 right-0 z-10">
         {fullTrack.points.length > 2 && (
           <div className="mb-2 px-4">
             <TimelineSelector

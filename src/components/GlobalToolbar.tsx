@@ -1,6 +1,6 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { Locale } from '@/lib/i18n'
 import { useLocale } from '@/lib/i18n'
 import type { UnitSystem } from '@/lib/interpolate'
@@ -18,11 +18,48 @@ interface GlobalToolbarProps {
 
 export default function GlobalToolbar({ locale, setLocale, units, mode, onUnitsChange, onModeChange, hasTrack }: GlobalToolbarProps) {
   const { t } = useLocale()
+  const toolbarRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current
+    const appRoot = toolbar?.closest<HTMLElement>('[data-travelback-app-root="true"]')
+    if (hasTrack || !toolbar || !appRoot) return
+
+    const property = '--landing-toolbar-safe-top'
+    const previousValue = appRoot.style.getPropertyValue(property)
+    const updateMeasurement = () => {
+      const appRect = appRoot.getBoundingClientRect()
+      const toolbarRect = toolbar.getBoundingClientRect()
+      const toolbarHeight = Math.max(toolbarRect.height, toolbar.offsetHeight)
+      if (toolbarHeight <= 0) return
+      const safeTop = Math.max(0, toolbarRect.top - appRect.top) + toolbarHeight + 8
+      appRoot.style.setProperty(property, `${Math.ceil(safeTop)}px`)
+    }
+
+    updateMeasurement()
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateMeasurement)
+    resizeObserver?.observe(toolbar)
+    resizeObserver?.observe(appRoot)
+    window.addEventListener('resize', updateMeasurement)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateMeasurement)
+      if (previousValue) {
+        appRoot.style.setProperty(property, previousValue)
+      } else {
+        appRoot.style.removeProperty(property)
+      }
+    }
+  }, [hasTrack, locale])
 
   return (
     <div
+      ref={toolbarRef}
       data-testid="global-toolbar"
-      className={`absolute right-4 z-20 items-center gap-2 ${hasTrack ? 'top-28 hidden sm:flex md:top-[4.5rem]' : 'top-4 flex'}`}
+      className={`global-toolbar absolute right-4 z-20 items-center gap-2 ${hasTrack ? 'global-toolbar-track top-28 hidden sm:flex md:top-[4.5rem]' : 'global-toolbar-landing top-4 flex'}`}
     >
       <div className="gi inline-flex shrink-0 items-center overflow-hidden text-[11px] font-medium" style={{ color: 'var(--t2)' }}>
         <button

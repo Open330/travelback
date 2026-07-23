@@ -38,7 +38,11 @@
   --r-interactive: calc(14px * var(--vitro-radius-scale));
   --r-chip: calc(10px * var(--vitro-radius-scale));
 
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px rgba(var(--gl), .6);
+  /* --gl stays the bright decorative/fill accent. Foreground text and focus
+     use opaque semantic colors so light glass never dilutes their contrast. */
+  --accent-text: #08647D;
+  --focus-indicator: #0E7490;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus-indicator);
   --vitro-enter-fade: fi .24s var(--ease) both;
   --vitro-sheet-fade: vitro-fade-in .18s var(--ease) both;
   --vitro-status-pulse: pul 2s ease-in-out infinite;
@@ -276,6 +280,8 @@ body {
   --t2: #1C2340;
   --t3: #424E6E;
   --t4: #5A6578;
+  --accent-text: #08647D;
+  --focus-indicator: #0E7490;
   --div: rgba(17, 24, 39, .07);
 
   --gc-bg: color-mix(in srgb, white 72%, transparent);
@@ -320,6 +326,8 @@ body {
   --t2: #D8E0F4;
   --t3: #A4B0CC;
   --t4: #8A93AE;
+  --accent-text: #67E8F9;
+  --focus-indicator: #22D3EE;
   --div: rgba(255, 255, 255, .09);
 
   --gs-bg: rgba(16, 20, 30, .52);

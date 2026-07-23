@@ -523,8 +523,8 @@ function TimelineSelector({
             className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
             style={{ background: 'rgba(var(--gl),.12)', borderRadius: '10px' }}
           >
-            <GripHorizontal size={14} style={{ color: 'rgb(var(--gl))' }} />
-            <span className="text-xs font-medium" style={{ color: 'rgb(var(--gl))' }}>
+            <GripHorizontal size={14} style={{ color: 'var(--accent-text)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--accent-text)' }}>
               {t('timeline.dragHint')}
             </span>
           </button>
@@ -710,7 +710,7 @@ function TimelineSelector({
             aria-label={t('timeline.reset')}
             title={t('timeline.reset')}
             className="inline-flex min-h-11 min-w-11 items-center justify-center cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-            style={{ color: 'rgb(var(--gl))' }}
+            style={{ color: 'var(--accent-text)' }}
           >
             <RotateCcw size={14} strokeWidth={2} />
           </button>

@@ -207,9 +207,10 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
   }
 
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center"
+    <div className="landing-upload-shell absolute inset-0 z-10 flex items-center justify-center"
       style={{ background: 'var(--upload-overlay, rgba(0,0,0,.32))', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
       <div
+        data-testid="landing-upload-card"
         role="group"
         aria-labelledby="fileupload-title"
         aria-describedby="fileupload-drop-hint"
@@ -217,7 +218,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         tabIndex={-1}
-        className="gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+        className="landing-upload-card gc w-full max-w-lg mx-4 p-6 sm:p-12 max-h-[90vh] overflow-y-auto transition-all duration-200 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
         style={{
           borderRadius: 'var(--r-glass)',
           borderColor: isDragging ? 'rgb(var(--gl))' : undefined,

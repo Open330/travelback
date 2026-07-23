@@ -45,4 +45,43 @@ describe('semantic text contrast tokens', () => {
       }
     }
   })
+
+  it.each([
+    {
+      selector: ':root',
+      textBackgrounds: ['#FFFFFF', '#EBEEF4', '#E5EAF3'],
+      focusBackgrounds: ['#FFFFFF', '#EBEEF4', '#E5EAF3'],
+    },
+    {
+      selector: '[data-mode=light]',
+      textBackgrounds: ['#FFFFFF', '#EBEEF4', '#E5EAF3'],
+      focusBackgrounds: ['#FFFFFF', '#EBEEF4', '#E5EAF3'],
+    },
+    {
+      selector: '[data-mode=dark]',
+      textBackgrounds: ['#0A0D14', '#101420', '#1E2332'],
+      focusBackgrounds: ['#0A0D14', '#101420', '#1E2332'],
+    },
+  ])('$selector separates readable accent text and focus from decorative color', ({
+    selector,
+    textBackgrounds,
+    focusBackgrounds,
+  }) => {
+    const rule = ruleBody(selector)
+    const accentText = tokenValue(rule, '--accent-text')
+    const focusIndicator = tokenValue(rule, '--focus-indicator')
+
+    for (const background of textBackgrounds) {
+      expect(
+        contrastRatio(accentText, background),
+        `--accent-text on ${background}`,
+      ).toBeGreaterThanOrEqual(4.5)
+    }
+    for (const background of focusBackgrounds) {
+      expect(
+        contrastRatio(focusIndicator, background),
+        `--focus-indicator on ${background}`,
+      ).toBeGreaterThanOrEqual(3)
+    }
+  })
 })
