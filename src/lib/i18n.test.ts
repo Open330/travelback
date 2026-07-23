@@ -169,6 +169,14 @@ describe('i18n locale key parity', () => {
     expect(translations.es['export.readyDescription']).toContain('aún no se ha guardado')
   })
 
+  it('names the exact localized Download MP4 action in save-failure recovery', () => {
+    for (const locale of locales) {
+      expect(translations[locale]['app.exportSaveFailed']).toContain(
+        translations[locale]['export.download'],
+      )
+    }
+  })
+
   it('describes fallback completion as a download start in every locale', () => {
     expect(locales.map((locale) => translations[locale]['export.downloadStarted'])).toEqual([
       'Download started',
