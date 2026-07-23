@@ -1,10 +1,94 @@
 # Cycle 1 Review Remediation Plan — 2026-07-23
 
-Status: **Planned — implementation not started**
+Status: **Completed — 2026-07-23**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `994820a71b0b87de78fdfd2a1fd2c17e7ad3b516`
 Deployment mode: **none**
+
+## Completion record
+
+- Completed all 20 planned implementation workstreams covering 33 of the 36
+  aggregate findings.
+- Preserved D01-D03 with their original severity/confidence and explicit
+  evidence, architecture, licensing, and product-decision exit criteria.
+- Published the completed cycle only on
+  `review-plan-fix/no-deploy-20260723`; no later cycle commit was pushed to
+  `main`.
+- No deployment occurred. Fourteen early signed commits reached `main` before
+  the existing push-triggered Pages workflow was noticed: 13 workflow runs
+  failed at the required production audit before build/artifact/deploy, and
+  one run was cancelled before those stages. Deployment API inspection found
+  no deployment for any cycle SHA.
+
+## Implemented results
+
+- **P01-P05:** upgraded Next/ESLint/Sharp to patched releases; added an exact
+  cross-platform E2E process supervisor and Travelback endpoint validation;
+  made Playwright/CI gates retries-free, non-interactive, diagnostic, and
+  real-MP4 complete; minimized workflow permissions and pinned actions; and
+  hardened loopback static serving, file validation, and literal CSP hashing.
+- **P06-P09:** made export DPR/error/save behavior deterministic, preserved
+  existing sessions across provisional route creation, kept Export Again in
+  its dialog, and synchronously cancelled queued playback work.
+- **P10-P13:** bounded elevation geometry, coalesced Journey Creator and Scene
+  Editor gesture work, and reused prepared wrapped map geometry.
+- **P14-P15:** corrected architecture/offline/test-stub documentation, locale
+  detection, accepted-format copy, and ground-camera naming.
+- **P16-P20:** measured responsive map-control reservations; made short Journey
+  flows completeable; uniquely labelled scene camera fields; split light-mode
+  contrast/focus tokens; and removed short-landing/loaded-header collisions.
+- Added unit, process-tree, component, static-smoke, and browser regressions
+  for the repaired behaviors. A full development gate found one remaining
+  844×390 attribution/navigation collision; the responsive toolbar/map-control
+  repair was then focused-tested and passed both full browser modes.
+
+## Final gate evidence
+
+1. `npm run lint` — passed.
+2. `npm run typecheck` — passed.
+3. `npm test` — passed: 24 Vitest files / 520 tests plus 7 process-supervisor
+   regressions.
+4. `npm audit --omit=dev` — passed with zero vulnerabilities.
+5. `npm run build` — passed on Next 16.2.11; worker parity, TypeScript, static
+   export, and CSP hardening across three HTML files passed. Repeated after the
+   final responsive fix.
+6. `npm run test:e2e` — final full run passed: 113 passed, 1 skipped, 0 failed.
+7. Exact development root/group exited; port 3099 and generated profile were
+   clear. A dead-PID Next-generated lock was removed only after verifying its
+   recorded PID absent and port 3099 free.
+8. `npm run test:e2e:static:ci` — static smoke passed, then 113 passed,
+   1 skipped, 0 failed.
+9. Exact static root/group exited; ports 4173/4183 and the generated profile
+   were clear.
+10. `npm run test:e2e:static:real-mp4` — passed: 1 passed, 0 failed.
+11. Final exact cleanup found no cycle-owned browser, Playwright, Chrome/
+    Chromium, server, ffmpeg, worker, profile, or listening port. Concurrent
+    headless shells were traced by parent ancestry to the unrelated
+    `xylolabs-panel-demo` Playwright run and deliberately left untouched.
+    Pre-existing user Chrome PID/PGID 1368/1368 remained unchanged.
+
+## Recoverable execution notes
+
+- A reviewer used a named `agent-browser close`; it also stopped the
+  pre-existing shared agent-browser daemon PID 45037 and its Chrome PID 45069.
+  The user's independent Chrome PID 1368 survived. No shared/global browser
+  close was used afterward.
+- The first Journey drag regression used an overly exact normalized-longitude
+  assertion and was corrected to a tolerance assertion.
+- The first short-Journey CSS fixture used jsdom-unsupported `max()` and was
+  simplified; an unsupported Playwright locator helper in the first E2E
+  typecheck was replaced.
+- The first hardened static smoke attempt had no built `out/sample-trip.gpx`
+  and spawned no server; the completed production build supplied the fixture
+  and the authoritative smoke passed.
+- The first full development E2E run exposed the landscape map-control
+  collision. Its first focused repair still placed navigation under Load New
+  File; the second repair passed focused, full development, and full static
+  gates.
+- Normal and force-cancel requests for the final accidentally triggered Pages
+  run initially returned HTTP 500; the run subsequently reached
+  `completed/cancelled`. No cycle deployment was created.
 
 ## Rules applied
 
