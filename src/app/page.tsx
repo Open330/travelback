@@ -139,6 +139,7 @@ function HomeInner() {
   const [loadedTrackStatus, setLoadedTrackStatus] = useState<TrackNameDescriptor | null>(null)
   const [pendingWorkspaceFocus, setPendingWorkspaceFocus] = useState(false)
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
+  const [isSampleLoading, setIsSampleLoading] = useState(false)
   const [mapGeneration, setMapGeneration] = useState(0)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
   const resumePlaybackAfterJourneyRef = useRef(false)
@@ -148,13 +149,18 @@ function HomeInner() {
   useEffect(() => { tRef.current = t }, [t])
   const { messages: toasts, addToast, dismissToast } = useToast()
 
-  const invalidateSampleLoad = useCallback(() => {
+  const abortSampleLoad = useCallback(() => {
     sampleLoadGenerationRef.current++
     sampleLoadControllerRef.current?.abort()
     sampleLoadControllerRef.current = null
   }, [])
 
-  useEffect(() => invalidateSampleLoad, [invalidateSampleLoad])
+  const invalidateSampleLoad = useCallback(() => {
+    abortSampleLoad()
+    setIsSampleLoading(false)
+  }, [abortSampleLoad])
+
+  useEffect(() => () => abortSampleLoad(), [abortSampleLoad])
 
   const applyDocumentMode = useCallback((mode: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-mode', mode)
@@ -414,6 +420,7 @@ function HomeInner() {
     const requestGeneration = sampleLoadGenerationRef.current
     const controller = new AbortController()
     sampleLoadControllerRef.current = controller
+    setIsSampleLoading(true)
     const sampleUrl = `${basePath}/sample-trip.gpx`
     let responseStatus: number | null = null
 
@@ -440,6 +447,7 @@ function HomeInner() {
     } finally {
       if (requestGeneration === sampleLoadGenerationRef.current && sampleLoadControllerRef.current === controller) {
         sampleLoadControllerRef.current = null
+        setIsSampleLoading(false)
       }
     }
   }, [addToast, invalidateSampleLoad, loadTrackIntoSession])
@@ -618,6 +626,7 @@ function HomeInner() {
             onImportStart={invalidateSampleLoad}
             onShowGoogleGuide={handleOpenGoogleGuide}
             onLoadSample={handleLoadSample}
+            isSampleLoading={isSampleLoading}
             onCreateJourney={handleStartJourney}
           />
         )}

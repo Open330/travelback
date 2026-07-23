@@ -15,6 +15,7 @@ interface FileUploadProps {
   onImportStart?: () => void
   onShowGoogleGuide?: () => void
   onLoadSample?: () => void
+  isSampleLoading?: boolean
   onCreateJourney?: () => void
 }
 
@@ -23,7 +24,15 @@ type FileUploadError =
   | { kind: 'translation'; key: TranslationKey }
   | { kind: 'message'; message: string }
 
-export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onShowGoogleGuide, onLoadSample, onCreateJourney }: FileUploadProps) {
+export default function FileUpload({
+  onTrackLoaded,
+  hasTrack,
+  onImportStart,
+  onShowGoogleGuide,
+  onLoadSample,
+  isSampleLoading = false,
+  onCreateJourney,
+}: FileUploadProps) {
   const { t } = useLocale()
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<FileUploadError | null>(null)
@@ -141,11 +150,12 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
   }, [invalidateParse, onCreateJourney])
 
   const handleLoadSample = useCallback(() => {
+    if (isSampleLoading) return
     invalidateParse()
     setLoading(false)
     setError(null)
     onLoadSample?.()
-  }, [invalidateParse, onLoadSample])
+  }, [invalidateParse, isSampleLoading, onLoadSample])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -214,6 +224,7 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
         role="group"
         aria-labelledby="fileupload-title"
         aria-describedby="fileupload-drop-hint"
+        aria-busy={loading}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -233,31 +244,51 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
               style={{ borderColor: 'rgba(255,255,255,.3)', borderTopColor: 'rgb(var(--gl))' }} />
           ) : (
             onLoadSample ? (
-              <button
-                type="button"
-                onClick={handleLoadSample}
-                aria-label={t('fileUpload.trySample')}
-                title={t('fileUpload.trySample')}
-                className="group relative mb-1 block w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-              >
-                <Image
-                  src={`${basePath}/landing-preview.svg`}
-                  alt={t('fileUpload.previewAlt')}
-                  width={960}
-                  height={540}
-                  priority
-                  className="landing-preview-image block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
-                />
-                <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{t('fileUpload.previewTitle')}</p>
-                    <p className="text-xs text-white/80">{t('fileUpload.trySample')}</p>
+              <div className="relative mb-1 w-full max-w-[20rem]">
+                <button
+                  type="button"
+                  onClick={handleLoadSample}
+                  disabled={isSampleLoading}
+                  aria-label={t('fileUpload.trySample')}
+                  aria-busy={isSampleLoading}
+                  aria-describedby={isSampleLoading ? 'fileupload-sample-status' : undefined}
+                  title={t('fileUpload.trySample')}
+                  className="group relative block w-full overflow-hidden rounded-2xl border border-white/10 shadow-lg disabled:cursor-wait focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
+                >
+                  <Image
+                    src={`${basePath}/landing-preview.svg`}
+                    alt={t('fileUpload.previewAlt')}
+                    width={960}
+                    height={540}
+                    priority
+                    className="landing-preview-image block h-auto w-full transition-transform duration-300 group-hover:scale-[1.02]"
+                  />
+                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/35 to-transparent px-4 py-3 text-left">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{t('fileUpload.previewTitle')}</p>
+                      <p className="text-xs text-white/80">{t('fileUpload.trySample')}</p>
+                    </div>
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white">
+                      {t('fileUpload.previewAction')}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white">
-                    {t('fileUpload.previewAction')}
-                  </span>
+                </button>
+                <div
+                  id="fileupload-sample-status"
+                  role="status"
+                  aria-atomic="true"
+                  className={isSampleLoading
+                    ? 'pointer-events-none absolute inset-0 flex items-center justify-center gap-2 rounded-2xl bg-black/70 px-4 text-sm font-medium text-white'
+                    : 'sr-only'}
+                >
+                  {isSampleLoading && (
+                    <>
+                      <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      <span>{t('fileUpload.loadingSample')}</span>
+                    </>
+                  )}
                 </div>
-              </button>
+              </div>
             ) : (
               <div className="mb-1 w-full max-w-[20rem] overflow-hidden rounded-2xl border border-white/10 shadow-lg">
                 <Image
@@ -278,33 +309,35 @@ export default function FileUpload({ onTrackLoaded, hasTrack, onImportStart, onS
         <p className="mb-6" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.subtitle')}
         </p>
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={loading}
+            aria-label={t('fileUpload.browseAria')}
+            className="vitro-btn-primary min-h-11 px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
+          >
+            {loading ? t('fileUpload.parsing') : t('fileUpload.browse')}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".gpx,.kml,.json"
+            onChange={handleInputChange}
+            className="hidden"
+          />
+          {isTouchDevice && (
+            <p className="mt-2 text-[10px]" style={{ color: 'var(--t4)' }}>
+              {t('fileUpload.iosTip')}
+            </p>
+          )}
+        </div>
         <p id="fileupload-drop-hint" className="text-sm mb-1" style={{ color: 'var(--t4)' }}>
           {t('fileUpload.dropHint')}
         </p>
         <p className="text-xs mb-4" style={{ color: 'var(--t3)' }}>
           {t('fileUpload.formatHint')}
         </p>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={loading}
-          aria-label={t('fileUpload.browseAria')}
-          className="vitro-btn-primary min-h-11 px-6 py-3 font-medium disabled:opacity-50 cursor-pointer"
-        >
-          {loading ? t('fileUpload.parsing') : t('fileUpload.browse')}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".gpx,.kml,.json"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-        {isTouchDevice && (
-          <p className="mt-2 text-[10px]" style={{ color: 'var(--t4)' }}>
-            {t('fileUpload.iosTip')}
-          </p>
-        )}
         {onCreateJourney && (
           <div className="mt-4 flex w-full justify-center">
             <button

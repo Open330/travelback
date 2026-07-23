@@ -45,7 +45,7 @@ map styles, export presets, or improve the scene editor.
 
 **Route Animation** — Animated trail with a pulsing marker following the track. Seekable progress bar with 6 speed levels (0.5×–16×).
 
-**6 Camera Modes** — Overview, Flyover, Spin Around, Street View, Closeup, Bird's Eye. Each with configurable zoom, pitch, bearing offset, and rotation speed.
+**6 Camera Modes** — Overview, Flyover, Spin Around, Ground-level Follow, Closeup, Bird's Eye. Each with configurable zoom, pitch, bearing offset, and rotation speed.
 
 **Scene Editor** — Compose multi-segment cinematic sequences with per-scene camera modes and smooth transitions. Coverage bar shows scene boundaries.
 
@@ -78,7 +78,7 @@ map styles, export presets, or improve the scene editor.
 | Overview       | 10   | 45°   | Full-track bird's-eye view with slow rotation                |
 | Flyover        | 13   | 55°   | Medium-altitude follow with forward-facing bearing           |
 | Orbit          | 14   | 60°   | Orbiting camera around the current position (36°/s)          |
-| Ground Follow  | 15.5 | 70°   | Low-altitude chase camera with steep pitch                   |
+| Ground-level Follow | 15.5 | 70°   | Low-altitude chase camera with steep pitch                   |
 | Closeup        | 17   | 30°   | Street-level view with shallow pitch                         |
 | Bird's Eye     | 11   | 65°   | High-altitude 3D flyover with look-ahead bearing and drift   |
 

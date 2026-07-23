@@ -513,8 +513,13 @@ test.describe('Travelback App', () => {
 
     const toolbar = page.getByTestId('global-toolbar')
     const uploadCard = page.getByTestId('landing-upload-card')
+    const sample = page.getByRole('button', { name: 'Try with a sample trip' })
+    const browse = page.getByRole('button', { name: 'Browse files to upload' })
     await expectVisibleInViewportAndHitOwned(toolbar, viewport)
     await expectVisibleInViewportAndHitOwned(uploadCard, viewport)
+    await expect(uploadCard).toHaveJSProperty('scrollTop', 0)
+    await expectVisibleInViewportAndHitOwned(sample, viewport)
+    await expectVisibleInViewportAndHitOwned(browse, viewport)
 
     const [toolbarBox, uploadCardBox] = await Promise.all([
       toolbar.boundingBox(),
@@ -522,6 +527,13 @@ test.describe('Travelback App', () => {
     ])
     if (!toolbarBox || !uploadCardBox) throw new Error('Missing short landing layout geometry')
     expect(boxesOverlap(toolbarBox, uploadCardBox)).toBe(false)
+
+    await uploadCard.evaluate(element => {
+      element.scrollTop = element.scrollHeight
+    })
+    await expect.poll(() => uploadCard.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    await expectVisibleInViewportAndHitOwned(page.getByRole('button', { name: 'Draw a route on the map' }), viewport)
+    await expectVisibleInViewportAndHitOwned(page.getByRole('button', { name: 'Need help finding your file?' }), viewport)
   })
 
   test('landing keyboard flow prioritizes upload actions over the decorative map', async ({ page }) => {
@@ -1015,26 +1027,80 @@ test.describe('Travelback App', () => {
     await expect(rejectedFileAlert).toHaveCount(0)
   })
 
+  test('failed sample loading restores its pending controls', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 480 })
+    let releaseSample!: () => void
+    const sampleReleased = new Promise<void>((resolve) => { releaseSample = resolve })
+    let requestCount = 0
+
+    await page.route('**/sample-trip.gpx', async (route) => {
+      requestCount++
+      await sampleReleased
+      await route.fulfill({ status: 503, contentType: 'text/plain', body: 'unavailable' })
+    })
+
+    const card = page.getByTestId('landing-upload-card')
+    const sample = page.getByRole('button', { name: 'Try with a sample trip' })
+    const browse = page.getByRole('button', { name: 'Browse files to upload' })
+    const status = page.locator('#fileupload-sample-status')
+    const browseBefore = await browse.boundingBox()
+    if (!browseBefore) throw new Error('Missing Browse geometry before sample loading')
+    await sample.click()
+
+    await expect.poll(() => requestCount).toBe(1)
+    await expect(card).toHaveAttribute('aria-busy', 'false')
+    await expect(sample).toBeDisabled()
+    await expect(sample).toHaveAttribute('aria-busy', 'true')
+    await expect(status).toBeVisible()
+    await expect(status).toHaveText('Loading sample trip...')
+    const browseDuring = await browse.boundingBox()
+    if (!browseDuring) throw new Error('Missing Browse geometry during sample loading')
+    expect(Math.abs(browseDuring.y - browseBefore.y)).toBeLessThan(0.5)
+    expect(Math.abs(browseDuring.height - browseBefore.height)).toBeLessThan(0.5)
+
+    releaseSample()
+    await expect(page.getByText('Could not load sample trip')).toBeVisible()
+    await expect(card).toHaveAttribute('aria-busy', 'false')
+    await expect(sample).toBeEnabled()
+    await expect(sample).toHaveAttribute('aria-busy', 'false')
+    await expect(status).toHaveText('')
+    expect(requestCount).toBe(1)
+  })
+
   test('a delayed sample cannot replace a newer manual journey session', async ({ page }) => {
     let releaseSample!: () => void
     const sampleReleased = new Promise<void>((resolve) => { releaseSample = resolve })
     let markSampleRequested!: () => void
     const sampleRequested = new Promise<void>((resolve) => { markSampleRequested = resolve })
+    let requestCount = 0
 
     await page.route('**/sample-trip.gpx', async (route) => {
+      requestCount++
       markSampleRequested()
       await sampleReleased
       await route.fulfill({ path: GPX_FIXTURE, contentType: 'application/gpx+xml' }).catch(() => undefined)
     })
 
-    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    const sample = page.getByRole('button', { name: 'Try with a sample trip' })
+    const browse = page.getByRole('button', { name: 'Browse files to upload' })
+    const draw = page.getByRole('button', { name: /draw a route/i })
+    await sample.click()
     await sampleRequested
-    await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
+    await expect(sample).toBeDisabled()
+    await expect(sample).toHaveAttribute('aria-busy', 'true')
+    await expect(page.locator('#fileupload-sample-status')).toHaveText('Loading sample trip...')
+    await expect(browse).toBeEnabled()
+    await expect(draw).toBeEnabled()
+    expect(requestCount).toBe(1)
+
+    await draw.click()
     await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('#fileupload-sample-status')).toHaveCount(0)
 
     releaseSample()
     await expect(page.getByRole('region', { name: 'Create Journey' })).toBeVisible()
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toHaveCount(0)
+    expect(requestCount).toBe(1)
   })
 
   test('a newer unsupported drop invalidates a delayed sample', async ({ page }) => {
@@ -1053,8 +1119,14 @@ test.describe('Travelback App', () => {
     })
 
     const rejectedFileAlert = page.getByRole('alert').filter({ hasText: 'That file is not a travel route file' })
-    await page.getByRole('button', { name: 'Try with a sample trip' }).click({ force: true })
+    const card = page.getByTestId('landing-upload-card')
+    const sample = page.getByRole('button', { name: 'Try with a sample trip' })
+    const status = page.locator('#fileupload-sample-status')
+    await sample.click()
     await sampleRequested
+    await expect(sample).toBeDisabled()
+    await expect(sample).toHaveAttribute('aria-busy', 'true')
+    await expect(status).toHaveText('Loading sample trip...')
     await page.locator('[role="group"][aria-labelledby="fileupload-title"]').evaluate((dropZone) => {
       const transfer = new DataTransfer()
       transfer.items.add(new File(['not a route'], 'notes.txt', { type: 'text/plain' }))
@@ -1065,6 +1137,9 @@ test.describe('Travelback App', () => {
       }))
     })
     await expect(rejectedFileAlert).toBeVisible()
+    await expect(card).toHaveAttribute('aria-busy', 'false')
+    await expect(sample).toBeEnabled()
+    await expect(status).toHaveText('')
 
     releaseSample()
     await sampleFulfilled
@@ -1520,6 +1595,7 @@ test.describe('Travelback App', () => {
       const attribution = page.locator('.map-has-track-controls .maplibregl-ctrl-attrib')
       const navigation = page.locator('.map-has-track-controls .maplibregl-ctrl-top-left .maplibregl-ctrl-group').first()
       const navigationButtons = navigation.getByRole('button')
+      const bottomStack = page.getByTestId('track-bottom-stack')
       const timeline = page.getByTestId('timeline-selector')
       const elevation = page.getByRole('slider', { name: 'Elevation profile' })
       const playbackStats = page.getByTestId('playback-stats')
@@ -1529,12 +1605,35 @@ test.describe('Travelback App', () => {
       await expectVisibleInViewportAndHitOwned(attribution, viewport)
       await expect(navigationButtons).toHaveCount(3)
       for (let index = 0; index < 3; index++) {
-        await expectVisibleInViewportAndHitOwned(navigationButtons.nth(index), viewport)
+        const navigationButton = navigationButtons.nth(index)
+        await expectVisibleInViewportAndHitOwned(navigationButton, viewport)
+        const buttonBox = await navigationButton.boundingBox()
+        if (!buttonBox) throw new Error(`Missing navigation button geometry at ${viewport.width}px`)
+        expect(buttonBox.width).toBeGreaterThanOrEqual(44)
+        expect(buttonBox.height).toBeGreaterThanOrEqual(44)
       }
+      await expect(bottomStack).toBeVisible()
       await expect(timeline).toBeVisible()
       await expect(elevation).toBeVisible()
       await expect(playbackStats).toBeVisible()
       await expect(controlsPanel).toBeVisible()
+
+      const [navigationBox, bottomStackBox] = await Promise.all([
+        navigation.boundingBox(),
+        bottomStack.boundingBox(),
+      ])
+      if (!navigationBox || !bottomStackBox) {
+        throw new Error(`Missing navigation/bottom-stack geometry at ${viewport.width}x${viewport.height}`)
+      }
+      expect(boxesOverlap(navigationBox, bottomStackBox)).toBe(false)
+
+      if (viewport.width < 768) {
+        const mobileTitle = page.getByTestId('track-title-mobile')
+        await expect(mobileTitle).toBeVisible()
+        const titleBox = await mobileTitle.boundingBox()
+        if (!titleBox) throw new Error(`Missing mobile title geometry at ${viewport.width}x${viewport.height}`)
+        expect(navigationBox.y - (titleBox.y + titleBox.height)).toBeGreaterThanOrEqual(4)
+      }
 
       await expect.poll(async () => {
         const [attributionBox, ...protectedBoxes] = await Promise.all([

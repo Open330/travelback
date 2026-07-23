@@ -76,7 +76,80 @@ describe('FileUpload request lifecycle', () => {
     const localizedAlert = container.querySelector('[role="alert"]')?.textContent
     expect(localizedAlert).toContain(translations.ko['fileUpload.unsupportedFormat'])
     expect(localizedAlert).toContain(translations.ko['fileUpload.recoveryHint'])
+    expect(localizedAlert).toContain('Google 타임라인')
+    expect(localizedAlert).not.toContain('Google Timeline')
     expect(localizedAlert).not.toContain(translations.en['fileUpload.unsupportedFormat'])
+  })
+
+  it('keeps Sample, Browse, Draw, and Help in logical action order', async () => {
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    await act(() => root?.render(createElement(FileUpload, {
+      hasTrack: false,
+      onTrackLoaded: vi.fn(),
+      onLoadSample: vi.fn(),
+      onCreateJourney: vi.fn(),
+      onShowGoogleGuide: vi.fn(),
+    })))
+
+    const buttons = [...container.querySelectorAll('button')]
+    const sample = container.querySelector<HTMLButtonElement>('button[aria-label="Try with a sample trip"]')
+    const browse = container.querySelector<HTMLButtonElement>('button[aria-label="Browse files to upload"]')
+    const draw = buttons.find(button => button.textContent?.includes('Draw a route on the map'))
+    const help = buttons.find(button => button.textContent?.includes('Need help finding your file?'))
+    const actionIndexes = [sample, browse, draw, help].map(button => buttons.indexOf(button!))
+
+    expect(actionIndexes.every(index => index >= 0)).toBe(true)
+    expect(actionIndexes).toEqual([...actionIndexes].sort((a, b) => a - b))
+  })
+
+  it('shows stable sample progress while leaving competing intents enabled', async () => {
+    const onLoadSample = vi.fn()
+    const onCreateJourney = vi.fn()
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+
+    const render = async (isSampleLoading: boolean) => {
+      await act(() => root?.render(createElement(FileUpload, {
+        hasTrack: false,
+        onTrackLoaded: vi.fn(),
+        onLoadSample,
+        onCreateJourney,
+        isSampleLoading,
+      })))
+    }
+
+    await render(true)
+    const card = container.querySelector<HTMLElement>('[data-testid="landing-upload-card"]')
+    const sample = container.querySelector<HTMLButtonElement>('button[aria-label="Try with a sample trip"]')
+    const browse = container.querySelector<HTMLButtonElement>('button[aria-label="Browse files to upload"]')
+    const draw = [...container.querySelectorAll('button')]
+      .find(button => button.textContent?.includes('Draw a route on the map'))
+    const status = container.querySelector<HTMLElement>('#fileupload-sample-status')
+
+    expect(card?.getAttribute('aria-busy')).toBe('false')
+    expect(sample?.disabled).toBe(true)
+    expect(sample?.getAttribute('aria-busy')).toBe('true')
+    expect(status?.getAttribute('role')).toBe('status')
+    expect(status?.textContent).toContain('Loading sample trip...')
+    expect(status?.classList.contains('sr-only')).toBe(false)
+    expect(browse?.disabled).toBe(false)
+    expect(draw?.disabled).toBe(false)
+
+    await act(() => sample?.click())
+    expect(onLoadSample).not.toHaveBeenCalled()
+
+    await render(false)
+    expect(card?.getAttribute('aria-busy')).toBe('false')
+    expect(sample?.disabled).toBe(false)
+    expect(status?.textContent).toBe('')
+    expect(status?.classList.contains('sr-only')).toBe(true)
+
+    await act(() => sample?.click())
+    expect(onLoadSample).toHaveBeenCalledOnce()
   })
 
   it('aborts and ignores an import that resolves after starting a journey', async () => {
