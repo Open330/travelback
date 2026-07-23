@@ -1025,6 +1025,52 @@ describe('parseGPX — semantic segment ownership and allocation budget', () => 
     ])
   })
 
+  it.each([
+    {
+      caseName: 'empty segment',
+      segment: '<trkseg />',
+    },
+    {
+      caseName: 'segment with only invalid points',
+      segment: '<trkseg><trkpt lat="91" lon="0" /><trkpt lat="x" lon="y" /></trkseg>',
+    },
+  ])('falls back to route points after $caseName', ({ segment }) => {
+    const routeAfterUnusableTrack = `<gpx version="1.1">
+  <trk>${segment}</trk>
+  <rte>
+    <rtept lat="37.4" lon="-122.1" />
+    <rtept lat="37.41" lon="-122.09" />
+  </rte>
+</gpx>`
+
+    const track = parseGPX(routeAfterUnusableTrack)
+
+    expect(track.points.map(({ lat, lng }) => ({ lat, lng }))).toEqual([
+      { lat: 37.4, lng: -122.1 },
+      { lat: 37.41, lng: -122.09 },
+    ])
+  })
+
+  it('keeps a usable semantic track authoritative over a sibling route', () => {
+    const mixedTrackAndRoute = `<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="47.6" lon="-122.3" />
+      <trkpt lat="47.61" lon="-122.29" />
+    </trkseg>
+  </trk>
+  <rte>
+    <rtept lat="37.4" lon="-122.1" />
+    <rtept lat="37.41" lon="-122.09" />
+  </rte>
+</gpx>`
+
+    expect(parseGPX(mixedTrackAndRoute).points.map(({ lat, lng }) => ({ lat, lng }))).toEqual([
+      { lat: 47.6, lng: -122.3 },
+      { lat: 47.61, lng: -122.29 },
+    ])
+  })
+
   it('stops querying direct points when the running budget is exhausted', () => {
     const getAttribute = vi.spyOn(Element.prototype, 'getAttribute')
     const overBudget = `<gpx version="1.1">

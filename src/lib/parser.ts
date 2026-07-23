@@ -382,7 +382,7 @@ function extractPointsFromGpxSegments(
     }
   }
 
-  return { points, segmentStartIndices }
+  return points.length > 0 ? { points, segmentStartIndices } : null
 }
 
 export function parseGPX(text: string, maxPoints?: number): Track {
