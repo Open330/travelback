@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
+import { inspectMp4Video, parseTopLevelMp4Boxes } from './mp4-validation'
 
 const GPX_FIXTURE = path.resolve(__dirname, 'fixtures/sample.gpx')
 const KML_FIXTURE = path.resolve(__dirname, 'fixtures/korea-japan.kml')
@@ -3298,6 +3299,95 @@ test.describe('Travelback App', () => {
     })).toBe(1)
     const downloadLink = exportPanel.getByRole('link', { name: /Download MP4/i })
     await expect(downloadLink).toHaveAttribute('download', /Travelback.*\.mp4/)
+    const previewVideo = exportPanel.locator('video')
+    await expect(previewVideo).toBeVisible()
+    const [previewSource, downloadTarget] = await Promise.all([
+      previewVideo.getAttribute('src'),
+      downloadLink.getAttribute('href'),
+    ])
+    expect(previewSource).toMatch(/^blob:/)
+    expect(previewSource).toBe(downloadTarget)
+
+    const decodedVideo = await previewVideo.evaluate(async (video: HTMLVideoElement) => {
+      const waitForVideoEvent = (eventName: 'loadedmetadata' | 'seeked') => new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          cleanup()
+          reject(new Error(`Timed out waiting for video ${eventName}`))
+        }, 10_000)
+        const cleanup = () => {
+          window.clearTimeout(timeout)
+          video.removeEventListener(eventName, handleEvent)
+          video.removeEventListener('error', handleError)
+        }
+        const handleEvent = () => {
+          cleanup()
+          resolve()
+        }
+        const handleError = () => {
+          cleanup()
+          reject(new Error(video.error?.message ?? 'The exported video could not be decoded'))
+        }
+        video.addEventListener(eventName, handleEvent, { once: true })
+        video.addEventListener('error', handleError, { once: true })
+      })
+
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+        await waitForVideoEvent('loadedmetadata')
+      }
+      video.muted = true
+
+      const decodeAt = async (time: number) => {
+        const seeked = waitForVideoEvent('seeked')
+        video.currentTime = time
+        await seeked
+
+        const frameTime = await new Promise<number>((resolve, reject) => {
+          const timeout = window.setTimeout(() => {
+            reject(new Error(`Timed out decoding video frame at ${time}s`))
+          }, 10_000)
+          video.requestVideoFrameCallback((_now, metadata) => {
+            window.clearTimeout(timeout)
+            resolve(metadata.mediaTime)
+          })
+          video.play().catch((error) => {
+            window.clearTimeout(timeout)
+            reject(error)
+          })
+        })
+        video.pause()
+
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error('Unable to allocate a video validation canvas')
+        context.drawImage(video, 0, 0)
+        context.getImageData(
+          Math.floor(canvas.width / 2),
+          Math.floor(canvas.height / 2),
+          1,
+          1,
+        )
+        return frameTime
+      }
+
+      const firstFrameTime = await decodeAt(0.1)
+      const lastFrameTime = await decodeAt(Math.max(0.1, video.duration - 0.1))
+      return {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        duration: video.duration,
+        firstFrameTime,
+        lastFrameTime,
+      }
+    })
+
+    expect(decodedVideo.width).toBe(1280)
+    expect(decodedVideo.height).toBe(720)
+    expect(Math.abs(decodedVideo.duration - 5)).toBeLessThanOrEqual(2 / 24)
+    expect(decodedVideo.firstFrameTime).toBeLessThan(0.5)
+    expect(decodedVideo.lastFrameTime).toBeGreaterThan(4.5)
+
     const downloadPromise = page.waitForEvent('download')
     await downloadLink.click()
     const download = await downloadPromise
@@ -3306,6 +3396,20 @@ test.describe('Travelback App', () => {
     const mp4 = fs.readFileSync(downloadedPath)
     expect(mp4.byteLength).toBeGreaterThan(1024)
     expect(mp4.subarray(4, 8).toString('ascii')).toBe('ftyp')
+    const boxes = parseTopLevelMp4Boxes(mp4)
+    expect(boxes.at(-1)!.offset + boxes.at(-1)!.size).toBe(mp4.byteLength)
+    for (const type of ['ftyp', 'moov', 'mdat']) {
+      const box = boxes.find(candidate => candidate.type === type)
+      expect(box, `Missing top-level ${type} box`).toBeDefined()
+      expect(box!.size).toBeGreaterThan(box!.headerSize)
+    }
+
+    const inspection = await inspectMp4Video(mp4)
+    expect(inspection.codec).toBe('avc')
+    expect(inspection.codedWidth).toBe(1280)
+    expect(inspection.codedHeight).toBe(720)
+    expect(inspection.packetCount).toBe(5 * 24)
+    expect(Math.abs(inspection.duration - 5)).toBeLessThanOrEqual(2 / 24)
   })
 
   test('export panel clamps playback duration to the supported export limit', async ({ page }) => {
