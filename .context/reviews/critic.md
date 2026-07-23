@@ -1,66 +1,76 @@
-# Critic — Adversarial Review (Cycle 5, 2026-07-16)
+# Critic Review — Cycle 1
 
-Reviewed revision: bdfb1d7
+Date: 2026-07-23
+Reviewed revision: `994820a71b0b`
+Deployment: not performed
 
 ## Result
 
-**Two new actionable findings:** one Medium/High and one Low/High. Both were reproduced in the rendered app. The Playwright retry anomaly is routed to TEST5-01 and is not presented as a confirmed product regression. No deployment was performed.
+Three actionable product/operational findings were confirmed: two user-facing workflow defects and one interrupted-test process-lifecycle defect. No browser process was started by this review.
 
-## Inventory and challenge method
+## Inventory and method
 
-Challenged all 53 src files and their cross-file ownership, 15 unit-test files, the complete 93-test Playwright journey and 18 fixtures, public worker/map assets, scripts, package/framework configuration, Pages workflow, README, and current project/development/plan context. Cycle 4 findings and B01-B04/D01-D03 carryovers were checked before assigning new IDs.
+The review inventoried the current implementation with `rg --files`, then read the governing README and `.context` project/development instructions before tracing the application end to end. The reviewed surface includes all 60 files under `src/` (including all 21 Vitest files), all 111 Playwright test declarations and 19 fixtures, all 7 scripts, all 19 public assets, package/build/lint/typecheck/Playwright/Vitest configuration, the Pages workflow, and cross-file state ownership. Historical review/plan artifacts were excluded from fresh evidence except the governing indexes and current pending-user-instruction ledger.
 
-The live audit used desktop 1440×1000 and mobile 390×844, dark/light, EN/KO, keyboard/focus, landing, sample/import, playback, timeline, Camera, Export, invalid upload, error/loading states, storage/network, console, and responsive geometry.
+Fresh non-browser verification:
 
-## New findings
+- `npm test -- --reporter=dot`: 21 files and 472 tests passed.
+- `npm run check:worker`: generated worker is current.
 
-### CRIT5-01 — Playback UI covers MapLibre attribution and blocks its pointer target
+## Findings
 
-Severity: **Medium** | Confidence: **High** | Status: **Confirmed at desktop and mobile**
+### CRIT-01 — “New Route” destroys the current session before the replacement exists
 
-Evidence:
-
-- src/components/MapView.tsx:1011-1017 applies map-has-track-controls after a track loads.
-- src/app/globals.css:214-257 offsets only MapLibre's top-left/top-right controls and enlarges attribution controls, but gives .maplibregl-ctrl-bottom-right no bottom clearance.
-- src/components/TrackWorkspace.tsx:142-174 anchors the timeline/elevation/playback stack over the full bottom edge at z-index 10.
-- src/components/Controls.tsx:147-154 puts distance and time statistics on that same bottom row.
-- e2e/travelback.spec.ts:710-785 checks top controls/toolbars only; it never compares attribution with the bottom overlays.
-
-Runtime proof at 390×844:
-
-- attribution box: x=295.64, y=810, w=84.36, h=24
-- playback-stats box: x=27, y=809, w=336, h=16
-- time text: x=307.89, y=809, w=55.11, h=16
-- elementFromPoint over the collision returned the playback time span, leaving attribution below the application overlay.
-
-The desktop 1440×1000 capture also shows the attribution under the translucent playback panel. Its text bleeds through, but the link/toggle is not reliably pointer reachable.
-
-Failure scenario: a phone user cannot read the current time cleanly or open the map attribution control. This is not merely cosmetic: the app obscures a third-party attribution surface that must remain legible and interactive.
-
-Required fix: reserve a bottom-right gutter or move .maplibregl-ctrl-bottom-right above the full playback/elevation stack at each responsive layout. Keep attribution visible, clickable, and keyboard reachable. Add desktop/mobile box-intersection and hit-target regressions.
-
-### CRIT5-02 — Changing locale leaves the loaded-workspace live status in the old language
-
-Severity: **Low** | Confidence: **High** | Status: **Confirmed in EN→KO runtime switch**
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed**
 
 Evidence:
 
-- src/app/page.tsx:329-341 snapshots workspaceAnnouncement with tRef.current only when a track loads.
-- src/app/page.tsx:638-642 renders that stored string in role=status with aria-live=polite.
-- src/lib/i18n.ts:1873-1887 changes document.lang and the translation callback when locale changes.
-- src/lib/i18n.ts:689 contains the Korean app.trackLoaded translation.
-- e2e/travelback.spec.ts:311-323 checks document.lang and visible labels, but not the already-populated live status.
+- `src/components/TrackToolbar.tsx:145` and `src/components/TrackToolbar.tsx:232` invoke `onStartNewTrack` directly from the desktop and mobile actions.
+- `src/app/page.tsx:324-330` clears the export result, scene editor, all scenes, and transition configuration.
+- `src/app/page.tsx:349-360` then clears `track`, `fullTrack`, trim state, playback, and the rendered map before opening Journey Creator.
+- `src/app/page.tsx:462-464` handles Journey Creator cancellation only by closing the creator; it cannot restore the session that was already discarded.
+- `e2e/travelback.spec.ts:2026-2067` codifies immediate artifact clearing, but there is no confirmation or restoration assertion.
 
-Runtime proof: load “Namsan Tower Walk” in English, switch Language to KO, then inspect the status region. document.documentElement.lang is ko and visible controls are Korean, but the region still reads “Track loaded: Namsan Tower Walk.”
+Concrete failure scenario: a user trims an imported track and authors several camera scenes, clicks “New Route” accidentally, then clicks Cancel in Journey Creator. They return to the landing state with the track, trim, scenes, and completed export result irrecoverably gone. The same loss is worse for a manually created route because there may be no source file to reload.
 
-Failure scenario: a screen-reader user switches to Korean and later encounters English status content inside a Korean document/voice context. Other loaded-workspace labels update, so the mismatch is surprising and can cause incorrect pronunciation.
+Suggested fix: keep the current workspace intact while a replacement journey is drafted, then swap sessions only after “Create Route.” At minimum, show a clear discard confirmation when the current session contains authored state and make Cancel return to it. Add E2E coverage for both confirmation cancellation and successful replacement.
 
-Required fix: store semantic status data rather than a translated sentence, or recompute the rendered status when locale changes. Decide deliberately whether the locale switch should re-announce it. Add a loaded-track EN→KO assertion for both document.lang and status text.
+### CRIT-02 — “Export Again” closes the export panel instead of starting another export flow
 
-## Cross-role observations
+Severity: **Low**
+Confidence: **High**
+Status: **Confirmed**
 
-The full E2E run classified the map-retry journey case as flaky, but the same test passed 3/3 with retries disabled in isolation. TEST5-01 treats this as an intermittent readiness/test-harness issue, not proof of a product retry defect. The stale destructive E2E command in the Mina runbook is routed to DOC5-01.
+Evidence:
 
-## Final missed-issue sweep
+- `src/components/ExportPanel.tsx:358-366` labels the completion-state action “Export Again” and invokes `onResetExport`.
+- `src/app/page.tsx:482-485` implements that callback by resetting the export session and immediately calling `setShowExport(false)`.
+- The user must reopen Export to reach the idle form, so the action behaves like “Close and clear,” not “Export Again.”
+- `src/components/ExportPanel.test.ts:120-200` verifies completion copy and focus transitions but never clicks this action; the export E2E block at `e2e/travelback.spec.ts:2794-3076` also omits it.
 
-Rechallenged import races, parser/worker parity, map retry hydration, playback ownership, trimming transactions, scene undo, theme/export leases, modal focus, share/download states, privacy/network behavior, and responsive overlays. No third new product defect met the confidence threshold.
+Concrete failure scenario: after a successful export, a user clicks “Export Again” expecting to adjust codec or duration. The dialog disappears, focus is restored outside it, and a second Export click is required.
+
+Suggested fix: reset the export result while leaving `showExport` true, return the panel to its idle form, and focus the export heading or first setting. If closing is intentional, relabel the action accordingly.
+
+### CRIT-03 — The E2E wrappers do not supervise descendants when the wrapper itself is interrupted
+
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed design defect; orphan scenario is conditional on a parent-only signal**
+
+Evidence:
+
+- `scripts/run-dev-e2e.mjs:60-76` and `scripts/run-static-e2e.mjs:44-60` spawn Playwright and handle only the child’s eventual `exit`.
+- Neither wrapper registers `SIGINT`, `SIGTERM`, uncaught-error, or normal-exit cleanup that forwards termination and waits for the exact child tree.
+- Playwright in turn owns a Next/static web server and Chromium processes through `playwright.config.ts:44-49` or `playwright.static.config.ts:50-55`.
+- `scripts/smoke-static.mjs:62-72` already demonstrates the safer local pattern: TERM, bounded wait, then KILL for the exact still-live owned child.
+
+Concrete failure scenario: a repeated review cycle or CI controller terminates only the Node wrapper PID after a timeout/failure. The Playwright CLI remains alive and retains its web server and Chromium descendants. Later cycles encounter occupied ports, `.next/dev/lock` contention, higher CPU/GPU load, and misleading flaky results.
+
+Suggested fix: extract a shared subprocess supervisor for both E2E wrappers. On wrapper termination, forward the original signal to the exact owned process group/tree, wait for graceful exit, escalate only the still-live owned descendants, and preserve the child exit code. Add a deterministic integration test using a fake long-lived child; never use broad `pkill`/name matching.
+
+## Missed-issue sweep
+
+A final pass rechecked track replacement, modal ownership, scene mutation, import cancellation, export cleanup, static serving/hardening, generated-worker parity, CI gates, public asset locality, and the complete test-name inventory. No additional finding met the evidence threshold for this critic report.

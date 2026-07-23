@@ -1,67 +1,106 @@
-# Test Engineer Review — Cycle 5 (2026-07-16)
+# Test Engineer Review — Cycle 1
 
-Reviewed revision: bdfb1d7
+Date: 2026-07-23
+Reviewed revision: `994820a71b0b`
+Deployment: not performed
 
 ## Result
 
-Fresh testing found **three actionable test findings**: one intermittent readiness test, one missing responsive overlay regression, and one missing loaded-locale accessibility regression. Only the latter two accompany confirmed product defects. The map-retry flake did not reproduce in an isolated retries-disabled run, so it is not classified as a product failure.
+Five actionable testing defects were found. The most important are that deployment does not run the 472-test Vitest suite, the real MP4 pipeline is skipped by the required CI path, and the E2E wrappers have no interrupted-run descendant cleanup.
 
 ## Inventory and execution
 
-Reviewed all 15 Vitest files, every test in the 2,214-line Playwright spec, all 18 fixtures, Playwright dev/static configuration, test/build/smoke/server scripts, package commands, Pages CI, and source paths tied to map readiness, bottom overlays, localization, playback, scenes, import, and export.
+Reviewed all 21 Vitest files and their 472 test declarations, every declaration in the 3,240-line Playwright suite, all 19 fixtures, both Playwright configs, Vitest config, all build/smoke/server/E2E scripts, package commands, Pages CI, and source paths tied to the assertions. No Playwright run was started by this review because another reviewer owned the active E2E tree and the user explicitly required exact process hygiene.
 
 Fresh evidence:
 
-- npm run test:e2e: 91 passed, 1 skipped, 1 flaky in 12.3 minutes. The flaky test was e2e/travelback.spec.ts:444-489.
-- Focused command with a non-HTML list reporter, retries=0, repeat-each=3: the same test passed 3/3 in 1.3 minutes.
-- The skipped case is the opt-in real WebCodecs export at e2e/travelback.spec.ts:1938-1959.
-- A separate live-browser export probe was active during the full run, adding uncontrolled CPU/GPU load. That explains why the first failure is not evidence of a repo product defect; it does not remove the test's confirmed dependence on fixed timing.
-- Browser geometry and DOM inspection independently confirmed TEST5-02/03 against the actual app.
+- `npm test -- --reporter=dot`: 21 test files passed, 472 tests passed.
+- `npm run check:worker`: passed.
 
-## New findings
+## Findings
 
-### TEST5-01 — Map-retry journey regression is intermittently timing-dependent
+### TEST-01 — A deployment can proceed while the entire unit/component suite is failing
 
-Severity: **Medium** | Confidence: **High** for test flakiness; **Unconfirmed** as product defect
+Severity: **High**
+Confidence: **High**
+Status: **Confirmed**
 
-Region: e2e/travelback.spec.ts:444-489; readiness implementation in src/components/JourneyCreator.tsx:286-318.
+Evidence:
 
-The full suite failed its first attempt at line 461 because the blind center-canvas click did not produce “1 location” within 10 seconds, then passed on Playwright's retry. The test waits for networkidle plus a fixed 500 ms at lines 454-460 before clicking. JourneyCreator, meanwhile, may poll for the MapView handle every 100 ms and binds route listeners only after style readiness.
+- `package.json:16` defines the 472-test Vitest gate as `npm test`.
+- `.github/workflows/deploy-pages.yml:26-32` runs install, lint, typecheck, audit, build, and static E2E, but never runs `npm test`.
+- `package.json:19` confirms `test:e2e:static:ci` contains only static smoke plus the Playwright wrapper.
 
-Concrete failure scenario: under a loaded CI runner, the click happens before the journey layers/listeners are bound. A retry hides the timing weakness and lengthens the suite; a future genuine retry regression is harder to distinguish from noise.
+Concrete failure scenario: a camera interpolation, parser edge case, worker protocol, export cancellation, or component focus regression makes Vitest red while the smaller set of production E2E journeys remains green. A push to `main` still uploads and deploys `out/`.
 
-Required fix/test: expose or await a deterministic journey-map-ready condition after the layer/listener binding completes, then click. Keep retries disabled for a focused reliability gate and require at least 10 consecutive passes. If an early real-user click is intentionally accepted before readiness, queue it or visibly disable the instruction; do not merely increase the sleep.
+Suggested fix: add `npm test` before the build/deploy artifact step. Keep it a separately named CI step so failures are visible and cannot be mistaken for E2E failures.
 
-### TEST5-02 — Responsive tests omit bottom attribution versus playback geometry and hit testing
+### TEST-02 — The required CI path never exercises the real WebCodecs/mediabunny export
 
-Severity: **Medium** | Confidence: **High**
+Severity: **High**
+Confidence: **High**
+Status: **Confirmed**
 
-Region: e2e/travelback.spec.ts:710-837; source layout at src/app/globals.css:214-257, src/components/TrackWorkspace.tsx:142-174, and src/components/Controls.tsx:147-154.
+Evidence:
 
-Existing layout tests compare zoom controls with top toolbars and settings with titles. None locate .maplibregl-ctrl-bottom-right, playback-stats, or the full bottom control panel.
+- `e2e/travelback.spec.ts:2955-3017` contains the sole real-MP4 browser smoke but skips it unless `TRAVELBACK_REAL_EXPORT=1`.
+- `.github/workflows/deploy-pages.yml:32` invokes static E2E without that variable.
+- The ordinary export journeys at `e2e/travelback.spec.ts:2794-2953` and `e2e/travelback.spec.ts:3028-3076` enable the local 22-byte export stub.
+- `src/lib/videoEncoder.test.ts:14-72` mocks mediabunny, VideoFrame, and sample encoding; those tests validate orchestration, not compatibility with the installed encoder/runtime.
 
-Confirmed missed failure: at 390×844 the attribution box (295.64,810,84.36,24) intersects the time text (307.89,809,55.11,16); hit testing returns the time span, not attribution. Desktop also places attribution under the playback surface.
+Concrete failure scenario: a mediabunny API upgrade, codec mapping change, CSP chunk-loading regression, canvas/WebGL capture failure, or invalid MP4 finalization ships even though the deployment’s headline feature no longer produces a playable file.
 
-Required test: after loading a track at mobile and desktop sizes, assert no intersection between attribution and every bottom overlay, then verify the attribution summary/link is the pointer hit target and can be activated by keyboard. Preserve visible attribution rather than hiding it.
+Suggested fix: add one required, isolated, lowest-cost H.264 real-export static test on a known WebCodecs-capable Chromium runner, with its own bounded timeout and exact process cleanup. Keep the broader UI cases stubbed for speed. Optionally schedule capability-gated H.265/AV1 probes separately.
 
-### TEST5-03 — Locale tests do not verify already-populated live-region content
+### TEST-03 — Interrupted E2E wrappers can leave Playwright, web-server, and Chromium descendants alive
 
-Severity: **Low** | Confidence: **High**
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed design gap**
 
-Region: e2e/travelback.spec.ts:299-329 and src/lib/i18n.test.ts; source at src/app/page.tsx:329-341, 638-642 and src/lib/i18n.ts:1873-1887.
+Evidence:
 
-Current tests switch landing labels and a loaded toolbar, and assert document.lang. They do not load a track in one language, change locale, and inspect role=status.
+- `scripts/run-dev-e2e.mjs:60-76` and `scripts/run-static-e2e.mjs:44-60` spawn Playwright without signal forwarding or cleanup.
+- There are no tests for either wrapper.
+- `scripts/smoke-static.mjs:62-72` already has an exact-child TERM/wait/KILL lifecycle, highlighting the missing behavior in the E2E entry points.
 
-Confirmed missed failure: after EN→KO, document.lang and visible controls are Korean while the status remains “Track loaded: Namsan Tower Walk.”
+Concrete failure scenario: a failed/repeated cycle terminates the wrapper but not its child tree. Stale Chrome and server processes consume resources and contaminate later E2E timing or ports.
 
-Required test: load in English, switch to each supported locale or at minimum KO, assert document.lang and translated status text, and specify whether the change should trigger a new announcement.
+Suggested fix/test: move subprocess ownership into a shared helper and test parent-only `SIGTERM`, graceful child exit, forced escalation, exit-code propagation, and unrelated-process preservation with a fake child tree. Use exact PIDs/process groups, never broad browser-name termination.
 
-## Existing boundaries, not new
+### TEST-04 — Tests miss the broken “Export Again” integration contract
 
-- B01 remains blocked: .github/workflows/deploy-pages.yml:26-32 still does not run npm test, and CI edits need explicit authorization.
-- Final real MP4 encoding remains opt-in rather than part of the ordinary 93-test run.
-- Format imports are broad, but several Google variants remain import-focused rather than full-journey; this is historical coverage debt and is not recounted as a Cycle 5 ID.
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed gap with a confirmed product failure**
 
-## Final missed-issue sweep
+Evidence:
 
-Mapped all 93 E2E cases to the 15 unit suites, fixtures, parser/worker paths, layout states, accessibility surfaces, export states, and current carryovers. No additional new test defect met the threshold. No process was killed and no deployment was attempted.
+- `src/components/ExportPanel.tsx:358-366` emits `onResetExport` from “Export Again.”
+- `src/app/page.tsx:482-485` resets and closes the panel.
+- `src/components/ExportPanel.test.ts:120-200` never activates the completion action.
+- The export E2E block completes, closes, reopens, and edits tracks, but never asserts the “Export Again” path.
+
+Concrete failure scenario: the callback remains type-correct and all current tests pass while the user-visible action contradicts its label.
+
+Suggested fix/test: after a stub export completes, click “Export Again” and assert the same dialog remains visible in idle state, the previous blob URL/result is cleared, codec controls are available, and focus moves to the expected heading/control.
+
+### TEST-05 — Automatic retries can hide flakes, and CI retains no retry diagnostics
+
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed**
+
+Evidence:
+
+- `playwright.config.ts:14` and `playwright.static.config.ts:20` set `retries: 1` unconditionally.
+- Both configs collect trace-on-first-retry, failure screenshots, retained failure video, and an HTML report (`playwright.config.ts:16-21`, `playwright.static.config.ts:22-27`).
+- `.github/workflows/deploy-pages.yml:33-35` uploads only `out/` and only after tests pass; it never uploads `playwright-report/` or `test-results/`.
+
+Concrete failure scenario: a test fails once and passes on retry. Playwright exits successfully, deployment proceeds, and the trace that proves the first failure disappears with the runner. Repeated-cycle stability degrades without a durable signal.
+
+Suggested fix: make the authoritative CI gate retries-free, or explicitly fail on flaky outcomes. If retries remain for diagnostics, upload `playwright-report/` and `test-results/` with `if: always()` and short retention so both terminal failures and recovered flakes are inspectable.
+
+## Missed-issue sweep
+
+The final sweep mapped untested source paths against component/unit coverage, searched all skips/fixed waits/retry branches, checked static-versus-dev assertion downgrades, and reviewed fixture coverage for every supported import family. Fixed waits remain worth gradual cleanup, but no additional instance was promoted without a concrete failure contract.

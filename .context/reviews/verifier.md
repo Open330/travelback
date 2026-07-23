@@ -1,58 +1,76 @@
-# Verifier Review — Cycle 5
+# Verifier Review — Cycle 1
 
-Date: 2026-07-16
-Reviewed revision: bdfb1d7
-Deployment: **not run**, per the explicit constraint
+Date: 2026-07-23
+Reviewed revision: `994820a71b0b`
+Deployment: not performed
 
 ## Result
 
-**Verified actionable findings: 1 Medium / High-confidence.** VR5-01 confirms from exact source ordering that the Cycle 4 retry regression stops at source/layer existence and does not preserve a paused nonzero current pose.
+Three discrepancies were verified between stated behavior and the current implementation: the offline-after-load guarantee, automatic default scenes, and the documented export-stub byte count.
 
-## Inventory and evidence
+## Verification scope
 
-Reviewed all 53 src files, including 15 Vitest files; e2e/travelback.spec.ts and all 18 fixtures; 7 scripts; 19 public assets; package/configuration; workflow; README; and active context. Historical reports were used for duplicate suppression.
+The verifier cross-checked README.md, `.context/project/01-overview.md`, `.context/project/02-architecture.md`, `.context/development/01-conventions.md`, package commands, deployment workflow, every source/config/script/public-asset path, all 21 unit/component test files, and the complete Playwright suite and fixtures. Historical reports were not treated as proof. Fresh unit tests passed (472/472), and generated-worker parity passed.
 
-| Check | Result | Evidence |
-| --- | --- | --- |
-| Source identity | Confirmed | bdfb1d7 differs from exact-source c6eec45 only in Cycle 4 context documentation |
-| Prior full matrix | Existing green evidence | Cycle 4 plan records lint, typecheck, 366 unit tests, audit, build, smoke, 92 dev E2E, and 92 static E2E |
-| Current-pose hydration | Fails source invariant | Style-ready callbacks install layers/start marker but do not rerun pose/camera logic |
-| Current retry E2E | Insufficient assertion | e2e/travelback.spec.ts:429-442 checks counts at progress zero only |
-| Independent browser reproduction | Not claimed | Shared active server state did not provide a clean isolated run during this role pass |
-| Deployment | Not run | Explicit constraint |
+## Findings
 
-## Finding
-
-### VR5-01 — Retry/style regressions prove existence, not state parity
+### VER-01 — “Works offline after initial page load” is not guaranteed for import or export
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed from deterministic source control flow; runtime assertion still required**
+Status: **Confirmed from resource lifecycle**
 
-Source proof:
+Stated behavior:
 
-- src/components/MapView.tsx:791-809 always initializes POSITION_MARKER_SOURCE from track.points[0].
-- src/components/MapView.tsx:812-817 restores trail progress but not marker position.
-- src/components/MapView.tsx:865-881 waits for readiness, then adds layers, fits bounds, and ensures an HTML marker at track.points[0].
-- src/components/MapView.tsx:921-924 lets the progress/camera effect exit when sources are absent.
-- src/components/MapView.tsx:928-1002 is the only code that updates both marker representations and follow/scene camera.
-- No style-ready state appears in the dependency list at src/components/MapView.tsx:1009.
-- Ordinary style reload at src/components/MapView.tsx:676-700 reaches the same late layer installation without a pose trigger.
+- `.context/project/02-architecture.md:119-128` says the client-only app “Works offline after initial page load.”
 
-Acceptance contradiction: the Cycle 4 plan at .context/plans/cycle4-implementation-2026-07-16.md:24-30 requires complete track/progress hydration, current-position state, and current camera on every map generation. Current code restores route and saved trail, but retry resets both markers to the first point and applies fitBounds. An ordinary paused style reload resets the GeoJSON marker while the HTML marker can remain current.
+Implementation evidence:
 
-Test-gap proof: e2e/travelback.spec.ts:429-442 uploads at progress zero, forces failure, clicks Retry Map, and checks one canvas plus one HTML marker. Because the correct and incorrect marker coordinate are both the first point at progress zero, this test cannot distinguish full hydration from the defect. It also does not inspect GeoJSON marker data or camera state.
+- `src/lib/parser.ts:383` creates `/workers/trackParser.worker.js` only when a Google JSON parse begins. The initial document does not preload that public worker; `src/lib/parser.ts:461-476` can recover on the main thread only while the retained fallback is small enough.
+- `src/lib/videoEncoder.ts:158` and `src/lib/videoEncoder.ts:375` dynamically import `mediabunny` only when encoding or codec probing begins.
+- The repository contains no service worker, Workbox/PWA setup, precache manifest, or runtime cache that makes those late-requested resources available after connectivity is lost.
 
-User-visible scenario: seek to 50%, pause with follow camera enabled, trigger the same failure, and click Retry Map. Without another state change, the traveled trail and start-position markers disagree and the camera shows route bounds instead of the current scene/follow pose.
+Concrete failure scenario: a user opens the landing page online, disconnects before importing a Google JSON file larger than the 16 MB fallback threshold, and then selects it. Creating the parser worker requires a new same-origin fetch; if it fails offline, `src/lib/parser.ts:461-469` rejects instead of decoding the large file on the main thread. A first-time export can likewise require a not-yet-cached dynamic chunk. All processing may be local once code is loaded, but that is a different guarantee from complete offline operation after the first paint.
 
-Required fix verification:
+Suggested fix: either narrow the documentation to the verified privacy claim (“no app-owned upload or third-party runtime data request; already-loaded features process locally”) or ship and test a service-worker precache covering the static shell, all Next chunks, parser worker, map styles, fonts, and export dependencies. Add an offline Playwright scenario after a clean first load.
 
-1. Expose current marker source coordinates and camera through the existing development debug surface, or assert via rendered pixel/DOM projection with stable tolerances.
-2. Seek and pause at a nonzero point; save HTML marker, GeoJSON marker, trail, and camera state.
-3. Exercise an ordinary style reload and a failed-style actual Retry Map recovery.
-4. Assert one canvas, one HTML marker, route/trail sources, both marker coordinates at current progress, and the correct follow/scene camera without issuing another seek.
-5. Add a superseded-style callback case if hydration is keyed by a generation token.
+### VER-02 — Default cinematic scenes are not auto-generated
 
-## Carryovers and final sweep
+Severity: **Low**
+Confidence: **High**
+Status: **Confirmed**
 
-B01-B04 and D01-D03 retain their prior statuses and are not recounted. Rechecked all Cycle 4 fixes, tests, cleanup paths, worker parity, and blocked/evidence registers after drafting. No additional verifier finding met the threshold. Actionable count: **1 Medium**.
+Stated behavior:
+
+- `.context/project/02-architecture.md:98-105` says that when no scenes are defined, the six-scene Opening Overview → Closing Overview sequence is auto-generated.
+
+Implementation evidence:
+
+- `src/app/page.tsx:131` initializes scenes to `[]`, and `src/app/page.tsx:324-330` resets every new track to `[]`.
+- `src/lib/camera.ts:534-538` explicitly returns one ordinary default-follow camera when normalized scenes are empty.
+- `src/components/SceneEditor.tsx:604-663` invokes `generateDefaultScenes()` only after the user clicks the Cinematic preset.
+
+Concrete failure scenario: a user imports a track and exports immediately without opening Camera. The video uses the default follow camera, not the documented six-scene cinematic sequence.
+
+Suggested fix: update the architecture note to describe the empty-scene follow behavior and the opt-in Cinematic preset, or actually initialize the preset on track load if automatic cinematic composition is desired.
+
+### VER-03 — The developer export stub is 22 bytes, not 26
+
+Severity: **Low**
+Confidence: **High**
+Status: **Confirmed**
+
+Evidence:
+
+- `src/lib/test-stub.ts:1-18` describes and logs a “26-byte stub.”
+- `src/lib/useExportController.ts:203-213` encodes the literal `travelback-test-export`.
+- `new TextEncoder().encode('travelback-test-export').byteLength` is 22.
+- `e2e/travelback.spec.ts:2955-2957` repeats the 26-byte description.
+
+Concrete failure scenario: diagnostics or tests that use the documented size to distinguish a stub artifact from a real MP4 report the wrong invariant.
+
+Suggested fix: define the stub payload once, derive its length in diagnostics/tests, and remove hard-coded byte counts from comments.
+
+## Missed-issue sweep
+
+The final verifier pass checked import limits and supported JSON shapes, local-only map assets, base-path behavior, codec probing, resolution/duration limits, camera labels/defaults, localization parity, static CSP statements, and build/run commands. Other statements were either supported by code/tests or appropriately qualified.

@@ -1,38 +1,63 @@
-# Code Reviewer — Deep Review (Cycle 5, 2026-07-16)
+# Code Reviewer — Deep Review (Cycle 1, 2026-07-23)
 
-Reviewed revision: bdfb1d7
+Reviewed revision: `994820a71b0b87de78fdfd2a1fd2c17e7ad3b516`
 
 ## Result
 
-**New findings: 1.** CR5-01 is a Medium-severity, High-confidence regression gap in the Cycle 4 map-generation fix. No fixed parser, export, gesture, keyboard, trim, scene-editor, or test-harness finding was reopened.
+**New findings: 1.** CR1-01 is a Medium-severity, High-confidence process-lifecycle defect in both canonical E2E wrappers. An interrupted wrapper can exit without shutting down or waiting for the Playwright process tree it started, allowing Playwright, Next, and Chromium descendants to leak into later runs.
 
 ## Inventory and coverage
 
-Reviewed all 53 tracked src files, including 15 unit-test files; the Playwright specification and all 18 fixtures; 19 public assets; 7 scripts; package, TypeScript, lint, Next, Vitest, and Playwright configuration; the Pages workflow; README; and active project, development, review, and plan context. The change-focused pass covered every file changed from e3f21ba through bdfb1d7 and traced import/session replacement, parser and worker parity, segmented interpolation, MapLibre construction/style readiness, Journey Creator ownership, playback, scenes, export, static hardening, and regression assertions.
+All 961 tracked paths were inventoried. The authored review covered:
 
-The source at bdfb1d7 is identical to the exact source revision c6eec45 for which the Cycle 4 plan records lint, typecheck, 366 unit tests, audit, build, static smoke, and both 92-test E2E suites as passing. This review used those results as existing evidence and did not claim a new independent full-matrix run.
+- all 39 production paths under `src/`: the app shell/layout/styles, every component, all parser/camera/interpolation/map/export/playback utilities, shared types, and the worker entry;
+- all 21 unit/component test files, the complete 3,240-line Playwright specification, and all 19 E2E fixtures;
+- all 19 public assets, with textual SVG/CSS/JSON/GPX assets read directly and the generated worker checked against its TypeScript source;
+- all 7 scripts; package/lockfile, TypeScript, ESLint, Next, PostCSS, Vitest, and both Playwright configurations; the Pages workflow and `.gitignore`;
+- README plus current project, architecture, development, reviewer, plan-index, and user-injected context.
+
+The 804 tracked `.context` paths and 39 legacy root `plan/` paths were catalogued and searched for prior provenance and duplicate roots rather than treated as current product requirements. Historical screenshots, the WOFF2 payload, and the favicon binary were not decoded; their references and delivery paths were checked. Cross-file tracing covered import cancellation and parser/worker parity, segmented track math, trim/session resets, scene normalization and camera commits, MapLibre style/pose hydration, Journey Creator interaction ownership, playback/export separation, static hardening/serving, and test-runner lifecycle.
+
+Fresh non-browser evidence at this revision:
+
+- `npm run lint` — passed
+- `npm run typecheck` — passed
+- `npm test` — passed, 21 files / 472 tests
+- `npm run check:worker` — passed
+
+No Playwright, browser, Chrome/Chromium, server, build, deployment, or production process was started by this review.
 
 ## Finding
 
-### CR5-01 — Style readiness restores layers but not the current playback pose
+### CR1-01 — Terminating an E2E wrapper does not terminate the Playwright tree it owns
 
-Severity: **Medium** | Confidence: **High** | Status: **Confirmed by deterministic source control flow**
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed by deterministic source control flow**
 
 Evidence:
 
-- src/components/MapView.tsx:791-809 initializes the GeoJSON current-position source at track.points[0].
-- src/components/MapView.tsx:812-817 reapplies only the traveled trail at progressRef.current; it does not update either marker representation or the camera.
-- src/components/MapView.tsx:865-881 runs after a replacement style becomes ready, fits the whole route, removes the old HTML marker, and recreates it at track.points[0].
-- src/components/MapView.tsx:914-1009 is the only transaction that places the HTML and GeoJSON markers at the interpolated point and applies follow/scene camera state. On map retry it runs before the new style owns route/trail sources and returns at line 924. Style readiness changes none of its dependencies, so it does not run again while playback is paused.
-- src/components/MapView.tsx:676-700 has the same readiness split for an ordinary setStyle call: the later style-load handler adds sources at the route start without causing the pose effect to rerun.
-- e2e/travelback.spec.ts:429-442 asserts only one canvas and one HTML marker after retry. It never seeks to nonzero progress or checks marker coordinates, the GeoJSON marker, trail/marker agreement, or follow-camera parity.
+- `package.json:17-20` makes `scripts/run-dev-e2e.mjs` and `scripts/run-static-e2e.mjs` the canonical development and static E2E entry points.
+- `scripts/run-dev-e2e.mjs:60-68` spawns Playwright. Its only lifecycle handler, at `scripts/run-dev-e2e.mjs:70-76`, reacts after the child exits. The wrapper registers no `SIGINT`, `SIGTERM`, or `SIGHUP` handler, never signals the child when the wrapper is terminated, and never waits for or escalates shutdown of the descendants it owns.
+- `scripts/run-static-e2e.mjs:44-52` and `scripts/run-static-e2e.mjs:54-60` repeat the same one-way ownership.
+- `playwright.config.ts:44-49` and `playwright.static.config.ts:50-55` let that child start a Next/static web server, while the configured Chromium project starts browser descendants. Graceful Playwright shutdown can clean those resources, but these wrappers do not relay a wrapper-only termination to Playwright.
+- The repository already uses the required bounded pattern for its simpler child in `scripts/smoke-static.mjs:62-72`: TERM, wait, then KILL only if the exact owned child remains live. There is no equivalent around either E2E tree.
+- No unit or script-level test covers wrapper termination or descendant cleanup.
 
-Failure scenario: pause a trip at 50% with camera follow enabled, then trigger a style failure and use Retry Map. Once the new style loads, the route and progressed trail are present, but both markers are at the first point and the camera is fit to route bounds instead of the 50% follow/scene pose. They remain stale until progress, seek, follow, export, or another listed dependency changes. With an ordinary style switch at paused nonzero progress, the HTML marker can remain current while the recreated GeoJSON marker resets to the first point, leaving the two render paths inconsistent.
+Concrete failure scenario:
 
-Suggested fix: make post-style hydration one idempotent transaction. After sources and layers exist, interpolate using progressRef.current, update the HTML marker, GeoJSON marker, and trail together, then reapply the current follow/scene camera when automatic camera ownership is active. Alternatively publish a style-ready generation token and key the existing pose transaction to it; a constructor-only generation signal is insufficient.
+An agent runner, CI timeout, terminal supervisor, or later review cycle sends `SIGTERM` to the Node wrapper PID rather than broadcasting to its complete foreground process group. Node takes its default termination path, while the Playwright child continues running with the server and Chromium processes it launched. The leaked tree can keep `.next/dev/lock`, a selected port, browser profiles, renderers, and CPU/memory alive. A later E2E cycle then collides with the stale state or mistakes it for a pre-existing server. Repeating the suite compounds the leak.
 
-Required regression: seek and pause at a nonzero progress value, record current marker/camera state, force a style failure, use the actual Retry Map button, and assert route/trail presence plus matching current HTML and GeoJSON marker positions and current follow/scene camera. Add an ordinary paused style-switch variant because it reaches the same split transaction.
+Suggested fix:
 
-## Carryovers and final sweep
+Create one shared, lifecycle-owning E2E runner used by both target modes. Register idempotent wrapper signal handlers before or immediately after spawn; forward the received signal to the exact Playwright child; wait for natural cleanup; and after a bounded deadline escalate only the still-live process group/tree created by that runner. Preserve the existing rule that a detected, pre-existing Next server is not owned and must not be killed. Also handle `child.once('error')`, remove handlers after settlement, and mirror the final child exit code or signal without double-exiting.
 
-B01-B04 and D01-D03 retain the blocked/evidence/performance statuses recorded in the Cycle 4 plan and are not new findings. A final pass rechecked all Cycle 4 implementation commits, effect dependency boundaries, cleanup identities, parser fallback precedence, export lease ownership, theme deferral, drag settlement, scene Undo, and direct/worker parity. No second new correctness issue met the reporting threshold.
+Required regression:
+
+Exercise the shared runner with a small fake child/descendant fixture, not Playwright or Chrome. Terminate the wrapper, assert the owned child and descendant both exit within the deadline, assert an unrelated sentinel process remains alive, and run the same contract for development and static modes. Also cover normal zero/nonzero exit propagation. Browser E2E remains an integration gate after this no-browser lifecycle test passes.
+
+## Final missed-issue sweep
+
+The final pass rechecked every timer/listener/worker/object-URL owner, parser budget and fallback boundary, accepted trim restoration, scene gaps/Undo, map construction/style/pose generations, export abort/finalization cleanup, CSP/static-server ownership, base-path consumers, and test harness entry points.
+
+Known authority/evidence items B01-B04 and measured performance deferrals D01-D04 in the current aggregate were not relabeled. The long-standing `page.tsx`/`MapView.tsx` size and prop-coupling concerns also remain historical architecture debt rather than new findings. No second code-quality or correctness issue met the reporting threshold.
