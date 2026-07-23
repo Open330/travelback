@@ -24,6 +24,10 @@ import {
 } from '@/lib/map-export-presentation'
 import { MapRenderTimeoutError, mutateMapAndWaitForRender } from '@/lib/map-render'
 import { ExportError } from '@/lib/videoEncoder'
+import {
+  createMapLibreLocalePatch,
+  synchronizeMapLibreLocaleLabels,
+} from '@/lib/map-locale'
 
 interface MapViewProps {
   track: Track | null
@@ -270,6 +274,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   ref,
 ) {
   const { t } = useLocale()
+  const tRef = useRef(t)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markerEl = useRef<HTMLDivElement | null>(null)
@@ -301,6 +306,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const [readyStyleRevision, setReadyStyleRevision] = useState(0)
 
   const referenceGridDataRef = useRef<GeoJSON.FeatureCollection>(WORLD_REFERENCE_GRID_DATA)
+
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -848,6 +857,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         style: MAP_STYLES[initialStyleKey].url,
         center: [0, 20],
         zoom: 2,
+        locale: createMapLibreLocalePatch(tRef.current),
         // preserveDrawingBuffer:true is required so that captureStream()/drawImage()
         // can read back the WebGL canvas during video export.  The trade-off is a
         // slight performance cost on every frame (the GPU must finish painting before
@@ -965,6 +975,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       queueMicrotask(() => setMapError(message))
     }
   }, [hydrateCurrentStyle, isCurrentStyleRevision, mapRetryNonce, onMapInstanceChange, resetExportPresentation])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    synchronizeMapLibreLocaleLabels(map, createMapLibreLocalePatch(t))
+  }, [t])
 
   // Change map style. Each request owns a revision so a superseded callback
   // cannot attach route state to the current map/style.

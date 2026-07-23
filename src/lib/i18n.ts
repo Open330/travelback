@@ -165,6 +165,11 @@ export const translations = {
     'mapStyle.dark': 'Dark',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': 'Bright',
+    'map.canvasLabel': 'Map',
+    'map.zoomIn': 'Zoom in',
+    'map.zoomOut': 'Zoom out',
+    'map.resetBearing': 'Drag to rotate map, click to reset north',
+    'map.toggleAttribution': 'Toggle attribution',
 
     // GoogleGuide / ImportGuide
     'google.title': 'How to Get Your Travel Data',
@@ -540,6 +545,11 @@ export const translations = {
     'mapStyle.dark': '다크',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': 'Bright',
+    'map.canvasLabel': '지도',
+    'map.zoomIn': '확대',
+    'map.zoomOut': '축소',
+    'map.resetBearing': '드래그하여 지도를 회전하고 클릭하여 북쪽으로 초기화',
+    'map.toggleAttribution': '지도 출처 정보 전환',
 
     // GoogleGuide / ImportGuide
     'google.title': '여행 데이터 가져오기',
@@ -915,6 +925,11 @@ export const translations = {
     'mapStyle.dark': 'ダーク',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': 'ブライト',
+    'map.canvasLabel': '地図',
+    'map.zoomIn': '拡大',
+    'map.zoomOut': '縮小',
+    'map.resetBearing': 'ドラッグして地図を回転、クリックして北向きに戻す',
+    'map.toggleAttribution': '地図の帰属表示を切り替え',
 
     // GoogleGuide
     'google.title': '旅行データの取得方法',
@@ -1290,6 +1305,11 @@ export const translations = {
     'mapStyle.dark': '深色',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': '明亮',
+    'map.canvasLabel': '地图',
+    'map.zoomIn': '放大',
+    'map.zoomOut': '缩小',
+    'map.resetBearing': '拖动以旋转地图，点击以重置为正北',
+    'map.toggleAttribution': '切换地图署名信息',
 
     // GoogleGuide
     'google.title': '如何获取旅行数据',
@@ -1665,6 +1685,11 @@ export const translations = {
     'mapStyle.dark': 'Oscuro',
     'mapStyle.liberty': 'Liberty',
     'mapStyle.bright': 'Brillante',
+    'map.canvasLabel': 'Mapa',
+    'map.zoomIn': 'Acercar',
+    'map.zoomOut': 'Alejar',
+    'map.resetBearing': 'Arrastra para girar el mapa; haz clic para restablecer el norte',
+    'map.toggleAttribution': 'Mostrar u ocultar la atribución',
 
     // GoogleGuide
     'google.title': 'Cómo obtener tus datos de viaje',
