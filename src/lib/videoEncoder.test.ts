@@ -267,6 +267,25 @@ describe('exportVideo lifecycle', () => {
     expect(mediabunny.addFrame).toHaveBeenCalledTimes(EXPORT_LIMITS.duration.min * EXPORT_LIMITS.fps.min)
   })
 
+  it('caps successful export names at 64 Unicode code points without splitting emoji', async () => {
+    const asciiPrefix = 'a'.repeat(63)
+    const result = await exportVideo(
+      canvas,
+      { ...track, name: `${asciiPrefix}😀` },
+      minimumConfig(),
+      vi.fn(),
+      vi.fn(),
+    )
+
+    expect(result.filename.startsWith('Travelback - ')).toBe(true)
+    expect(result.filename.endsWith('.mp4')).toBe(true)
+
+    const sanitizedName = result.filename.slice('Travelback - '.length, -'.mp4'.length)
+    expect(sanitizedName).toBe(`${asciiPrefix}😀`)
+    expect(Array.from(sanitizedName).length).toBeLessThanOrEqual(64)
+    expect(sanitizedName.isWellFormed()).toBe(true)
+  })
+
   it('stages every map frame at the requested output dimensions', async () => {
     const config = minimumConfig()
     await exportVideo(canvas, track, config, vi.fn(), vi.fn())

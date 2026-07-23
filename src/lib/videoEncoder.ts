@@ -287,13 +287,14 @@ export async function exportVideo(
     throw new ExportError('Video encoding failed: no output buffer', 'EXPORT_NO_BUFFER')
   }
 
-  const sanitizedName = track.name
-    .normalize('NFKC')
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/[. ]+$/g, '')
-    .trim()
-    .slice(0, 64) || 'Journey'
+  const sanitizedName = Array.from(
+    track.name
+      .normalize('NFKC')
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[. ]+$/g, '')
+      .trim(),
+  ).slice(0, 64).join('') || 'Journey'
   return {
     buffer,
     filename: `Travelback - ${sanitizedName}.mp4`,
