@@ -595,17 +595,51 @@ test.describe('Travelback App', () => {
     await expect(page.getByText('カメラ', { exact: true })).toBeVisible()
   })
 
-  test('loaded track status follows the current locale without losing the track name', async ({ page }) => {
+  test('loaded track and MapLibre controls follow locale without rebuilding the map', async ({ page }) => {
     await page.getByRole('button', { name: 'Try with a sample trip' }).click()
     await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible({ timeout: 15_000 })
 
     const workspaceStatus = page.getByRole('status')
-    await expect(workspaceStatus).toHaveText('Track loaded: Namsan Tower Walk')
+    const mapCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
+    const zoomIn = page.locator('.maplibregl-ctrl-zoom-in')
+    const zoomOut = page.locator('.maplibregl-ctrl-zoom-out')
+    const compass = page.locator('.maplibregl-ctrl-compass')
+    const attribution = page.locator('summary.maplibregl-ctrl-attrib-button')
+    const originalCanvas = await mapCanvas.elementHandle()
+    if (!originalCanvas) throw new Error('Missing loaded map canvas')
 
-    await page.getByTestId('global-toolbar').getByRole('combobox').selectOption('ko')
+    await expect(workspaceStatus).toHaveText('Track loaded: Namsan Tower Walk')
+    await expect(mapCanvas).toHaveAttribute('aria-label', 'Map')
+    await expect(zoomIn).toHaveAttribute('title', 'Zoom in')
+    await expect(zoomOut).toHaveAttribute('aria-label', 'Zoom out')
+    await expect(compass).toHaveAttribute('aria-label', 'Drag to rotate map, click to reset north')
+    await expect(attribution).toHaveAttribute('aria-label', 'Toggle attribution')
+
+    const language = page.getByTestId('global-toolbar').getByRole('combobox')
+    await language.selectOption('ko')
     await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe('ko')
     await expect(page.getByText('카메라', { exact: true })).toBeVisible({ timeout: 10_000 })
     await expect(workspaceStatus).toHaveText('트랙이 로드되었습니다: Namsan Tower Walk')
+    await expect(mapCanvas).toHaveAttribute('aria-label', '지도')
+    await expect(zoomIn).toHaveAttribute('title', '확대')
+    await expect(zoomOut).toHaveAttribute('aria-label', '축소')
+    await expect(compass).toHaveAttribute('aria-label', '드래그하여 지도를 회전하고 클릭하여 북쪽으로 초기화')
+    await expect(attribution).toHaveAttribute('aria-label', '지도 출처 정보 전환')
+
+    await language.selectOption('ja')
+    await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe('ja')
+    await expect(workspaceStatus).toHaveText('トラックを読み込みました: Namsan Tower Walk')
+    await expect(mapCanvas).toHaveAttribute('aria-label', '地図')
+    await expect(zoomIn).toHaveAttribute('title', '拡大')
+    await expect(zoomOut).toHaveAttribute('aria-label', '縮小')
+    await expect(compass).toHaveAttribute('aria-label', 'ドラッグして地図を回転、クリックして北向きに戻す')
+    await expect(attribution).toHaveAttribute('aria-label', '地図の帰属表示を切り替え')
+    await expect(mapCanvas).toHaveCount(1)
+    await expect(visibleTrackTitle(page, 'Namsan Tower Walk')).toBeVisible()
+    expect(await originalCanvas.evaluate((element) => (
+      element.isConnected
+      && element === document.querySelector('[data-testid="map-container"] canvas.maplibregl-canvas')
+    ))).toBe(true)
   })
 
   test('manufactured Google track names follow locale through trim and export', async ({ page }) => {
