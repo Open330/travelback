@@ -11,7 +11,8 @@
 - TypeScript with ESNext target, strict mode
 - Node.js 24 LTS
 - Next.js 16 App Router
-- React 19 with hooks (no class components)
+- React 19 with hooks and function components by default
+- `ErrorBoundaryInner` in `src/components/ErrorBoundary.tsx` is the explicit class-component exception because React render-error boundaries require class lifecycle methods
 - Interactive React components use the `'use client'` directive; App Router layout/page files may stay server components when they only compose metadata/static shell markup
 
 ## Naming

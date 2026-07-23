@@ -91,7 +91,7 @@ At track load time, `precomputeWrappedSegments()` applies antimeridian wrapping 
 | Overview | Overview | 10 | 45° | Slow rotation (10°/s) | Centers on full track bounding box |
 | Flyover | Flyover | 13 | 55° | Track direction | Standard follow |
 | Orbit | Spin Around | 14 | 60° | Fast rotation (36°/s) | Orbits around current position |
-| Ground | Street View | 15.5 | 70° | Track direction | Low-altitude chase |
+| Ground | Ground-level Follow | 15.5 | 70° | Track direction | Low-angle route follow (no street imagery) |
 | Closeup | Closeup | 17 | 30° | Track direction | Street-level view |
 | Bird's Eye | Bird's Eye | 11 | 65° | Look-ahead bearing + drift | High-altitude tilted overview |
 
@@ -101,7 +101,8 @@ Scenes divide the animation into segments, each with its own camera mode. Key co
 - `startPercent` / `endPercent` (0–1) define the track portion
 - Each scene has configurable `CameraParams` (zoom, pitch, bearingOffset, rotationSpeed)
 - Transitions use smoothstep blending (`3t² - 2t³`) at scene boundaries
-- Default scenes auto-generated if none defined: Opening Overview → Bird's Eye → Flyover → Orbit Midpoint → Ground Follow → Closing Overview
+- With no scenes defined, playback and export use the ordinary follow camera for the full route; no scenes are generated automatically
+- The opt-in Cinematic preset creates: Opening Overview → Bird's Eye → Flyover → Orbit Midpoint → Ground-level Follow → Closing Overview
 
 ### Camera State
 
@@ -116,11 +117,13 @@ interface CameraState {
 
 ## Key Design Decisions
 
-### Client-Side Only
-All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. This means:
+### Local browser processing
+All track parsing and video encoding happen in the browser. There is no app-owned server-side upload or processing pipeline. The application and its runtime resources are delivered as same-origin static assets. This means:
 - No server-side file upload step for track parsing/export
 - Raw track files stay local to the browser runtime
-- Works offline after initial page load, including Journey Creator coordinate jumps
+- Journey Creator coordinate jumps are resolved locally and do not use a geocoding service
+
+This local-processing boundary is not an offline-after-first-paint guarantee. Travelback has no service worker or complete precache, and later interactions can still request same-origin resources such as the parser worker, map styles, sample data, and lazy JavaScript chunks. Disconnected use therefore depends on what the browser has already cached.
 
 Privacy/trust-boundary note:
 - Local style JSON, palette choices, and layer definitions are bundled with the app, so normal route display no longer needs any third-party map requests. The bundled themes are abstract/local backdrops rather than full road/city basemaps.

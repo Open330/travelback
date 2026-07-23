@@ -2953,7 +2953,7 @@ test.describe('Travelback App', () => {
   })
 
   // Real export smoke test — exercises the actual WebCodecs/mediabunny pipeline
-  // instead of the 26-byte stub. Gate behind TRAVELBACK_REAL_EXPORT=1 so it
+  // instead of the local text stub. Gate behind TRAVELBACK_REAL_EXPORT=1 so it
   // only runs when explicitly requested (the real path is slow and codec-dependent).
   test('real export produces a valid MP4 via WebCodecs', async ({ page }) => {
     test.skip(process.env.TRAVELBACK_REAL_EXPORT !== '1', 'Set TRAVELBACK_REAL_EXPORT=1 on a WebCodecs-capable runner')
