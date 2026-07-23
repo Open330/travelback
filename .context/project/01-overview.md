@@ -28,6 +28,8 @@ npm run test:e2e
 npm run test:e2e:static
 ```
 
+The supervised `test:e2e` and `test:e2e:static` workflows currently require POSIX process semantics. On Windows, they refuse before launching the target unless an atomic Windows Job Object containment provider is supplied. The lower-level `test:e2e:dev` entry bypasses that supervision and is not a cleanup-safe substitute.
+
 Deployment note:
 - The static bundle ships a client-side frame-busting fallback. Hosts/CDNs that support response headers should also send `Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`; GitHub Pages cannot attach those custom headers, so the Pages deployment relies on the JS fallback unless it is fronted by a header-capable CDN.
 - Production builds default to the GitHub Pages mount path `/travelback`. Set `TRAVELBACK_BASE_PATH` for another mount path and use the same value when serving `out/` with `scripts/serve-static.mjs`.

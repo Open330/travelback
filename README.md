@@ -184,6 +184,8 @@ npm run test:e2e
 npm run test:e2e:static
 ```
 
+The supervised `test:e2e` and `test:e2e:static` workflows currently require POSIX process semantics. On Windows, they refuse before launching the target unless an atomic Windows Job Object containment provider is supplied. The lower-level `test:e2e:dev` entry bypasses that supervision and is not a cleanup-safe substitute.
+
 ### Typecheck & Lint
 
 ```bash
