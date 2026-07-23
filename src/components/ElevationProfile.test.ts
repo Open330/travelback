@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { buildElevationGeometry } from './ElevationProfile'
+import {
+  buildElevationGeometry,
+  ELEVATION_GEOMETRY_POINT_BUDGET,
+} from './ElevationProfile'
+
+function chartCoordinate(index: number, pointCount: number, elevation: number, min: number, max: number): string {
+  const x = (index / (pointCount - 1)) * 100
+  const y = 100 - ((elevation - min) / (max - min || 1)) * 100
+  return `${x.toFixed(2)},${y.toFixed(2)}`
+}
+
+function commandCount(path: string): number {
+  return path.match(/[ML]/g)?.length ?? 0
+}
 
 describe('buildElevationGeometry', () => {
   it('preserves the all-valid distance-scaled profile', () => {
@@ -61,5 +74,73 @@ describe('buildElevationGeometry', () => {
     expect(flat?.pathD).toBe('M0.00,100.00 L100.00,100.00')
     expect(`${flat?.pathD}${flat?.areaD}`).not.toMatch(/NaN|Infinity/)
     expect(buildElevationGeometry([null, undefined], [0, 10])).toBeNull()
+  })
+
+  it('retains distance-bucket extrema while respecting the fixed point budget', () => {
+    const pointCount = ELEVATION_GEOMETRY_POINT_BUDGET * 2
+    const elevations = new Array<number>(pointCount).fill(50)
+    const cumulativeDistances = Array.from({ length: pointCount }, (_, index) => index ** 2)
+    elevations[1_000] = 20
+    elevations[1_001] = 80
+    elevations[3_000] = -100
+    elevations[3_001] = 200
+
+    const geometry = buildElevationGeometry(elevations, cumulativeDistances)
+
+    expect(geometry).toMatchObject({ minEle: -100, maxEle: 200 })
+    expect(commandCount(geometry!.pathD)).toBeLessThanOrEqual(ELEVATION_GEOMETRY_POINT_BUDGET)
+    for (const index of [0, 1_000, 1_001, 3_000, 3_001, pointCount - 1]) {
+      const distanceX = (cumulativeDistances[index] / cumulativeDistances[pointCount - 1]) * 100
+      const elevation = elevations[index]
+      const y = 100 - ((elevation + 100) / 300) * 100
+      expect(geometry!.pathD).toContain(`${distanceX.toFixed(2)},${y.toFixed(2)}`)
+    }
+  })
+
+  it('bounds a 250,000-point profile while retaining endpoints, extrema, and gaps', () => {
+    const pointCount = 250_000
+    const elevations = new Array<number | null>(pointCount).fill(500)
+    const cumulativeDistances = Array.from({ length: pointCount }, (_, index) => index)
+    elevations[0] = 100
+    elevations[123_456] = -900
+    elevations[123_457] = 2_400
+    elevations[160_000] = null
+    elevations[pointCount - 1] = 200
+
+    const geometry = buildElevationGeometry(
+      elevations,
+      cumulativeDistances,
+      [220_000],
+    )
+
+    expect(geometry).toMatchObject({ minEle: -900, maxEle: 2_400 })
+    expect(commandCount(geometry!.pathD)).toBeLessThanOrEqual(ELEVATION_GEOMETRY_POINT_BUDGET)
+    expect(commandCount(geometry!.areaD)).toBeLessThanOrEqual(ELEVATION_GEOMETRY_POINT_BUDGET + 6)
+    expect(geometry!.pathD.match(/M/g)).toHaveLength(3)
+
+    for (const index of [0, 123_456, 123_457, 159_999, 160_001, 219_999, 220_000, pointCount - 1]) {
+      expect(geometry!.pathD).toContain(
+        chartCoordinate(index, pointCount, elevations[index]!, -900, 2_400),
+      )
+    }
+  })
+
+  it('keeps highly fragmented input bounded without connecting across omitted gaps', () => {
+    const pointCount = ELEVATION_GEOMETRY_POINT_BUDGET * 4
+    const elevations: Array<number | null> = Array.from(
+      { length: pointCount },
+      (_, index) => index % 2 === 0 ? index : null,
+    )
+    const cumulativeDistances = Array.from({ length: pointCount }, (_, index) => index)
+
+    const geometry = buildElevationGeometry(elevations, cumulativeDistances)
+
+    expect(commandCount(geometry!.pathD)).toBeLessThanOrEqual(ELEVATION_GEOMETRY_POINT_BUDGET)
+    expect(geometry!.pathD).not.toContain('L')
+    expect(geometry!.pathD).toContain(chartCoordinate(0, pointCount, 0, 0, pointCount - 2))
+    expect(geometry!.pathD).toContain(
+      chartCoordinate(pointCount - 2, pointCount, pointCount - 2, 0, pointCount - 2),
+    )
+    expect(geometry!.areaD).toBe('')
   })
 })
