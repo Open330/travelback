@@ -1,173 +1,101 @@
-# Aggregate Deep Review — Cycle 7
+# Aggregate Deep Review — Cycle 8
 
 Date: 2026-07-24
-Reviewed revision: `216001ff2bc4ff8c31da333e50e6d0e982816b5b`
+Reviewed revision: `9b3343cd0c01fabb84dc47f4f34c28238d98a99e`
 Branch: `review-plan-fix/no-deploy-20260723`
 Deployment: prohibited and not attempted
 
 ## Result
 
-The 12-role reviewer fan-out plus the registered non-technical-traveler
-reviewer produced **3 genuinely new, deduplicated findings**:
+The grouped 12-role reviewer fan-out plus the registered non-technical
+traveler reviewer produced **1 genuinely new, deduplicated finding**:
 
 - 0 Critical
-- 1 High
-- 0 Medium
-- 2 Low
+- 0 High
+- 1 Medium
+- 0 Low
 
-All three roots are actionable in Cycle 7 and none is deferred. Reports
-shared by multiple roles count once at the highest supported severity and
-confidence. All Cycle 1–6 fixes, the three explicit native/host process
-boundaries, and the final-loop-only user cleanup task were excluded.
+The finding is actionable in Cycle 8 and is not deferred. Reports shared by
+multiple roles count once at the highest supported severity and confidence.
+All Cycle 1–7 fixes, the three explicit native/host process boundaries, and
+the final-loop-only user cleanup task were excluded.
 
-Fresh browser-free review evidence:
-
-- A Node 24 boundary probe confirmed that array spreading succeeds with
-  100,000 arguments but deterministically throws `RangeError` at 125,000,
-  150,000, and 250,000 arguments.
-- Parser and worker file-scoped Vitest passed 203/203 existing tests; those
-  tests do not cover the accepted 250,000-point boundary.
-- A deterministic filename probe confirmed that
-  `'a'.repeat(63) + '😀'` becomes a 64-code-unit string ending in the
-  unpaired high surrogate `0xD83D` under the current sanitizer.
-- Static source tracing disproved two current architecture-diagram edges.
-- No reviewer ran a full suite, supervisor, E2E, Playwright, Chromium,
-  browser, server, deployment, commit, push, or process signal.
+No reviewer ran a full suite, process-supervisor test, E2E, Playwright,
+Chromium/browser, server, deployment, commit, push, or process signal.
 
 ## Review provenance
 
-Current Cycle 7 reports:
+Current Cycle 8 reports:
 
-- `cycle7-2026-07-24-code-reviewer.md`
-- `cycle7-2026-07-24-architect.md`
-- `cycle7-2026-07-24-critic.md`
-- `cycle7-2026-07-24-perf-reviewer.md`
-- `cycle7-2026-07-24-security-reviewer.md`
-- `cycle7-2026-07-24-verifier.md`
-- `cycle7-2026-07-24-tracer.md`
-- `cycle7-2026-07-24-debugger.md`
-- `cycle7-2026-07-24-test-engineer.md`
-- `cycle7-2026-07-24-document-specialist.md`
-- `cycle7-2026-07-24-designer.md`
-- `cycle7-2026-07-24-non-tech-traveler-reviewer.md`
+- `cycle8-2026-07-24-core.md` — code quality, security, tracing, and debugging
+- `cycle8-2026-07-24-arch-tests.md` — performance, architecture,
+  verification, tests, and documentation
+- `cycle8-2026-07-24-ux-critic.md` — critic, designer, accessibility, and the
+  registered non-technical-traveler reviewer
 
-All requested roles completed. Concurrency limits required compatible roles
-to be grouped. One grouped reviewer completed its underlying sweep but was
-delayed while synthesizing reports; its first turn was interrupted at a
-message boundary and the skill's single retry completed all five reports.
-No operating-system process was signaled and no reviewer-owned browser or
-server exists.
+All requested roles completed. Compatible roles were grouped into three
+review agents to respect the cycle's thread-capacity limit. The core reviewer
+used one bounded static library audit while a slot was available. It returned
+zero additional roots and made no file or process changes.
 
-## Deduplicated findings
+## Deduplicated finding
 
-### AGG7-01 — Point-budget-compliant imports exceed the VM function-argument limit
+### AGG8-01 — Selected locale never reaches MapLibre's own controls
 
-Severity: **High**
+Severity: **Medium**
 Confidence: **High**
-Agreement: performance reviewer, security reviewer
+Agreement: critic, designer, non-technical-traveler reviewer
 
 Evidence:
 
-- `src/lib/parse-utils.ts:7,54-64,109-113`
-- `src/lib/googleJsonParser.ts:63-83,244-275,317-381`
-- `src/lib/parser.ts:39-67,388-415,670-703`
-- `src/workers/trackParser.worker.ts:14-45`
-- `public/workers/trackParser.worker.js:185-193,215-249,252-275`
+- `src/lib/i18n.ts:1953-1977`
+- `src/components/MapView.tsx:254-274,837-875,1159-1166`
+- `src/app/page.tsx:625-640`
+- installed
+  `node_modules/maplibre-gl/dist/maplibre-gl.d.ts:10227-10239,11219-11224`
 
-The parsers correctly enforce the advertised 250,000-point budget, then
-expand user-sized arrays as JavaScript call arguments:
+`LocaleProvider` updates React locale state and `<html lang>`, but `MapView`
+reads only the translation callback and constructs `maplibregl.Map` without
+the library's supported `locale` patch. MapLibre therefore installs its
+default English UI strings for:
 
-```ts
-points.push(...nextPoints)
-segments.push(...parseTimelineObjects(root.timelineObjects, budget))
-segments.push(...parseSemanticSegments(root.semanticSegments, budget))
-```
+- the map canvas (`Map.Title`);
+- zoom in and zoom out;
+- reset bearing / compass guidance; and
+- compact attribution toggling.
 
-A flat 250,000-record Google input is only 7,250,001 bytes, remains within
-the JSON and point limits, and reaches `points.push(...nextPoints)` with
-250,000 arguments. Current V8 rejects substantially fewer arguments, so the
-valid import throws `RangeError` and is misreported as malformed. A single
-KML `LineString` below the XML byte cap reaches the same root, and many
-singleton semantic segments can fail at the segment-array spreads. The
-checked-in worker reproduces the same expressions.
+Changing the app to Korean, Japanese, Chinese, or Spanish updates the
+surrounding interface while those visible tooltips and accessible names
+remain English. A screen reader can consequently pronounce English control
+names using the selected document-language voice.
 
-This is distinct from the earlier over-budget materialization repair, which
-moved the budget check before these spreads but left the accepted boundary
-unsafe. It is also distinct from the historical elevation
-`Math.min(...values)` repair.
+This is distinct from earlier localized app copy, live status, guide artwork,
+range controls, attribution geometry, and attribution keyboard-operation
+fixes. Repository-history searches found no previous MapLibre locale mapping
+or dynamic control-label lifecycle.
 
-Fix: replace every untrusted-length array spread with bounded iteration,
-preserve point budgets and segment-start indexes, regenerate the worker, and
-add direct plus worker boundary regressions that prove accepted counts work
-and the first point over budget still fails with `TOO_MANY_POINTS`.
-
-### AGG7-02 — Export filename truncation can split an astral character
-
-Severity: **Low**
-Confidence: **High**
-Agreement: code reviewer, architect, test engineer, tracer, debugger
-
-Evidence:
-
-- `src/lib/videoEncoder.ts:290-299,323-338,374-398`
-- `src/lib/parse-utils.ts:89-105`
-- `src/lib/videoEncoder.test.ts:230-477`
-
-The exporter applies UTF-16 `.slice(0, 64)` after sanitizing the track name.
-With 63 ASCII characters followed by an emoji, the result keeps only the
-emoji's high surrogate. `ExportResult.filename` is therefore ill-formed
-before it reaches either `showSaveFilePicker` or the fallback anchor; a
-Unicode-scalar sink replaces the broken unit with `U+FFFD`.
-
-This is not the historical non-Latin filename issue. Imported names already
-use code-point iteration specifically to avoid splitting surrogate pairs,
-while the exporter still defines its length in UTF-16 code units.
-
-Fix: cap the sanitized export name by Unicode code point while retaining the
-current normalization, reserved-character removal, whitespace, suffix, and
-fallback rules. Add a focused successful-export regression at the 63-ASCII
-plus emoji boundary.
-
-### AGG7-03 — The authoritative architecture diagram has stale ownership edges
-
-Severity: **Low**
-Confidence: **High**
-Agreement: critic, verifier, document specialist
-
-Evidence:
-
-- `.context/project/02-architecture.md:5-43`
-- `src/components/TrackToolbar.tsx:149-335`
-- `src/components/JourneyCreator.tsx:791-807`
-- `src/components/FileUpload.tsx:79-94`
-- `src/app/page.tsx:416-447`
-
-The component tree calls `TrackToolbar` a theme/locale/reset toolbar, but its
-current responsibilities are loaded-session actions such as New Route,
-Camera, map style, Help, and Export, with theme/locale only in the mobile
-overflow menu and no Reset action. The data-flow diagram also routes both
-file imports and Journey Creator through `parser.ts`; Journey Creator instead
-constructs a validated `Track` directly and enters the shared session loader.
-
-A maintainer following these false edges can place an invariant in the parser
-and incorrectly assume manual journeys receive it, or edit the wrong owner
-for loaded-session and responsive toolbar behavior.
-
-Fix: show parsed-file/sample and direct-journey ingress as separate branches
-converging at `loadTrackIntoSession()`, and describe the toolbar's current
-loaded-session actions plus mobile settings responsibility.
+Fix: add app-owned translations for the five used MapLibre strings, pass the
+selected locale mapping when creating the map, and synchronize the long-lived
+canvas/control DOM after locale changes without rebuilding the map. Add a
+focused mapping regression plus a retries-off browser assertion that switches
+languages after a track is loaded and proves the same map/route remains while
+canvas, zoom, compass, and attribution names change.
 
 ## Exclusions and final sweep
 
-- All completed Cycle 1–6 causal roots and gate corrections.
+- All completed Cycle 1–7 causal roots and gate corrections, including Cycle
+  7 bounded import collection, parser cardinality regressions, Unicode-safe
+  filename truncation, and architecture corrections.
+- Cycle 6 GPX fallback, wrapped-geometry release, Scene Editor preview
+  settlement, and semantic scene no-op export preservation.
 - The three explicit platform boundaries: pre-observation identity erasure,
   pidfd-grade atomic signaling, and exact host-environment marker discovery.
 - The final-loop-only task in
   `.context/plans/user-injected/pending-next-cycle.md`.
-- Historical parser over-budget allocation, non-Latin filenames, imported
-  name bounding, and earlier architecture claims that did not identify the
-  current direct JourneyCreator edge.
-- Browser-only observations without a distinct source-backed failure.
+- Previously measured or explicitly deferred XML materialization,
+  `preserveDrawingBuffer`, app-shell playback reconciliation, and browser
+  encoder/finalizer limits.
+- Browser-only visual hypotheses without a distinct source-backed failure.
 
-The final missed-issue sweep found no fourth genuinely new root. No
-deployment occurred.
+The final missed-file sweep found no second genuinely new root. No deployment
+occurred.
