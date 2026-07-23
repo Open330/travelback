@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { translations, detectLocale, resolveTrackDisplayName, t, type Locale } from './i18n'
 import { formatImportSizePolicyText } from './parse-utils'
 
@@ -65,6 +65,56 @@ describe('i18n locale key parity', () => {
     expect(translations.zh['export.estimatedTime']).toBe('预计时间:')
     expect(translations.es['google.tip1']).toBe('Desde 2024, Google almacena los datos de la cronología en el dispositivo — la exportación del móvil suele tener los datos más completos')
     expect(translations.es['timeline.reset']).toBe('Restablecer intervalo de la línea de tiempo')
+  })
+
+  it('shows every supported extension and constrains named app exports in every landing locale', () => {
+    const exportRequirementPatterns: Record<Locale, RegExp> = {
+      en: /must export/,
+      ko: /내보내야 합니다/,
+      ja: /書き出してください/,
+      zh: /必须导出/,
+      es: /deben exportar/,
+    }
+
+    for (const locale of locales) {
+      const dropHint = translations[locale]['fileUpload.dropHint']
+      const formatHint = translations[locale]['fileUpload.formatHint']
+
+      for (const extension of ['.json', '.gpx', '.kml']) {
+        expect(dropHint).toContain(extension)
+        expect(formatHint).toContain(extension)
+      }
+
+      for (const app of ['Google', 'Strava', 'Garmin', 'AllTrails']) {
+        expect(formatHint).toContain(app)
+      }
+      expect(formatHint).toMatch(exportRequirementPatterns[locale])
+    }
+  })
+
+  it('uses truthful ground-level camera copy in every locale', () => {
+    expect(locales.map((locale) => translations[locale]['camera.ground'])).toEqual([
+      'Ground-level Follow',
+      '지면 시점 따라가기',
+      '地上視点で追従',
+      '地面视角跟随',
+      'Seguimiento a ras de suelo',
+    ])
+    expect(locales.map((locale) => translations[locale]['camera.groundDesc'])).toEqual([
+      'Follow the route from a low angle, without street imagery',
+      '실제 거리 이미지 없이 낮은 지면 시점에서 경로를 따라갑니다',
+      'ストリート画像を使わず、低い地上視点からルートを追従',
+      '不使用街景影像，从低位地面视角跟随路线',
+      'Sigue la ruta desde un ángulo bajo, sin imágenes de calles',
+    ])
+  })
+
+  it('describes empty-scene follow behavior instead of automatic scene generation', () => {
+    for (const locale of locales) {
+      expect(translations[locale]['scenes.emptyState']).not.toMatch(
+        /auto-generated|자동으로 생성|自動生成|自动生成|automáticamente/i,
+      )
+    }
   })
 
   it('uses concise estimated-time labels in every locale', () => {
@@ -144,8 +194,26 @@ describe('t()', () => {
 })
 
 describe('detectLocale()', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('returns a valid locale', () => {
     const result = detectLocale()
     expect(locales).toContain(result)
+  })
+
+  it.each([
+    ['ko', 'ko'],
+    ['ko-KR', 'ko'],
+    ['ko-KP', 'ko'],
+    ['KO-kR', 'ko'],
+    ['ja-JP', 'ja'],
+    ['ZH-Hant-TW', 'zh'],
+    ['ES-MX', 'es'],
+    ['fr-FR', 'en'],
+  ] satisfies [string, Locale][])('maps browser language %s to %s', (language, expected) => {
+    vi.stubGlobal('navigator', { language })
+    expect(detectLocale()).toBe(expected)
   })
 })
