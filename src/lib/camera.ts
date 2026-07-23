@@ -65,7 +65,7 @@ export function computeSegmentLocalBearing(
   current: InterpolationResult,
   lookAheadDistance: number,
 ): number {
-  if (track.points.length === 0) return 0
+  if (track.points.length === 0 || !(current.totalDist > 0)) return 0
   const bounds = findTrackSegmentBounds(track, current.segmentIndex)
   const endPoint = track.points[bounds.end] ?? current.point
   const endDistance = cumulativeDistances[bounds.end] ?? current.distanceTraveled
@@ -89,21 +89,9 @@ export function computeSegmentLocalBearing(
     return computeBearing(current.point, aheadPoint)
   }
 
-  // At the segment endpoint, preserve the last meaningful in-segment
-  // direction. Never fall back to a point from the next disconnected segment.
-  for (let index = Math.min(current.segmentIndex, bounds.end); index >= bounds.start; index--) {
-    const candidate = track.points[index]
-    if (candidate.lng !== current.point.lng || candidate.lat !== current.point.lat) {
-      return computeBearing(candidate, current.point)
-    }
-  }
-  for (let index = Math.max(bounds.start, current.segmentIndex + 1); index <= bounds.end; index++) {
-    const candidate = track.points[index]
-    if (candidate.lng !== current.point.lng || candidate.lat !== current.point.lat) {
-      return computeBearing(current.point, candidate)
-    }
-  }
-  return 0
+  // Interpolation already resolves duplicate endpoint bearings with indexed
+  // segment-local distance lookups. Reuse it instead of rescanning the route.
+  return current.bearing
 }
 
 export type RestoreDeletedSceneResult =

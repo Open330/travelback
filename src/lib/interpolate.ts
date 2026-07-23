@@ -101,6 +101,73 @@ export interface InterpolationResult {
   totalDist: number
 }
 
+interface SegmentBounds {
+  start: number
+  end: number
+}
+
+function findSegmentBounds(
+  pointCount: number,
+  segmentStartIndices: number[] | undefined,
+  pointIndex: number,
+): SegmentBounds {
+  const lastIndex = Math.max(0, pointCount - 1)
+  const index = Math.max(0, Math.min(lastIndex, Math.trunc(pointIndex)))
+  const starts = segmentStartIndices ?? []
+  let low = 0
+  let high = starts.length
+
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (starts[middle] <= index) low = middle + 1
+    else high = middle
+  }
+
+  return {
+    start: low > 0 ? starts[low - 1] : 0,
+    end: low < starts.length ? starts[low] - 1 : lastIndex,
+  }
+}
+
+function findFirstDistanceGreaterThan(
+  cumulativeDistances: number[],
+  targetDistance: number,
+  startIndex: number,
+  endIndex: number,
+): number | undefined {
+  let low = Math.max(0, startIndex)
+  let high = Math.min(cumulativeDistances.length - 1, endIndex) + 1
+  const boundedEnd = high - 1
+
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if ((cumulativeDistances[middle] ?? targetDistance) > targetDistance) high = middle
+    else low = middle + 1
+  }
+
+  return low <= boundedEnd ? low : undefined
+}
+
+function findLastDistanceLessThan(
+  cumulativeDistances: number[],
+  targetDistance: number,
+  startIndex: number,
+  endIndex: number,
+): number | undefined {
+  const boundedStart = Math.max(0, startIndex)
+  let low = boundedStart
+  let high = Math.min(cumulativeDistances.length - 1, endIndex) + 1
+
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if ((cumulativeDistances[middle] ?? targetDistance) < targetDistance) low = middle + 1
+    else high = middle
+  }
+
+  const result = low - 1
+  return result >= boundedStart ? result : undefined
+}
+
 export function interpolateAlongTrack(
   points: TrackPoint[],
   cumulativeDistances: number[],
@@ -130,52 +197,72 @@ export function interpolateAlongTrack(
   const clampedProgress = Number.isFinite(progress)
     ? Math.max(0, Math.min(1, progress))
     : 0
-  const total = cumulativeDistances[cumulativeDistances.length - 1]
+  const total = cumulativeDistances[cumulativeDistances.length - 1] ?? 0
+
+  // A track with no measurable edge has no direction to discover. Resolve
+  // observations directly in index space so identical points and
+  // disconnected singleton segments stay constant-time and never acquire a
+  // synthetic connector.
+  if (!(total > 0)) {
+    const pointIndex = clampedProgress >= 1
+      ? points.length - 1
+      : Math.min(points.length - 1, Math.floor(clampedProgress * points.length))
+    return {
+      point: { ...points[pointIndex] },
+      bearing: 0,
+      segmentIndex: pointIndex,
+      distanceTraveled: 0,
+      totalDist: 0,
+    }
+  }
+
+  const indexedBearing = (
+    pointIndex: number,
+    bounds: SegmentBounds,
+    preferForward: boolean,
+  ): number => {
+    const point = points[pointIndex]
+    const pointDistance = cumulativeDistances[pointIndex] ?? 0
+    const forwardBearing = () => {
+      const candidateIndex = findFirstDistanceGreaterThan(
+        cumulativeDistances,
+        pointDistance,
+        pointIndex + 1,
+        bounds.end,
+      )
+      if (candidateIndex == null) return undefined
+      const candidate = points[candidateIndex]
+      if (candidate.lat === point.lat && candidate.lng === point.lng) return undefined
+      return computeBearing(point, candidate)
+    }
+    const backwardBearing = () => {
+      const candidateIndex = findLastDistanceLessThan(
+        cumulativeDistances,
+        pointDistance,
+        bounds.start,
+        pointIndex - 1,
+      )
+      if (candidateIndex == null) return undefined
+      const candidate = points[candidateIndex]
+      if (candidate.lat === point.lat && candidate.lng === point.lng) return undefined
+      return computeBearing(candidate, point)
+    }
+    return (preferForward
+      ? forwardBearing() ?? backwardBearing()
+      : backwardBearing() ?? forwardBearing()) ?? 0
+  }
+
   const endpointResult = (pointIndex: number): InterpolationResult => {
     const point = { ...points[pointIndex] }
-    let segmentStart = 0
-    let segmentEnd = points.length - 1
-    for (const startIndex of segmentStartIndices ?? []) {
-      if (startIndex <= pointIndex) segmentStart = startIndex
-      else {
-        segmentEnd = startIndex - 1
-        break
-      }
-    }
-
-    let bearing = 0
-    let foundBearing = false
+    const bounds = findSegmentBounds(points.length, segmentStartIndices, pointIndex)
     const pointDistance = cumulativeDistances[pointIndex] ?? 0
-    for (let index = pointIndex + 1; index <= segmentEnd; index++) {
-      const candidate = points[index]
-      if (
-        (cumulativeDistances[index] ?? pointDistance) > pointDistance
-        && (candidate.lat !== point.lat || candidate.lng !== point.lng)
-      ) {
-        bearing = computeBearing(point, candidate)
-        foundBearing = true
-        break
-      }
-    }
-    if (!foundBearing) {
-      for (let index = pointIndex - 1; index >= segmentStart; index--) {
-        const candidate = points[index]
-        if (
-          pointDistance > (cumulativeDistances[index] ?? pointDistance)
-          && (candidate.lat !== point.lat || candidate.lng !== point.lng)
-        ) {
-          bearing = computeBearing(candidate, point)
-          break
-        }
-      }
-    }
 
     return {
       point,
-      bearing,
+      bearing: indexedBearing(pointIndex, bounds, true),
       segmentIndex: pointIndex,
       distanceTraveled: pointDistance,
-      totalDist: total ?? 0,
+      totalDist: total,
     }
   }
 
@@ -184,13 +271,6 @@ export function interpolateAlongTrack(
   if (clampedProgress <= 0) return endpointResult(0)
   if (clampedProgress >= 1) return endpointResult(points.length - 1)
 
-  if ((total ?? 0) <= 0) {
-    // With no measurable edge, distance-space interpolation cannot advance.
-    // Step through observations in index space instead of drawing a synthetic
-    // line between intentionally disconnected singleton segments.
-    const pointIndex = Math.min(points.length - 1, Math.floor(clampedProgress * points.length))
-    return endpointResult(pointIndex)
-  }
   const targetDist = clampedProgress * total
 
   let lo = 0
@@ -219,16 +299,12 @@ export function interpolateAlongTrack(
       : a.time,
   }
 
-  // Compute bearing; if a and b are identical, look backward for a valid bearing
+  // Duplicate plateaus are indexed by cumulative distance, so bearing
+  // recovery remains logarithmic and stays inside the owning segment.
   let bearing = computeBearing(a, b)
-  if (a.lat === b.lat && a.lng === b.lng && segIdx > 0) {
-    // Walk backward to find the last distinct point for a meaningful bearing
-    for (let k = segIdx - 1; k >= 0; k--) {
-      if (points[k].lat !== a.lat || points[k].lng !== a.lng) {
-        bearing = computeBearing(points[k], a)
-        break
-      }
-    }
+  if (a.lat === b.lat && a.lng === b.lng) {
+    const bounds = findSegmentBounds(points.length, segmentStartIndices, segIdx)
+    bearing = indexedBearing(segIdx, bounds, false)
   }
 
   return {

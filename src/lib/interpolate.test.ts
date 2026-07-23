@@ -18,6 +18,17 @@ const makePoint = (lng: number, lat: number, ele?: number, time?: Date): TrackPo
   lng, lat, ...(ele != null ? { ele } : {}), ...(time ? { time } : {}),
 })
 
+function countIndexedReads<T>(values: T[]): { values: T[]; readCount: () => number } {
+  let reads = 0
+  const valuesWithCounter = new Proxy(values, {
+    get(target, property, receiver) {
+      if (typeof property === 'string' && /^(0|[1-9]\d*)$/.test(property)) reads++
+      return Reflect.get(target, property, receiver)
+    },
+  })
+  return { values: valuesWithCounter, readCount: () => reads }
+}
+
 describe('normalizeLng', () => {
   it('normalizes longitude to [-180, 180)', () => {
     expect(normalizeLng(0)).toBe(0)
@@ -224,6 +235,59 @@ describe('interpolateAlongTrack', () => {
     expect(interpolateAlongTrack(points, cumul, 0.4).point).toMatchObject(points[1])
     expect(interpolateAlongTrack(points, cumul, 0.8).point).toMatchObject(points[2])
     expect(interpolateAlongTrack(points, cumul, 1).point).toMatchObject(points[2])
+  })
+
+  it('bounds indexed reads for 250,000 disconnected singleton segments', () => {
+    const pointCount = 250_000
+    const points = countIndexedReads(Array.from({ length: pointCount }, (_, index) => ({
+      lng: (index % 360) - 180,
+      lat: (index % 180) - 90,
+    })))
+    const distances = countIndexedReads(new Array<number>(pointCount).fill(0))
+    const segmentStarts = countIndexedReads(
+      Array.from({ length: pointCount - 1 }, (_, index) => index + 1),
+    )
+
+    const midpoint = interpolateAlongTrack(
+      points.values,
+      distances.values,
+      0.5,
+      segmentStarts.values,
+    )
+    const endpoint = interpolateAlongTrack(
+      points.values,
+      distances.values,
+      1,
+      segmentStarts.values,
+    )
+
+    expect(midpoint.point).toMatchObject(points.values[125_000])
+    expect(midpoint.segmentIndex).toBe(125_000)
+    expect(midpoint.bearing).toBe(0)
+    expect(endpoint.point).toMatchObject(points.values[pointCount - 1])
+    expect(endpoint.segmentIndex).toBe(pointCount - 1)
+    expect(endpoint.bearing).toBe(0)
+    expect(points.readCount()).toBeLessThan(8)
+    expect(distances.readCount()).toBeLessThan(8)
+    expect(segmentStarts.readCount()).toBe(0)
+  })
+
+  it('finds a bearing through a maximum-size duplicate endpoint plateau logarithmically', () => {
+    const pointCount = 250_000
+    const endpoint = makePoint(1, 0)
+    const rawPoints = new Array<TrackPoint>(pointCount).fill(endpoint)
+    rawPoints[0] = makePoint(0, 0)
+    const points = countIndexedReads(rawPoints)
+    const rawDistances = new Array<number>(pointCount).fill(1)
+    rawDistances[0] = 0
+    const distances = countIndexedReads(rawDistances)
+
+    const result = interpolateAlongTrack(points.values, distances.values, 1)
+
+    expect(result.point).toMatchObject(endpoint)
+    expect(result.bearing).toBeCloseTo(90, 0)
+    expect(points.readCount()).toBeLessThan(32)
+    expect(distances.readCount()).toBeLessThan(32)
   })
 
   it('interpolates at mid-progress', () => {

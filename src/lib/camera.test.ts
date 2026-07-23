@@ -25,6 +25,17 @@ const makeScene = (id: string, start: number, end: number, mode: Scene['cameraMo
   params: { zoom: 14, pitch: 45, bearingOffset: 0, rotationSpeed: 0 },
 })
 
+function countIndexedReads<T>(values: T[]): { values: T[]; readCount: () => number } {
+  let reads = 0
+  const valuesWithCounter = new Proxy(values, {
+    get(target, property, receiver) {
+      if (typeof property === 'string' && /^(0|[1-9]\d*)$/.test(property)) reads++
+      return Reflect.get(target, property, receiver)
+    },
+  })
+  return { values: valuesWithCounter, readCount: () => reads }
+}
+
 // Simple straight-line track along latitude 0 from lng 0 to lng 1
 const testTrack: Track = {
   name: 'test',
@@ -112,6 +123,44 @@ describe('segment-local camera anticipation', () => {
     expect(findTrackSegmentBounds(segmentedTrack, 0)).toEqual({ start: 0, end: 1 })
     expect(findTrackSegmentBounds(segmentedTrack, 1)).toEqual({ start: 0, end: 1 })
     expect(findTrackSegmentBounds(segmentedTrack, 2)).toEqual({ start: 2, end: 3 })
+  })
+
+  it('bounds segment ownership lookup for 250,000 singleton segments', () => {
+    const pointCount = 250_000
+    const segmentStarts = countIndexedReads(
+      Array.from({ length: pointCount - 1 }, (_, index) => index + 1),
+    )
+    const track: Track = {
+      name: 'singleton segments',
+      points: new Array(pointCount).fill({ lng: 0, lat: 0 }),
+      segmentStartIndices: segmentStarts.values,
+    }
+
+    expect(findTrackSegmentBounds(track, 125_000)).toEqual({ start: 125_000, end: 125_000 })
+    expect(findTrackSegmentBounds(track, pointCount - 1)).toEqual({
+      start: pointCount - 1,
+      end: pointCount - 1,
+    })
+    expect(segmentStarts.readCount()).toBeLessThan(48)
+  })
+
+  it('resolves a maximum-size zero-distance default camera in constant indexed reads', () => {
+    const pointCount = 250_000
+    const point = { lng: 12.5, lat: 48.25 }
+    const points = countIndexedReads(new Array(pointCount).fill(point))
+    const distances = countIndexedReads(new Array<number>(pointCount).fill(0))
+    const track: Track = { name: 'stationary observations', points: points.values }
+
+    const camera = computeCameraForProgress(track, distances.values, [], 0.5, 0)
+
+    expect(camera).toEqual({
+      center: [point.lng, point.lat],
+      zoom: 13,
+      pitch: 45,
+      bearing: 0,
+    })
+    expect(points.readCount()).toBeLessThan(8)
+    expect(distances.readCount()).toBeLessThan(8)
   })
 
   it('keeps distance look-ahead on the current route', () => {
