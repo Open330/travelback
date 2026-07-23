@@ -4,6 +4,7 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type maplibregl from 'maplibre-gl'
+import { formatDistance, totalDistance } from '@/lib/interpolate'
 import type { MapViewHandle } from './MapView'
 
 const localeState = vi.hoisted(() => ({ current: 'en' as 'en' | 'ko' }))
@@ -295,6 +296,120 @@ describe('JourneyCreator confirmation ownership', () => {
 })
 
 describe('JourneyCreator waypoint drag lifecycle', () => {
+  it('coalesces pointer bursts and publishes the exact terminal waypoint and distance', async () => {
+    let nextFrameId = 0
+    const scheduledFrames = new Map<number, FrameRequestCallback>()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      const id = ++nextFrameId
+      scheduledFrames.set(id, callback)
+      return id
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+      scheduledFrames.delete(id)
+    })
+
+    const { map, sources } = await renderJourneyCreator()
+    await act(() => {
+      for (const [id, callback] of [...scheduledFrames]) {
+        scheduledFrames.delete(id)
+        callback(0)
+      }
+    })
+    const initialPoints = [
+      { lng: 126.9, lat: 37.5 },
+      { lng: 127, lat: 37.6 },
+      { lng: 127.1, lat: 37.7 },
+    ]
+    for (const point of initialPoints) {
+      await act(() => map.trigger('click', { point: {}, lngLat: point }))
+    }
+
+    const pointsSource = sources.get('journey-points')
+    pointsSource?.setData.mockClear()
+    await act(() => map.trigger('mousedown', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 1 } }],
+    }, 'journey-points'))
+
+    for (let index = 0; index < 20; index += 1) {
+      map.trigger('mousemove', {
+        lngLat: { lng: 127.2 + index / 100, lat: 37.8 + index / 100 },
+      })
+    }
+    expect(pointsSource?.setData).not.toHaveBeenCalled()
+    expect(scheduledFrames.size).toBe(1)
+
+    await act(() => {
+      const [id, callback] = [...scheduledFrames][0]
+      scheduledFrames.delete(id)
+      callback(16)
+    })
+    expect(pointsSource?.setData).toHaveBeenCalledOnce()
+    const previewData = pointsSource?.setData.mock.calls.at(-1)?.[0] as {
+      features: Array<{ geometry: { coordinates: [number, number] } }>
+    }
+    expect(previewData.features).toHaveLength(3)
+    expect(previewData.features[1].geometry.coordinates[0]).toBeCloseTo(127.39, 10)
+    expect(previewData.features[1].geometry.coordinates[1]).toBeCloseTo(37.99, 10)
+
+    map.trigger('mousemove', { lngLat: { lng: 128, lat: 38.2 } })
+    map.trigger('mousemove', { lngLat: { lng: 128.1, lat: 38.3 } })
+    expect(pointsSource?.setData).toHaveBeenCalledOnce()
+    expect(scheduledFrames.size).toBe(1)
+
+    await act(() => map.trigger('mouseup'))
+    expect(scheduledFrames.size).toBe(0)
+    expect(pointsSource?.setData).toHaveBeenCalledTimes(2)
+    const terminalData = pointsSource?.setData.mock.calls.at(-1)?.[0] as {
+      features: Array<{ geometry: { coordinates: [number, number] } }>
+    }
+    expect(terminalData.features).toHaveLength(3)
+    expect(terminalData.features[1].geometry.coordinates[0]).toBeCloseTo(128.1, 10)
+    expect(terminalData.features[1].geometry.coordinates[1]).toBeCloseTo(38.3, 10)
+
+    const finalPoints = [initialPoints[0], { lng: 128.1, lat: 38.3 }, initialPoints[2]]
+    expect(container?.textContent).toContain(formatDistance(totalDistance(finalPoints), 'metric'))
+  })
+
+  it('cancels a queued drag preview when the creator unmounts', async () => {
+    let nextFrameId = 0
+    const scheduledFrames = new Map<number, FrameRequestCallback>()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      const id = ++nextFrameId
+      scheduledFrames.set(id, callback)
+      return id
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+      scheduledFrames.delete(id)
+    })
+
+    const { map, sources } = await renderJourneyCreator()
+    await act(() => {
+      for (const [id, callback] of [...scheduledFrames]) {
+        scheduledFrames.delete(id)
+        callback(0)
+      }
+    })
+    await act(() => map.trigger('click', {
+      point: {},
+      lngLat: { lng: 126.9, lat: 37.5 },
+    }))
+    const pointsSource = sources.get('journey-points')
+    pointsSource?.setData.mockClear()
+
+    await act(() => map.trigger('mousedown', {
+      preventDefault: vi.fn(),
+      features: [{ properties: { index: 0 } }],
+    }, 'journey-points'))
+    map.trigger('mousemove', { lngLat: { lng: 127.1, lat: 37.7 } })
+    expect(scheduledFrames.size).toBe(1)
+
+    await act(() => root?.unmount())
+    root = null
+    expect(scheduledFrames.size).toBe(0)
+    expect(pointsSource?.setData).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['generic map then point layer', ['map', 'point']],
     ['point layer then generic map', ['point', 'map']],

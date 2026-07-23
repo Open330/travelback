@@ -373,17 +373,53 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       }
 
       // --- Drag waypoints ---
+      let dragFrameId = 0
+      let pendingDragUpdate: { index: number; waypoint: TrackPoint } | null = null
+      let dragBaseDistance = 0
+      let dragBaseAdjacentDistance = 0
+
+      const adjacentDistance = (points: TrackPoint[], index: number) => {
+        let distance = 0
+        if (index > 0) distance += totalDistance([points[index - 1], points[index]])
+        if (index + 1 < points.length) distance += totalDistance([points[index], points[index + 1]])
+        return distance
+      }
+
+      const cancelQueuedDragFrame = () => {
+        if (dragFrameId !== 0) cancelAnimationFrame(dragFrameId)
+        dragFrameId = 0
+      }
+
+      const publishPendingDrag = () => {
+        cancelQueuedDragFrame()
+        const pending = pendingDragUpdate
+        pendingDragUpdate = null
+        if (!pending || draggingIndexRef.current !== pending.index) return
+
+        const pts = [...waypointsRef.current]
+        if (!pts[pending.index]) return
+        pts[pending.index] = { ...pts[pending.index], ...pending.waypoint }
+        waypointsRef.current = pts
+        updateMapData()
+        setDistanceMeters(Math.max(
+          0,
+          dragBaseDistance - dragBaseAdjacentDistance + adjacentDistance(pts, pending.index),
+        ))
+      }
+
       const updateDraggedPoint = (lng: number, lat: number) => {
         if (confirmationWaypointsRef.current) return
-        if (draggingIndexRef.current === null) return
+        const index = draggingIndexRef.current
+        if (index === null) return
         const waypoint = normalizeWaypoint(lng, lat)
         if (!waypoint) return
         dragMovedRef.current = true
-        const pts = [...waypointsRef.current]
-        pts[draggingIndexRef.current] = { ...pts[draggingIndexRef.current], ...waypoint }
-        waypointsRef.current = pts
-        updateMapData()
-        syncUI()
+        pendingDragUpdate = { index, waypoint }
+        if (dragFrameId !== 0) return
+        dragFrameId = requestAnimationFrame(() => {
+          dragFrameId = 0
+          publishPendingDrag()
+        })
       }
 
       let activeDragInput: 'mouse' | 'touch' | null = null
@@ -401,12 +437,23 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         document.removeEventListener('visibilitychange', onVisibilityChange)
       }
 
-      function settleDrag(force = false) {
+      function settleDrag(force = false, publishPending = true) {
         const wasDragging = draggingIndexRef.current !== null || activeDragInput !== null
         removeTransientDragListeners()
-        if (!wasDragging && !force) return
+        if (!wasDragging && !force) {
+          cancelQueuedDragFrame()
+          pendingDragUpdate = null
+          return
+        }
 
         const moved = wasDragging && dragMovedRef.current
+        if (publishPending) {
+          publishPendingDrag()
+        } else {
+          cancelQueuedDragFrame()
+          pendingDragUpdate = null
+        }
+        if (moved && publishPending) syncUI()
         if (moved) {
           suppressClickUntilRef.current = performance.now() + 250
         }
@@ -449,6 +496,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         draggingIndexRef.current = index
         activeDragInput = input
         dragMovedRef.current = false
+        pendingDragUpdate = null
+        dragBaseDistance = totalDistance(waypointsRef.current)
+        dragBaseAdjacentDistance = adjacentDistance(waypointsRef.current, index)
         map.getCanvas().style.cursor = 'grabbing'
         map.dragPan.disable()
 
@@ -498,7 +548,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       map.on('mouseleave', LAYER_POINTS, onMouseLeavePoint)
 
       cleanupRef.current.push(() => {
-        settleDrag(true)
+        settleDrag(true, false)
         if (settleDragRef.current === settleDrag) {
           settleDragRef.current = () => {}
         }
