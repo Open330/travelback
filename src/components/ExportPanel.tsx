@@ -108,7 +108,6 @@ export default function ExportPanel({
   const [resolutionIdx, setResolutionIdx] = useState(1)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
-  const [duration, setDuration] = useState(() => clampExportDuration(playbackDuration ?? 30))
   const [durationDraft, setDurationDraft] = useState(() => String(clampExportDuration(playbackDuration ?? 30)))
   const [durationError, setDurationError] = useState(false)
   const durationInputRef = useRef<HTMLInputElement>(null)
@@ -123,7 +122,6 @@ export default function ExportPanel({
       if (!panelOpenedRef.current && playbackDuration != null) {
         const nextDuration = clampExportDuration(playbackDuration)
         // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally sync derived state from prop once on panel open
-        setDuration(nextDuration)
         setDurationDraft(String(nextDuration))
         setDurationError(false)
       }
@@ -141,27 +139,35 @@ export default function ExportPanel({
 
   const selectedResolution = RESOLUTION_PRESETS[resolutionIdx] ?? RESOLUTION_PRESETS[0]
   const bitrate = QUALITY_MAP[quality] ?? 8
-  const safeDuration = clampExportDuration(duration)
+  const prospectiveDuration = parseExportDurationDraft(durationDraft)
   const safeBitrate = Math.max(EXPORT_LIMITS.bitrate.min, Math.min(bitrate, EXPORT_LIMITS.bitrate.max))
   const codecConfigKey = `${selectedResolution.width}x${selectedResolution.height}@${safeBitrate}`
   const currentCodecSupport = codecSupport.configKey === codecConfigKey
     ? codecSupport.results
     : initialCodecSupport
-  const estimatedOutputBytes = estimateEncodedBytes(safeDuration, safeBitrate)
-  const estimatedOutputMb = estimatedOutputBytes / 1024 / 1024
-  const estimatedMemoryBytes = estimateExportMemoryBytes({
-    resolution: selectedResolution,
-    duration: safeDuration,
-    fps,
-    bitrate: safeBitrate,
-  })
-  const estimatedMemoryMb = estimatedMemoryBytes / 1024 / 1024
+  const estimatedOutputBytes = prospectiveDuration == null
+    ? null
+    : estimateEncodedBytes(prospectiveDuration, safeBitrate)
+  const estimatedOutputMb = estimatedOutputBytes == null ? null : estimatedOutputBytes / 1024 / 1024
+  const estimatedMemoryBytes = prospectiveDuration == null
+    ? null
+    : estimateExportMemoryBytes({
+        resolution: selectedResolution,
+        duration: prospectiveDuration,
+        fps,
+        bitrate: safeBitrate,
+      })
+  const estimatedMemoryMb = estimatedMemoryBytes == null ? null : estimatedMemoryBytes / 1024 / 1024
   const localExportTestStubEnabled = isLocalExportTestStubEnabled()
-  const exportTooLarge = estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES || estimatedMemoryBytes > MAX_IN_MEMORY_EXPORT_BYTES
+  const exportTooLarge = (
+    estimatedOutputBytes != null
+    && estimatedMemoryBytes != null
+    && (estimatedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES || estimatedMemoryBytes > MAX_IN_MEMORY_EXPORT_BYTES)
+  )
   const codecStatus = currentCodecSupport[codec]
   const codecPending = codecStatus == null && !localExportTestStubEnabled
   const codecUnavailable = codecStatus === false && !localExportTestStubEnabled
-  const canStartExport = !codecPending && !codecUnavailable && !exportTooLarge
+  const canStartExport = prospectiveDuration != null && !codecPending && !codecUnavailable && !exportTooLarge
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const clearTouchStart = useCallback(() => {
@@ -207,7 +213,9 @@ export default function ExportPanel({
     return 3.0
   })()
   const codecScale = codec === 'av1' ? 2.5 : codec === 'h265' ? 1.5 : 1.0
-  const estimatedSeconds = Math.max(1, Math.round(safeDuration * 0.5 * resScale * codecScale))
+  const estimatedSeconds = prospectiveDuration == null
+    ? null
+    : Math.max(1, Math.round(prospectiveDuration * 0.5 * resScale * codecScale))
 
   useEffect(() => {
     if (!isOpen) return
@@ -248,19 +256,30 @@ export default function ExportPanel({
       return null
     }
 
-    setDuration(parsed)
     setDurationDraft(String(parsed))
     setDurationError(false)
     return parsed
   }, [durationDraft])
 
   const handleExport = useCallback(() => {
-    if (!canStartExport) return
-    const committedDuration = commitDurationDraft(true)
-    if (committedDuration == null) return
+    const requestedDuration = commitDurationDraft(true)
+    if (requestedDuration == null || codecPending || codecUnavailable) return
     const resolution = selectedResolution
-    onExport({ resolution, codec, fps, duration: committedDuration, bitrate: safeBitrate })
-  }, [canStartExport, codec, commitDurationDraft, fps, onExport, safeBitrate, selectedResolution])
+    const requestedOutputBytes = estimateEncodedBytes(requestedDuration, safeBitrate)
+    const requestedMemoryBytes = estimateExportMemoryBytes({
+      resolution,
+      duration: requestedDuration,
+      fps,
+      bitrate: safeBitrate,
+    })
+    if (
+      requestedOutputBytes > MAX_IN_MEMORY_EXPORT_BYTES
+      || requestedMemoryBytes > MAX_IN_MEMORY_EXPORT_BYTES
+    ) {
+      return
+    }
+    onExport({ resolution, codec, fps, duration: requestedDuration, bitrate: safeBitrate })
+  }, [codec, codecPending, codecUnavailable, commitDurationDraft, fps, onExport, safeBitrate, selectedResolution])
 
   const [shareError, setShareError] = useState(false)
 
@@ -446,7 +465,7 @@ export default function ExportPanel({
               <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width 50ms linear' }} />
             </div>
             {(() => {
-              const clampedDuration = safeDuration
+              const clampedDuration = prospectiveDuration ?? EXPORT_LIMITS.duration.min
               const clampedFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))
               const totalFrames = Math.ceil(clampedDuration * clampedFps)
               return (
@@ -569,7 +588,9 @@ export default function ExportPanel({
             <p className="mb-2 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.output')} {selectedResolution.width}×{selectedResolution.height} MP4
               {showAdvanced && <> ({CODEC_LABELS[codec]}) {t('export.at')} {bitrate} Mbps</>}
-              {' '}· ~{estimatedOutputMb.toFixed(0)} MB · ~{estimatedMemoryMb.toFixed(0)} MB {t('export.browserMemory')}
+              {' '}· {estimatedOutputMb == null || estimatedMemoryMb == null
+                ? '—'
+                : <>~{estimatedOutputMb.toFixed(0)} MB · ~{estimatedMemoryMb.toFixed(0)} MB {t('export.browserMemory')}</>}
             </p>
             {exportTooLarge && (
               <p role="alert" className="mb-2 text-xs" style={{ color: 'var(--warn-fg)' }}>
@@ -588,9 +609,11 @@ export default function ExportPanel({
             )}
             <p className="mb-4 text-xs" style={{ color: 'var(--t4)' }}>
               {t('export.estimatedTime')}{' '}
-              {estimatedSeconds >= 60
-                ? t('export.minutes').replace('{n}', String(Math.round(estimatedSeconds / 60)))
-                : t('export.seconds').replace('{n}', String(estimatedSeconds))}
+              {estimatedSeconds == null
+                ? '—'
+                : estimatedSeconds >= 60
+                  ? t('export.minutes').replace('{n}', String(Math.round(estimatedSeconds / 60)))
+                  : t('export.seconds').replace('{n}', String(estimatedSeconds))}
             </p>
 
             <button type="button" onClick={handleExport} disabled={!canStartExport} className="vitro-btn-primary min-h-11 w-full py-3 font-medium cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
