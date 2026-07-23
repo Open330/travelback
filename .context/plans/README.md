@@ -27,6 +27,11 @@
 - `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `archive/cycle9-implementation-2026-07-24.md` — Completed all 3 fresh
+  findings covering prospective export-duration eligibility, complete
+  mount-safe social-card metadata/artwork, and current export-presentation
+  ownership documentation; all configured gates and exact browser cleanup
+  passed, and no deployment occurred
 - `archive/cycle8-implementation-2026-07-24.md` — Completed the fresh
   MapLibre locale finding across all five shipped locales with dynamic
   canvas/control synchronization that preserves the existing map session;
