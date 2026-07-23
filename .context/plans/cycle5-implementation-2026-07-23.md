@@ -1,6 +1,6 @@
 # Cycle 5 Review Remediation Plan — 2026-07-23
 
-Status: **Implementation in progress**
+Status: **Completed**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `97f66a63b3df97bce3f349a05248ebb8fef7886e`
@@ -195,7 +195,7 @@ Finding: **AGG5-04** (Medium/High)
 Primary files:
 
 - `src/components/ErrorBoundary.tsx`
-- `src/components/ErrorBoundary.test.tsx`
+- `src/components/ErrorBoundary.test.ts`
 - `src/app/page.tsx`
 - `src/lib/useExportController.ts`
 - `src/lib/useExportController.test.ts`
@@ -230,7 +230,7 @@ Finding: **AGG5-05** (Medium/High)
 Primary files:
 
 - `src/components/ExportPanel.tsx`
-- `src/components/ExportPanel.test.tsx`
+- `src/components/ExportPanel.test.ts`
 - `src/lib/i18n.ts`
 - `src/lib/i18n.test.ts`
 - `e2e/travelback.spec.ts`
@@ -313,4 +313,78 @@ when an unrelated owner occupies a default port; never touch that owner.
 
 ## Completion log
 
-Pending Prompt 3 implementation and all configured gates.
+Completed all six new findings and the known Cycle 4 P05 gate correction. No
+item was deferred and no deployment command was run.
+
+Implementation evidence:
+
+- P01 now resolves zero-distance tracks without a coordinate or segment scan,
+  uses indexed/binary segment ownership and bearing fallback, and passes
+  250,000-point operation-count regressions.
+- P02 rejects nested semantic GPX segments before descendant extraction,
+  enforces direct-child/root-namespace ownership, and consumes the shared
+  point budget before retained-point allocation.
+- P03 classifies active XML declarations in the lexical scanner while
+  preserving inert comment, CDATA, and processing-instruction text.
+- P04 snapshots Follow-off camera ownership with export dimensions and DPR,
+  restores it after a rendered frame, and has both presentation-unit and
+  actual-MapLibre cancellation coverage.
+- P05 invalidates an export at error capture, waits for its lease to settle
+  before recovery, and rejects all late generation/lease publications. A
+  wired ErrorBoundary/controller integration test covers the handoff.
+- P06 preserves string duration drafts through ordinary sequential typing,
+  shares validation across blur/Enter/Start, and exposes localized associated
+  errors.
+- P07 accepts only canonical nested lock paths contained under the exact
+  fixture profile; the complete 40-test supervisor suite passes.
+
+Gate-driven repairs: **7**.
+
+1. Corrected the carried Cycle 4 nested-profile-lock false negative.
+2. Supplied the required child in the wired ErrorBoundary integration
+   harness after typecheck rejected the first draft.
+3. Synchronized the duration E2E with the modal's first-focus handoff so
+   requestAnimationFrame cannot steal the second sequential keystroke.
+4. Waited for MapLibre keyboard camera easing to settle before capturing the
+   manual pre-export pose.
+5. Corrected nullable debug-snapshot type indexing exposed by the focused
+   typecheck.
+6. Replaced an incorrect initial-heading focus assumption with the dialog's
+   actual Close-button focus contract after the first focused rerun.
+7. Passed the wired integration child as `createElement`'s child argument
+   through the same test-only optional-child component view used by the
+   boundary suite, satisfying both the final lint rule and React's classic
+   `createElement` overload.
+
+Recorded recoverable execution errors: **4**.
+
+- Three worker commands unintentionally launched the supervisor suite without
+  the required pre-run inventory. Each owned temporary root/marker/process
+  set was independently audited absent afterward; ports 3099/4173/4183 and
+  `.next/dev/lock` were clear, and protected Chrome PID 1368 was unchanged.
+- The post-implementation performance/security audit was rejected by the
+  content filter twice; its spawned child was interrupted. The independent
+  code/architecture and verification/trace audits completed, and their
+  actionable namespace and integration-coverage gaps were repaired.
+
+Final verification:
+
+- `npm run lint` passed.
+- `npm run typecheck` passed after the recorded test-harness repairs.
+- `npm test` passed: 26 unit files / 600 tests and 40/40 process-supervisor
+  tests, including the isolated real-Chromium failure fixture.
+- `npm run build` passed with generated-worker parity and static hardening.
+- The first development matrix completed despite two new-regression failures
+  (115 passed / 1 skipped); focused repairs passed, then the clean full rerun
+  passed 117 / 117 with 1 expected skip.
+- Static smoke and E2E passed 116 / 116 with 2 expected skips.
+- `npm audit --audit-level=high` reported 0 vulnerabilities.
+- The isolated real-MP4 gate passed with top-level box structure, AVC codec,
+  packet count, duration, metadata/dimensions, first/last frame decode,
+  canvas read, preview target, and downloaded-file assertions intact.
+- Every browser gate used a fresh explicit port, marker, temporary profile,
+  and exact PID/PPID/PGID/UID/start ledger. All owned identities, profiles,
+  locks, listeners, and temporary roots were absent after each gate; protected
+  Chrome PID 1368 was unchanged.
+- Deployment remained `none`; only
+  `review-plan-fix/no-deploy-20260723` is eligible for push.
