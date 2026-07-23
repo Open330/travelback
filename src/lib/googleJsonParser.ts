@@ -63,6 +63,12 @@ function pushE7(
 /* ---------- Format 1: Records.json / Location History.json --------- */
 type TrackSegment = TrackPoint[]
 
+function appendItems<T>(target: T[], items: readonly T[]): void {
+  for (const item of items) {
+    target.push(item)
+  }
+}
+
 function parseRecords(locations: unknown[], budget: PointBudget): TrackSegment {
   const out: TrackPoint[] = []
   for (const value of locations) {
@@ -271,7 +277,7 @@ function flattenGoogleSegments(rawSegments: TrackSegment[]): { points: TrackPoin
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
     }
-    points.push(...nextPoints)
+    appendItems(points, nextPoints)
   }
   return { points, segmentStartIndices }
 }
@@ -354,7 +360,7 @@ export function parseGoogleLocationHistory(text: string, maxPoints?: number): Tr
   // Semantic Location History (monthly): { timelineObjects: [...] }
   if (root && Array.isArray(root.timelineObjects)) {
     recognizedFormat = true
-    segments.push(...parseTimelineObjects(root.timelineObjects, budget))
+    appendItems(segments, parseTimelineObjects(root.timelineObjects, budget))
   }
   // Timeline Edits.json: { timelineEdits: [...] }
   if (root && Array.isArray(root.timelineEdits)) {
@@ -365,7 +371,7 @@ export function parseGoogleLocationHistory(text: string, maxPoints?: number): Tr
   // Phone export / new format: { semanticSegments: [...] }
   if (root && Array.isArray(root.semanticSegments)) {
     recognizedFormat = true
-    segments.push(...parseSemanticSegments(root.semanticSegments, budget))
+    appendItems(segments, parseSemanticSegments(root.semanticSegments, budget))
   }
 
   if (!recognizedFormat) {

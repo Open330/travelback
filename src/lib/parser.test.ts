@@ -358,6 +358,35 @@ describe('parseGoogleLocationHistory — Format 4: semanticSegments', () => {
     const firstTimelinePoint = track.points.find(p => Math.abs(p.lat - 37.4) < 0.01)
     expect(firstTimelinePoint).toBeDefined()
   })
+
+  it('appends semantic path and visit segments with exact boundaries', () => {
+    const track = parseGoogleLocationHistory(JSON.stringify({
+      semanticSegments: [
+        {
+          timelinePath: [
+            { point: 'geo:10,10' },
+            { point: 'geo:11,11' },
+          ],
+          visit: {
+            topCandidate: {
+              placeLocation: { latLng: '12°, 12°' },
+            },
+          },
+        },
+        {
+          timelinePath: [{ point: 'geo:20,20' }],
+        },
+      ],
+    }))
+
+    expect(track.points.map(({ lat, lng }) => [lat, lng])).toEqual([
+      [10, 10],
+      [11, 11],
+      [12, 12],
+      [20, 20],
+    ])
+    expect(track.segmentStartIndices).toEqual([2, 3])
+  })
 })
 
 describe('parseGoogleLocationHistory — runtime shape validation', () => {
@@ -1180,6 +1209,18 @@ describe('parseKML — LineString', () => {
     expect(track.name).toBe('Test KML Track')
     expect(track.fallbackNameSource).toBeUndefined()
   })
+
+  it('parses a large LineString without argument spreading', () => {
+    const pointCount = 125_000
+    const coordinates = Array.from({ length: pointCount }, () => '20,10').join(' ')
+    const track = parseKML(`<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document><Placemark><LineString><coordinates>${coordinates}</coordinates></LineString></Placemark></Document>
+</kml>`)
+
+    expect(track.points).toHaveLength(pointCount)
+    expect(track.points[0]).toMatchObject({ lat: 10, lng: 20 })
+    expect(track.points.at(-1)).toMatchObject({ lat: 10, lng: 20 })
+  })
 })
 
 describe('parseKML — MultiGeometry', () => {
@@ -1780,6 +1821,17 @@ describe('checkJsonDepth — additional edge cases', () => {
 })
 
 describe('parse-wide point allocation budget', () => {
+  it('rejects over-budget flat Records before bounded flatten append', () => {
+    const records = Array.from({ length: 4 }, (_, index) => ({
+      latitudeE7: 100_000_000 + index,
+      longitudeE7: 200_000_000 + index,
+    }))
+
+    expect(() => parseGoogleLocationHistory(JSON.stringify(records), 3)).toThrowError(
+      expect.objectContaining({ code: 'TOO_MANY_POINTS' }),
+    )
+  })
+
   it('rejects aggregate segment allocations before flattening', () => {
     const json = JSON.stringify({
       timelineObjects: [

@@ -63,7 +63,9 @@ function extractPointsFromGeoJSON(geojson: GeoJSON.FeatureCollection): { points:
     if (points.length > 0) {
       segmentStartIndices.push(points.length)
     }
-    points.push(...nextPoints)
+    for (const point of nextPoints) {
+      points.push(point)
+    }
   }
 
   const flushPendingPointSegment = () => {

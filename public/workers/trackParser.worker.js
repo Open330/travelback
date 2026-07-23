@@ -66,6 +66,10 @@
     let lat = e7(parsedLatE7), lng = e7(parsedLngE7);
     !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (consumePointBudget(budget), out.push({ lat, lng, ele: parseOptionalNumber(alt), time: gTime(ts, tsMs) }));
   }
+  function appendItems(target, items) {
+    for (let item of items)
+      target.push(item);
+  }
   function parseRecords(locations, budget) {
     let out = [];
     for (let value of locations) {
@@ -188,7 +192,7 @@
         let key = pointKey(point);
         return seenTimedObservations.has(key) ? !1 : (seenTimedObservations.add(key), !0);
       });
-      nextPoints.length !== 0 && (assertPointBudget(points, nextPoints.length), points.length > 0 && segmentStartIndices.push(points.length), points.push(...nextPoints));
+      nextPoints.length !== 0 && (assertPointBudget(points, nextPoints.length), points.length > 0 && segmentStartIndices.push(points.length), appendItems(points, nextPoints));
     }
     return { points, segmentStartIndices };
   }
@@ -233,12 +237,12 @@
       let records = parseRecords(root.locations, budget);
       records.length > 0 && segments.push(records);
     }
-    if (root && Array.isArray(root.timelineObjects) && (recognizedFormat = !0, segments.push(...parseTimelineObjects(root.timelineObjects, budget))), root && Array.isArray(root.timelineEdits)) {
+    if (root && Array.isArray(root.timelineObjects) && (recognizedFormat = !0, appendItems(segments, parseTimelineObjects(root.timelineObjects, budget))), root && Array.isArray(root.timelineEdits)) {
       recognizedFormat = !0;
       let edits = parseTimelineEdits(root.timelineEdits, budget);
       edits.length > 0 && segments.push(edits);
     }
-    if (root && Array.isArray(root.semanticSegments) && (recognizedFormat = !0, segments.push(...parseSemanticSegments(root.semanticSegments, budget))), !recognizedFormat)
+    if (root && Array.isArray(root.semanticSegments) && (recognizedFormat = !0, appendItems(segments, parseSemanticSegments(root.semanticSegments, budget))), !recognizedFormat)
       throw new ParseError("Unsupported Google Location History format", "UNSUPPORTED_GOOGLE_FORMAT");
     let { points, segmentStartIndices } = flattenGoogleSegments(segments);
     return {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseGoogleLocationHistory } from '@/lib/googleJsonParser'
+import { MAX_TRACK_POINTS } from '@/lib/parse-utils'
 import { parseTrackParserRequest } from './trackParser.worker'
 
 function requestFor(value: unknown) {
@@ -161,6 +162,25 @@ const timelineActivityFallbackCases: [string, unknown, number[][]][] = [
 ]
 
 describe('track parser worker entry', () => {
+  it('parses a high-cardinality flat Records export without argument spreading', () => {
+    const pointCount = MAX_TRACK_POINTS
+    const records = Array.from({ length: pointCount }, (_, index) => ({
+      latitudeE7: 100_000_000 + index,
+      longitudeE7: 200_000_000 + index,
+    }))
+
+    const result = parseTrackParserRequest(requestFor(records))
+
+    expect(result).toMatchObject({ track: { points: expect.any(Array) } })
+    if (!('track' in result)) throw new Error(`Unexpected worker error: ${result.code}`)
+    expect(result.track.points).toHaveLength(pointCount)
+    expect(result.track.points[0]).toMatchObject({ lat: 10, lng: 20 })
+    expect(result.track.points.at(-1)).toMatchObject({
+      lat: (100_000_000 + pointCount - 1) / 1e7,
+      lng: (200_000_000 + pointCount - 1) / 1e7,
+    })
+  })
+
   it('returns the same track as the shared main-thread parser', () => {
     const json = JSON.stringify({
       locations: [
