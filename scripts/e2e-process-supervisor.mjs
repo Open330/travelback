@@ -415,15 +415,36 @@ export async function stopOwnedProcessTree(
     stopped = await tracker.signalAndWait('SIGKILL', forceKillWaitMs)
   }
 
-  const cleanupError = tracker.cleanupError?.()
+  let cleanupError = null
+  let cleanupAccessorError = null
+  try {
+    cleanupError = tracker.cleanupError?.() ?? null
+  } catch (error) {
+    cleanupAccessorError = error
+  }
+
+  if (!stopped) {
+    throw new Error(
+      `${describeTracker(tracker)} survived forced termination`,
+      cleanupError || cleanupAccessorError
+        ? { cause: cleanupError ?? cleanupAccessorError }
+        : undefined,
+    )
+  }
   if (cleanupError) {
     throw new Error(
       `Cleanup of ${describeTracker(tracker)} could not be fully verified: ${cleanupError.message}`,
       { cause: cleanupError },
     )
   }
-  if (!stopped) {
-    throw new Error(`${describeTracker(tracker)} survived forced termination`)
+  if (cleanupAccessorError) {
+    const detail = cleanupAccessorError instanceof Error
+      ? cleanupAccessorError.message
+      : String(cleanupAccessorError)
+    throw new Error(
+      `Cleanup of ${describeTracker(tracker)} could not read its verification diagnostics: ${detail}`,
+      { cause: cleanupAccessorError },
+    )
   }
 }
 

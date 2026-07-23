@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
+import { createConnection, createServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -18,6 +27,10 @@ import {
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixturePath = path.join(scriptsDirectory, 'fixtures/fake-process-tree.mjs')
 const harnessPath = path.join(scriptsDirectory, 'fixtures/supervisor-harness.mjs')
+const realChromiumFixturePath = path.join(
+  scriptsDirectory,
+  'fixtures/real-chromium-failure.mjs',
+)
 const isPosix = process.platform !== 'win32'
 
 async function assertWindowsContainmentRefusal() {
@@ -235,6 +248,445 @@ async function terminateExactProcessGroup(rootPid) {
   }
   await waitForProcessExit(rootPid, 1_000)
 }
+
+function runFile(command, args) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      command,
+      args,
+      {
+        encoding: 'utf8',
+        env: { ...process.env, LC_ALL: 'C' },
+        maxBuffer: 64 * 1024 * 1024,
+        timeout: 2_000,
+        killSignal: 'SIGKILL',
+      },
+      (error, stdout) => {
+        if (error) {
+          reject(error)
+          return
+        }
+        resolve(stdout)
+      },
+    )
+  })
+}
+
+function parsePosixProcesses(stdout) {
+  const processes = new Map()
+  for (const line of stdout.split('\n')) {
+    const match = line.trimEnd().match(
+      /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.{24})(?:\s+(.*))?$/,
+    )
+    if (!match) continue
+    const entry = {
+      pid: Number(match[1]),
+      ppid: Number(match[2]),
+      pgid: Number(match[3]),
+      uid: Number(match[4]),
+      startedAt: match[5],
+      command: match[6] ?? '',
+    }
+    processes.set(entry.pid, entry)
+  }
+  return processes
+}
+
+async function readPosixProcesses({ includeEnvironment = false } = {}) {
+  const args = includeEnvironment
+    ? ['-AxwwE', '-o', 'pid=,ppid=,pgid=,uid=,lstart=,command=']
+    : ['-Axww', '-o', 'pid=,ppid=,pgid=,uid=,lstart=,command=']
+  return parsePosixProcesses(await runFile('ps', args))
+}
+
+function samePosixIdentity(left, right) {
+  return Boolean(left && right)
+    && left.pid === right.pid
+    && left.uid === right.uid
+    && left.startedAt === right.startedAt
+}
+
+async function readMarkedProcesses(ownershipMarker) {
+  return new Map(
+    [...(await readPosixProcesses({ includeEnvironment: true })).entries()]
+      .filter(([, entry]) => entry.command.includes(ownershipMarker)),
+  )
+}
+
+async function waitForMarkedProcesses(ownershipMarker, predicate, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const processes = await readMarkedProcesses(ownershipMarker)
+    if (predicate(processes)) return processes
+    await new Promise(resolve => setTimeout(resolve, 20))
+  }
+  throw new Error(`Timed out waiting for processes carrying ${ownershipMarker}`)
+}
+
+async function entryExists(filePath) {
+  try {
+    await lstat(filePath)
+    return true
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return false
+    }
+    throw error
+  }
+}
+
+function readListener(port, timeoutMs = 2_000) {
+  return new Promise((resolve, reject) => {
+    let source = ''
+    const socket = createConnection({ host: '127.0.0.1', port })
+    const timeout = setTimeout(() => {
+      socket.destroy()
+      reject(new Error(`Timed out reading fixture listener on port ${port}`))
+    }, timeoutMs)
+    socket.setEncoding('utf8')
+    socket.on('data', chunk => {
+      source += chunk
+    })
+    socket.once('error', error => {
+      clearTimeout(timeout)
+      reject(error)
+    })
+    socket.once('end', () => {
+      clearTimeout(timeout)
+      resolve(source)
+    })
+  })
+}
+
+function assertPortAvailable(port) {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen({ host: '127.0.0.1', port, exclusive: true }, () => {
+      server.close(error => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+  })
+}
+
+async function terminateOwnedIdentitiesExactly(ownershipMarker, identities) {
+  const ownedIdentities = new Map(
+    [...identities].map(entry => [entry.pid, entry]),
+  )
+  const collectLive = async () => {
+    for (const entry of (await readMarkedProcesses(ownershipMarker)).values()) {
+      ownedIdentities.set(entry.pid, entry)
+    }
+    const current = await readPosixProcesses()
+    return [...ownedIdentities.values()].filter(entry => {
+      const live = current.get(entry.pid)
+      return samePosixIdentity(entry, live)
+        && entry.pid > 1
+        && entry.pid !== process.pid
+        && entry.uid === process.getuid()
+    })
+  }
+  const signal = async signalName => {
+    for (const entry of await collectLive()) {
+      try {
+        process.kill(entry.pid, signalName)
+      } catch (error) {
+        if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ESRCH') {
+          throw error
+        }
+      }
+    }
+  }
+  const waitUntilAbsent = async timeoutMs => {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      if ((await collectLive()).length === 0) return true
+      await new Promise(resolve => setTimeout(resolve, 20))
+    }
+    return false
+  }
+
+  await signal('SIGTERM')
+  if (!await waitUntilAbsent(1_000)) {
+    await signal('SIGKILL')
+  }
+  const absent = await waitUntilAbsent(2_000)
+  assert.equal(absent, true, `Exact emergency cleanup failed for ${ownershipMarker}`)
+  assert.equal((await readMarkedProcesses(ownershipMarker)).size, 0)
+}
+
+test(
+  'a deliberate real Chromium failure reaps its exact browser and listener without touching a sentinel',
+  { concurrency: false, timeout: 30_000 },
+  async testContext => {
+    if (!isPosix) return assertWindowsContainmentRefusal()
+
+    const stateDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'travelback-real-chromium-'),
+    )
+    const sentinelDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'travelback-real-chromium-sentinel-'),
+    )
+    const profileDirectory = path.join(stateDirectory, 'chromium-profile')
+    await mkdir(profileDirectory)
+
+    const uniqueSuffix = `${process.pid}-${Date.now()}-${randomBytes(8).toString('hex')}`
+    const ownershipValue = `real-chromium-${uniqueSuffix}`
+    const ownershipMarker = `TRAVELBACK_E2E_OWNER=${ownershipValue}`
+    const listenerToken = `listener-${uniqueSuffix}`
+    const sentinelEnvironment = { ...process.env }
+    delete sentinelEnvironment.TRAVELBACK_E2E_OWNER
+
+    let sentinel
+    let sentinelIdentity
+    let supervisedChild
+    let runPromise
+    let runSettled = false
+    let state
+    const ownedIdentities = new Map()
+    const cleanupErrors = []
+
+    try {
+      sentinel = spawn(
+        process.execPath,
+        [fixturePath, 'grandchild', 'wait', sentinelDirectory],
+        {
+          env: sentinelEnvironment,
+          stdio: 'ignore',
+        },
+      )
+      await waitForFile(path.join(sentinelDirectory, 'grandchild-ready'))
+      sentinelIdentity = (await readPosixProcesses()).get(sentinel.pid)
+      assert.ok(sentinelIdentity)
+
+      runPromise = runSupervisedProcess(
+        process.execPath,
+        [
+          realChromiumFixturePath,
+          'root',
+          stateDirectory,
+          profileDirectory,
+          listenerToken,
+        ],
+        {
+          stdio: ['ignore', 'ignore', 'inherit'],
+          gracePeriodMs: 1_500,
+          forceKillWaitMs: 2_000,
+          processOperations: {
+            createOwnershipValue: () => ownershipValue,
+            spawnProcess(command, args, options) {
+              supervisedChild = spawn(command, args, options)
+              return supervisedChild
+            },
+          },
+        },
+      )
+      runPromise.then(
+        () => {
+          runSettled = true
+        },
+        () => {
+          runSettled = true
+        },
+      )
+
+      const stateSource = waitForFile(
+        path.join(stateDirectory, 'state.json'),
+        15_000,
+      )
+      const earlyOutcome = runPromise.then(async outcome => {
+        const details = []
+        for (const errorName of ['browser-host-error.txt', 'root-error.txt']) {
+          try {
+            details.push(await readFile(path.join(stateDirectory, errorName), 'utf8'))
+          } catch (error) {
+            if (
+              !error
+              || typeof error !== 'object'
+              || !('code' in error)
+              || error.code !== 'ENOENT'
+            ) {
+              throw error
+            }
+          }
+        }
+        throw new Error(
+          `Real Chromium fixture exited before readiness: ${JSON.stringify(outcome)}`
+            + (details.length > 0 ? `\n${details.join('\n')}` : ''),
+        )
+      })
+      state = JSON.parse(await Promise.race([stateSource, earlyOutcome]))
+      assert.equal(state.rootPid, supervisedChild.pid)
+      assert.equal(state.listenerToken, listenerToken)
+      assert.equal(typeof state.browserVersion, 'string')
+      assert.ok(state.browserVersion.length > 0)
+
+      const markedProcesses = await waitForMarkedProcesses(
+        ownershipMarker,
+        processes => (
+          processes.has(state.rootPid)
+          && processes.has(state.browserHostPid)
+          && [...processes.values()].some(entry => (
+            entry.command.includes(`--user-data-dir=${profileDirectory}`)
+          ))
+        ),
+      )
+      await new Promise(resolve => setTimeout(resolve, 100))
+      for (const entry of (
+        await readMarkedProcesses(ownershipMarker)
+      ).values()) {
+        markedProcesses.set(entry.pid, entry)
+      }
+      for (const entry of markedProcesses.values()) {
+        assert.equal(entry.uid, process.getuid())
+        assert.ok(entry.pid > 1)
+        assert.ok(entry.pgid > 1)
+        assert.ok(entry.startedAt)
+        assert.ok(entry.command.includes(ownershipMarker))
+        ownedIdentities.set(entry.pid, entry)
+      }
+
+      const browserProcesses = [...markedProcesses.values()].filter(entry => (
+        entry.command.includes(`--user-data-dir=${profileDirectory}`)
+      ))
+      assert.ok(browserProcesses.length > 0)
+      assert.ok(state.profileLocks.length > 0)
+      for (const lockPath of state.profileLocks) {
+        assert.equal(path.dirname(lockPath), profileDirectory)
+        assert.equal(await entryExists(lockPath), true)
+      }
+
+      assert.match(
+        await readListener(state.listenerPort),
+        new RegExp(`travelback-supervisor-listener:${listenerToken}$`),
+      )
+      const liveSentinel = (await readPosixProcesses()).get(sentinelIdentity.pid)
+      assert.equal(samePosixIdentity(sentinelIdentity, liveSentinel), true)
+      assert.equal(markedProcesses.has(sentinelIdentity.pid), false)
+
+      testContext.diagnostic(
+        `owned root=${state.rootPid} host=${state.browserHostPid} `
+          + `browser=${browserProcesses.map(entry => entry.pid).join(',')} `
+          + `port=${state.listenerPort} profile=${profileDirectory}`,
+      )
+
+      await writeFile(path.join(stateDirectory, 'release'), 'fail now')
+      const outcome = await Promise.race([
+        runPromise,
+        new Promise((_, reject) => {
+          const timeout = setTimeout(
+            () => reject(new Error('Real Chromium supervisor did not settle')),
+            15_000,
+          )
+          timeout.unref?.()
+        }),
+      ])
+      assert.deepEqual(outcome, { code: 23, signal: null })
+
+      const remainingMarked = await readMarkedProcesses(ownershipMarker)
+      assert.equal(remainingMarked.size, 0)
+      const currentProcesses = await readPosixProcesses()
+      for (const entry of ownedIdentities.values()) {
+        assert.equal(
+          samePosixIdentity(entry, currentProcesses.get(entry.pid)),
+          false,
+          `Owned identity ${entry.pid}:${entry.uid}:${entry.startedAt} survived`,
+        )
+      }
+      // Chromium's macOS profile uses persistent nested LevelDB LOCK entries
+      // rather than ephemeral top-level Singleton* links. Once every exact
+      // owning process identity is absent, remove only this fixture-owned
+      // profile and prove all captured lock paths are gone.
+      await rm(profileDirectory, { recursive: true, force: true })
+      for (const lockPath of state.profileLocks) {
+        assert.equal(await entryExists(lockPath), false)
+      }
+      await assert.rejects(readListener(state.listenerPort))
+      await assertPortAvailable(state.listenerPort)
+
+      const finalSentinel = (await readPosixProcesses()).get(sentinelIdentity.pid)
+      assert.equal(samePosixIdentity(sentinelIdentity, finalSentinel), true)
+      testContext.diagnostic(
+        `verified absent root=${state.rootPid} host=${state.browserHostPid} `
+          + `port=${state.listenerPort} locks=${state.profileLocks.length}`,
+      )
+    } finally {
+      try {
+        await writeFile(path.join(stateDirectory, 'release'), 'emergency release')
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+
+      if (runPromise && !runSettled) {
+        try {
+          await Promise.race([
+            runPromise.catch(() => {}),
+            new Promise(resolve => setTimeout(resolve, 5_000)),
+          ])
+        } catch (error) {
+          cleanupErrors.push(error)
+        }
+      }
+
+      try {
+        await terminateOwnedIdentitiesExactly(
+          ownershipMarker,
+          ownedIdentities.values(),
+        )
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+
+      if (state?.listenerPort) {
+        try {
+          await assertPortAvailable(state.listenerPort)
+        } catch (error) {
+          cleanupErrors.push(error)
+        }
+      }
+
+      try {
+        await rm(profileDirectory, { recursive: true, force: true })
+        assert.equal(await entryExists(profileDirectory), false)
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+
+      try {
+        await terminateOwnedIdentitiesExactly(
+          `TRAVELBACK_E2E_OWNER=unrelated-${uniqueSuffix}`,
+          sentinelIdentity ? [sentinelIdentity] : [],
+        )
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+      try {
+        await terminateExactProcess(sentinel)
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+
+      try {
+        await rm(stateDirectory, { recursive: true, force: true })
+        assert.equal(await entryExists(profileDirectory), false)
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+      try {
+        await rm(sentinelDirectory, { recursive: true, force: true })
+      } catch (error) {
+        cleanupErrors.push(error)
+      }
+
+      if (cleanupErrors.length === 1) throw cleanupErrors[0]
+      if (cleanupErrors.length > 1) {
+        throw new AggregateError(cleanupErrors, 'Real Chromium fixture cleanup failed')
+      }
+    }
+  },
+)
 
 test('preserves normal and nonzero child exits and reaps their process trees', async () => {
   if (!isPosix) return assertWindowsContainmentRefusal()
@@ -1165,6 +1617,32 @@ test('cleanup survivor evidence is not masked by a missing diagnostic formatter'
   assert.deepEqual(signals, ['SIGTERM', 'SIGKILL'])
 })
 
+test('cleanup survivor evidence is not masked by a throwing diagnostic accessor', async () => {
+  const accessorError = new Error('diagnostic accessor failed')
+  const signals = []
+  const tracker = {
+    async signalAndWait(signal) {
+      signals.push(signal)
+      return false
+    },
+    cleanupError() {
+      throw accessorError
+    },
+  }
+
+  await assert.rejects(
+    stopOwnedProcessTree(tracker, 'SIGTERM', 0, 0),
+    error => {
+      assert.equal(error.name, 'Error')
+      assert.equal(error.message, 'owned process tracker survived forced termination')
+      assert.equal(error.cause, accessorError)
+      return true
+    },
+  )
+
+  assert.deepEqual(signals, ['SIGTERM', 'SIGKILL'])
+})
+
 test('cleanup errors retain their cause without a diagnostic formatter', async () => {
   const cleanupError = new Error('injected ownership snapshot failure')
   const tracker = {
@@ -1306,6 +1784,70 @@ test('an atomic provider is disposed when contained cleanup fails', async () => 
     'launch',
     'start',
     'cleanup',
+    'stop',
+    'dispose',
+  ])
+})
+
+test('an atomic provider preserves survivor evidence when cleanup diagnostics throw', async () => {
+  const completion = deferred()
+  const accessorError = new Error('contained cleanup diagnostic failed')
+  const events = []
+  const tracker = {
+    async start() {
+      events.push('start')
+      completion.resolve({ code: 0, signal: null })
+    },
+    async signalAndWait(signal) {
+      events.push(signal)
+      return false
+    },
+    cleanupError() {
+      events.push('cleanupError')
+      throw accessorError
+    },
+    describe() {
+      return 'provider survivor tracker'
+    },
+    stop() {
+      events.push('stop')
+    },
+  }
+
+  await assert.rejects(
+    runSupervisedProcess('provider-owned.exe', [], {
+      stdio: 'ignore',
+      processOperations: {
+        platform: 'win32',
+        signalEmitter: new EventEmitter(),
+        async launchContainedProcess(specification) {
+          events.push('launch')
+          specification.registerRollback(async () => {
+            events.push('rollback')
+          })
+          return {
+            completion: completion.promise,
+            tracker,
+            async dispose() {
+              events.push('dispose')
+            },
+          }
+        },
+      },
+    }),
+    error => {
+      assert.equal(error.message, 'provider survivor tracker survived forced termination')
+      assert.equal(error.cause, accessorError)
+      return true
+    },
+  )
+
+  assert.deepEqual(events, [
+    'launch',
+    'start',
+    'SIGTERM',
+    'SIGKILL',
+    'cleanupError',
     'stop',
     'dispose',
   ])
