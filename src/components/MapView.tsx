@@ -432,12 +432,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     applyCameraState: (state: CameraState) => {
       const map = mapRef.current
       if (!map) return
+      const publishedState: CameraState = {
+        ...state,
+        center: [...state.center] as [number, number],
+      }
       map.jumpTo({
-        center: state.center as [number, number],
-        zoom: state.zoom,
-        pitch: state.pitch,
-        bearing: state.bearing,
+        center: publishedState.center,
+        zoom: publishedState.zoom,
+        pitch: publishedState.pitch,
+        bearing: publishedState.bearing,
       })
+      lastCameraStateRef.current = publishedState
     },
     renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => {
       const map = mapRef.current
