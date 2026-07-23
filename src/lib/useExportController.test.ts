@@ -9,10 +9,12 @@ import type { ExportRequest, Track } from '@/types'
 import type { TranslationKey } from '@/lib/i18n'
 
 const exportVideo = vi.hoisted(() => vi.fn())
+const downloadVideo = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/videoEncoder', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/videoEncoder')>(),
   exportVideo,
+  downloadVideo,
 }))
 
 vi.mock('@/lib/test-stub', () => ({
@@ -20,6 +22,7 @@ vi.mock('@/lib/test-stub', () => ({
 }))
 
 import { useExportController } from './useExportController'
+import { ExportError } from './videoEncoder'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -95,6 +98,7 @@ async function renderController(
 
 beforeEach(() => {
   exportVideo.mockReset()
+  downloadVideo.mockReset().mockResolvedValue({ saved: false, method: 'fallback' })
 })
 
 afterEach(async () => {
@@ -102,6 +106,7 @@ afterEach(async () => {
   container?.remove()
   root = null
   container = null
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -238,5 +243,65 @@ describe('useExportController lifecycle', () => {
     })
     expect(fallbackTrack.name).toBe('Google Location History')
     expect(consoleError).toHaveBeenCalledWith('Export failed:', 'stop after input capture')
+  })
+
+  it('retains a completed in-memory video when the selected file cannot be written', async () => {
+    const saveError = new ExportError('write failed', 'EXPORT_SAVE_FAILED')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:completed-video'),
+      revokeObjectURL: vi.fn(),
+    })
+    exportVideo.mockResolvedValue({
+      buffer: new Uint8Array([1, 2, 3]).buffer,
+      filename: 'Travelback - Journey.mp4',
+      mimeType: 'video/mp4',
+    })
+    downloadVideo.mockResolvedValue({ saved: false, method: 'picker', saveError })
+    const { addToast, controllerRef } = await renderController(createMapHandle())
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    expect(controllerRef.current).toMatchObject({
+      exportState: 'done',
+      exportedVideoUrl: 'blob:completed-video',
+      exportedVideoFilename: 'Travelback - Journey.mp4',
+      downloadMethod: 'ready',
+    })
+    expect(controllerRef.current?.exportedVideoBlob).toBeInstanceOf(Blob)
+    expect(addToast).toHaveBeenCalledWith('app.exportSaveFailed', 'error')
+    expect(addToast).not.toHaveBeenCalledWith('app.exportSuccess', 'success')
+    expect(consoleError).toHaveBeenCalledWith('Video save failed:', 'write failed')
+  })
+
+  it.each([
+    ['map render loss', new ExportError('map missing', 'EXPORT_MAP_RENDER'), 'app.exportMapRenderFailed'],
+    ['capture canvas loss', new ExportError('canvas missing', 'EXPORT_CAPTURE_CANVAS'), 'app.exportCaptureFailed'],
+  ])('shows localized recovery for %s', async (_name, failure, detailKey) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    exportVideo.mockRejectedValue(failure)
+    const { addToast, controllerRef } = await renderController(createMapHandle())
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    expect(addToast).toHaveBeenCalledWith(`app.exportFailed ${detailKey}`, 'error')
+    expect(addToast).not.toHaveBeenCalledWith('app.exportCancelled', 'info')
+  })
+
+  it('does not misreport an unsignaled AbortError as user cancellation', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    exportVideo.mockRejectedValue(new DOMException('map disappeared', 'AbortError'))
+    const { addToast, controllerRef } = await renderController(createMapHandle())
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    expect(addToast).toHaveBeenCalledWith('app.exportFailed app.exportFailedSuffix', 'error')
+    expect(addToast).not.toHaveBeenCalledWith('app.exportCancelled', 'info')
   })
 })

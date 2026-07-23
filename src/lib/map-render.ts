@@ -13,6 +13,13 @@ export interface RenderWaitOptions {
 
 const DEFAULT_RENDER_TIMEOUT_MS = 5000
 
+export class MapRenderTimeoutError extends Error {
+  constructor() {
+    super('Timed out waiting for the map frame to render')
+    this.name = 'MapRenderTimeoutError'
+  }
+}
+
 /**
  * Subscribe before mutating the map and settle only after its render event has
  * reached the browser's next animation frame.
@@ -77,7 +84,7 @@ export function mutateMapAndWaitForRender(
       map.once('render', onRender)
       signal?.addEventListener('abort', onAbort, { once: true })
       timeoutId = setTimeout(() => {
-        finish(new Error('Timed out waiting for the map frame to render'))
+        finish(new MapRenderTimeoutError())
       }, timeoutMs)
 
       mutate()

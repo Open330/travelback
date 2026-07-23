@@ -228,6 +228,30 @@ describe('estimateExportMemoryBytes', () => {
 })
 
 describe('exportVideo lifecycle', () => {
+  it('classifies frame staging allocation failures for localized recovery', async () => {
+    const allocationFailure = new Error('canvas allocation failed')
+    vi.stubGlobal('OffscreenCanvas', class {
+      constructor() {
+        throw allocationFailure
+      }
+    })
+
+    const error = await exportVideo(
+      canvas,
+      track,
+      minimumConfig(),
+      vi.fn(),
+      vi.fn(),
+    ).catch((failure: unknown) => failure)
+
+    expect(error).toMatchObject({
+      name: 'ExportError',
+      code: 'EXPORT_CAPTURE_CANVAS',
+      cause: allocationFailure,
+    })
+    expect(mediabunny.start).not.toHaveBeenCalled()
+  })
+
   it('finalizes exactly once and never cancels a successful export', async () => {
     const renderFrame = vi.fn(async () => {})
     const waitForIdle = vi.fn(async () => {})

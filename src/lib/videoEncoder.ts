@@ -14,8 +14,8 @@ export const EXPORT_FINALIZE_TIMEOUT_MS = 60_000
  */
 export class ExportError extends Error {
   readonly code: string
-  constructor(message: string, code: string) {
-    super(message)
+  constructor(message: string, code: string, options?: ErrorOptions) {
+    super(message, options)
     this.name = 'ExportError'
     this.code = code
   }
@@ -189,14 +189,22 @@ export async function exportVideo(
   // dimensions.
   let frameCanvas: OffscreenCanvas | HTMLCanvasElement
   let frameContext: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null
-  if (typeof OffscreenCanvas === 'function') {
-    frameCanvas = new OffscreenCanvas(config.resolution.width, config.resolution.height)
-    frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
-  } else {
-    frameCanvas = canvas.ownerDocument.createElement('canvas')
-    frameCanvas.width = config.resolution.width
-    frameCanvas.height = config.resolution.height
-    frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
+  try {
+    if (typeof OffscreenCanvas === 'function') {
+      frameCanvas = new OffscreenCanvas(config.resolution.width, config.resolution.height)
+      frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
+    } else {
+      frameCanvas = canvas.ownerDocument.createElement('canvas')
+      frameCanvas.width = config.resolution.width
+      frameCanvas.height = config.resolution.height
+      frameContext = frameCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
+    }
+  } catch (error) {
+    throw new ExportError(
+      'Video encoding failed: could not create a frame staging canvas',
+      'EXPORT_CAPTURE_CANVAS',
+      { cause: error },
+    )
   }
   if (!frameContext) {
     throw new ExportError('Video encoding failed: could not create a frame staging canvas', 'EXPORT_CAPTURE_CANVAS')
@@ -300,6 +308,9 @@ export interface DownloadResult {
    *  via showSaveFilePicker (confirmed save); 'fallback' means an <a> tag
    *  was clicked (download started but not confirmed). */
   method: 'picker' | 'fallback'
+  /** A completed export that could not be written through an acquired picker
+   *  handle. The caller must retain the in-memory video for a manual retry. */
+  saveError?: ExportError
 }
 
 /** Track the previous fallback anchor to prevent DOM accumulation on rapid clicks.
@@ -317,19 +328,46 @@ export async function downloadVideo(url: string, filename: string, blob: Blob): 
   // attempt showSaveFilePicker; the browser's own activation enforcement will
   // throw if required and we fall through to the <a> download fallback.
   if ('showSaveFilePicker' in window) {
+    let handle: { createWritable: () => Promise<FileSystemWritableFileStream> } | null = null
     try {
-      const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<unknown> }).showSaveFilePicker({
+      handle = await (window as unknown as {
+        showSaveFilePicker: (opts: unknown) => Promise<{ createWritable: () => Promise<FileSystemWritableFileStream> }>
+      }).showSaveFilePicker({
         suggestedName: filename,
         types: [{ accept: { 'video/mp4': ['.mp4'] } }],
-      }) as FileSystemWritableFileStream
-      const writeBlob = blob
-      const writable = await (handle as unknown as { createWritable: () => Promise<FileSystemWritableFileStream> }).createWritable()
-      await writable.write(writeBlob)
-      await writable.close()
-      return { saved: true, method: 'picker' }
-    } catch (err) {
-      // User cancelled the picker, or API failed — fall through to <a> download
-      if (err instanceof DOMException && err.name === 'AbortError') return { saved: false, method: 'picker' }
+      })
+    } catch (error) {
+      // Cancelling the picker is an intentional decision to use the retained
+      // in-memory result. Other acquisition failures (for example expired user
+      // activation) may safely use the ordinary anchor fallback because no
+      // destination file has been created yet.
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { saved: false, method: 'picker' }
+      }
+    }
+
+    if (handle) {
+      let writable: FileSystemWritableFileStream | null = null
+      try {
+        writable = await handle.createWritable()
+        await writable.write(blob)
+        await writable.close()
+        return { saved: true, method: 'picker' }
+      } catch (error) {
+        if (writable) {
+          try {
+            await writable.abort(error)
+          } catch {
+            // The primary write/close failure is the useful recovery signal.
+          }
+        }
+        const saveError = new ExportError(
+          'The video was created but could not be written to the selected file',
+          'EXPORT_SAVE_FAILED',
+          { cause: error },
+        )
+        return { saved: false, method: 'picker', saveError }
+      }
     }
   }
 

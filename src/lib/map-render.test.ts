@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mutateMapAndWaitForRender, type RenderEventMap } from './map-render'
+import {
+  MapRenderTimeoutError,
+  mutateMapAndWaitForRender,
+  type RenderEventMap,
+} from './map-render'
 
 class FakeRenderMap implements RenderEventMap {
   listener: (() => void) | null = null
@@ -63,7 +67,7 @@ describe('mutateMapAndWaitForRender', () => {
     vi.useFakeTimers()
     const map = new FakeRenderMap()
     const promise = mutateMapAndWaitForRender(map, () => undefined, { timeoutMs: 25 })
-    const rejection = expect(promise).rejects.toThrow('Timed out waiting for the map frame to render')
+    const rejection = expect(promise).rejects.toBeInstanceOf(MapRenderTimeoutError)
 
     await vi.advanceTimersByTimeAsync(25)
     await rejection

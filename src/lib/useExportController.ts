@@ -8,7 +8,7 @@ import { computeCumulativeDistances } from '@/lib/interpolate'
 import { generateDefaultScenes } from '@/lib/camera'
 import { resolveTrackDisplayName, type TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo, ExportError } from '@/lib/videoEncoder'
-import { isLocalExportTestStubEnabled } from '@/lib/test-stub'
+import { isLocalExportTestStubEnabled, LOCAL_EXPORT_TEST_STUB_PAYLOAD } from '@/lib/test-stub'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
@@ -19,6 +19,7 @@ const EXPORT_ERROR_I18N: Record<string, TranslationKey> = {
   EXPORT_NO_BUFFER: 'app.exportFailedSuffix',
   EXPORT_MAP_RENDER: 'app.exportMapRenderFailed',
   EXPORT_MAP_IDLE: 'app.exportMapRenderFailed',
+  EXPORT_CAPTURE_CANVAS: 'app.exportCaptureFailed',
   EXPORT_FINALIZE_TIMEOUT: 'app.exportFinalizeTimeout',
 }
 
@@ -206,7 +207,7 @@ export function useExportController({
             setExportProgress(1)
             requestAnimationFrame(() => {
               resolve({
-                buffer: new TextEncoder().encode('travelback-test-export').buffer,
+                buffer: new TextEncoder().encode(LOCAL_EXPORT_TEST_STUB_PAYLOAD).buffer,
                 filename: `Travelback - ${trackForExport.name}.mp4`,
                 mimeType: 'video/mp4',
               })
@@ -266,7 +267,12 @@ export function useExportController({
       pendingVideoUrlStored = true
       exportSucceeded = true
       setExportState('done')
-      addToast(tRef.current('app.exportSuccess'), 'success')
+      if (downloadResult.saveError) {
+        console.error('Video save failed:', downloadResult.saveError.message)
+        addToast(tRef.current('app.exportSaveFailed'), 'error')
+      } else {
+        addToast(tRef.current('app.exportSuccess'), 'success')
+      }
       // Restore playback progress to final position after export
       setPlaybackProgress(1)
       exportProgressRef.current = undefined
@@ -275,7 +281,7 @@ export function useExportController({
         URL.revokeObjectURL(pendingVideoUrl)
       }
       if (mountedRef.current) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
+        if (abortController.signal.aborted) {
           addToast(tRef.current('app.exportCancelled'), 'info')
         } else {
           console.error('Export failed:', error instanceof Error ? error.message : 'Unknown error')

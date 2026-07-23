@@ -14,7 +14,14 @@ import {
   prepareTrackGeometry,
   type PreparedTrackGeometry,
 } from '@/lib/map-geometry'
-import { mutateMapAndWaitForRender } from '@/lib/map-render'
+import {
+  applyExportPresentation,
+  captureExportPresentation,
+  restoreExportPresentation,
+  type ExportPresentationSnapshot,
+} from '@/lib/map-export-presentation'
+import { MapRenderTimeoutError, mutateMapAndWaitForRender } from '@/lib/map-render'
+import { ExportError } from '@/lib/videoEncoder'
 
 interface MapViewProps {
   track: Track | null
@@ -388,7 +395,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const trackRef = useRef<Track | null>(track)
   const progressRef = useRef(progress)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
-  const originalSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const exportPresentationRef = useRef<ExportPresentationSnapshot | null>(null)
   const lastCameraStateRef = useRef<CameraState | null>(null)
   const lastSeekNonceRef = useRef(seekNonce)
   const lastCompletedTrailChunkIndexRef = useRef(-1)
@@ -477,6 +484,37 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     })
   }, [])
 
+  const resetExportPresentation = useCallback((ownedMap?: maplibregl.Map | null) => {
+    const container = containerRef.current
+    const snapshot = exportPresentationRef.current
+    exportPresentationRef.current = null
+    if (!container) return
+
+    const map = ownedMap ?? mapRef.current
+    if (!snapshot) {
+      container.style.width = ''
+      container.style.height = ''
+      try {
+        map?.resize()
+      } catch {
+        // A destroyed map no longer needs an interactive resize.
+      }
+      return
+    }
+    if (!map) {
+      container.style.width = snapshot.width
+      container.style.height = snapshot.height
+      return
+    }
+
+    try {
+      restoreExportPresentation(map, container, snapshot)
+    } catch {
+      // Map teardown may race export cleanup. Inline dimensions are restored
+      // before MapLibre is touched, and a removed map has no ratio to retain.
+    }
+  }, [])
+
 
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
@@ -494,7 +532,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => {
       const map = mapRef.current
       if (!map) {
-        return Promise.reject(new DOMException('Map not available for frame render', 'AbortError'))
+        return Promise.reject(signal?.aborted
+          ? new DOMException('Export cancelled', 'AbortError')
+          : new ExportError('Map not available for frame render', 'EXPORT_MAP_RENDER'))
       }
 
       return mutateMapAndWaitForRender(map, () => {
@@ -517,7 +557,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           pitch: state.pitch,
           bearing: state.bearing,
         })
-      }, { signal })
+      }, { signal }).catch((error: unknown) => {
+        if (signal?.aborted) {
+          throw new DOMException('Export cancelled', 'AbortError')
+        }
+        if (error instanceof ExportError) throw error
+        const message = error instanceof MapRenderTimeoutError
+          ? error.message
+          : 'Map failed while rendering an export frame'
+        throw new ExportError(message, 'EXPORT_MAP_RENDER', { cause: error })
+      })
     },
     clearTrackArtifacts: () => {
       const map = mapRef.current
@@ -535,30 +584,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const map = mapRef.current
       const container = containerRef.current
       if (!map || !container) return
-      if (!originalSizeRef.current) {
-        originalSizeRef.current = { width: container.clientWidth, height: container.clientHeight }
+      if (!exportPresentationRef.current) {
+        exportPresentationRef.current = captureExportPresentation(map, container)
       }
-      container.style.width = `${width}px`
-      container.style.height = `${height}px`
-      map.resize()
+      applyExportPresentation(map, container, width, height)
     },
     resetSize: () => {
-      const container = containerRef.current
-      // Clear container styles first — this always succeeds and is the
-      // critical step to prevent a permanently resized map.
-      if (container) {
-        container.style.width = ''
-        container.style.height = ''
-      }
-      originalSizeRef.current = null
-      // map.resize() can throw if the map was destroyed during export.
-      // The container is already restored above, so a resize failure is
-      // non-critical — the map will be functional on next interaction.
-      try {
-        mapRef.current?.resize()
-      } catch {
-        // Map may have been destroyed — container is already restored
-      }
+      resetExportPresentation()
     },
     waitForIdle: (signal?: AbortSignal) => {
       return new Promise<boolean>((resolve, reject) => {
@@ -615,7 +647,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.once('idle', onIdle)
       })
     },
-  }))
+  }), [resetExportPresentation, updateTrailSources])
   const addTrackLayers = useCallback((
     map: maplibregl.Map,
     track: Track,
@@ -1006,6 +1038,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.off('style.load', onInitialStyleLoad)
         map.getContainer().removeEventListener('keydown', onMapControlKeyDown)
         map.off('error', onMapError)
+        resetExportPresentation(map)
         if (mapRef.current === map) {
           mapRef.current = null
         }
@@ -1020,7 +1053,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.error('Failed to initialize map:', message)
       queueMicrotask(() => setMapError(message))
     }
-  }, [hydrateCurrentStyle, isCurrentStyleRevision, mapRetryNonce, onMapInstanceChange])
+  }, [hydrateCurrentStyle, isCurrentStyleRevision, mapRetryNonce, onMapInstanceChange, resetExportPresentation])
 
   // Change map style. Each request owns a revision so a superseded callback
   // cannot attach route state to the current map/style.
