@@ -2369,6 +2369,9 @@ test.describe('Travelback App', () => {
     await sceneEditor.getByRole('button', { name: 'Close panel' }).click()
     await page.waitForTimeout(750)
 
+    const expectedFollowControlName = IS_STATIC_E2E
+      ? 'Disable camera tracking'
+      : 'Enable camera tracking'
     let manualPose: NonNullable<DebugMapSnapshot> | null = null
     if (IS_STATIC_E2E) {
       await expectProductionDebugApiAbsent(page)
@@ -2411,6 +2414,9 @@ test.describe('Travelback App', () => {
       if (!manualPose) throw new Error('Missing manual Follow-off pose before New Route')
     }
 
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+    await expect(page.getByRole('button', { name: expectedFollowControlName })).toBeVisible()
+
     const newRouteBtn = page.getByText('New Route', { exact: true })
     await expect(newRouteBtn).toBeVisible({ timeout: 10_000 })
     await newRouteBtn.click({ force: true })
@@ -2434,15 +2440,35 @@ test.describe('Travelback App', () => {
       })
     }
 
+    const appRoot = page.locator('main#app')
+    await appRoot.evaluate((element) => {
+      element.setAttribute('tabindex', '-1')
+      ;(element as HTMLElement).focus()
+    })
+    await expect(appRoot).toBeFocused()
+
+    const exportDialog = page.getByRole('dialog', { name: 'Export Video' })
+    for (const key of ['ArrowRight', 'F', 'Space', 'E']) {
+      await page.keyboard.press(key)
+      await expect(provisionalJourney).toBeVisible()
+      await expect(exportDialog).toHaveCount(0)
+    }
+
     await provisionalJourney.getByRole('button', { name: 'Cancel' }).click()
     await expect(provisionalJourney).toHaveCount(0)
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByLabel('Playback progress')).toHaveValue('0.42')
+    const playbackProgress = page.getByLabel('Playback progress')
+    await expect(playbackProgress).toHaveValue('0.42')
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+    await expect(page.getByRole('button', { name: expectedFollowControlName })).toBeVisible()
     if (!IS_STATIC_E2E && manualPose) {
-      await expect(page.getByRole('button', { name: 'Enable camera tracking' })).toBeVisible()
       const restoredPose = await waitForDebugPose(page)
       expectPoseToMatch(restoredPose, manualPose)
     }
+
+    await appRoot.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(playbackProgress).toHaveValue('0.44')
 
     await cameraButton.click({ force: true })
     await expect(sceneEditor.getByRole('combobox', { name: 'Camera mode for scene 1: Scene 1' })).toBeVisible()

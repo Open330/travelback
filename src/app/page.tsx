@@ -257,7 +257,7 @@ function HomeInner() {
   }, [])
 
   usePlaybackHotkeys({
-    track,
+    track: isCreatingJourney ? null : track,
     isExporting,
     onTogglePlay: togglePlay,
     onStepSeek: stepSeek,
