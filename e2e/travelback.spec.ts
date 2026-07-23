@@ -1555,6 +1555,50 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('load-new-file-button')).toContainText('New')
   })
 
+  test('short More menus keep terminal settings usable and release focus when hidden', async ({ page }) => {
+    for (const viewport of [
+      { width: 320, height: 480 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/')
+      await waitForApp(page)
+      await uploadGpx(page)
+
+      const toolbar = page.getByTestId('track-toolbar')
+      const moreControls = toolbar.getByRole('button', { name: 'More controls' })
+      const camera = toolbar.getByRole('button', { name: 'Camera' })
+      await moreControls.click()
+
+      const menu = page.getByTestId('track-toolbar-mobile-menu')
+      const language = menu.getByRole('combobox')
+      const theme = menu.getByRole('button', { name: /switch to (dark|light) mode/i })
+      await expectVisibleInViewportAndHitOwned(menu, viewport)
+      await theme.scrollIntoViewIfNeeded()
+      await expect.poll(() => menu.evaluate((element) => ({
+        canScroll: element.scrollHeight > element.clientHeight,
+        didScroll: element.scrollTop > 0,
+      }))).toEqual({ canScroll: true, didScroll: true })
+      await expectVisibleInViewportAndHitOwned(language, viewport)
+      await expectVisibleInViewportAndHitOwned(theme, viewport)
+      const themeLabel = await theme.getAttribute('aria-label')
+      if (!themeLabel) throw new Error('Missing theme toggle label')
+      await theme.click()
+      await expect(theme).not.toHaveAttribute('aria-label', themeLabel)
+      await theme.focus()
+      await expect(theme).toBeFocused()
+
+      const hiddenViewport = viewport.width < 640
+        ? { width: 640, height: viewport.height }
+        : { width: viewport.width, height: 700 }
+      await page.setViewportSize(hiddenViewport)
+
+      await expect(menu).toHaveCount(0)
+      await expect(moreControls).toBeHidden()
+      await expect(camera).toBeFocused()
+    }
+  })
+
   test('mobile playback controls keep stats on a separate row', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')

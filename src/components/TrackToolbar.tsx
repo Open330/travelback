@@ -79,6 +79,16 @@ export default function TrackToolbar({
   useEffect(() => {
     if (!menuOpen) return
 
+    const handleViewportChange = () => {
+      const menuWrapper = menuRef.current
+      if (!menuWrapper || window.getComputedStyle(menuWrapper).display !== 'none') return
+
+      setMenuOpen(false)
+      requestAnimationFrame(() => {
+        sceneEditorTriggerRef.current?.focus({ preventScroll: true })
+      })
+    }
+
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current?.contains(event.target as Node)) return
       closeMenu(false)
@@ -114,10 +124,12 @@ export default function TrackToolbar({
     document.addEventListener('mousedown', handlePointerDown, { passive: true })
     document.addEventListener('touchstart', handlePointerDown, { passive: true })
     document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', handleViewportChange)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('touchstart', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('resize', handleViewportChange)
     }
   }, [closeMenu, menuOpen])
 
@@ -220,8 +232,11 @@ export default function TrackToolbar({
               aria-labelledby="track-toolbar-mobile-menu-title"
             data-testid="track-toolbar-mobile-menu"
             data-disable-playback-hotkeys="true"
-            className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3"
-            style={{ borderRadius: 'var(--r-glass)' }}
+            className="gs absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain p-3"
+            style={{
+              borderRadius: 'var(--r-glass)',
+              maxHeight: 'calc(100dvh - 4.75rem - env(safe-area-inset-bottom, 0px))',
+            }}
             // Keep menuRef on the wrapper for outside-click detection; focus uses
             // this panel ref so the first popup action receives focus on open.
           >

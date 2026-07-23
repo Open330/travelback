@@ -126,3 +126,55 @@ describe('TrackToolbar Escape ownership', () => {
     panel.remove()
   })
 })
+
+describe('TrackToolbar responsive More menu', () => {
+  it('bounds the popup to the dynamic viewport and enables contained vertical scrolling', async () => {
+    await renderToolbar()
+    const trigger = container?.querySelector<HTMLButtonElement>('[aria-label="app.moreControls"]')
+    if (!trigger) throw new Error('Missing mobile menu trigger')
+
+    await act(() => trigger.click())
+
+    const menu = container?.querySelector<HTMLElement>('[data-testid="track-toolbar-mobile-menu"]')
+    if (!menu) throw new Error('Missing mobile menu content')
+    expect(menu.style.maxHeight).toContain('100dvh')
+    expect(menu.style.maxHeight).toContain('safe-area-inset-bottom')
+    expect(menu.classList.contains('overflow-y-auto')).toBe(true)
+    expect(menu.classList.contains('overscroll-contain')).toBe(true)
+  })
+
+  it('closes a popup hidden by a viewport breakpoint and focuses the always-visible Camera action', async () => {
+    await renderToolbar()
+    const trigger = container?.querySelector<HTMLButtonElement>('[aria-label="app.moreControls"]')
+    const camera = [...(container?.querySelectorAll<HTMLButtonElement>('button') ?? [])]
+      .find((button) => button.textContent === 'app.scenes')
+    if (!trigger || !camera || !trigger.parentElement) {
+      throw new Error('Missing responsive toolbar controls')
+    }
+
+    await act(() => trigger.click())
+    const firstMenuButton = container?.querySelector<HTMLButtonElement>(
+      '[data-testid="track-toolbar-mobile-menu"] button',
+    )
+    expect(document.activeElement).toBe(firstMenuButton)
+
+    const menuWrapper = trigger.parentElement
+    const nativeGetComputedStyle = window.getComputedStyle.bind(window)
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
+      const computed = nativeGetComputedStyle(element)
+      if (element !== menuWrapper) return computed
+      return new Proxy(computed, {
+        get(target, property, receiver) {
+          if (property === 'display') return 'none'
+          const value = Reflect.get(target, property, receiver)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+    })
+
+    await act(() => window.dispatchEvent(new Event('resize')))
+
+    expect(container?.querySelector('[data-testid="track-toolbar-mobile-menu"]')).toBeNull()
+    expect(document.activeElement).toBe(camera)
+  })
+})
