@@ -99,6 +99,7 @@ export default function ExportPanel({
   const idleHeadingRef = useRef<HTMLHeadingElement>(null)
   const successHeadingRef = useRef<HTMLHeadingElement>(null)
   const wasExportingRef = useRef(isExporting)
+  const previousExportStateRef = useRef(exportState)
   useEffect(() => {
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
@@ -283,6 +284,17 @@ export default function ExportPanel({
     })
     return () => cancelAnimationFrame(frame)
   }, [isOpen, exportState])
+
+  useEffect(() => {
+    const previousExportState = previousExportStateRef.current
+    previousExportStateRef.current = exportState
+    if (!isOpen || previousExportState !== 'done' || exportState !== 'idle') return
+
+    const frame = requestAnimationFrame(() => {
+      idleHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [exportState, isOpen])
 
   if (!isOpen) return null
 

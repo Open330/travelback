@@ -145,6 +145,41 @@ describe('ExportPanel completion state', () => {
     expect(document.body.textContent).toContain('export.readyDescription')
     expect(document.body.textContent).not.toContain('export.tipTikTok')
   })
+
+  it('returns focus to the idle export form after Export Again', async () => {
+    const onClose = vi.fn()
+    const onResetExport = vi.fn()
+    await renderExportPanel(onClose, {
+      exportState: 'done',
+      onResetExport,
+      exportedVideoUrl: 'blob:ready-video',
+      exportedVideoFilename: 'Travelback.mp4',
+    })
+
+    const exportAgain = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('export.exportAgain'))
+    if (!exportAgain) throw new Error('Missing Export Again button')
+    await act(() => exportAgain.click())
+    expect(onResetExport).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      root?.render(createElement(ExportPanel, {
+        isOpen: true,
+        onClose,
+        onExport: vi.fn(),
+        isExporting: false,
+        exportProgress: 0,
+        exportState: 'idle',
+        onResetExport,
+        onCancelExport: vi.fn(),
+      }))
+      await Promise.resolve()
+    })
+
+    const idleHeading = document.querySelector<HTMLHeadingElement>('#export-panel-title')
+    if (!idleHeading) throw new Error('Missing idle Export heading')
+    expect(document.activeElement).toBe(idleHeading)
+  })
 })
 
 describe('ExportPanel rendering focus', () => {

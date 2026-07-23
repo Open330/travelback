@@ -141,6 +141,7 @@ function HomeInner() {
   const [pendingTrimRange, setPendingTrimRange] = useState<{ startIdx: number; endIdx: number } | null>(null)
   const [mapGeneration, setMapGeneration] = useState(0)
   const workspaceStatusRef = useRef<HTMLDivElement>(null)
+  const resumePlaybackAfterJourneyRef = useRef(false)
   const tRef = useRef(t)
   const sampleLoadGenerationRef = useRef(0)
   const sampleLoadControllerRef = useRef<AbortController | null>(null)
@@ -348,16 +349,12 @@ function HomeInner() {
 
   const startFreshJourneySession = useCallback(() => {
     invalidateSampleLoad()
-    resetTrackWorkspace()
-    mapViewRef.current?.clearTrackArtifacts()
-    setTrack(null)
-    setFullTrack(null)
-    setAcceptedTrimRange({ startIdx: 0, endIdx: 0 })
-    setTrimSelectionRevision((revision) => revision + 1)
-    resetPlaybackSession()
+    resumePlaybackAfterJourneyRef.current = isPlaying
+    pausePlayback()
+    setShowExport(false)
+    setShowSceneEditor(false)
     setIsCreatingJourney(true)
-    setTrackSessionKey((key) => key + 1)
-  }, [invalidateSampleLoad, resetPlaybackSession, resetTrackWorkspace])
+  }, [invalidateSampleLoad, isPlaying, pausePlayback])
 
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return
@@ -407,6 +404,7 @@ function HomeInner() {
   }, [invalidateSampleLoad, loadTrackIntoSession])
 
   const handleJourneyComplete = useCallback((nextTrack: Track) => {
+    resumePlaybackAfterJourneyRef.current = false
     invalidateSampleLoad()
     loadTrackIntoSession(nextTrack)
   }, [invalidateSampleLoad, loadTrackIntoSession])
@@ -456,12 +454,17 @@ function HomeInner() {
 
   const handleStartJourney = useCallback(() => {
     invalidateSampleLoad()
+    resumePlaybackAfterJourneyRef.current = false
     setIsCreatingJourney(true)
   }, [invalidateSampleLoad])
 
   const handleCancelJourney = useCallback(() => {
     setIsCreatingJourney(false)
-  }, [])
+    if (resumePlaybackAfterJourneyRef.current) {
+      resumePlaybackAfterJourneyRef.current = false
+      togglePlay()
+    }
+  }, [togglePlay])
 
   const handleToggleSceneEditor = useCallback(() => {
     setShowSceneEditor((visible) => !visible)
@@ -481,7 +484,6 @@ function HomeInner() {
 
   const handleResetExport = useCallback(() => {
     resetExportSession()
-    setShowExport(false)
   }, [resetExportSession])
 
   const handleScenesChange = useCallback((value: SetStateAction<Scene[]>) => {
@@ -594,7 +596,7 @@ function HomeInner() {
       <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true" data-travelback-exporting={isExporting ? 'true' : undefined} data-has-track={track ? 'true' : undefined}>
         <MapView
           ref={mapViewRef}
-          track={track}
+          track={isCreatingJourney ? null : track}
           progress={progress}
           mapStyleKey={mapStyleKey}
           followCamera={followCamera}
@@ -635,7 +637,7 @@ function HomeInner() {
           onClose={() => setShowKeyboardHelp(false)}
         />
 
-        {!track && isCreatingJourney && (
+        {isCreatingJourney && (
           <JourneyCreator
             isActive={isCreatingJourney}
             onComplete={handleJourneyComplete}
@@ -648,7 +650,7 @@ function HomeInner() {
 
         <GoogleGuide isOpen={showGoogleGuide} onClose={handleCloseGoogleGuide} />
 
-        {track && fullTrack && (
+        {track && fullTrack && !isCreatingJourney && (
           <>
             <div ref={workspaceStatusRef} tabIndex={-1} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
               {loadedTrackStatus ? `${t('app.trackLoaded')} ${resolveTrackDisplayName(loadedTrackStatus, t)}` : ''}
