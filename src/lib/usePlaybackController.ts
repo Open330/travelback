@@ -53,32 +53,51 @@ export function usePlaybackController(track: Track | null) {
     progressRef.current = nextProgress
   }, [])
 
-  const pausePlayback = useCallback(() => {
-    setIsPlaying(false)
+  const stopScheduledPlayback = useCallback(() => {
+    isPlayingRef.current = false
+    awaitingFirstFrameRef.current = false
+    cancelAnimationFrame(animFrameRef.current)
+    window.clearTimeout(fallbackTimerRef.current)
+    animFrameRef.current = 0
+    fallbackTimerRef.current = 0
   }, [])
 
+  const pausePlayback = useCallback(() => {
+    stopScheduledPlayback()
+    setIsPlaying(false)
+  }, [stopScheduledPlayback])
+
   const resetPlayback = useCallback((nextProgress = 0) => {
+    stopScheduledPlayback()
     setPlaybackProgress(nextProgress)
     setIsPlaying(false)
-  }, [setPlaybackProgress])
+  }, [setPlaybackProgress, stopScheduledPlayback])
 
   const resetPlaybackSession = useCallback((nextProgress = 0) => {
+    stopScheduledPlayback()
     setPlaybackProgress(nextProgress)
     setIsPlaying(false)
     setSpeed(1)
     setDuration(30)
     setFollowCamera(true)
-  }, [setPlaybackProgress])
+  }, [setPlaybackProgress, stopScheduledPlayback])
 
   const togglePlay = useCallback(() => {
     if (progressRef.current >= 1) {
       setPlaybackProgress(0)
+      isPlayingRef.current = true
       setIsPlaying(true)
       return
     }
 
-    setIsPlaying((playing) => !playing)
-  }, [setPlaybackProgress])
+    const nextIsPlaying = !isPlayingRef.current
+    if (nextIsPlaying) {
+      isPlayingRef.current = true
+    } else {
+      stopScheduledPlayback()
+    }
+    setIsPlaying(nextIsPlaying)
+  }, [setPlaybackProgress, stopScheduledPlayback])
 
   const seekTo = useCallback((nextProgress: number) => {
     const safe = Number.isFinite(nextProgress) ? nextProgress : 0
@@ -91,13 +110,13 @@ export function usePlaybackController(track: Track | null) {
       awaitingFirstFrameRef.current = false
 
       if (clampedProgress >= 1) {
-        isPlayingRef.current = false
+        stopScheduledPlayback()
         setIsPlaying(false)
       }
     }
 
     setSeekNonce((nonce) => nonce + 1)
-  }, [setPlaybackProgress])
+  }, [setPlaybackProgress, stopScheduledPlayback])
 
   const stepSeek = useCallback((delta: number) => {
     seekTo(progressRef.current + delta)
@@ -148,6 +167,7 @@ export function usePlaybackController(track: Track | null) {
 
       if (nextProgress >= 1) {
         setPlaybackProgress(1)
+        stopScheduledPlayback()
         setIsPlaying(false)
         return
       }
@@ -164,7 +184,7 @@ export function usePlaybackController(track: Track | null) {
       cancelAnimationFrame(animFrameRef.current)
       window.clearTimeout(fallbackTimerRef.current)
     }
-  }, [isPlaying, track, setPlaybackProgress])
+  }, [isPlaying, track, setPlaybackProgress, stopScheduledPlayback])
 
   return {
     isPlaying,

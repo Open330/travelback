@@ -166,6 +166,25 @@ describe('usePlaybackController active seeking', () => {
     expect(currentController().isPlaying).toBe(true)
     expect(currentController().progress).toBe(0)
   })
+
+  it('rejects a queued frame after a synchronous session reset', async () => {
+    await renderController()
+
+    await act(() => currentController().togglePlay())
+    await runNextFrame(100)
+    const staleFrame = [...frames.values()][0]
+    if (!staleFrame) throw new Error('Missing queued playback frame')
+
+    await act(() => currentController().resetPlaybackSession())
+    expect(frames.size).toBe(0)
+    expect(currentController().progress).toBe(0)
+
+    await act(() => staleFrame(1_100))
+
+    expect(currentController().isPlaying).toBe(false)
+    expect(currentController().progress).toBe(0)
+    expect(frames.size).toBe(0)
+  })
 })
 
 describe('usePlaybackHotkeys Escape ownership', () => {
