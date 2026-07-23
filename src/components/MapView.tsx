@@ -9,6 +9,7 @@ import { computeCameraForProgress, computeDefaultFollowCamera, normalizeScenes, 
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
+  buildReferenceGridData,
   buildFitBoundsCoordinates,
   buildTrailFrameGeometry,
   prepareTrackGeometry,
@@ -168,113 +169,6 @@ function readTrailHeadPosition(map: maplibregl.Map): [number, number] | null {
   const coordinates = data.geometry.coordinates
   const [lng, lat] = coordinates[coordinates.length - 1] ?? []
   return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
-}
-
-function chooseReferenceGridStep(span: number): number {
-  if (span <= 0.02) return 0.0025
-  if (span <= 0.05) return 0.005
-  if (span <= 0.1) return 0.01
-  if (span <= 0.5) return 0.05
-  if (span <= 1.5) return 0.1
-  if (span <= 5) return 0.5
-  if (span <= 20) return 2
-  return 10
-}
-
-function buildReferenceGridData(bounds: TrackDisplayBounds | null): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = []
-
-  if (!bounds) {
-    for (let longitude = -150; longitude <= 150; longitude += 30) {
-      features.push({
-        type: 'Feature',
-        properties: { major: longitude === 0 ? 1 : 0 },
-        geometry: {
-          type: 'LineString',
-          coordinates: [
-            [longitude, -80],
-            [longitude, 80],
-          ],
-        },
-      })
-    }
-
-    for (let latitude = -60; latitude <= 60; latitude += 30) {
-      features.push({
-        type: 'Feature',
-        properties: { major: latitude === 0 ? 1 : 0 },
-        geometry: {
-          type: 'LineString',
-          coordinates: [
-            [-180, latitude],
-            [180, latitude],
-          ],
-        },
-      })
-    }
-
-    return {
-      type: 'FeatureCollection',
-      features,
-    }
-  }
-
-  const span = Math.max(
-    bounds.east - bounds.west,
-    bounds.north - bounds.south,
-    0.01,
-  )
-  const step = chooseReferenceGridStep(span)
-  const majorEvery = 5
-  const lngMargin = Math.max(span * 1.5, step * 4)
-  const latMargin = Math.max(span * 1.5, step * 4)
-  const expandedMinLng = bounds.west - lngMargin
-  const expandedMaxLng = bounds.east + lngMargin
-  const gridSouth = Math.max(-85, Math.min(85, bounds.south))
-  const gridNorth = Math.max(-85, Math.min(85, bounds.north))
-  const expandedMinLat = Math.max(-85, gridSouth - latMargin)
-  const expandedMaxLat = Math.min(85, gridNorth + latMargin)
-
-  let longitudeIndex = 0
-  const lngCount = Math.ceil((expandedMaxLng + step / 2 - Math.floor(expandedMinLng / step) * step) / step)
-  for (let i = 0; i < lngCount; i++) {
-    const longitude = Math.floor(expandedMinLng / step) * step + i * step
-    features.push({
-      type: 'Feature',
-      properties: { major: longitudeIndex % majorEvery === 0 ? 1 : 0 },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [Number(longitude.toFixed(6)), expandedMinLat],
-          [Number(longitude.toFixed(6)), expandedMaxLat],
-        ],
-      },
-    })
-    longitudeIndex += 1
-  }
-
-  let latitudeIndex = 0
-  const latCount = Math.ceil((expandedMaxLat + step / 2 - Math.floor(expandedMinLat / step) * step) / step)
-  for (let i = 0; i < latCount; i++) {
-    const latitude = Math.floor(expandedMinLat / step) * step + i * step
-    features.push({
-      type: 'Feature',
-      properties: { major: latitudeIndex % majorEvery === 0 ? 1 : 0 },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [expandedMinLng, Number(latitude.toFixed(6))],
-          [expandedMaxLng, Number(latitude.toFixed(6))],
-        ],
-      },
-    })
-    latitudeIndex += 1
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features,
-  }
 }
 
 const WORLD_REFERENCE_GRID_DATA = buildReferenceGridData(null)

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackPoint } from '@/types'
+import { normalizeLng } from './interpolate'
 import {
   buildFitBoundsCoordinates,
+  buildReferenceGridData,
   buildTrackGeometry,
   buildTrailChunkFeatureCollection,
   buildTrailChunks,
@@ -9,6 +11,8 @@ import {
   computeTrackDisplayBounds,
   prepareTrackGeometry,
   precomputeWrappedSegments,
+  REFERENCE_GRID_MAX_FEATURES,
+  REFERENCE_GRID_MAX_FEATURES_PER_AXIS,
   TRAIL_CHUNK_COORDINATE_BUDGET,
 } from './map-geometry'
 
@@ -21,6 +25,20 @@ function fitBounds(points: TrackPoint[], segmentStartIndices: number[] = []) {
 function coordinateCount(geometry: GeoJSON.LineString | GeoJSON.MultiLineString): number {
   if (geometry.type === 'LineString') return geometry.coordinates.length
   return geometry.coordinates.reduce((total, coordinates) => total + coordinates.length, 0)
+}
+
+function referenceGridAxisCounts(collection: GeoJSON.FeatureCollection) {
+  let longitude = 0
+  let latitude = 0
+
+  for (const feature of collection.features) {
+    if (feature.geometry.type !== 'LineString') continue
+    const [start, end] = feature.geometry.coordinates
+    if (start[0] === end[0]) longitude++
+    if (start[1] === end[1]) latitude++
+  }
+
+  return { longitude, latitude }
 }
 
 describe('map geometry', () => {
@@ -75,6 +93,80 @@ describe('map geometry', () => {
     expect(computeTrackDisplayBounds(points, segmentStartIndices)).toEqual({
       ...expected,
       south: 0,
+      north: 0,
+    })
+  })
+
+  it('preserves ordinary reference-grid density and antimeridian display space', () => {
+    const ordinaryGrid = buildReferenceGridData({
+      west: 126,
+      south: 37,
+      east: 128,
+      north: 38,
+    })
+    const antimeridianGrid = buildReferenceGridData(
+      computeTrackDisplayBounds([point(179, 10), point(-179, 20)]),
+    )
+
+    expect(referenceGridAxisCounts(ordinaryGrid)).toEqual({ longitude: 17, latitude: 15 })
+    expect(ordinaryGrid.features[0].geometry).toEqual({
+      type: 'LineString',
+      coordinates: [[123, 34], [123, 41]],
+    })
+    expect(referenceGridAxisCounts(antimeridianGrid)).toEqual({ longitude: 17, latitude: 21 })
+    expect(antimeridianGrid.features[0].geometry).toEqual({
+      type: 'LineString',
+      coordinates: [[164, -5], [164, 35]],
+    })
+  })
+
+  it.each([
+    {
+      name: 'a 480-degree route',
+      bounds: { west: 0, south: 0, east: 480, north: 0 },
+    },
+    {
+      name: 'a 35-million-degree route',
+      bounds: { west: 0, south: -1, east: 35_799_821, north: 1 },
+    },
+  ])('keeps the adaptive reference grid bounded for $name', ({ bounds }) => {
+    const grid = buildReferenceGridData(bounds)
+    const axisCounts = referenceGridAxisCounts(grid)
+    const longitudeValues = grid.features.flatMap((feature) => {
+      if (feature.geometry.type !== 'LineString') return []
+      const [start, end] = feature.geometry.coordinates
+      return start[0] === end[0] ? [start[0]] : []
+    })
+
+    expect(axisCounts.longitude).toBeLessThanOrEqual(REFERENCE_GRID_MAX_FEATURES_PER_AXIS)
+    expect(axisCounts.latitude).toBeLessThanOrEqual(REFERENCE_GRID_MAX_FEATURES_PER_AXIS)
+    expect(grid.features).toHaveLength(axisCounts.longitude + axisCounts.latitude)
+    expect(grid.features.length).toBeLessThanOrEqual(REFERENCE_GRID_MAX_FEATURES)
+    expect(Math.min(...longitudeValues)).toBeLessThanOrEqual(bounds.west)
+    expect(Math.max(...longitudeValues)).toBeGreaterThanOrEqual(bounds.east)
+    expect(grid.features.every((feature) => (
+      feature.geometry.type === 'LineString'
+      && feature.geometry.coordinates.flat().every(Number.isFinite)
+    ))).toBe(true)
+  })
+
+  it('unwraps a large canonical multiworld route in one linear pass', () => {
+    const pointCount = 200_000
+    const points = Array.from(
+      { length: pointCount },
+      (_, index) => point(normalizeLng(index * 179), 0),
+    )
+    const prepared = prepareTrackGeometry(points)
+
+    expect(prepared.wrappedSegments[0].coordinates).toHaveLength(pointCount)
+    expect(prepared.wrappedSegments[0].coordinates.at(-1)).toEqual([
+      (pointCount - 1) * 179,
+      0,
+    ])
+    expect(prepared.displayBounds).toEqual({
+      west: 0,
+      south: 0,
+      east: (pointCount - 1) * 179,
       north: 0,
     })
   })

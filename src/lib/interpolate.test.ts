@@ -10,6 +10,7 @@ import {
   formatDistance,
   formatElevation,
   formatDuration,
+  wrapLngNear,
 } from './interpolate'
 import type { TrackPoint } from '@/types'
 
@@ -39,6 +40,25 @@ describe('shortestLngDelta', () => {
     expect(shortestLngDelta(10, 0)).toBeCloseTo(-10, 10)
     expect(shortestLngDelta(170, -170)).toBeCloseTo(20, 10)
     expect(shortestLngDelta(-170, 170)).toBeCloseTo(-20, 10)
+  })
+})
+
+describe('wrapLngNear', () => {
+  it('preserves both inclusive 180-degree boundary choices', () => {
+    expect(wrapLngNear(0, 180)).toBe(180)
+    expect(wrapLngNear(0, -180)).toBe(-180)
+    expect(wrapLngNear(0, 540)).toBe(180)
+    expect(wrapLngNear(0, -540)).toBe(-180)
+  })
+
+  it('selects a nearby world copy with constant arithmetic for far references', () => {
+    expect(wrapLngNear(35_799_821, 160)).toBe(35_800_000)
+    expect(wrapLngNear(-35_799_821, -160)).toBe(-35_800_000)
+  })
+
+  it('returns the next longitude unchanged for non-finite inputs', () => {
+    expect(wrapLngNear(Number.POSITIVE_INFINITY, 10)).toBe(10)
+    expect(wrapLngNear(10, Number.NEGATIVE_INFINITY)).toBe(Number.NEGATIVE_INFINITY)
   })
 })
 

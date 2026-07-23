@@ -13,6 +13,168 @@ export interface TrackDisplayBounds {
   north: number
 }
 
+export const REFERENCE_GRID_MAX_FEATURES_PER_AXIS = 128
+export const REFERENCE_GRID_MAX_FEATURES = REFERENCE_GRID_MAX_FEATURES_PER_AXIS * 2
+
+function chooseReferenceGridStep(span: number): number {
+  if (span <= 0.02) return 0.0025
+  if (span <= 0.05) return 0.005
+  if (span <= 0.1) return 0.01
+  if (span <= 0.5) return 0.05
+  if (span <= 1.5) return 0.1
+  if (span <= 5) return 0.5
+  if (span <= 20) return 2
+  return 10
+}
+
+function niceStepAtLeast(minimumStep: number): number {
+  const exponent = Math.floor(Math.log10(minimumStep))
+  const magnitude = 10 ** exponent
+  const normalized = minimumStep / magnitude
+  const factor = normalized <= 1
+    ? 1
+    : normalized <= 2
+      ? 2
+      : normalized <= 2.5
+        ? 2.5
+        : normalized <= 5
+          ? 5
+          : 10
+  return factor * magnitude
+}
+
+function gridLineCount(minimum: number, maximum: number, step: number): number {
+  const first = Math.floor(minimum / step) * step
+  return Math.max(1, Math.ceil((maximum + step / 2 - first) / step))
+}
+
+function chooseBoundedGridStep(
+  minimum: number,
+  maximum: number,
+  preferredStep: number,
+): number {
+  if (gridLineCount(minimum, maximum, preferredStep) <= REFERENCE_GRID_MAX_FEATURES_PER_AXIS) {
+    return preferredStep
+  }
+
+  const range = maximum - minimum
+  return niceStepAtLeast(range / (REFERENCE_GRID_MAX_FEATURES_PER_AXIS - 3))
+}
+
+function buildGridValues(
+  minimum: number,
+  maximum: number,
+  preferredStep: number,
+): number[] {
+  const step = chooseBoundedGridStep(minimum, maximum, preferredStep)
+  const first = Math.floor(minimum / step) * step
+  const count = Math.min(
+    gridLineCount(minimum, maximum, step),
+    REFERENCE_GRID_MAX_FEATURES_PER_AXIS,
+  )
+  return Array.from(
+    { length: count },
+    (_, index) => Number((first + index * step).toFixed(6)),
+  )
+}
+
+function worldReferenceGridData(): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = []
+
+  for (let longitude = -150; longitude <= 150; longitude += 30) {
+    features.push({
+      type: 'Feature',
+      properties: { major: longitude === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [longitude, -80],
+          [longitude, 80],
+        ],
+      },
+    })
+  }
+
+  for (let latitude = -60; latitude <= 60; latitude += 30) {
+    features.push({
+      type: 'Feature',
+      properties: { major: latitude === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-180, latitude],
+          [180, latitude],
+        ],
+      },
+    })
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  }
+}
+
+export function buildReferenceGridData(
+  bounds: TrackDisplayBounds | null,
+): GeoJSON.FeatureCollection {
+  if (!bounds) return worldReferenceGridData()
+
+  const boundsValues = [bounds.west, bounds.south, bounds.east, bounds.north]
+  if (!boundsValues.every(Number.isFinite)) return worldReferenceGridData()
+
+  const west = Math.min(bounds.west, bounds.east)
+  const east = Math.max(bounds.west, bounds.east)
+  const south = Math.min(bounds.south, bounds.north)
+  const north = Math.max(bounds.south, bounds.north)
+  const span = Math.max(east - west, north - south, 0.01)
+  if (!Number.isFinite(span) || span > Number.MAX_VALUE / 4) {
+    return worldReferenceGridData()
+  }
+
+  const preferredStep = chooseReferenceGridStep(span)
+  const longitudeMargin = Math.max(span * 1.5, preferredStep * 4)
+  const latitudeMargin = Math.max(span * 1.5, preferredStep * 4)
+  const expandedMinLng = west - longitudeMargin
+  const expandedMaxLng = east + longitudeMargin
+  const gridSouth = Math.max(-85, Math.min(85, south))
+  const gridNorth = Math.max(-85, Math.min(85, north))
+  const expandedMinLat = Math.max(-85, gridSouth - latitudeMargin)
+  const expandedMaxLat = Math.min(85, gridNorth + latitudeMargin)
+  const longitudes = buildGridValues(expandedMinLng, expandedMaxLng, preferredStep)
+  const latitudes = buildGridValues(expandedMinLat, expandedMaxLat, preferredStep)
+  const majorEvery = 5
+  const features: GeoJSON.Feature[] = [
+    ...longitudes.map((longitude, index): GeoJSON.Feature => ({
+      type: 'Feature',
+      properties: { major: index % majorEvery === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [longitude, expandedMinLat],
+          [longitude, expandedMaxLat],
+        ],
+      },
+    })),
+    ...latitudes.map((latitude, index): GeoJSON.Feature => ({
+      type: 'Feature',
+      properties: { major: index % majorEvery === 0 ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [expandedMinLng, latitude],
+          [expandedMaxLng, latitude],
+        ],
+      },
+    })),
+  ]
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  }
+}
+
 export const TRAIL_CHUNK_COORDINATE_BUDGET = 512
 
 export interface TrailChunkPart {

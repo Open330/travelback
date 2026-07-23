@@ -12,10 +12,24 @@ export const shortestLngDelta = (from: number, to: number) => ((to - from + 540)
  *  Used for antimeridian wrapping when building continuous coordinate arrays. */
 export function wrapLngNear(referenceLng: number, nextLng: number): number {
   if (!Number.isFinite(referenceLng) || !Number.isFinite(nextLng)) return nextLng
-  let adjusted = nextLng
-  while (adjusted - referenceLng > 180) adjusted -= 360
-  while (adjusted - referenceLng < -180) adjusted += 360
-  return adjusted
+  const delta = nextLng - referenceLng
+  if (delta > 180) {
+    if (!Number.isFinite(delta)) {
+      const wrappedDelta = normalizeLng(nextLng) - normalizeLng(referenceLng)
+      const nearbyDelta = wrappedDelta > 180 ? wrappedDelta - 360 : wrappedDelta
+      return referenceLng + (nearbyDelta === -180 ? 180 : nearbyDelta)
+    }
+    return nextLng - Math.ceil((delta - 180) / 360) * 360
+  }
+  if (delta < -180) {
+    if (!Number.isFinite(delta)) {
+      const wrappedDelta = normalizeLng(nextLng) - normalizeLng(referenceLng)
+      const nearbyDelta = wrappedDelta < -180 ? wrappedDelta + 360 : wrappedDelta
+      return referenceLng + (nearbyDelta === 180 ? -180 : nearbyDelta)
+    }
+    return nextLng + Math.ceil((-180 - delta) / 360) * 360
+  }
+  return nextLng
 }
 
 function haversineDistance(a: TrackPoint, b: TrackPoint): number {
