@@ -1030,6 +1030,10 @@ test.describe('Travelback App', () => {
 
   test('failed sample loading restores its pending controls', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 480 })
+    // Initialize at the compact viewport so the geometry baseline is not
+    // captured midway through the card's responsive transition.
+    await page.goto('/')
+    await waitForApp(page)
     let releaseSample!: () => void
     const sampleReleased = new Promise<void>((resolve) => { releaseSample = resolve })
     let requestCount = 0
