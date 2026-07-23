@@ -1,6 +1,6 @@
 # Cycle 10 Review Remediation Plan — 2026-07-24
 
-Status: **Active**
+Status: **Complete**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `570aa3510b6ca1431b47001e860d43876df39e15`
@@ -165,9 +165,32 @@ Use explicit alternate ports and do not touch any unrelated owner.
 
 ## Progress
 
-- P01: Pending
-- P02: Pending
-- P03: Pending
-- Full verification: Pending
-- Signed commits and no-deploy branch push: Pending
+- P01: Complete
+- P02: Complete
+- P03: Complete
+- Full verification: Complete
+- Signed commits and no-deploy branch push: Complete
 
+## Completion record
+
+- Implemented every scheduled finding with no deferral: schema-owned GPX/KML
+  display names, immediate paused duration-dependent camera publication, and
+  retained-trip hotkey suspension during Journey Creator.
+- Focused parser coverage passed 186 tests. The combined P02/P03 browser
+  regressions passed 2 tests after reproducing both product failures.
+- Full gates passed: lint; typecheck; 623 unit tests; 40 process-supervisor
+  tests; production build; 118 development E2E tests with 1 expected skip;
+  static smoke plus 117 static E2E tests with 2 expected skips; zero audit
+  vulnerabilities; and the isolated real WebCodecs MP4 export.
+- Four recoverable focused-regression harness corrections were completed
+  before the full gate: two scene-mode accessibility locator corrections,
+  keyboard activation around the Next development overlay, and a
+  clamp-safe manual-camera movement assertion. The complete gate required no
+  further repair.
+- Every browser-capable run used an explicit alternate listener, unique
+  temporary root/profile, and exact PID/process-tree audit. Owned processes,
+  generated locks, profiles, listeners, and temporary roots were absent
+  after cleanup. Protected user Chrome PID/PGID 1368 was unchanged.
+- All Cycle 10 commits were GPG-signed and pushed only to
+  `review-plan-fix/no-deploy-20260723`. No deployment command, workflow
+  dispatch, deployment-state mutation, or push to `main` occurred.
