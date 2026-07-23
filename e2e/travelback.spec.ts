@@ -177,6 +177,25 @@ async function expectPublicMapReady(page: Page) {
   await expect(page.getByTestId('map-error')).toHaveCount(0)
 }
 
+async function readDebugMapLayerState(page: Page) {
+  return page.evaluate(() => {
+    type MapLayerState = {
+      hasRouteSource: boolean
+      hasTrailSource: boolean
+      hasRouteLayer: boolean
+      hasTrailLayer: boolean
+      hasMarker: boolean
+    }
+    type DebugWindow = Window & {
+      __travelbackDebug?: {
+        getMapState: () => MapLayerState | null
+      }
+    }
+
+    return (window as DebugWindow).__travelbackDebug?.getMapState() ?? null
+  })
+}
+
 /** Helper: upload a GPX file and wait for the track to load */
 function visibleTrackTitle(page: Page, name: string) {
   return page.getByRole('heading', { level: 1 }).filter({ hasText: name })
@@ -395,6 +414,52 @@ async function activeElementState(page: Page) {
   })
 }
 
+async function addJourneyCoordinates(
+  panel: Locator,
+  coordinates = ['37.5665, 126.9780', '37.5765, 126.9880'],
+) {
+  await expect(panel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 30_000 })
+
+  const enableSearch = panel.getByTestId('journey-enable-search')
+  if (await enableSearch.count()) {
+    await enableSearch.click({ force: true })
+  }
+
+  const searchInput = panel.getByRole('combobox')
+  await expect(searchInput).toBeVisible({ timeout: 15_000 })
+
+  for (const coordinate of coordinates) {
+    await searchInput.fill(coordinate)
+    await searchInput.press('Enter')
+    const result = panel.getByRole('option')
+    await expect(result).toHaveCount(1)
+    await searchInput.press('ArrowDown')
+    await expect(searchInput).toHaveAttribute('aria-activedescendant', 'journey-search-option-0')
+    await searchInput.press('Enter')
+    await expect(searchInput).toHaveValue('')
+    await expect(result).toHaveCount(0)
+  }
+}
+
+async function expectVisibleInViewportAndHitOwned(
+  locator: Locator,
+  viewport: { width: number; height: number },
+) {
+  await expect(locator).toBeVisible({ timeout: 15_000 })
+  const box = await locator.boundingBox()
+  if (!box) throw new Error(`Missing geometry at ${viewport.width}x${viewport.height}`)
+
+  expect(box.x).toBeGreaterThanOrEqual(-0.5)
+  expect(box.y).toBeGreaterThanOrEqual(-0.5)
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 0.5)
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 0.5)
+  await expect.poll(() => locator.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return hit === element || (hit !== null && element.contains(hit))
+  }), { timeout: 10_000, intervals: [100, 200, 400] }).toBe(true)
+}
+
 test.describe('Travelback App', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -440,6 +505,25 @@ test.describe('Travelback App', () => {
     // The file upload drop zone should be visible
     await expect(page.getByText('Drop a .json Google Timeline export, .gpx, or .kml file here')).toBeVisible({ timeout: 10_000 })
   })
+  test('short landing layout reserves a pointer-safe area below settings', async ({ page }) => {
+    const viewport = { width: 320, height: 480 }
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await waitForApp(page)
+
+    const toolbar = page.getByTestId('global-toolbar')
+    const uploadCard = page.getByTestId('landing-upload-card')
+    await expectVisibleInViewportAndHitOwned(toolbar, viewport)
+    await expectVisibleInViewportAndHitOwned(uploadCard, viewport)
+
+    const [toolbarBox, uploadCardBox] = await Promise.all([
+      toolbar.boundingBox(),
+      uploadCard.boundingBox(),
+    ])
+    if (!toolbarBox || !uploadCardBox) throw new Error('Missing short landing layout geometry')
+    expect(boxesOverlap(toolbarBox, uploadCardBox)).toBe(false)
+  })
+
   test('landing keyboard flow prioritizes upload actions over the decorative map', async ({ page }) => {
     await page.keyboard.press('Tab')
     const active = await activeElementState(page)
@@ -1096,32 +1180,49 @@ test.describe('Travelback App', () => {
     }
   })
 
-  test('journey creator uses an editable route name', async ({ page }) => {
-    const addCoordinates = async (activePanel: Locator) => {
-      const activeSearchInput = activePanel.getByRole('combobox')
-      await expect(activeSearchInput).toBeVisible({ timeout: 15_000 })
+  test('short and landscape Journey Creator flows keep terminal actions usable', async ({ page }) => {
+    for (const viewport of [
+      { width: 320, height: 480 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/')
+      await waitForApp(page)
+      await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
 
-      for (const coordinates of ['37.5665, 126.9780', '37.5765, 126.9880']) {
-        await activeSearchInput.fill(coordinates)
-        await activeSearchInput.press('Enter')
-        const result = activePanel.getByRole('option')
-        await expect(result).toHaveCount(1)
-        await expect(result).toBeVisible()
-        await activeSearchInput.press('ArrowDown')
-        await expect(activeSearchInput).toHaveAttribute('aria-activedescendant', 'journey-search-option-0')
-        await activeSearchInput.press('Enter')
-        await expect(activeSearchInput).toHaveValue('')
-        await expect(result).toHaveCount(0)
-      }
+      const panel = page.getByTestId('journey-creator-panel')
+      await addJourneyCoordinates(panel)
+
+      const cancel = panel.getByRole('button', { name: 'Cancel' })
+      const clear = panel.getByRole('button', { name: 'Clear' })
+      const done = panel.getByRole('button', { name: 'Done' })
+      await expectVisibleInViewportAndHitOwned(cancel, viewport)
+      await expectVisibleInViewportAndHitOwned(clear, viewport)
+      await expectVisibleInViewportAndHitOwned(done, viewport)
+      await done.focus()
+      await expect(done).toBeFocused()
+      await done.click()
+
+      const routeName = `Short Journey ${viewport.width}x${viewport.height}`
+      await panel.getByRole('textbox', { name: 'Route name' }).fill(routeName)
+      const createRoute = panel.getByRole('button', { name: 'Create Route' })
+      await expectVisibleInViewportAndHitOwned(createRoute, viewport)
+      await createRoute.click()
+
+      await expect(visibleTrackTitle(page, `🚶 ${routeName}`)).toBeVisible({ timeout: 15_000 })
+      await expect.poll(() => page.evaluate(() => ({
+        horizontal: document.documentElement.scrollWidth <= window.innerWidth,
+        vertical: document.documentElement.scrollHeight <= window.innerHeight,
+      }))).toEqual({ horizontal: true, vertical: true })
     }
+  })
 
+  test('journey creator uses an editable route name', async ({ page }) => {
     await page.getByRole('button', { name: /draw a route/i }).click({ force: true })
     const initialPanel = page.getByTestId('journey-creator-panel')
     await expect(initialPanel).toBeVisible({ timeout: 15_000 })
-    await expect(initialPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 30_000 })
     await page.getByTestId('journey-icon-car').click()
-    await page.getByTestId('journey-enable-search').click({ force: true })
-    await addCoordinates(initialPanel)
+    await addJourneyCoordinates(initialPanel)
 
     await initialPanel.getByRole('button', { name: 'Done' }).click()
     const journeyCanvas = page.getByTestId('map-container').locator('canvas.maplibregl-canvas')
@@ -1139,11 +1240,16 @@ test.describe('Travelback App', () => {
     await expect(page.getByTestId('journey-creator-panel')).toHaveCount(0)
 
     await page.getByTestId('track-toolbar').getByRole('button', { name: 'New Route', exact: true }).click()
+    const cancelledPanel = page.getByTestId('journey-creator-panel')
+    await expect(cancelledPanel).toBeVisible({ timeout: 15_000 })
+    await cancelledPanel.getByRole('button', { name: 'Cancel' }).click()
+    await expect(cancelledPanel).toHaveCount(0)
+    await expect(visibleTrackTitle(page, '🚗 Bali 2026')).toBeVisible({ timeout: 15_000 })
+
+    await page.getByTestId('track-toolbar').getByRole('button', { name: 'New Route', exact: true }).click()
     const freshPanel = page.getByTestId('journey-creator-panel')
     await expect(freshPanel).toBeVisible({ timeout: 15_000 })
-    await expect(freshPanel).toHaveAttribute('data-map-interaction-ready', 'true', { timeout: 30_000 })
-    await page.getByTestId('journey-enable-search').click({ force: true })
-    await addCoordinates(freshPanel)
+    await addJourneyCoordinates(freshPanel)
     await freshPanel.getByRole('button', { name: 'Done' }).click()
     await freshPanel.getByRole('textbox', { name: 'Route name' }).fill('   ')
     await freshPanel.getByRole('button', { name: 'Create Route' }).click()
@@ -1275,6 +1381,42 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBe(true)
   })
 
+  test('long imported titles reserve the measured desktop action width', async ({ page }) => {
+    const longTrackName = 'Seoul to Busan Summer Railway Adventure with Family and Friends'
+    const longTrack = Buffer.from(
+      `<gpx><trk><name>${longTrackName}</name><trkseg>`
+      + '<trkpt lat="37.5665" lon="126.9780"><time>2026-07-23T00:00:00Z</time></trkpt>'
+      + '<trkpt lat="35.1796" lon="129.0756"><time>2026-07-23T01:00:00Z</time></trkpt>'
+      + '</trkseg></trk></gpx>',
+    )
+
+    for (const width of [768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/')
+      await waitForApp(page)
+      await page.locator('input[type="file"]').setInputFiles({
+        name: 'long-title.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: longTrack,
+      })
+
+      const title = page.getByTestId('track-title')
+      const trackToolbar = page.getByTestId('track-toolbar')
+      await expect(title).toBeVisible({ timeout: 15_000 })
+      await expect(title).toContainText(longTrackName)
+      await expect(trackToolbar).toBeVisible({ timeout: 15_000 })
+
+      await expect.poll(async () => {
+        const [titleBox, toolbarBox] = await Promise.all([
+          title.boundingBox(),
+          trackToolbar.boundingBox(),
+        ])
+        if (!titleBox || !toolbarBox) return true
+        return boxesOverlap(titleBox, toolbarBox)
+      }, { timeout: 10_000, intervals: [100, 200, 400] }).toBe(false)
+    }
+  })
+
   test('loaded settings toolbar does not overlap track titles at responsive breakpoints', async ({ page }) => {
     for (const width of [640, 768]) {
       await page.setViewportSize({ width, height: 844 })
@@ -1363,9 +1505,11 @@ test.describe('Travelback App', () => {
     }, { timeout: 5_000, intervals: [120, 200, 300] }).toBeFalsy()
   })
 
-  test('loaded map attribution remains unobscured, hittable, and keyboard operable', async ({ page }) => {
+  test('loaded map attribution and navigation remain visible and pointer-owned', async ({ page }) => {
     for (const viewport of [
-      { width: 390, height: 844 },
+      { width: 320, height: 480 },
+      { width: 320, height: 568 },
+      { width: 844, height: 390 },
       { width: 1440, height: 1000 },
     ]) {
       await page.setViewportSize(viewport)
@@ -1374,13 +1518,19 @@ test.describe('Travelback App', () => {
       await uploadGpx(page)
 
       const attribution = page.locator('.map-has-track-controls .maplibregl-ctrl-attrib')
+      const navigation = page.locator('.map-has-track-controls .maplibregl-ctrl-top-left .maplibregl-ctrl-group').first()
+      const navigationButtons = navigation.getByRole('button')
       const timeline = page.getByTestId('timeline-selector')
       const elevation = page.getByRole('slider', { name: 'Elevation profile' })
       const playbackStats = page.getByTestId('playback-stats')
       const controlsPanel = page.getByTestId('controls-primary-row')
         .locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " gc ")][1]')
 
-      await expect(attribution).toBeVisible({ timeout: 15_000 })
+      await expectVisibleInViewportAndHitOwned(attribution, viewport)
+      await expect(navigationButtons).toHaveCount(3)
+      for (let index = 0; index < 3; index++) {
+        await expectVisibleInViewportAndHitOwned(navigationButtons.nth(index), viewport)
+      }
       await expect(timeline).toBeVisible()
       await expect(elevation).toBeVisible()
       await expect(playbackStats).toBeVisible()
@@ -1397,16 +1547,6 @@ test.describe('Travelback App', () => {
         if (!attributionBox || protectedBoxes.some(box => !box)) return true
         return protectedBoxes.some(box => boxesOverlap(attributionBox, box!))
       }, { timeout: 10_000, intervals: [100, 200, 400] }).toBe(false)
-
-      const attributionBox = await attribution.boundingBox()
-      if (!attributionBox) throw new Error(`Missing attribution geometry at ${viewport.width}px`)
-      const attributionOwnsCenterHit = await page.evaluate(({ x, y }) => {
-        return Boolean(document.elementFromPoint(x, y)?.closest('.maplibregl-ctrl-attrib'))
-      }, {
-        x: attributionBox.x + attributionBox.width / 2,
-        y: attributionBox.y + attributionBox.height / 2,
-      })
-      expect(attributionOwnsCenterHit).toBe(true)
 
       const toggle = attribution.locator('summary.maplibregl-ctrl-attrib-button')
       const attributionContent = attribution.locator('.maplibregl-ctrl-attrib-inner')
@@ -2023,30 +2163,26 @@ test.describe('Travelback App', () => {
     })
   })
 
-  test('starting a new route clears prior trip map artifacts', async ({ page }) => {
+  test('New Route preserves an imported session until a replacement is confirmed', async ({ page }) => {
     await uploadGpx(page)
+    await setPlaybackProgress(page, 0.42)
+
+    const cameraButton = page.getByTestId('track-toolbar').getByRole('button', { name: 'Camera', exact: true })
+    await cameraButton.click({ force: true })
+    const sceneEditor = page.getByTestId('scene-editor-panel')
+    await sceneEditor.getByRole('button', { name: '+ Add' }).click({ force: true })
+    await expect(sceneEditor.getByRole('combobox', { name: 'Camera mode for scene 1: Scene 1' })).toBeVisible()
+    await sceneEditor.getByRole('button', { name: 'Close panel' }).click()
     await page.waitForTimeout(750)
 
     if (IS_STATIC_E2E) {
       await expectProductionDebugApiAbsent(page)
       await expectPublicMapReady(page)
     } else {
-      await expect.poll(async () => page.evaluate(() => {
-        type DebugWindow = Window & {
-          __travelbackDebug?: {
-            getMapState: () => {
-              hasRouteSource: boolean
-              hasTrailSource: boolean
-              hasRouteLayer: boolean
-              hasTrailLayer: boolean
-              hasMarker: boolean
-            } | null
-          }
-        }
-
-        const debugWindow = window as DebugWindow
-        return debugWindow.__travelbackDebug?.getMapState() ?? null
-      }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
+      await expect.poll(() => readDebugMapLayerState(page), {
+        timeout: 10_000,
+        intervals: [150, 300, 500],
+      }).toMatchObject({
         hasRouteSource: true,
         hasTrailSource: true,
         hasRouteLayer: true,
@@ -2058,37 +2194,65 @@ test.describe('Travelback App', () => {
     const newRouteBtn = page.getByText('New Route', { exact: true })
     await expect(newRouteBtn).toBeVisible({ timeout: 10_000 })
     await newRouteBtn.click({ force: true })
-    await expect(page.getByTestId('journey-creator-panel')).toBeVisible({ timeout: 10_000 })
+    const provisionalJourney = page.getByTestId('journey-creator-panel')
+    await expect(provisionalJourney).toBeVisible({ timeout: 10_000 })
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeHidden()
 
     if (IS_STATIC_E2E) {
       await expectProductionDebugApiAbsent(page)
-      await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeHidden()
       await expect(page.getByTestId('map-error')).toHaveCount(0)
-      return
+    } else {
+      await expect.poll(() => readDebugMapLayerState(page), {
+        timeout: 10_000,
+        intervals: [150, 300, 500],
+      }).toMatchObject({
+        hasRouteSource: false,
+        hasTrailSource: false,
+        hasRouteLayer: false,
+        hasTrailLayer: false,
+        hasMarker: false,
+      })
     }
 
-    await expect.poll(async () => page.evaluate(() => {
-      type DebugWindow = Window & {
-        __travelbackDebug?: {
-          getMapState: () => {
-            hasRouteSource: boolean
-            hasTrailSource: boolean
-            hasRouteLayer: boolean
-            hasTrailLayer: boolean
-            hasMarker: boolean
-          } | null
-        }
-      }
+    await provisionalJourney.getByRole('button', { name: 'Cancel' }).click()
+    await expect(provisionalJourney).toHaveCount(0)
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByLabel('Playback progress')).toHaveValue('0.42')
 
-      const debugWindow = window as DebugWindow
-      return debugWindow.__travelbackDebug?.getMapState() ?? null
-    }), { timeout: 10_000, intervals: [150, 300, 500] }).toMatchObject({
-      hasRouteSource: false,
-      hasTrailSource: false,
-      hasRouteLayer: false,
-      hasTrailLayer: false,
-      hasMarker: false,
-    })
+    await cameraButton.click({ force: true })
+    await expect(sceneEditor.getByRole('combobox', { name: 'Camera mode for scene 1: Scene 1' })).toBeVisible()
+    await sceneEditor.getByRole('button', { name: 'Close panel' }).click()
+
+    if (IS_STATIC_E2E) {
+      await expectPublicMapReady(page)
+    } else {
+      await expect.poll(() => readDebugMapLayerState(page), {
+        timeout: 10_000,
+        intervals: [150, 300, 500],
+      }).toMatchObject({
+        hasRouteSource: true,
+        hasTrailSource: true,
+        hasRouteLayer: true,
+        hasTrailLayer: true,
+        hasMarker: true,
+      })
+    }
+
+    await newRouteBtn.click({ force: true })
+    const replacementJourney = page.getByTestId('journey-creator-panel')
+    await addJourneyCoordinates(replacementJourney)
+    await replacementJourney.getByRole('button', { name: 'Done' }).click()
+    await replacementJourney.getByRole('textbox', { name: 'Route name' }).fill('Replacement Journey')
+    await replacementJourney.getByRole('button', { name: 'Create Route' }).click()
+
+    await expect(visibleTrackTitle(page, '🚶 Replacement Journey')).toBeVisible({ timeout: 15_000 })
+    await expect(visibleTrackTitle(page, 'Test Route Seoul')).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+    await expect(page.getByLabel('Playback progress')).toHaveValue('0')
+
+    await page.getByTestId('track-toolbar').getByRole('button', { name: 'Camera', exact: true }).click({ force: true })
+    await expect(page.getByText('No scenes yet')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('scene-editor-panel').getByRole('combobox', { name: /Camera mode for scene/ })).toHaveCount(0)
   })
 
   test('segmented tracks do not count the gap in playback stats', async ({ page }) => {
@@ -2251,9 +2415,9 @@ test.describe('Travelback App', () => {
     const sceneNameInput = page.getByRole('textbox')
     await expect(sceneNameInput).toHaveValue('Scene 1', { timeout: 5_000 })
 
-    // Camera mode selector should be visible with Flyover selected
-    // The scene editor panel uses .space-y-2 for scene items
-    const modeCombobox = page.locator('.space-y-2 select').first()
+    // Camera mode selector should be discoverable by its scene-specific name.
+    const modeCombobox = page.getByTestId('scene-editor-panel')
+      .getByRole('combobox', { name: 'Camera mode for scene 1: Scene 1' })
     await expect(modeCombobox).toBeVisible()
     await expect(modeCombobox).toHaveValue('flyover')
 
@@ -2269,6 +2433,23 @@ test.describe('Travelback App', () => {
     const panel = page.getByTestId('scene-editor-panel')
     await panel.getByRole('button', { name: 'Cinematic' }).click()
     await expect(panel.locator('select')).toHaveCount(6)
+
+    const sceneNames = await panel.getByRole('textbox').evaluateAll(elements => (
+      elements.map(element => (element as HTMLInputElement).value)
+    ))
+    expect(sceneNames).toHaveLength(6)
+    const namedCameraModes = panel.getByRole('combobox', { name: /^Camera mode for scene \d+: / })
+    await expect(namedCameraModes).toHaveCount(6)
+    for (const [index, sceneName] of sceneNames.entries()) {
+      await expect(panel.getByRole('combobox', {
+        name: `Camera mode for scene ${index + 1}: ${sceneName}`,
+        exact: true,
+      })).toHaveCount(1)
+    }
+    const cameraModeNames = await namedCameraModes.evaluateAll(elements => (
+      elements.map(element => element.getAttribute('aria-label'))
+    ))
+    expect(new Set(cameraModeNames).size).toBe(6)
 
     const expectSelectsContained = async () => {
       const overflow = await panel.evaluate((panelElement) => {
@@ -2791,7 +2972,7 @@ test.describe('Travelback App', () => {
     await expect(exportPanel.locator('p').filter({ hasText: '1080' })).toBeVisible()
   })
 
-  test('export panel can complete the local export path', async ({ page }) => {
+  test('Export Again keeps the completed export dialog open and restores usable settings', async ({ page }) => {
     await page.evaluate(() => {
       window.localStorage.setItem('travelback-export-test-stub', '1')
       const testWindow = window as Window & { releaseExportPicker?: () => void }
@@ -2830,6 +3011,18 @@ test.describe('Travelback App', () => {
     await expect(successHeading).toBeVisible({ timeout: 15_000 })
     await expect(successHeading).toBeFocused()
     await expect(exportPanel.getByRole('link', { name: /Download MP4/i })).toHaveAttribute('download', /Travelback.*\.mp4/)
+
+    await exportPanel.getByRole('button', { name: 'Export Again' }).click()
+    const idleHeading = exportPanel.getByRole('heading', { name: 'Export Video' })
+    await expect(exportPanel).toBeVisible()
+    await expect(exportPanel.getByRole('button', { name: 'Start Export' })).toBeVisible()
+    await expect(idleHeading).toBeFocused()
+
+    const resolution = exportPanel.getByRole('combobox', { name: 'Resolution' })
+    await resolution.selectOption('2')
+    await expect(resolution).toHaveValue('2')
+    await page.keyboard.press('Tab')
+    await expect.poll(() => activeElementState(page)).toMatchObject({ insideDialog: true })
   })
 
   test('cancelled export keeps focus in the idle panel and restores its opener', async ({ page }) => {
