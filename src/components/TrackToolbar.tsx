@@ -144,7 +144,7 @@ export default function TrackToolbar({
         type="button"
         onClick={onStartNewTrack}
         title={t('app.newJourneyAria')}
-        className="gi hidden shrink-0 min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
+        className="track-toolbar-wide-action gi hidden shrink-0 min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
         style={{ color: 'var(--t1)', boxShadow: '0 0 0 1px rgba(var(--gl),.35), 0 4px 12px rgba(0,0,0,.1)' }}
       >
         <Plus size={14} strokeWidth={2.5} />
@@ -170,7 +170,7 @@ export default function TrackToolbar({
         data-testid="map-style-button"
         onClick={onCycleStyle}
         title={t('app.cycleMapStyle')}
-        className="gi hidden shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
+        className="track-toolbar-wide-action gi hidden shrink-0 min-h-11 px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
         style={{ color: 'var(--t1)' }}
       >
         {t('app.mapStylePrefix')} {t(`mapStyle.${mapStyleKey}` as 'mapStyle.voyager')}
@@ -182,7 +182,7 @@ export default function TrackToolbar({
         onClick={onOpenHelp}
         aria-label={t('shortcuts.title')}
         title={t('shortcuts.title')}
-        className="gi hidden shrink-0 min-h-11 items-center px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
+        className="track-toolbar-wide-action gi hidden shrink-0 min-h-11 items-center px-3 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:inline-flex"
         style={{ color: 'var(--t1)' }}
       >
         {t('app.help')}
@@ -197,7 +197,7 @@ export default function TrackToolbar({
         {t('app.export')}
       </button>
 
-      <div className="relative sm:hidden" ref={menuRef}>
+      <div className="track-toolbar-overflow relative sm:hidden" ref={menuRef}>
           <button
             ref={menuTriggerRef}
             type="button"

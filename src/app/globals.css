@@ -338,6 +338,37 @@ input[type="range"]:focus-visible {
   }
 }
 
+/* A wide but short workspace has no vertical gap between the primary toolbar
+   and the measured bottom stack. Use the compact toolbar menu and place the
+   map controls in the freed top row instead of letting either control layer
+   cover the other. */
+@media (min-width: 48rem) and (max-height: 36rem) {
+  .global-toolbar-track,
+  [data-testid="track-toolbar"] .track-toolbar-wide-action {
+    display: none;
+  }
+
+  [data-testid="track-toolbar"] .track-toolbar-overflow {
+    display: block;
+  }
+
+  .track-title-desktop {
+    left: calc(max(1rem, env(safe-area-inset-left, 0px)) + 17.75rem);
+    right: calc(var(--track-toolbar-reserved-inline-end, 14rem) + 8rem);
+  }
+
+  .map-has-track-controls .maplibregl-ctrl-top-left {
+    top: max(.375rem, env(safe-area-inset-top, 0px));
+    left: calc(max(1rem, env(safe-area-inset-left, 0px)) + 8.375rem);
+  }
+
+  .map-has-track-controls .maplibregl-ctrl-bottom-right {
+    top: max(1rem, env(safe-area-inset-top, 0px));
+    right: calc(var(--track-toolbar-reserved-inline-end, 14rem) + .5rem);
+    bottom: auto;
+  }
+}
+
 /* Respect user preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
