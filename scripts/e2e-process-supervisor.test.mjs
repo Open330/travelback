@@ -335,6 +335,53 @@ async function entryExists(filePath) {
   }
 }
 
+function isCanonicalDescendant(parentPath, candidatePath) {
+  const relativePath = path.relative(
+    path.resolve(parentPath),
+    path.resolve(candidatePath),
+  )
+  return relativePath !== ''
+    && relativePath !== '..'
+    && !relativePath.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relativePath)
+}
+
+function assertCanonicalDescendantContract() {
+  const profileDirectory = path.resolve(
+    os.tmpdir(),
+    'travelback-profile-containment',
+  )
+  assert.equal(
+    isCanonicalDescendant(
+      profileDirectory,
+      path.join(profileDirectory, 'Default', 'shared_proto_db', 'LOCK'),
+    ),
+    true,
+  )
+  assert.equal(isCanonicalDescendant(profileDirectory, profileDirectory), false)
+  assert.equal(
+    isCanonicalDescendant(
+      profileDirectory,
+      path.join(profileDirectory, '..', 'escaped-profile', 'LOCK'),
+    ),
+    false,
+  )
+  assert.equal(
+    isCanonicalDescendant(
+      profileDirectory,
+      path.join(`${profileDirectory}-sibling`, 'LOCK'),
+    ),
+    false,
+  )
+  assert.equal(
+    isCanonicalDescendant(
+      profileDirectory,
+      path.join(path.parse(profileDirectory).root, 'outside-profile', 'LOCK'),
+    ),
+    false,
+  )
+}
+
 function readListener(port, timeoutMs = 2_000) {
   return new Promise((resolve, reject) => {
     let source = ''
@@ -421,6 +468,7 @@ test(
   'a deliberate real Chromium failure reaps its exact browser and listener without touching a sentinel',
   { concurrency: false, timeout: 30_000 },
   async testContext => {
+    assertCanonicalDescendantContract()
     if (!isPosix) return assertWindowsContainmentRefusal()
 
     const stateDirectory = await mkdtemp(
@@ -554,7 +602,11 @@ test(
       assert.ok(browserProcesses.length > 0)
       assert.ok(state.profileLocks.length > 0)
       for (const lockPath of state.profileLocks) {
-        assert.equal(path.dirname(lockPath), profileDirectory)
+        assert.equal(
+          isCanonicalDescendant(profileDirectory, lockPath),
+          true,
+          `Profile lock escaped its fixture-owned directory: ${lockPath}`,
+        )
         assert.equal(await entryExists(lockPath), true)
       }
 
