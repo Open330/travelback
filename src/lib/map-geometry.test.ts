@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { GeoJSONVT } from '@maplibre/geojson-vt'
 import type { TrackPoint } from '@/types'
 import { normalizeLng } from './interpolate'
 import {
@@ -13,6 +14,7 @@ import {
   precomputeWrappedSegments,
   REFERENCE_GRID_MAX_FEATURES,
   REFERENCE_GRID_MAX_FEATURES_PER_AXIS,
+  RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE,
   TRAIL_CHUNK_COORDINATE_BUDGET,
 } from './map-geometry'
 
@@ -25,6 +27,86 @@ function fitBounds(points: TrackPoint[], segmentStartIndices: number[] = []) {
 function coordinateCount(geometry: GeoJSON.LineString | GeoJSON.MultiLineString): number {
   if (geometry.type === 'LineString') return geometry.coordinates.length
   return geometry.coordinates.reduce((total, coordinates) => total + coordinates.length, 0)
+}
+
+function geometryParts(
+  geometry: GeoJSON.LineString | GeoJSON.MultiLineString,
+): GeoJSON.Position[][] {
+  return geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
+}
+
+function tiledRendererIds(collection: GeoJSON.FeatureCollection): Set<string> {
+  const zoom = 4
+  const tileIndex = new GeoJSONVT(collection, {
+    maxZoom: zoom,
+    indexMaxZoom: zoom,
+    indexMaxPoints: 0,
+    tolerance: 0,
+  })
+  const ids = new Set<string>()
+
+  for (let x = 0; x < 2 ** zoom; x++) {
+    for (let y = 0; y < 2 ** zoom; y++) {
+      const tile = tileIndex.getTile(zoom, x, y)
+      for (const feature of tile?.features ?? []) {
+        const rendererId = feature.tags?.rendererId
+        if (typeof rendererId === 'string') ids.add(rendererId)
+      }
+    }
+  }
+
+  return ids
+}
+
+function rendererContractCollection(
+  prepared: ReturnType<typeof prepareTrackGeometry>,
+  activeGeometry?: GeoJSON.LineString | GeoJSON.MultiLineString,
+): { collection: GeoJSON.FeatureCollection; expectedIds: Set<string> } {
+  const features: GeoJSON.Feature[] = []
+  let routeEdgeIndex = 0
+
+  for (const part of geometryParts(prepared.routeGeometry)) {
+    for (let index = 0; index < part.length - 1; index++) {
+      features.push({
+        type: 'Feature',
+        properties: { rendererId: `route-${routeEdgeIndex++}` },
+        geometry: {
+          type: 'LineString',
+          coordinates: [part[index], part[index + 1]],
+        },
+      })
+    }
+  }
+
+  for (const feature of prepared.trailChunkCollection.features) {
+    features.push({
+      ...feature,
+      properties: { rendererId: `trail-${feature.properties.chunkIndex}` },
+    })
+  }
+
+  if (activeGeometry) {
+    features.push({
+      type: 'Feature',
+      properties: { rendererId: 'active' },
+      geometry: activeGeometry,
+    })
+  }
+
+  return {
+    collection: { type: 'FeatureCollection', features },
+    expectedIds: new Set(features.map((feature) => String(feature.properties?.rendererId))),
+  }
+}
+
+function publishedLongitudes(
+  geometries: Array<GeoJSON.LineString | GeoJSON.MultiLineString>,
+): number[] {
+  return geometries.flatMap((geometry) => (
+    geometryParts(geometry).flatMap((coordinates) => (
+      coordinates.map(([longitude]) => longitude)
+    ))
+  ))
 }
 
 function referenceGridAxisCounts(collection: GeoJSON.FeatureCollection) {
@@ -83,7 +165,7 @@ describe('map geometry', () => {
       name: 'route that wraps around the world more than once',
       points: [point(0, 0), point(120, 0), point(-120, 0), point(0, 0), point(120, 0)],
       segmentStartIndices: [],
-      expected: { west: 0, east: 480 },
+      expected: { west: -240, east: 120 },
     },
   ])('computes route-ordered display bounds for $name', ({
     points,
@@ -163,12 +245,119 @@ describe('map geometry', () => {
       (pointCount - 1) * 179,
       0,
     ])
-    expect(prepared.displayBounds).toEqual({
-      west: 0,
-      south: 0,
-      east: (pointCount - 1) * 179,
-      north: 0,
+    expect(prepared.displayBounds).not.toBeNull()
+    expect(prepared.displayBounds?.west).toBeGreaterThanOrEqual(
+      -RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE,
+    )
+    expect(prepared.displayBounds?.east).toBeLessThanOrEqual(
+      RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE,
+    )
+  })
+
+  it('keeps late repeated-lap route, trail, and active-head geometry in MapLibre tiles', () => {
+    const points = [
+      point(0, 0),
+      point(120, 0),
+      point(-120, 0),
+      point(0, 0),
+      point(120, 0),
+      point(-120, 0),
+      point(0, 0),
+    ]
+    const prepared = prepareTrackGeometry(points, [], 2)
+    const frame = buildTrailFrameGeometry(prepared.trailChunks, 5, point(-60, 0))
+    const { collection, expectedIds } = rendererContractCollection(
+      prepared,
+      frame.activeGeometry,
+    )
+    const anchorLongitude = prepared.wrappedSegments[0].coordinates[0][0]
+    const longitudes = publishedLongitudes([
+      prepared.routeGeometry,
+      ...prepared.trailChunkCollection.features.map((feature) => feature.geometry),
+      frame.activeGeometry,
+    ])
+
+    expect(prepared.wrappedSegments[0].coordinates.at(-1)).toEqual([720, 0])
+    expect(prepared.trailChunks.flatMap((chunk) => (
+      chunk.parts.map((part) => part.range)
+    ))).toEqual([
+      { start: 0, end: 1 },
+      { start: 1, end: 2 },
+      { start: 2, end: 3 },
+      { start: 3, end: 4 },
+      { start: 4, end: 5 },
+      { start: 5, end: 6 },
+    ])
+    expect(frame.completedChunkIndex).toBe(4)
+    expect(frame.activeGeometry).toEqual({
+      type: 'LineString',
+      coordinates: [[-120, 0], [-60, 0]],
     })
+    expect(longitudes.every((longitude) => (
+      Math.abs(longitude - anchorLongitude) <= RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE
+    ))).toBe(true)
+    expect(tiledRendererIds(collection)).toEqual(expectedIds)
+  })
+
+  it.each([
+    {
+      name: 'eastbound',
+      points: [point(179, 0), point(-179, 1)],
+      expectedCoordinates: [[179, 0], [181, 1]],
+    },
+    {
+      name: 'westbound',
+      points: [point(-179, 0), point(179, 1)],
+      expectedCoordinates: [[-179, 0], [-181, 1]],
+    },
+  ])('keeps a simple $name antimeridian edge compact and tileable', ({
+    points,
+    expectedCoordinates,
+  }) => {
+    const prepared = prepareTrackGeometry(points)
+    const { collection, expectedIds } = rendererContractCollection(prepared)
+
+    expect(prepared.routeGeometry).toEqual({
+      type: 'LineString',
+      coordinates: expectedCoordinates,
+    })
+    expect((prepared.displayBounds?.east ?? 0) - (prepared.displayBounds?.west ?? 0)).toBe(2)
+    expect(tiledRendererIds(collection)).toEqual(expectedIds)
+  })
+
+  it('rebases disconnected multiworld drift without connecting its segments', () => {
+    const canonicalStarts = [0, 120, -120, 0, 120, -120, 0]
+    const points = canonicalStarts.flatMap((longitude, segmentIndex) => [
+      point(longitude, segmentIndex),
+      point(longitude + 20, segmentIndex),
+    ])
+    const segmentStartIndices = canonicalStarts
+      .slice(1)
+      .map((_, index) => (index + 1) * 2)
+    const prepared = prepareTrackGeometry(points, segmentStartIndices, 2)
+    const routeParts = geometryParts(prepared.routeGeometry)
+    const { collection, expectedIds } = rendererContractCollection(prepared)
+    const longitudes = publishedLongitudes([
+      prepared.routeGeometry,
+      ...prepared.trailChunkCollection.features.map((feature) => feature.geometry),
+    ])
+
+    expect(prepared.wrappedSegments.at(-1)?.coordinates.at(-1)).toEqual([740, 6])
+    expect(routeParts).toHaveLength(canonicalStarts.length)
+    expect(routeParts.every((coordinates) => (
+      coordinates.length === 2
+      && coordinates[1][0] - coordinates[0][0] === 20
+    ))).toBe(true)
+    expect(prepared.trailChunks.flatMap((chunk) => (
+      chunk.parts.map((part) => part.range)
+    ))).toEqual(canonicalStarts.map((_, index) => ({
+      start: index * 2,
+      end: index * 2 + 1,
+    })))
+    expect(longitudes.every((longitude) => (
+      Math.abs(longitude) <= RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE
+    ))).toBe(true)
+    expect(tiledRendererIds(collection)).toEqual(expectedIds)
   })
 
   it('selects a nearby world copy for disconnected segments without connecting them', () => {

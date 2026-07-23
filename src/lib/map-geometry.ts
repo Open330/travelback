@@ -176,6 +176,15 @@ export function buildReferenceGridData(
 }
 
 export const TRAIL_CHUNK_COORDINATE_BUDGET = 512
+const WORLD_LONGITUDE_SPAN = 360
+const HALF_WORLD_LONGITUDE_SPAN = WORLD_LONGITUDE_SPAN / 2
+
+/**
+ * Renderer edges are centered on the world copy nearest the route's first
+ * display longitude. Since wrapped source edges span at most 180 degrees,
+ * their published endpoints remain within 270 degrees of that anchor.
+ */
+export const RENDERER_LONGITUDE_MAX_ANCHOR_DISTANCE = 270
 
 export interface TrailChunkPart {
   coordinates: [number, number][]
@@ -286,6 +295,71 @@ export function precomputeWrappedSegments(
   })
 }
 
+function rendererWorldShift(
+  anchorLongitude: number,
+  startLongitude: number,
+  endLongitude: number,
+): number {
+  const midpoint = startLongitude + (endLongitude - startLongitude) / 2
+  return Math.floor(
+    (midpoint - anchorLongitude + HALF_WORLD_LONGITUDE_SPAN) / WORLD_LONGITUDE_SPAN,
+  ) * WORLD_LONGITUDE_SPAN
+}
+
+function buildRendererSegments(
+  wrappedSegments: PrecomputedSegment[],
+): PrecomputedSegment[] {
+  const anchorLongitude = wrappedSegments
+    .find((segment) => segment.coordinates.length > 0)
+    ?.coordinates[0][0]
+  if (anchorLongitude == null) return []
+
+  const rendererSegments: PrecomputedSegment[] = []
+
+  for (const segment of wrappedSegments) {
+    if (segment.coordinates.length === 0) continue
+
+    if (segment.coordinates.length === 1) {
+      const [longitude, latitude] = segment.coordinates[0]
+      const shift = rendererWorldShift(anchorLongitude, longitude, longitude)
+      rendererSegments.push({
+        coordinates: [[longitude - shift, latitude]],
+        range: { ...segment.range },
+      })
+      continue
+    }
+
+    let currentShift: number | undefined
+    let currentSegment: PrecomputedSegment | undefined
+    for (let offset = 0; offset < segment.coordinates.length - 1; offset++) {
+      const start = segment.coordinates[offset]
+      const end = segment.coordinates[offset + 1]
+      const shift = rendererWorldShift(anchorLongitude, start[0], end[0])
+
+      if (currentSegment && shift === currentShift) {
+        currentSegment.coordinates.push([end[0] - shift, end[1]])
+        currentSegment.range.end = segment.range.start + offset + 1
+        continue
+      }
+
+      currentShift = shift
+      currentSegment = {
+        coordinates: [
+          [start[0] - shift, start[1]],
+          [end[0] - shift, end[1]],
+        ],
+        range: {
+          start: segment.range.start + offset,
+          end: segment.range.start + offset + 1,
+        },
+      }
+      rendererSegments.push(currentSegment)
+    }
+  }
+
+  return rendererSegments
+}
+
 function computeDisplayBoundsFromWrappedSegments(
   wrappedSegments: PrecomputedSegment[],
 ): TrackDisplayBounds | null {
@@ -311,7 +385,7 @@ export function computeTrackDisplayBounds(
   segmentStartIndices: number[] = [],
 ): TrackDisplayBounds | null {
   return computeDisplayBoundsFromWrappedSegments(
-    precomputeWrappedSegments(points, segmentStartIndices),
+    buildRendererSegments(precomputeWrappedSegments(points, segmentStartIndices)),
   )
 }
 
@@ -320,7 +394,7 @@ export function buildTrackGeometry(
   segmentStartIndices: number[] = [],
 ): TrackGeometry {
   return buildTrackGeometryFromWrappedSegments(
-    precomputeWrappedSegments(points, segmentStartIndices),
+    buildRendererSegments(precomputeWrappedSegments(points, segmentStartIndices)),
   )
 }
 
@@ -418,9 +492,10 @@ export function prepareTrackGeometry(
   coordinateBudget = TRAIL_CHUNK_COORDINATE_BUDGET,
 ): PreparedTrackGeometry {
   const wrappedSegments = precomputeWrappedSegments(points, segmentStartIndices)
-  const displayBounds = computeDisplayBoundsFromWrappedSegments(wrappedSegments)
-  const routeGeometry = buildTrackGeometryFromWrappedSegments(wrappedSegments)
-  const trailChunks = buildTrailChunks(wrappedSegments, coordinateBudget)
+  const rendererSegments = buildRendererSegments(wrappedSegments)
+  const displayBounds = computeDisplayBoundsFromWrappedSegments(rendererSegments)
+  const routeGeometry = buildTrackGeometryFromWrappedSegments(rendererSegments)
+  const trailChunks = buildTrailChunks(rendererSegments, coordinateBudget)
 
   return {
     wrappedSegments,
