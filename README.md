@@ -79,7 +79,7 @@ map styles, export presets, or improve the scene editor.
 | Flyover        | 13   | 55°   | Medium-altitude follow with forward-facing bearing           |
 | Orbit          | 14   | 60°   | Orbiting camera around the current position (36°/s)          |
 | Ground-level Follow | 15.5 | 70°   | Low-altitude chase camera with steep pitch                   |
-| Closeup        | 17   | 30°   | Street-level view with shallow pitch                         |
+| Closeup        | 17   | 30°   | Tight route closeup with shallow pitch                       |
 | Bird's Eye     | 11   | 65°   | High-altitude 3D flyover with look-ahead bearing and drift   |
 
 ## Export Presets

@@ -92,7 +92,7 @@ At track load time, `precomputeWrappedSegments()` applies antimeridian wrapping 
 | Flyover | Flyover | 13 | 55° | Track direction | Standard follow |
 | Orbit | Spin Around | 14 | 60° | Fast rotation (36°/s) | Orbits around current position |
 | Ground | Ground-level Follow | 15.5 | 70° | Track direction | Low-angle route follow (no street imagery) |
-| Closeup | Closeup | 17 | 30° | Track direction | Street-level view |
+| Closeup | Closeup | 17 | 30° | Track direction | Tight route closeup with shallow pitch |
 | Bird's Eye | Bird's Eye | 11 | 65° | Look-ahead bearing + drift | High-altitude tilted overview |
 
 ### Scene System
