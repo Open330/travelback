@@ -1,6 +1,7 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle1-implementation-2026-07-23.md` — Planned Cycle 1 remediation for 36 fresh deduplicated findings: 20 implementation workstreams, three explicit evidence/product-decision deferrals, full configured gates, no deployment, and exact browser/process cleanup
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 
 ## Completed this cycle
