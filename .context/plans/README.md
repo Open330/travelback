@@ -3,6 +3,7 @@
 ## Active
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 - `cycle2-implementation-2026-07-23.md` — Planned remediation for all 13 fresh Cycle 2 findings across durable E2E process ownership, preview/export camera parity, shared geographic bounds, DPR restoration, real-MP4 validity, compact-phone onboarding/layout, sample-load feedback, workflow hardening, and terminology; deployment is prohibited
+- `deferred-p01-platform-boundaries-cycle2-2026-07-23.md` — Explicit native/host-capability exit criteria for pre-observation identity erasure, pidfd-grade signaling, and zero host-environment marker discovery; practical P01 cleanup remains in Cycle 2
 
 ## Completed this cycle
 

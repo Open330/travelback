@@ -9,7 +9,11 @@ Deployment mode: **none**
 
 ## Scope and policy
 
-- Schedule all 13 new aggregate findings. **No Cycle 2 finding is deferred.**
+- Schedule all 13 new aggregate findings. **No original Cycle 2 finding is
+  deferred.** The post-implementation P01 audit identified three narrower
+  kernel-capability boundaries; they are recorded with evidence and exit
+  criteria in
+  `deferred-p01-platform-boundaries-cycle2-2026-07-23.md`.
 - Correct the uncounted README residue without treating it as a new finding.
 - Preserve the three existing Cycle 1 deferrals; this cycle neither relabels
   nor expands them.
@@ -82,6 +86,11 @@ Implementation:
   surface the original cleanup error after the bounded attempt.
 - Make process snapshot/containment operations injectable for deterministic
   tests.
+- State the portable POSIX ownership boundary exactly: an inherited marker or
+  an observed owned PPID/PGID is required before a descendant deliberately
+  erases every relationship. Do not claim kernel containment on macOS.
+- Refuse Windows before target launch unless an atomic provider creates the
+  child inside containment and returns its already-armed tracker.
 
 Acceptance:
 
@@ -94,6 +103,13 @@ Acceptance:
   cannot bypass bounded exact cleanup.
 - A steady-state frequency regression proves process-table snapshots are
   bounded and materially below ten per second.
+- Preflight signals are latched before the probe, startup failures attempt
+  bounded cached cleanup plus exact root-group fallback, and partial batched
+  identity reads retain their successful chunks.
+
+Post-implementation limits that require native/host capability are tracked in
+`deferred-p01-platform-boundaries-cycle2-2026-07-23.md`; none permits broad
+cleanup or false complete-tree success.
 
 ### P02 — Unify no-scene camera behavior across preview and export
 
@@ -223,8 +239,9 @@ Primary files:
 Implementation:
 
 - At compact portrait heights, keep the mobile title and the three-button
-  MapLibre navigation group in distinct rows with at least 4 px separation.
-  Do not mask the collision with z-index or pointer-event changes.
+  MapLibre navigation group in distinct non-overlapping regions with at least
+  4 px separation on either axis. Do not mask the collision with z-index or
+  pointer-event changes.
 - Reorder the existing FileUpload content so Browse Files appears before the
   long format explanation while preserving all guidance and the logical
   Sample → Browse → Draw → Help order.
@@ -325,10 +342,11 @@ Run after implementation against the complete repository:
 5. `npm run test:e2e`
 6. `npm run test:e2e:static:ci`
 
-Also run `node scripts/build-worker.mjs --check` and
-`npm audit --audit-level=high` because P08 changes those contracts. The
-required static CI command already includes static smoke and the real MP4
-case; record their individual results.
+Also run `node scripts/build-worker.mjs --check`,
+`npm audit --audit-level=high`, and
+`npm run test:e2e:static:real-mp4`. P08 changes the first two contracts, while
+P05 requires the isolated real-export lane in addition to the static CI
+command. Record static smoke and real-MP4 results individually.
 
 Gate errors are blocking for this cycle's completed status and must be fixed
 at the root. A recoverable browser/test failure must still receive exact owned
@@ -355,5 +373,6 @@ the outer loop must continue as the user requested.
 | AGG2-13 | P09 |
 
 Scheduled: **13**
-Deferred: **0**
+Original findings deferred: **0**
+Evidence-gated P01 platform boundaries: **3**
 Silently dropped: **0**
