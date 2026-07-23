@@ -1,6 +1,6 @@
 # Cycle 6 Review Remediation Plan — 2026-07-24
 
-Status: **Planned**
+Status: **Completed**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `099e85d8860456dea5e59cfa293a12defb27bd99`
@@ -198,4 +198,73 @@ Use explicit alternative ports and do not touch any unrelated owner.
 
 ## Completion log
 
-Pending Prompt 3 implementation and gates.
+Completed all four new findings. No item was deferred and no deployment
+command was run.
+
+Implementation evidence:
+
+- P01 returns to GPX fallback only when bounded semantic extraction retained
+  zero valid track points. Empty/all-invalid tracks with valid routes now
+  import, while a usable semantic track remains authoritative.
+- P02 removes the production-unread `wrappedSegments` field from prepared
+  geometry. Raw wrapping behavior is tested directly through
+  `precomputeWrappedSegments()`, and prepared output has a structural
+  non-retention regression.
+- P03 records whether a scene preview actually reached the map. Net-zero
+  pointer settlement and editor unmount restore an applied preview exactly
+  once; pending-only work is canceled without moving the camera.
+- P04 suppresses origin-equivalent scene-range commits and compares complete
+  scene values at the page/session boundary before revoking an export.
+
+Gate-driven repairs: **0**.
+
+Recorded recoverable execution errors: **1**.
+
+- The first attempt to remove the exact supervised-test temporary root used a
+  broad-style cleanup command that the command safety layer rejected before
+  execution. No state changed. After exact holder, listener, path, and owner
+  validation, the same run-owned root was removed with bounded
+  `find -depth -delete`; every later temporary root used that safer method.
+
+Verification:
+
+1. `npm run lint` — passed.
+2. `npm run typecheck` — passed, including Next route type generation.
+3. `npm test` — passed in its single supervised slot: 26 files / 609 unit
+   tests and 40/40 process-supervisor tests.
+4. `npm run build` — passed; generated-worker parity was current, the static
+   build completed, and CSP hardening covered 3 HTML files.
+5. `npm run test:e2e` — 117 passed / 1 intentional dedicated-real-export
+   skip across the 118-test development catalog.
+6. `npm run test:e2e:static:ci` — static smoke passed, then 116 passed / 2
+   intentional static-only skips across the 118-test catalog.
+7. `npm audit --audit-level=high` — zero vulnerabilities.
+8. `npm run test:e2e:static:real-mp4` — 1/1 passed. The produced 1280×720 AVC
+   MP4 had `ftyp`/`moov`/`mdat` structure, 120 packets for 5 seconds at 24
+   fps, matching preview/download blob ownership, first/last frame decode,
+   duration/metadata checks, canvas readback, and a local download.
+
+Exact browser/process cleanup:
+
+- The supervised unit/process gate's owned root 23211, host 23275, browser
+  23276, listener 54160, five captured profile locks, and temporary root were
+  absent after exit.
+- Development E2E used port 54224 and profile
+  `playwright_chromiumdev_profile-kBEF7v`; every captured wrapper, server,
+  worker, browser, renderer, listener, and four profile locks was absent.
+  Its exact dead-PID `.next/dev/lock` residue was removed only after PID,
+  port, and holder revalidation.
+- Static smoke/E2E used ports 55469/55470 and profile
+  `playwright_chromiumdev_profile-v2Kd0Y`; every owned identity, listener,
+  profile lock, and temporary root was absent.
+- Real MP4 used port 57197 and profile
+  `playwright_chromiumdev_profile-Pp1N5a`; every owned identity, listener,
+  profile lock, and temporary root was absent.
+- An unrelated Astro preview on PID 86075/port 4173 was never signaled and
+  exited independently. Final ports 3099, 4173, 4183, and every cycle-owned
+  alternate port were free; `.next/dev/lock` was absent; protected user
+  Chrome PID/PGID 1368 retained its original start identity.
+
+All Cycle 6 commits are GPG-signed and pushed only to
+`review-plan-fix/no-deploy-20260723`. The Pages workflow remains restricted
+to pushes on `main`; no deployment occurred.
