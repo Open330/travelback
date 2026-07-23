@@ -1429,6 +1429,67 @@ describe('XML security — additional edge cases', () => {
   })
 })
 
+const xmlLexicalPreflightFormats = [
+  {
+    format: 'GPX',
+    parse: parseGPX,
+    document: (prefix: string, suffix = '') => `<gpx version="1.1">
+  <trk>
+    <trkseg>
+      <trkpt lat="37.4" lon="-122.1" />
+    </trkseg>
+  </trk>
+  ${prefix}
+  ${suffix}
+</gpx>`,
+  },
+  {
+    format: 'KML',
+    parse: parseKML,
+    document: (prefix: string, suffix = '') => `<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <LineString><coordinates>-122.1,37.4,0 -122.09,37.41,0</coordinates></LineString>
+    </Placemark>
+    ${prefix}
+    ${suffix}
+  </Document>
+</kml>`,
+  },
+] as const
+
+describe.each(xmlLexicalPreflightFormats)('$format XML lexical preflight', ({ parse, document }) => {
+  it('rejects real nesting beyond the limit despite fake close tags in a comment', () => {
+    const wrapperCount = 129
+    const openingTags = '<extension><!-- </extension> -->'.repeat(wrapperCount)
+    const closingTags = '</extension>'.repeat(wrapperCount)
+    const deeplyNestedXml = document(openingTags, closingTags)
+
+    expect(() => parse(deeplyNestedXml)).toThrowError(/XML nesting is too deep/)
+  })
+
+  it('ignores fake tags in comments and CDATA at a shallow real depth', () => {
+    const fakeOpeningTags = '<extension>'.repeat(129)
+    const shallowXml = document(`<!-- ${fakeOpeningTags} --><![CDATA[${fakeOpeningTags}]]>`)
+
+    expect(parse(shallowXml).points.length).toBeGreaterThan(0)
+  })
+
+  it('honors greater-than signs inside quoted attribute values', () => {
+    const quotedSelfClosingTags = '<extension label="start > finish" />'.repeat(129)
+    const quotedAttributeXml = document(quotedSelfClosingTags)
+
+    expect(parse(quotedAttributeXml).points.length).toBeGreaterThan(0)
+  })
+
+  it('does not count self-closing elements as nested', () => {
+    const selfClosingTags = '<extension />'.repeat(129)
+    const shallowXml = document(selfClosingTags)
+
+    expect(parse(shallowXml).points.length).toBeGreaterThan(0)
+  })
+})
+
 describe('checkJsonDepth — additional edge cases', () => {
   it('handles empty string', () => {
     expect(() => checkJsonDepth('')).not.toThrow()

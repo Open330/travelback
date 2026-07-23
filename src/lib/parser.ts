@@ -144,6 +144,74 @@ function stripXmlEntities(text: string): string {
     .replace(/<!ENTITY[\s\S]*?>/gi, '')
 }
 
+function isXmlWhitespace(char: string): boolean {
+  return char === ' ' || char === '\t' || char === '\n' || char === '\r'
+}
+
+function isPlausibleXmlNameStart(char: string | undefined): boolean {
+  if (!char) return false
+  const code = char.charCodeAt(0)
+  return char === ':' ||
+    char === '_' ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    code >= 0x80
+}
+
+function findXmlTagEnd(text: string, startIndex: number): { nextIndex: number; selfClosing: boolean } | null {
+  let quote = ''
+  let lastSignificantChar = ''
+
+  for (let index = startIndex; index < text.length; index++) {
+    const char = text[index]
+    if (quote) {
+      if (char === quote) quote = ''
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '>') {
+      return {
+        nextIndex: index + 1,
+        selfClosing: lastSignificantChar === '/',
+      }
+    }
+    if (!isXmlWhitespace(char)) lastSignificantChar = char
+  }
+
+  return null
+}
+
+function findXmlDeclarationEnd(text: string, startIndex: number): number {
+  let quote = ''
+  let subsetDepth = 0
+
+  for (let index = startIndex; index < text.length; index++) {
+    const char = text[index]
+    if (quote) {
+      if (char === quote) quote = ''
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '[') {
+      subsetDepth++
+      continue
+    }
+    if (char === ']' && subsetDepth > 0) {
+      subsetDepth--
+      continue
+    }
+    if (char === '>' && subsetDepth === 0) return index + 1
+  }
+
+  return text.length
+}
+
 function preflightXml(text: string, formatName: string): void {
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) {
     throw new ParseError(`Invalid ${formatName}: XML entity declarations are not supported`, 'XML_PARSE_ERROR')
@@ -151,9 +219,46 @@ function preflightXml(text: string, formatName: string): void {
 
   let tagCount = 0
   let depth = 0
-  for (const match of text.matchAll(/<\s*(\/?)([A-Za-z_][\w:.-]*)([^>]*)>/g)) {
-    const [, closing, tagName, rest] = match
-    if (tagName.startsWith('!') || tagName.startsWith('?')) continue
+  let index = 0
+  while (index < text.length) {
+    const tagStart = text.indexOf('<', index)
+    if (tagStart === -1) break
+
+    if (text.startsWith('<!--', tagStart)) {
+      const commentEnd = text.indexOf('-->', tagStart + 4)
+      index = commentEnd === -1 ? text.length : commentEnd + 3
+      continue
+    }
+    if (text.startsWith('<![CDATA[', tagStart)) {
+      const cdataEnd = text.indexOf(']]>', tagStart + 9)
+      index = cdataEnd === -1 ? text.length : cdataEnd + 3
+      continue
+    }
+    if (text.startsWith('<?', tagStart)) {
+      const processingInstructionEnd = text.indexOf('?>', tagStart + 2)
+      index = processingInstructionEnd === -1 ? text.length : processingInstructionEnd + 2
+      continue
+    }
+    if (text.startsWith('<!', tagStart)) {
+      index = findXmlDeclarationEnd(text, tagStart + 2)
+      continue
+    }
+
+    let nameStart = tagStart + 1
+    let closing = false
+    if (text[nameStart] === '/') {
+      closing = true
+      nameStart++
+    }
+    while (isXmlWhitespace(text[nameStart])) nameStart++
+    if (!isPlausibleXmlNameStart(text[nameStart])) {
+      index = tagStart + 1
+      continue
+    }
+
+    const tagEnd = findXmlTagEnd(text, nameStart + 1)
+    if (!tagEnd) break
+    index = tagEnd.nextIndex
     tagCount++
     if (tagCount > XML_MAX_TAGS) {
       throw new ParseError(`Invalid ${formatName}: XML document is too complex`, 'XML_PARSE_ERROR')
@@ -162,7 +267,7 @@ function preflightXml(text: string, formatName: string): void {
       depth = Math.max(0, depth - 1)
       continue
     }
-    if (rest.trim().endsWith('/')) continue
+    if (tagEnd.selfClosing) continue
     depth++
     if (depth > XML_MAX_NESTING_DEPTH) {
       throw new ParseError(`Invalid ${formatName}: XML nesting is too deep`, 'XML_PARSE_ERROR')
