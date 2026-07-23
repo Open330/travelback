@@ -10,12 +10,9 @@ import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
   buildFitBoundsCoordinates,
-  buildTrackGeometry,
-  buildTrailChunkFeatureCollection,
-  buildTrailChunks,
   buildTrailFrameGeometry,
-  precomputeWrappedSegments,
-  type TrailChunk,
+  prepareTrackGeometry,
+  type PreparedTrackGeometry,
 } from '@/lib/map-geometry'
 import { mutateMapAndWaitForRender } from '@/lib/map-render'
 
@@ -359,6 +356,11 @@ type TravelbackDebugWindow = Window & {
   }
 }
 
+interface PreparedMapTrack {
+  track: Track
+  geometry: PreparedTrackGeometry
+}
+
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   {
     track,
@@ -383,7 +385,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerEl = useRef<HTMLDivElement | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const cumulDistRef = useRef<number[]>([])
-  const trailChunksRef = useRef<TrailChunk[]>([])
   const trackRef = useRef<Track | null>(track)
   const progressRef = useRef(progress)
   const styleKeyRef = useRef<MapStyleKey>(mapStyleKey)
@@ -402,7 +403,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const loadedStyleRevisionRef = useRef(0)
   const readyStyleRevisionRef = useRef(0)
   const fitTrackOnReadyRef = useRef<Track | null>(null)
-  const preparedTrackRef = useRef<Track | null>(null)
+  const preparedTrackRef = useRef<PreparedMapTrack | null>(null)
   const retryCameraStateRef = useRef<CameraState | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
@@ -455,7 +456,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     segmentIndex: number,
     point: TrackPoint,
   ) => {
-    const frame = buildTrailFrameGeometry(trailChunksRef.current, segmentIndex, point)
+    const preparedTrack = preparedTrackRef.current
+    if (!preparedTrack || preparedTrack.track !== trackRef.current) return
+
+    const frame = buildTrailFrameGeometry(preparedTrack.geometry.trailChunks, segmentIndex, point)
     if (frame.completedChunkIndex !== lastCompletedTrailChunkIndexRef.current) {
       if (map.getLayer(TRAIL_LAYER)) {
         map.setFilter(TRAIL_LAYER, completedTrailFilter(frame.completedChunkIndex))
@@ -523,7 +527,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
-      trailChunksRef.current = []
+      preparedTrackRef.current = null
       lastCompletedTrailChunkIndexRef.current = -1
       retryCameraStateRef.current = null
     },
@@ -612,9 +616,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     },
   }))
-  const addTrackLayers = useCallback((map: maplibregl.Map, track: Track) => {
-    const routeGeometry = buildTrackGeometry(track.points, track.segmentStartIndices)
-    const trailChunkCollection = buildTrailChunkFeatureCollection(trailChunksRef.current)
+  const addTrackLayers = useCallback((
+    map: maplibregl.Map,
+    track: Track,
+    geometry: PreparedTrackGeometry,
+  ) => {
     const emptyLineGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [] }
     const cumulDist = cumulDistRef.current
     const currentResult = cumulDist.length === track.points.length && cumulDist.length > 0
@@ -627,7 +633,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       (map.getSource('route') as maplibregl.GeoJSONSource).setData({
         type: 'Feature',
         properties: {},
-        geometry: routeGeometry,
+        geometry: geometry.routeGeometry,
       })
     } else {
       map.addSource('route', {
@@ -635,7 +641,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         data: {
           type: 'Feature',
           properties: {},
-          geometry: routeGeometry,
+          geometry: geometry.routeGeometry,
         },
       })
     }
@@ -655,11 +661,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     // Trail (traveled portion)
     if (map.getSource(TRAIL_SOURCE)) {
-      (map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource).setData(trailChunkCollection)
+      (map.getSource(TRAIL_SOURCE) as maplibregl.GeoJSONSource).setData(geometry.trailChunkCollection)
     } else {
       map.addSource(TRAIL_SOURCE, {
         type: 'geojson',
-        data: trailChunkCollection,
+        data: geometry.trailChunkCollection,
       })
     }
     if (!map.getLayer(TRAIL_LAYER)) {
@@ -817,12 +823,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const activeTrack = trackRef.current
     addReferenceGridLayers(map, styleKeyRef.current, referenceGridDataRef.current)
     if (activeTrack) {
+      const preparedTrack = preparedTrackRef.current
+      if (!preparedTrack || preparedTrack.track !== activeTrack) {
+        return false
+      }
+
       const cumulDist = cumulDistRef.current
       if (cumulDist.length === 0 || cumulDist.length !== activeTrack.points.length) {
         return false
       }
 
-      addTrackLayers(map, activeTrack)
+      addTrackLayers(map, activeTrack, preparedTrack.geometry)
       if (!ownsTrackStyle(map)) {
         return false
       }
@@ -1043,31 +1054,38 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Load track onto map
   useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const styleRevision = requestedStyleRevisionRef.current
-
     if (!track) {
-      removeTrackArtifacts(map)
       markerRef.current?.remove()
       markerRef.current = null
       lastCameraStateRef.current = null
       cumulDistRef.current = []
-      trailChunksRef.current = []
       lastCompletedTrailChunkIndexRef.current = -1
       fitTrackOnReadyRef.current = null
       preparedTrackRef.current = null
       retryCameraStateRef.current = null
     } else {
-      const isNewTrack = preparedTrackRef.current !== track
+      const isNewTrack = preparedTrackRef.current?.track !== track
       cumulDistRef.current = cumulativeDistancesProp ?? []
-      trailChunksRef.current = buildTrailChunks(precomputeWrappedSegments(track.points, track.segmentStartIndices))
+      if (isNewTrack) {
+        // Drop the previous coordinate graph before allocating its replacement.
+        preparedTrackRef.current = null
+        preparedTrackRef.current = {
+          track,
+          geometry: prepareTrackGeometry(track.points, track.segmentStartIndices),
+        }
+      }
       lastCompletedTrailChunkIndexRef.current = -1
       if (isNewTrack) {
         fitTrackOnReadyRef.current = track
         retryCameraStateRef.current = null
       }
-      preparedTrackRef.current = track
+    }
+
+    const map = mapRef.current
+    if (!map) return
+    const styleRevision = requestedStyleRevisionRef.current
+    if (!track) {
+      removeTrackArtifacts(map)
     }
 
     const removeReadyListeners = () => {

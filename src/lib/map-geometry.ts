@@ -19,6 +19,18 @@ export interface TrailChunk {
   coordinateCount: number
 }
 
+type TrackGeometry = GeoJSON.LineString | GeoJSON.MultiLineString
+
+export interface PreparedTrackGeometry {
+  wrappedSegments: PrecomputedSegment[]
+  routeGeometry: TrackGeometry
+  trailChunks: TrailChunk[]
+  trailChunkCollection: GeoJSON.FeatureCollection<
+    GeoJSON.LineString | GeoJSON.MultiLineString,
+    { chunkIndex: number }
+  >
+}
+
 export type FitBoundsCoordinates = [west: number, south: number, east: number, north: number]
 
 export function buildFitBoundsCoordinates(points: TrackPoint[]): FitBoundsCoordinates | null {
@@ -88,7 +100,7 @@ function validLineCoordinates(coordinates: [number, number][]): [number, number]
 
 function lineGeometry(
   segments: [number, number][][],
-): GeoJSON.LineString | GeoJSON.MultiLineString {
+): TrackGeometry {
   if (segments.length === 0) {
     return { type: 'LineString', coordinates: [] }
   }
@@ -117,8 +129,16 @@ export function precomputeWrappedSegments(
 export function buildTrackGeometry(
   points: TrackPoint[],
   segmentStartIndices: number[] = [],
-): GeoJSON.LineString | GeoJSON.MultiLineString {
-  const segments = precomputeWrappedSegments(points, segmentStartIndices)
+): TrackGeometry {
+  return buildTrackGeometryFromWrappedSegments(
+    precomputeWrappedSegments(points, segmentStartIndices),
+  )
+}
+
+function buildTrackGeometryFromWrappedSegments(
+  wrappedSegments: PrecomputedSegment[],
+): TrackGeometry {
+  const segments = wrappedSegments
     .map((segment) => validLineCoordinates(segment.coordinates))
     .filter((coordinates) => coordinates.length >= 2)
 
@@ -200,6 +220,23 @@ export function buildTrailChunkFeatureCollection(
       properties: { chunkIndex },
       geometry: lineGeometry(chunk.parts.map((part) => part.coordinates)),
     })),
+  }
+}
+
+export function prepareTrackGeometry(
+  points: TrackPoint[],
+  segmentStartIndices: number[] = [],
+  coordinateBudget = TRAIL_CHUNK_COORDINATE_BUDGET,
+): PreparedTrackGeometry {
+  const wrappedSegments = precomputeWrappedSegments(points, segmentStartIndices)
+  const routeGeometry = buildTrackGeometryFromWrappedSegments(wrappedSegments)
+  const trailChunks = buildTrailChunks(wrappedSegments, coordinateBudget)
+
+  return {
+    wrappedSegments,
+    routeGeometry,
+    trailChunks,
+    trailChunkCollection: buildTrailChunkFeatureCollection(trailChunks),
   }
 }
 

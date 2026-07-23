@@ -6,6 +6,7 @@ import {
   buildTrailChunkFeatureCollection,
   buildTrailChunks,
   buildTrailFrameGeometry,
+  prepareTrackGeometry,
   precomputeWrappedSegments,
   TRAIL_CHUNK_COORDINATE_BUDGET,
 } from './map-geometry'
@@ -71,6 +72,69 @@ describe('map geometry', () => {
       { start: 0, end: 1 },
       { start: 2, end: 3 },
     ])
+  })
+
+  it.each([
+    {
+      name: 'an antimeridian crossing',
+      points: [point(179, 10), point(-179, 11), point(-178, 12)],
+      segmentStartIndices: [],
+    },
+    {
+      name: 'mixed singleton and antimeridian-crossing segments',
+      points: [
+        point(5, 0),
+        point(179, 10),
+        point(-179, 11),
+        point(20, 20),
+        point(21, 21),
+      ],
+      segmentStartIndices: [1, 3],
+    },
+  ])('keeps prepared route and trail bytes equivalent for $name', ({
+    points,
+    segmentStartIndices,
+  }) => {
+    const coordinateBudget = 4
+    const expectedWrappedSegments = precomputeWrappedSegments(points, segmentStartIndices)
+    const expectedTrailChunks = buildTrailChunks(expectedWrappedSegments, coordinateBudget)
+    const prepared = prepareTrackGeometry(points, segmentStartIndices, coordinateBudget)
+
+    expect(JSON.stringify(prepared.wrappedSegments)).toBe(JSON.stringify(expectedWrappedSegments))
+    expect(JSON.stringify(prepared.routeGeometry)).toBe(
+      JSON.stringify(buildTrackGeometry(points, segmentStartIndices)),
+    )
+    expect(JSON.stringify(prepared.trailChunks)).toBe(JSON.stringify(expectedTrailChunks))
+    expect(JSON.stringify(prepared.trailChunkCollection)).toBe(
+      JSON.stringify(buildTrailChunkFeatureCollection(expectedTrailChunks)),
+    )
+  })
+
+  it('performs one wrapping pass while preparing route and trail geometry', () => {
+    const sourcePoints = [
+      point(0, 0),
+      point(1, 1),
+      point(179, 2),
+      point(-179, 3),
+      point(20, 4),
+    ]
+    let sourcePointReads = 0
+    const trackedPoints = new Proxy(sourcePoints, {
+      get(target, property, receiver) {
+        // The wrapping loop indexes each source point exactly once per pass.
+        if (typeof property === 'string' && /^\d+$/.test(property)) {
+          sourcePointReads += 1
+        }
+        return Reflect.get(target, property, receiver)
+      },
+    })
+
+    const prepared = prepareTrackGeometry(trackedPoints, [2, 4], 4)
+
+    expect(sourcePointReads).toBe(sourcePoints.length)
+    expect(prepared.wrappedSegments).toHaveLength(3)
+    expect(prepared.routeGeometry.type).toBe('MultiLineString')
+    expect(prepared.trailChunks.length).toBeGreaterThan(0)
   })
 
   it('moves the active head smoothly without changing completed geometry', () => {
