@@ -6,6 +6,13 @@ export interface PrecomputedSegment {
   range: { start: number; end: number }
 }
 
+export interface TrackDisplayBounds {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
 export const TRAIL_CHUNK_COORDINATE_BUDGET = 512
 
 export interface TrailChunkPart {
@@ -23,6 +30,7 @@ type TrackGeometry = GeoJSON.LineString | GeoJSON.MultiLineString
 
 export interface PreparedTrackGeometry {
   wrappedSegments: PrecomputedSegment[]
+  displayBounds: TrackDisplayBounds | null
   routeGeometry: TrackGeometry
   trailChunks: TrailChunk[]
   trailChunkCollection: GeoJSON.FeatureCollection<
@@ -33,42 +41,24 @@ export interface PreparedTrackGeometry {
 
 export type FitBoundsCoordinates = [west: number, south: number, east: number, north: number]
 
-export function buildFitBoundsCoordinates(points: TrackPoint[]): FitBoundsCoordinates | null {
-  if (points.length === 0) return null
+export function buildFitBoundsCoordinates(
+  bounds: TrackDisplayBounds | null,
+): FitBoundsCoordinates | null {
+  if (!bounds) return null
 
-  let rawMinLng = Infinity
-  let rawMaxLng = -Infinity
-  let minLat = Infinity
-  let maxLat = -Infinity
-  for (const point of points) {
-    rawMinLng = Math.min(rawMinLng, point.lng)
-    rawMaxLng = Math.max(rawMaxLng, point.lng)
-    minLat = Math.min(minLat, point.lat)
-    maxLat = Math.max(maxLat, point.lat)
-  }
+  const isDegenerate = Math.abs(bounds.east - bounds.west) < 1e-10
+    && Math.abs(bounds.north - bounds.south) < 1e-10
+  if (!isDegenerate) return [bounds.west, bounds.south, bounds.east, bounds.north]
 
-  const crossesAntimeridian = rawMaxLng - rawMinLng > 180
-  let minLng = Infinity
-  let maxLng = -Infinity
-  for (const point of points) {
-    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
-    minLng = Math.min(minLng, lng)
-    maxLng = Math.max(maxLng, lng)
-  }
-
-  const isDegenerate = Math.abs(maxLng - minLng) < 1e-10
-    && Math.abs(maxLat - minLat) < 1e-10
-  if (!isDegenerate) return [minLng, minLat, maxLng, maxLat]
-
-  // Keep degenerate padding in the shifted longitude space used above, and
+  // Keep degenerate padding in the prepared longitude space used above, and
   // clamp latitude at the geographic boundary so MapLibre never receives an
   // invalid LngLat. At a pole the remaining padding expands inward.
   const padding = 0.1
   return [
-    minLng - padding,
-    Math.max(-90, minLat - padding),
-    maxLng + padding,
-    Math.min(90, maxLat + padding),
+    bounds.west - padding,
+    Math.max(-90, bounds.south - padding),
+    bounds.east + padding,
+    Math.min(90, bounds.north + padding),
   ]
 }
 
@@ -114,16 +104,53 @@ export function precomputeWrappedSegments(
   points: TrackPoint[],
   segmentStartIndices: number[] = [],
 ): PrecomputedSegment[] {
+  // A segment break still starts a separate geometry part. Carrying only the
+  // display longitude selects the nearest equivalent world copy without
+  // inventing an edge between the two segments.
+  let previousDisplayLongitude: number | undefined
   return buildSegmentRanges(points.length, segmentStartIndices).map((range) => {
     const coordinates: [number, number][] = []
     for (let index = range.start; index <= range.end; index++) {
       const point = points[index]
       const previous = coordinates[coordinates.length - 1]
-      const lng = previous ? wrapLngNear(previous[0], point.lng) : point.lng
+      const referenceLongitude = previous?.[0] ?? previousDisplayLongitude
+      const lng = referenceLongitude == null
+        ? point.lng
+        : wrapLngNear(referenceLongitude, point.lng)
       coordinates.push([lng, point.lat])
     }
+    previousDisplayLongitude = coordinates.at(-1)?.[0] ?? previousDisplayLongitude
     return { coordinates, range }
   })
+}
+
+function computeDisplayBoundsFromWrappedSegments(
+  wrappedSegments: PrecomputedSegment[],
+): TrackDisplayBounds | null {
+  let west = Infinity
+  let south = Infinity
+  let east = -Infinity
+  let north = -Infinity
+
+  for (const segment of wrappedSegments) {
+    for (const [longitude, latitude] of segment.coordinates) {
+      west = Math.min(west, longitude)
+      south = Math.min(south, latitude)
+      east = Math.max(east, longitude)
+      north = Math.max(north, latitude)
+    }
+  }
+
+  return west === Infinity ? null : { west, south, east, north }
+}
+
+export function computeTrackDisplayBounds(
+  points: TrackPoint[],
+  segmentStartIndices: number[] = [],
+): TrackDisplayBounds | null {
+  return computeDisplayBoundsFromWrappedSegments(
+    precomputeWrappedSegments(points, segmentStartIndices),
+  )
 }
 
 export function buildTrackGeometry(
@@ -229,11 +256,13 @@ export function prepareTrackGeometry(
   coordinateBudget = TRAIL_CHUNK_COORDINATE_BUDGET,
 ): PreparedTrackGeometry {
   const wrappedSegments = precomputeWrappedSegments(points, segmentStartIndices)
+  const displayBounds = computeDisplayBoundsFromWrappedSegments(wrappedSegments)
   const routeGeometry = buildTrackGeometryFromWrappedSegments(wrappedSegments)
   const trailChunks = buildTrailChunks(wrappedSegments, coordinateBudget)
 
   return {
     wrappedSegments,
+    displayBounds,
     routeGeometry,
     trailChunks,
     trailChunkCollection: buildTrailChunkFeatureCollection(trailChunks),

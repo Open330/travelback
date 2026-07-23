@@ -5,7 +5,6 @@ import type { ExportConfig, ExportRequest, Scene, Track } from '@/types'
 import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { computeCumulativeDistances } from '@/lib/interpolate'
-import { generateDefaultScenes } from '@/lib/camera'
 import { resolveTrackDisplayName, type TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo, ExportError } from '@/lib/videoEncoder'
 import { isLocalExportTestStubEnabled, LOCAL_EXPORT_TEST_STUB_PAYLOAD } from '@/lib/test-stub'
@@ -166,13 +165,9 @@ export function useExportController({
       revokeExportedVideoUrl()
       pausePlayback()
 
-      const exportScenes = scenesRef.current.length > 0
-        ? scenesRef.current
-        : generateDefaultScenes()
-
       const exportConfig: ExportConfig = {
         ...config,
-        scenes: exportScenes,
+        scenes: scenesRef.current,
         transitionDuration,
       }
 

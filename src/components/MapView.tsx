@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, shortestLngDelta } from '@/lib/interpolate'
-import { computeCameraForProgress, computeSegmentLocalBearing, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
+import { computeCameraForProgress, computeDefaultFollowCamera, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
 import {
@@ -13,6 +13,7 @@ import {
   buildTrailFrameGeometry,
   prepareTrackGeometry,
   type PreparedTrackGeometry,
+  type TrackDisplayBounds,
 } from '@/lib/map-geometry'
 import {
   applyExportPresentation,
@@ -53,7 +54,6 @@ export interface MapViewHandle {
 const ROUTE_COLOR = '#06b6d4'
 const TRAIL_COLOR = '#f97316'
 const MARKER_COLOR = '#ef4444'
-const LOOK_AHEAD_DISTANCE_METERS = 600
 const CAMERA_SMOOTHING = 0.1
 const BEARING_SMOOTHING = 0.04
 const SCENE_CAMERA_SMOOTHING = 0.7
@@ -101,8 +101,8 @@ function smoothCameraState(previous: CameraState, target: CameraState, factor: n
   return lerpCamera(previous, target, factor, linear, bearingFactor)
 }
 
-function buildFitBounds(points: TrackPoint[]): maplibregl.LngLatBounds {
-  const coordinates = buildFitBoundsCoordinates(points)
+function buildFitBounds(bounds: TrackDisplayBounds | null): maplibregl.LngLatBounds {
+  const coordinates = buildFitBoundsCoordinates(bounds)
   return coordinates
     ? new maplibregl.LngLatBounds(coordinates)
     : new maplibregl.LngLatBounds()
@@ -181,10 +181,10 @@ function chooseReferenceGridStep(span: number): number {
   return 10
 }
 
-function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection {
+function buildReferenceGridData(bounds: TrackDisplayBounds | null): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = []
 
-  if (!track || track.points.length === 0) {
+  if (!bounds) {
     for (let longitude = -150; longitude <= 150; longitude += 30) {
       features.push({
         type: 'Feature',
@@ -219,36 +219,21 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
     }
   }
 
-  let rawMinLng = Infinity
-  let rawMaxLng = -Infinity
-  let minLat = Infinity
-  let maxLat = -Infinity
-
-  for (const point of track.points) {
-    rawMinLng = Math.min(rawMinLng, point.lng)
-    rawMaxLng = Math.max(rawMaxLng, point.lng)
-    minLat = Math.min(minLat, point.lat)
-    maxLat = Math.max(maxLat, point.lat)
-  }
-
-  const crossesAntimeridian = rawMaxLng - rawMinLng > 180
-  let minLng = Infinity
-  let maxLng = -Infinity
-  for (const point of track.points) {
-    const lng = crossesAntimeridian && point.lng < 0 ? point.lng + 360 : point.lng
-    minLng = Math.min(minLng, lng)
-    maxLng = Math.max(maxLng, lng)
-  }
-
-  const span = Math.max(maxLng - minLng, maxLat - minLat, 0.01)
+  const span = Math.max(
+    bounds.east - bounds.west,
+    bounds.north - bounds.south,
+    0.01,
+  )
   const step = chooseReferenceGridStep(span)
   const majorEvery = 5
   const lngMargin = Math.max(span * 1.5, step * 4)
   const latMargin = Math.max(span * 1.5, step * 4)
-  const expandedMinLng = Math.max(crossesAntimeridian ? 0 : -180, minLng - lngMargin)
-  const expandedMaxLng = Math.min(crossesAntimeridian ? 360 : 180, maxLng + lngMargin)
-  const expandedMinLat = Math.max(-85, minLat - latMargin)
-  const expandedMaxLat = Math.min(85, maxLat + latMargin)
+  const expandedMinLng = bounds.west - lngMargin
+  const expandedMaxLng = bounds.east + lngMargin
+  const gridSouth = Math.max(-85, Math.min(85, bounds.south))
+  const gridNorth = Math.max(-85, Math.min(85, bounds.north))
+  const expandedMinLat = Math.max(-85, gridSouth - latMargin)
+  const expandedMaxLat = Math.min(85, gridNorth + latMargin)
 
   let longitudeIndex = 0
   const lngCount = Math.ceil((expandedMaxLng + step / 2 - Math.floor(expandedMinLng / step) * step) / step)
@@ -291,6 +276,8 @@ function buildReferenceGridData(track?: Track | null): GeoJSON.FeatureCollection
     features,
   }
 }
+
+const WORLD_REFERENCE_GRID_DATA = buildReferenceGridData(null)
 
 function addReferenceGridLayers(map: maplibregl.Map, mapStyleKey: MapStyleKey, gridData: GeoJSON.FeatureCollection) {
   if (!map.isStyleLoaded()) return
@@ -416,10 +403,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
   const [readyStyleRevision, setReadyStyleRevision] = useState(0)
 
-  // Cache reference grid data keyed on track reference — avoids recomputing
-  // grid coordinates on every style change when the track hasn't changed.
-  const referenceGridData = useMemo(() => buildReferenceGridData(track), [track])
-  const referenceGridDataRef = useRef(referenceGridData)
+  const referenceGridDataRef = useRef<GeoJSON.FeatureCollection>(WORLD_REFERENCE_GRID_DATA)
 
   useEffect(() => {
     scenesRef.current = scenes
@@ -433,10 +417,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     suspendAutoCameraRef.current = suspendAutoCamera
     seekNonceRef.current = seekNonce
   }, [duration, followCamera, seekNonce, suspendAutoCamera, transitionDuration])
-
-  useEffect(() => {
-    referenceGridDataRef.current = referenceGridData
-  }, [referenceGridData])
 
   useEffect(() => {
     trackRef.current = track
@@ -827,17 +807,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       )
     }
 
-    return {
-      center: [result.point.lng, result.point.lat],
-      bearing: computeSegmentLocalBearing(
-        activeTrack,
-        cumulDistRef.current,
-        result,
-        LOOK_AHEAD_DISTANCE_METERS,
-      ),
-      pitch: 45,
-      zoom: 13,
-    }
+    return computeDefaultFollowCamera(activeTrack, cumulDistRef.current, result)
   }, [])
 
   const hydrateCurrentStyle = useCallback((
@@ -907,7 +877,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           bearing: retryCameraState.bearing,
         })
       } else if (fitTrackOnReadyRef.current === activeTrack) {
-        map.fitBounds(buildFitBounds(activeTrack.points), { padding: 80, duration: 1000 })
+        map.fitBounds(
+          buildFitBounds(preparedTrack.geometry.displayBounds),
+          { padding: 80, duration: 1000 },
+        )
       }
 
       if (fitTrackOnReadyRef.current === activeTrack) {
@@ -1095,6 +1068,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       lastCompletedTrailChunkIndexRef.current = -1
       fitTrackOnReadyRef.current = null
       preparedTrackRef.current = null
+      referenceGridDataRef.current = WORLD_REFERENCE_GRID_DATA
       retryCameraStateRef.current = null
     } else {
       const isNewTrack = preparedTrackRef.current?.track !== track
@@ -1102,10 +1076,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (isNewTrack) {
         // Drop the previous coordinate graph before allocating its replacement.
         preparedTrackRef.current = null
+        const geometry = prepareTrackGeometry(track.points, track.segmentStartIndices)
         preparedTrackRef.current = {
           track,
-          geometry: prepareTrackGeometry(track.points, track.segmentStartIndices),
+          geometry,
         }
+        referenceGridDataRef.current = buildReferenceGridData(geometry.displayBounds)
       }
       lastCompletedTrailChunkIndexRef.current = -1
       if (isNewTrack) {

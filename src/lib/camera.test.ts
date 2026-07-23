@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeScenes, lerpCamera, computeCameraForProgress, computeCameraForScene, computeSegmentLocalBearing, findTrackSegmentBounds, generateDefaultScenes, generateSimpleFlyover, generateBirdeyeFlyover, generateDynamicScenes, restoreDeletedScene } from './camera'
+import {
+  normalizeScenes,
+  lerpCamera,
+  computeCameraForProgress,
+  computeCameraForScene,
+  computeDefaultFollowCamera,
+  computeSegmentLocalBearing,
+  findTrackSegmentBounds,
+  generateDefaultScenes,
+  generateSimpleFlyover,
+  generateBirdeyeFlyover,
+  generateDynamicScenes,
+  restoreDeletedScene,
+} from './camera'
 import { computeCumulativeDistances, interpolateAlongTrack } from './interpolate'
 import type { Scene, Track } from '@/types'
 
@@ -241,8 +254,90 @@ describe('computeCameraForProgress', () => {
   it('returns default follow camera when no scenes', () => {
     const result = computeCameraForProgress(testTrack, testCumulDist, [], 0.5, 0)
     expect(result.center).toBeDefined()
-    expect(result.zoom).toBeGreaterThan(0)
+    expect(result.zoom).toBe(13)
+    expect(result.pitch).toBe(45)
     expect(Number.isFinite(result.bearing)).toBe(true)
+  })
+
+  it.each([
+    {
+      name: 'curved route',
+      track: {
+        name: 'curve',
+        points: [
+          { lng: 0, lat: 0 },
+          { lng: 0.01, lat: 0 },
+          { lng: 0.01, lat: 0.01 },
+        ],
+      } satisfies Track,
+      samples: [0, 0.25, 0.75, 1],
+    },
+    {
+      name: 'disconnected segments',
+      track: {
+        name: 'segments',
+        points: [
+          { lng: 0, lat: 0 },
+          { lng: 0.01, lat: 0 },
+          { lng: 10, lat: 10 },
+          { lng: 10, lat: 10.01 },
+        ],
+        segmentStartIndices: [2],
+      } satisfies Track,
+      samples: [0.25, 0.5, 0.75, 1],
+    },
+    {
+      name: 'antimeridian crossing',
+      track: {
+        name: 'antimeridian',
+        points: [
+          { lng: 179.8, lat: 0 },
+          { lng: -179.8, lat: 0.1 },
+          { lng: -179.5, lat: 0.2 },
+        ],
+      } satisfies Track,
+      samples: [0.1, 0.5, 0.9],
+    },
+    {
+      name: 'duplicate endpoint',
+      track: {
+        name: 'duplicate',
+        points: [
+          { lng: 0, lat: 0 },
+          { lng: 0.01, lat: 0 },
+          { lng: 0.01, lat: 0 },
+        ],
+      } satisfies Track,
+      samples: [0.5, 0.99, 1],
+    },
+  ])('shares finite preview/export follow targets for $name', ({ track, samples }) => {
+    const distances = computeCumulativeDistances(track.points, track.segmentStartIndices)
+
+    for (const progress of samples) {
+      const interpolation = interpolateAlongTrack(
+        track.points,
+        distances,
+        progress,
+        track.segmentStartIndices,
+      )
+      const previewTarget = computeDefaultFollowCamera(track, distances, interpolation)
+      const exportTarget = computeCameraForProgress(track, distances, [], progress, 0)
+      const bearingDelta = Math.abs(
+        ((exportTarget.bearing - previewTarget.bearing + 540) % 360) - 180,
+      )
+
+      expect(exportTarget.center[0]).toBeCloseTo(previewTarget.center[0], 10)
+      expect(exportTarget.center[1]).toBeCloseTo(previewTarget.center[1], 10)
+      expect(exportTarget.zoom).toBe(previewTarget.zoom)
+      expect(exportTarget.pitch).toBe(previewTarget.pitch)
+      expect(bearingDelta).toBeCloseTo(0, 10)
+      expect([
+        ...exportTarget.center,
+        exportTarget.zoom,
+        exportTarget.pitch,
+        exportTarget.bearing,
+      ].every(Number.isFinite)).toBe(true)
+    }
   })
 
   it('returns a camera within a single scene', () => {
@@ -467,6 +562,25 @@ describe('computeCameraForProgress', () => {
     // Overview centers on the track bounding box, not the current position
     expect(result.pitch).toBe(45)
     expect(Number.isFinite(result.bearing)).toBe(true)
+  })
+
+  it('centers Overview from route-ordered display bounds', () => {
+    const track: Track = {
+      name: 'wide ordered route',
+      points: [
+        { lng: -179, lat: 10 },
+        { lng: -1, lat: 20 },
+        { lng: 2, lat: 30 },
+      ],
+    }
+    const scene = makeScene('overview', 0, 1, 'overview')
+    scene.params = { zoom: 18, pitch: 0, bearingOffset: 0, rotationSpeed: 0 }
+    const distances = computeCumulativeDistances(track.points)
+
+    const result = computeCameraForScene(track, distances, scene, 0.5, 0)
+
+    expect(result.center).toEqual([-88.5, 20])
+    expect(result.zoom).toBe(1)
   })
 })
 

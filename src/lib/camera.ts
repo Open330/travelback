@@ -1,4 +1,4 @@
-import type { Track, TrackPoint, Scene } from '@/types'
+import type { Track, Scene } from '@/types'
 import { DEFAULT_CAMERA_PARAMS } from '@/types'
 import {
   interpolateAlongTrack,
@@ -7,6 +7,7 @@ import {
   shortestLngDelta,
   type InterpolationResult,
 } from './interpolate'
+import { computeTrackDisplayBounds, type TrackDisplayBounds } from './map-geometry'
 
 export interface CameraState {
   center: [number, number]
@@ -28,6 +29,7 @@ export const smoothstep = (t: number) => t * t * (3 - 2 * t)
 /** Fraction of track length used for look-ahead bearing in bird's eye mode */
 export const LOOK_AHEAD_FRACTION = 0.05
 export const MIN_SCENE_SPAN = 0.01
+const DEFAULT_FOLLOW_LOOK_AHEAD_METERS = 600
 
 export interface TrackSegmentBounds {
   start: number
@@ -204,51 +206,16 @@ export function normalizeScenes(scenes: Scene[]): Scene[] {
     .filter((scene) => scene.endPercent > scene.startPercent)
 }
 
-interface BoundingBox {
-  minLat: number; maxLat: number
-  minLng: number; maxLng: number
-  /** Shifted longitude bounds when track crosses antimeridian (span > 180) */
-  minLngShifted?: number; maxLngShifted?: number
+function trackCenterFromBounds(bounds: TrackDisplayBounds): [number, number] {
+  return [
+    normalizeLng((bounds.west + bounds.east) / 2),
+    (bounds.south + bounds.north) / 2,
+  ]
 }
 
-function computeBoundingBox(points: TrackPoint[]): BoundingBox | null {
-  if (points.length === 0) return null
-  let minLng = Infinity, maxLng = -Infinity
-  let minLat = Infinity, maxLat = -Infinity
-  for (const p of points) {
-    if (p.lng < minLng) minLng = p.lng
-    if (p.lng > maxLng) maxLng = p.lng
-    if (p.lat < minLat) minLat = p.lat
-    if (p.lat > maxLat) maxLat = p.lat
-  }
-  const box: BoundingBox = { minLat, maxLat, minLng, maxLng }
-  if (maxLng - minLng > 180) {
-    let minShifted = Infinity, maxShifted = -Infinity
-    for (const p of points) {
-      const shifted = p.lng < 0 ? p.lng + 360 : p.lng
-      if (shifted < minShifted) minShifted = shifted
-      if (shifted > maxShifted) maxShifted = shifted
-    }
-    box.minLngShifted = minShifted
-    box.maxLngShifted = maxShifted
-  }
-  return box
-}
-
-function trackCenterFromBox(box: BoundingBox): [number, number] {
-  const latCenter = (box.minLat + box.maxLat) / 2
-  if (box.minLngShifted != null && box.maxLngShifted != null) {
-    const centerShifted = (box.minLngShifted + box.maxLngShifted) / 2
-    return [normalizeLng(centerShifted), latCenter]
-  }
-  return [(box.minLng + box.maxLng) / 2, latCenter]
-}
-
-function overviewZoomFromBox(box: BoundingBox): number {
-  const dLng = box.minLngShifted != null && box.maxLngShifted != null
-    ? box.maxLngShifted - box.minLngShifted
-    : box.maxLng - box.minLng
-  const dLat = box.maxLat - box.minLat
+function overviewZoomFromBounds(bounds: TrackDisplayBounds): number {
+  const dLng = bounds.east - bounds.west
+  const dLat = bounds.north - bounds.south
   const maxSpan = Math.max(dLng, dLat)
   if (maxSpan === 0) return 14
   const z = Math.log2(360 / maxSpan) - 0.5
@@ -260,9 +227,14 @@ const overviewCameraCache = new WeakMap<Track, CameraState>()
 function computeOverviewCamera(track: Track): CameraState {
   const cached = overviewCameraCache.get(track)
   if (cached) return cached
-  const box = computeBoundingBox(track.points)
-  const camera: CameraState = box
-    ? { center: trackCenterFromBox(box), zoom: overviewZoomFromBox(box), pitch: 0, bearing: 0 }
+  const bounds = computeTrackDisplayBounds(track.points, track.segmentStartIndices)
+  const camera: CameraState = bounds
+    ? {
+        center: trackCenterFromBounds(bounds),
+        zoom: overviewZoomFromBounds(bounds),
+        pitch: 0,
+        bearing: 0,
+      }
     : { center: [0, 20], zoom: 2, pitch: 0, bearing: 0 }
   overviewCameraCache.set(track, camera)
   return camera
@@ -378,13 +350,21 @@ export function computeCameraForScene(
   }
 }
 
-function computeDefaultFollowCamera(track: Track, cumulDist: number[], progress: number): CameraState {
-  const result = interpolateAlongTrack(track.points, cumulDist, progress, track.segmentStartIndices)
+export function computeDefaultFollowCamera(
+  track: Track,
+  cumulDist: number[],
+  result: InterpolationResult,
+): CameraState {
   return {
     center: [result.point.lng, result.point.lat],
-    zoom: 14,
+    zoom: 13,
     pitch: 45,
-    bearing: result.bearing,
+    bearing: computeSegmentLocalBearing(
+      track,
+      cumulDist,
+      result,
+      DEFAULT_FOLLOW_LOOK_AHEAD_METERS,
+    ),
   }
 }
 
@@ -534,7 +514,13 @@ export function computeCameraForProgress(
   const normalizedScenes = preNormalized ? scenes : normalizeScenes(scenes)
 
   if (normalizedScenes.length === 0) {
-    return computeDefaultFollowCamera(track, cumulDist, globalProgress)
+    const result = interpolateAlongTrack(
+      track.points,
+      cumulDist,
+      globalProgress,
+      track.segmentStartIndices,
+    )
+    return computeDefaultFollowCamera(track, cumulDist, result)
   }
 
   // Give each pair-owned interval one resolver before ordinary scene lookup.
@@ -654,7 +640,13 @@ export function computeCameraForProgress(
       // start point instead of a moving one that causes bearing wobble.
       const prevScene = normalizedScenes[prevIdx]
       const prevCamera = computeCameraForScene(track, cumulDist, prevScene, 1.0, 0)
-      const followCamera = computeDefaultFollowCamera(track, cumulDist, globalProgress)
+      const result = interpolateAlongTrack(
+        track.points,
+        cumulDist,
+        globalProgress,
+        track.segmentStartIndices,
+      )
+      const followCamera = computeDefaultFollowCamera(track, cumulDist, result)
       const gapLength = 1.0 - prevScene.endPercent
       const gapT = gapLength > 0 ? Math.max(0, Math.min(1, (globalProgress - prevScene.endPercent) / gapLength)) : 1
       return lerpCamera(prevCamera, followCamera, gapT)

@@ -5,7 +5,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MapViewHandle } from '@/components/MapView'
-import type { ExportRequest, Track } from '@/types'
+import type { ExportConfig, ExportRequest, Scene, Track } from '@/types'
 import type { TranslationKey } from '@/lib/i18n'
 
 const exportVideo = vi.hoisted(() => vi.fn())
@@ -63,6 +63,7 @@ async function renderController(
   strictMode = false,
   controllerTrack: Track = track,
   translate: (key: TranslationKey) => string = (key) => key,
+  controllerScenes: Scene[] = [],
 ) {
   const addToast = vi.fn()
   const pausePlayback = vi.fn()
@@ -72,7 +73,7 @@ async function renderController(
   function Harness() {
     const controller = useExportController({
       track: controllerTrack,
-      scenes: [],
+      scenes: controllerScenes,
       transitionDuration: 0.03,
       mapViewRef: { current: mapHandle },
       t: translate,
@@ -126,6 +127,60 @@ describe('useExportController lifecycle', () => {
     expect(addToast).toHaveBeenCalledWith('app.exportFailed app.exportFailedSuffix', 'error')
     expect(mapHandle.resetSize).toHaveBeenCalledOnce()
     expect(consoleError).toHaveBeenCalledWith('Export failed:', 'encoder failed')
+  })
+
+  it('passes an empty scene list to the encoder unchanged', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    exportVideo.mockRejectedValue(new Error('stop after config capture'))
+    const { controllerRef } = await renderController(createMapHandle())
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    const encoderConfig = exportVideo.mock.calls[0]?.[2] as ExportConfig
+    expect(encoderConfig.scenes).toEqual([])
+  })
+
+  it('preserves authored scene identity and ordering for export', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    exportVideo.mockRejectedValue(new Error('stop after config capture'))
+    const authoredScenes: Scene[] = [
+      {
+        id: 'second-authored',
+        name: 'Second authored',
+        cameraMode: 'orbit',
+        startPercent: 0.5,
+        endPercent: 1,
+        params: { zoom: 12, pitch: 55, bearingOffset: 20, rotationSpeed: 10 },
+      },
+      {
+        id: 'first-authored',
+        name: 'First authored',
+        cameraMode: 'flyover',
+        startPercent: 0,
+        endPercent: 0.5,
+        params: { zoom: 13, pitch: 45, bearingOffset: 0, rotationSpeed: 0 },
+      },
+    ]
+    const { controllerRef } = await renderController(
+      createMapHandle(),
+      false,
+      track,
+      undefined,
+      authoredScenes,
+    )
+
+    await act(async () => {
+      await controllerRef.current?.exportTrack(request)
+    })
+
+    const encoderConfig = exportVideo.mock.calls[0]?.[2] as ExportConfig
+    expect(encoderConfig.scenes).toBe(authoredScenes)
+    expect(encoderConfig.scenes.map((scene) => scene.id)).toEqual([
+      'second-authored',
+      'first-authored',
+    ])
   })
 
   it('gives same-tick export calls one cancellable owner and permits restart', async () => {

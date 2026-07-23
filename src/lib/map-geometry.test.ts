@@ -6,12 +6,17 @@ import {
   buildTrailChunkFeatureCollection,
   buildTrailChunks,
   buildTrailFrameGeometry,
+  computeTrackDisplayBounds,
   prepareTrackGeometry,
   precomputeWrappedSegments,
   TRAIL_CHUNK_COORDINATE_BUDGET,
 } from './map-geometry'
 
 const point = (lng: number, lat: number): TrackPoint => ({ lng, lat })
+
+function fitBounds(points: TrackPoint[], segmentStartIndices: number[] = []) {
+  return buildFitBoundsCoordinates(computeTrackDisplayBounds(points, segmentStartIndices))
+}
 
 function coordinateCount(geometry: GeoJSON.LineString | GeoJSON.MultiLineString): number {
   if (geometry.type === 'LineString') return geometry.coordinates.length
@@ -20,9 +25,79 @@ function coordinateCount(geometry: GeoJSON.LineString | GeoJSON.MultiLineString)
 
 describe('map geometry', () => {
   it('builds ordinary and shifted-antimeridian fit bounds', () => {
-    expect(buildFitBoundsCoordinates([point(126, 37), point(128, 38)])).toEqual([126, 37, 128, 38])
-    expect(buildFitBoundsCoordinates([point(179, 10), point(-179, 20)])).toEqual([179, 10, 181, 20])
-    expect(buildFitBoundsCoordinates([])).toBeNull()
+    expect(fitBounds([point(126, 37), point(128, 38)])).toEqual([126, 37, 128, 38])
+    expect(fitBounds([point(179, 10), point(-179, 20)])).toEqual([179, 10, 181, 20])
+    expect(fitBounds([])).toBeNull()
+  })
+
+  it.each([
+    {
+      name: 'ordinary local route',
+      points: [point(126, 0), point(128, 0)],
+      segmentStartIndices: [],
+      expected: { west: 126, east: 128 },
+    },
+    {
+      name: 'eastbound antimeridian crossing',
+      points: [point(179, 0), point(-179, 0)],
+      segmentStartIndices: [],
+      expected: { west: 179, east: 181 },
+    },
+    {
+      name: 'westbound antimeridian crossing',
+      points: [point(-179, 0), point(179, 0)],
+      segmentStartIndices: [],
+      expected: { west: -181, east: -179 },
+    },
+    {
+      name: 'wide ordered route that is not an antimeridian shortcut',
+      points: [point(-179, 0), point(-1, 0), point(2, 0)],
+      segmentStartIndices: [],
+      expected: { west: -179, east: 2 },
+    },
+    {
+      name: 'disconnected antimeridian visits',
+      points: [point(179, 0), point(-179, 0)],
+      segmentStartIndices: [1],
+      expected: { west: 179, east: 181 },
+    },
+    {
+      name: 'route that wraps around the world more than once',
+      points: [point(0, 0), point(120, 0), point(-120, 0), point(0, 0), point(120, 0)],
+      segmentStartIndices: [],
+      expected: { west: 0, east: 480 },
+    },
+  ])('computes route-ordered display bounds for $name', ({
+    points,
+    segmentStartIndices,
+    expected,
+  }) => {
+    expect(computeTrackDisplayBounds(points, segmentStartIndices)).toEqual({
+      ...expected,
+      south: 0,
+      north: 0,
+    })
+  })
+
+  it('selects a nearby world copy for disconnected segments without connecting them', () => {
+    const prepared = prepareTrackGeometry(
+      [point(179, 0), point(-179, 1)],
+      [1],
+    )
+
+    expect(prepared.displayBounds).toEqual({
+      west: 179,
+      south: 0,
+      east: 181,
+      north: 1,
+    })
+    expect(prepared.routeGeometry).toEqual({
+      type: 'MultiLineString',
+      coordinates: [
+        [[179, 0], [179, 0]],
+        [[181, 1], [181, 1]],
+      ],
+    })
   })
 
   it.each([
@@ -32,7 +107,7 @@ describe('map geometry', () => {
     { latitude: -89.95, expectedSouth: -90, expectedNorth: -89.85 },
     { latitude: 37, expectedSouth: 36.9, expectedNorth: 37.1 },
   ])('keeps degenerate fit bounds valid around latitude $latitude', ({ latitude, expectedSouth, expectedNorth }) => {
-    const bounds = buildFitBoundsCoordinates([point(127, latitude), point(127, latitude)])
+    const bounds = fitBounds([point(127, latitude), point(127, latitude)])
 
     expect(bounds).not.toBeNull()
     if (!bounds) return
