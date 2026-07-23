@@ -1,411 +1,252 @@
-# Aggregate Deep Review — Cycle 2
+# Aggregate Deep Review — Cycle 3
 
 Date: 2026-07-23
-Reviewed revision: `279f5676eb34baa4929a536fa0c20e9cbc556f34`
+Reviewed revision: `7f013a207e64ca54c0864edc5aaf061ebfb36bdf`
 Branch: `review-plan-fix/no-deploy-20260723`
 Deployment: prohibited and not attempted
 
 ## Result
 
-The reviewer fan-out produced **13 genuinely new, deduplicated findings**:
+The reviewer fan-out produced **7 genuinely new, deduplicated findings**:
 
-- 1 High
-- 9 Medium
-- 3 Low
+- 2 High
+- 3 Medium
+- 2 Low
 
-All 13 are confirmed at the reviewed revision with High confidence. Repeated
-reports were collapsed to one root and retain the highest reviewer-assigned
-severity. The three explicit Cycle 1 deferrals were not reopened, and already
-fixed Cycle 1 findings were not copied into this count.
+All seven roots are scheduled for this cycle. Repeated reports retain the
+highest reviewer-assigned severity and confidence. The 13 completed Cycle 2
+findings and its three explicit native/host-capability deferrals were excluded
+rather than relitigated.
 
 Fresh review evidence:
 
-- Vitest: 24 files / 520 tests passed.
-- E2E process-supervisor regressions: 7 passed.
-- Generated parser worker parity passed.
-- Full and production-only dependency audits both reported zero
-  vulnerabilities.
-- A focused isolated Chromium check against the current static output
-  reproduced the two landing-page UX findings at 320×480. It used unique port
-  43177 and terminal session 20194; the ephemeral browser exited naturally,
-  the exact owned server stopped, and no owned process or listener remained.
-- No reviewer used a global browser close, `pkill`, `killall`, or a broad
-  process match. Pre-existing user Chrome, shared agent-browser, and unrelated
-  xylolabs processes were left untouched.
+- Vitest: 25 files / 541 tests passed.
+- E2E process-supervisor tests: 34 passed.
+- ESLint, strict TypeScript, and generated parser worker parity passed.
+- Bounded arithmetic diagnostics counted exactly 9,944,394,996 one-world
+  adjustments for a parser-valid 200,000-point canonical longitude sequence.
+- A deterministic allocation calculation produced 14,319,930 reference-grid
+  features for a valid route-ordered span of 35,799,821 degrees.
+- Browser launch was unnecessary for the review phase: layout, state, and
+  process defects were reproducible from deterministic source geometry or
+  no-process probes. A pre-existing agent-browser tree and an unrelated
+  Judgekit Playwright Chromium were inventoried and left untouched. Neither
+  belonged to this cycle; the former exited naturally. Ports 3099, 4173, and
+  4183 were clear after every reviewer.
+- No reviewer used `agent-browser close`, `pkill`, `killall`, global browser
+  shutdown, or broad process matching.
 
 ## Review provenance
 
-Current Cycle 2 reports:
+Current Cycle 3 reports:
 
-- `code-reviewer.md`
-- `architect.md`
-- `perf-reviewer.md`
-- `security-reviewer.md`
-- `critic.md`
-- `verifier.md`
-- `test-engineer.md`
-- `tracer.md`
-- `debugger.md`
-- `document-specialist.md`
-- `designer.md`
-- `non-tech-traveler-reviewer.md`
+- `cycle3-2026-07-23-code-reviewer.md`
+- `cycle3-2026-07-23-architect.md`
+- `cycle3-2026-07-23-perf-reviewer.md`
+- `cycle3-2026-07-23-security-reviewer.md`
+- `cycle3-2026-07-23-critic.md`
+- `cycle3-2026-07-23-verifier.md`
+- `cycle3-2026-07-23-test-engineer.md`
+- `cycle3-2026-07-23-tracer.md`
+- `cycle3-2026-07-23-debugger.md`
+- `cycle3-2026-07-23-document-specialist.md`
+- `cycle3-2026-07-23-designer.md`
+- `cycle3-2026-07-23-non-tech-traveler-reviewer.md`
 
 All requested roles completed. No reviewer failure remains unresolved.
 
 ## Deduplicated findings
 
-### AGG2-01 — Polling ancestry is not durable process ownership
+### AGG3-01 — Canonical multi-wrap tracks make longitude preparation quadratic
 
 Severity: **High**
 Confidence: **High**
-Status: **Confirmed on POSIX by a bounded exact-PID diagnostic and confirmed
-by source on Windows**
-Agreement: test-engineer, security-reviewer, code-reviewer, architect, critic,
-debugger
+Status: **Confirmed by source trace and exact bounded arithmetic diagnostic**
+Agreement: performance-reviewer, security-reviewer, code-reviewer, architect
 
 Evidence:
 
-- `scripts/e2e-process-supervisor.mjs:85-195,203-240,262-348`
-- `scripts/e2e-process-supervisor.test.mjs:115-223`
-- `scripts/fixtures/fake-process-tree.mjs:28-68`
+- `src/lib/interpolate.ts:13-18`
+- `src/lib/map-geometry.ts` callers of `precomputeWrappedSegments`
+- parser limit and longitude normalization paths
 
-The POSIX tracker discovers ownership from full process-table snapshots taken
-at start and every 100 ms. If a direct root launches a detached descendant and
-exits before a snapshot records the new PID/group, the descendant is
-reparented and no longer has an owned PPID or group. Cleanup then sees an empty
-set and reports success. The current orphan fixture masks that window by
-keeping the root alive for 250 ms. The test reviewer reproduced the faster
-case with an exact PID, immediately terminated only that diagnostic process,
-and confirmed it was gone.
+`wrapLngNear` moves a longitude toward its reference with `while` loops, one
+360-degree world at a time. The next reference is the previously unwrapped
+longitude, so a valid canonical series can make the distance from the current
+`[-180, 180]` input grow with every point. For
+`normalizeLng(i * 179), i = 0..199999`, the current implementation performs
+exactly 9,944,394,996 loop adjustments before the map can render. A
+250,000-point repeating `[0, 120, -120]` construction requires roughly
+10.4 billion.
 
-Windows has an even weaker implementation: it keeps only the root PID, skips
-all descendant conformance tests, and returns success as soon as that root is
-dead even when a descendant can still be alive.
+Failure scenario: importing a large but valid history synchronously blocks the
+main thread during geometry preparation. Route fit, playback, and export never
+become interactive despite the input satisfying parser bounds.
 
-Failure scenario: Playwright, its server, or Chromium detaches just before the
-launcher exits/crashes. The wrapper returns the launcher's status while a
-browser, server, ffmpeg process, profile lock, or port survives into the next
-cycle.
+Fix: replace repeated world stepping with a constant-time arithmetic quotient
+that preserves the current inclusive `±180` tie behavior and finite-value
+contract. Cover exact ties, distant finite references, canonical multi-wrap
+sequences near the parser limit, segmented tracks, and late active trails.
 
-Fix: make durable OS-backed containment, or an inherited ownership identity
-that survives reparenting, a prerequisite of `OwnedProcessTracker.start()`.
-Do not claim successful tree cleanup when the platform cannot establish that
-contract. Add an immediate-root-exit stubborn descendant fixture and
-cross-platform conformance coverage that also proves an unrelated sentinel
-survives.
+### AGG3-02 — Reference-grid generation can allocate more than 14 million features
 
-### AGG2-02 — Process tracking forks and parses the full host table up to ten times per second
-
-Severity: **Medium**
+Severity: **High**
 Confidence: **High**
-Status: **Confirmed**
-Agreement: perf-reviewer; architect and security-reviewer support the durable
-containment root
-
-Evidence: `scripts/e2e-process-supervisor.mjs:10,50-82,98-103,120-163`.
-
-Every supervised browser run launches `ps -axo ...` on a fixed 100 ms
-interval. A ten-minute matrix can create roughly 6,000 subprocesses and
-repeatedly parse every process on the host, including unrelated work. The
-fixed rate remains high after ownership has stabilized.
-
-Failure scenario: E2E orchestration itself adds CPU, process churn, and timing
-noise to the browser workload, especially on shared or constrained CI hosts.
-
-Fix: prefer the same event-driven/OS containment introduced for AGG2-01. If a
-portable polling fallback remains, make it bounded and adaptive, cache only
-validated identities, and test that steady-state snapshot frequency is
-materially below the current ten-per-second rate without weakening cleanup.
-
-### AGG2-03 — A teardown-time process-table failure can bypass fallback cleanup
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed**
-Agreement: tracer
-
-Evidence: `scripts/e2e-process-supervisor.mjs:50-82,104-107,170-195,287-342`.
-
-Startup tracking failures reach `forceRootGroupExitAfterTrackingFailure`, but
-a later `ps` timeout/error propagates from `signalAndWait()` before any signal
-is sent. The outer `finally` only clears the timer and handlers. Previously
-validated PIDs/groups are therefore abandoned despite still being safe exact
-targets.
-
-Failure scenario: transient process-table exhaustion or a timed-out `ps`
-during teardown causes the wrapper to throw while its already inventoried
-server/browser groups remain alive.
-
-Fix: retain the last validated identity snapshot and make teardown failure
-itself enter bounded exact-target cleanup. Add injectable snapshot-reader
-tests for failures before TERM, between TERM polls, and before KILL, while
-proving PID-start identities and unrelated processes remain protected.
-
-### AGG2-04 — Empty-scene export silently substitutes a Cinematic program
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed by direct data flow**
-Agreement: code-reviewer, architect, critic, verifier, document-specialist
+Status: **Confirmed by source trace and exact allocation-count diagnostic**
+Agreement: performance-reviewer, security-reviewer
 
 Evidence:
 
-- `src/lib/useExportController.ts:8,169-176`
-- `src/lib/videoEncoder.ts:179-180,236-245`
-- `src/components/MapView.tsx:813-840,1193-1217`
-- `src/lib/camera.ts:381-388,525-538`
-- `src/lib/useExportController.test.ts:61-96,113-307`
-- `.context/project/02-architecture.md:98-105`
-- `src/lib/i18n.ts:89,462,835,1208,1581`
+- `src/components/MapView.tsx:173-278`
+- `src/components/MapView.tsx:1061-1085`
+- route-ordered display bounds introduced in Cycle 2
 
-The preview follows the route when no scenes exist, and the architecture plus
-all five locales now say Cinematic is opt-in. At export start, however, the
-controller replaces `[]` with `generateDefaultScenes()`, causing six
-unselected camera segments. Removing that substitution alone would still
-leave preview/export drift: MapView's default uses a 600 m segment-local
-bearing and zoom 13, while `camera.ts` uses the immediate interpolation
-bearing and zoom 14.
+The reference grid chooses a fixed maximum longitude step of ten degrees, then
+adds 1.5 route spans on both sides. A valid route-ordered longitude span of
+35,799,821 degrees therefore requests exactly 14,319,930 longitude line
+features before MapLibre receives the GeoJSON. Making longitude wrapping
+constant-time does not bound this independent allocation path.
 
-Failure scenario: a traveler previews ordinary follow, never chooses a camera
-preset, and receives a saved video with six unexpected cinematic cuts.
+Failure scenario: after geometry preparation succeeds, grid construction
+allocates millions of coordinate arrays and GeoJSON objects on the UI thread,
+causing memory exhaustion, long garbage-collection pauses, or a browser crash.
 
-Fix: pass the authored scene list unchanged and establish one executable
-no-scene camera resolver shared by preview and export. Keep Cinematic
-generation behind the explicit Scene Editor action. Test the exact controller
-config and sampled center/zoom/pitch/bearing parity.
+Fix: give grid construction explicit per-axis and total feature budgets and
+adapt its “nice” step upward when expanded display bounds exceed that budget.
+Extract the calculation into a pure helper. Test ordinary, dateline, 480-degree,
+and approximately 35-million-degree bounds for finite coordinates, useful
+ordinary spacing, and a hard feature cap.
 
-### AGG2-05 — Longitude world-copy selection can turn a 181° route into a 357° viewport
+### AGG3-03 — More controls cannot fit or scroll at 844×390
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed by deterministic counterexample**
-Agreement: code-reviewer, architect, critic
+Status: **Confirmed from deterministic layout constraints**
+Agreement: critic, verifier, tracer, designer, non-technical traveler
 
 Evidence:
 
-- `src/lib/map-geometry.ts:34-72,113-240`
-- `src/lib/camera.ts:207-268`
-- `src/components/MapView.tsx:173-293,843-924`
-- `src/lib/map-geometry.test.ts:21-48`
+- `src/components/TrackToolbar.tsx:200-317`
+- `src/app/globals.css:19-25,351-363`
+- `src/app/page.tsx:604`
+- current E2E viewport coverage
 
-Fit bounds, Overview camera, and reference-grid bounds independently apply
-the same sign-based rule: when raw longitude span exceeds 180°, add 360° to
-every negative longitude. For `[-179, -1, 2]`, route-ordered unwrapping spans
-181° around center -88.5°, while the current rule spans 357° around -179.5°.
-Rendered route/trail geometry already owns ordered `wrapLngNear` behavior, but
-the three viewport consumers ignore it.
+At 844×390, the short-layout CSS deliberately moves commands into the More
+popup. The popup begins around y=68 and its conservative content height is at
+least 392 px, but only about 322 px remains. The page itself suppresses
+overflow, while the popup has neither an available-height limit nor internal
+scrolling. Terminal commands such as Help can therefore be unreachable.
 
-Failure scenario: a legitimate multi-country history is framed almost as the
-whole world, uses an unnecessarily coarse grid, and centers Overview on the
-wrong world copy.
+Fix: make the popup's maximum block size derive from `100dvh` and the safe-area
+inset, and give it owned vertical scrolling plus overscroll containment. Add
+small-portrait and 844×390 E2E coverage that opens More, reaches and activates
+the terminal controls, and proves pointer/focus ownership.
 
-Fix: make segment-aware, route-ordered display bounds one shared geometry
-contract consumed by fit, reference grid, and Overview camera. Cover ordinary,
-simple-dateline, wide, reverse, multi-wrap, and disconnected-segment tracks.
-
-### AGG2-06 — Export cleanup pins a stale numeric device-pixel ratio
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed**
-Agreement: tracer
-
-Evidence:
-
-- `src/lib/map-export-presentation.ts:3-43`
-- `src/lib/map-export-presentation.test.ts:6-52`
-- `src/components/MapView.tsx:580-620`
-
-MapLibre begins in automatic DPR mode. Export snapshots the current numeric
-ratio, forces 1, and restores by calling `setPixelRatio(oldNumber)`. MapLibre
-uses `setPixelRatio(null)` to return to automatic tracking, so a successful,
-cancelled, or failed export converts the map to a fixed override. Moving the
-window between displays or changing browser scale then leaves an undersized
-or oversized interactive drawing buffer.
-
-Fix: preserve pixel-ratio ownership mode, not only its sampled number, and
-restore automatic mode after export. Extend the harness so simulated device
-DPR changes after restoration and the canvas follows it on every cleanup path.
-
-### AGG2-07 — The required real-export gate accepts `ftyp` followed by junk
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed assertion gap**
-Agreement: test-engineer
-
-Evidence: `e2e/travelback.spec.ts:3149-3209` and
-`.github/workflows/deploy-pages.yml:35`.
-
-The required test exercises the actual mediabunny/WebCodecs path, but calls
-the output valid when it is larger than 1,024 bytes and bytes 4–7 equal
-`ftyp`. A truncated or corrupt MP4 can satisfy both checks without a valid
-`moov`, `mdat`, track, duration, or decodable frame.
-
-Failure scenario: mux/finalization produces an unplayable download while the
-gate named “valid MP4” remains green.
-
-Fix: parse the top-level box structure and load the downloaded object URL in a
-browser video element. Assert one expected H.264 video track, 1280×720
-dimensions, bounded duration/frame count, and successful first/last frame
-decode or seek. If full decode is intentionally out of scope, rename the gate
-to the narrower property it proves.
-
-### AGG2-08 — Short-phone navigation and the mobile title paint in the same row
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed from deterministic CSS geometry**
-Agreement: test-engineer, verifier
-
-Evidence:
-
-- `src/app/globals.css:250-253,294-339`
-- `src/styles/vitro-base.css:513-520`
-- `src/components/TrackWorkspace.tsx:193-199`
-- `e2e/travelback.spec.ts:1508-1608`
-
-At 320×480 and 320×568, MapLibre navigation begins around y=62 and the mobile
-title begins at y=64. The title has `pointer-events: none`, so the existing
-hit-test still reports the button even while the glass title obscures it.
-
-Failure scenario: the route name/count and zoom/compass controls remain
-technically clickable but are visually unreadable.
-
-Fix: reserve distinct rows for the title and navigation at compact portrait
-heights. Add a visible-box non-overlap assertion in addition to the existing
-pointer-ownership check.
-
-### AGG2-09 — Short-phone onboarding hides every own-file action below an un-signposted fold
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed in isolated 320×480 Chromium**
-Agreement: designer, non-tech-traveler-reviewer
-
-Evidence:
-
-- `src/components/FileUpload.tsx:179-278`
-- `src/app/page.tsx:608-626`
-- the 320×480 measurement recorded in `designer.md`
-
-The 410 px scrollable card contains 605 px of content. On first paint the
-sample preview is visible, but Browse Files starts at y=486, Draw a route at
-y=546, and Help at y=598. Overlay scrollbars provide no persistent clue that
-these alternatives exist.
-
-Failure scenario: a first-time traveler who wants their own file concludes
-that the sample is the only path into the app.
-
-Fix: for compact heights, shorten/progressively disclose the long format copy
-and keep Browse Files visible, or expose an explicit continuation affordance
-with equivalent keyboard/screen-reader context. Test initial visibility or
-the continuation contract at 320×480.
-
-### AGG2-10 — Delayed sample loading has no pending feedback or duplicate-activation guard
-
-Severity: **Medium**
-Confidence: **High**
-Status: **Confirmed in isolated Chromium with a four-second route delay**
-Agreement: designer, non-tech-traveler-reviewer
-
-Evidence:
-
-- `src/app/page.tsx:146-154,412-443,620`
-- `src/components/FileUpload.tsx:143-147,232-245`
-- `e2e/travelback.spec.ts:991-1077`
-
-After 500 ms of a delayed sample request there is no visible status, no live
-announcement, no busy state, and the sample trigger remains enabled. Existing
-generation/abort logic prevents stale replacement but does not acknowledge
-the user's action.
-
-Failure scenario: on a slow connection the button appears broken and repeated
-taps repeatedly replace the in-flight request.
-
-Fix: expose sample loading state through the page and FileUpload, show and
-announce localized progress, set appropriate busy semantics, disable duplicate
-activation, and restore idle state after success, abort, or failure.
-
-### AGG2-11 — Checkout persists an unnecessary GitHub token into build code
+### AGG3-04 — A failed Share warning leaks into the next export session
 
 Severity: **Low**
 Confidence: **High**
-Status: **Confirmed configuration exposure; no compromise observed**
-Agreement: security-reviewer
-
-Evidence: `.github/workflows/deploy-pages.yml:17-30`.
-
-The build job correctly has only `contents: read`, but checkout keeps its
-credential in local Git configuration by default while `npm ci`, Playwright
-installation, lint, tests, and build execute third-party code.
-
-Failure scenario: a compromised lifecycle/build dependency reads and
-exfiltrates a bearer token it does not need. Its read-only scope limits impact
-but does not make the exposure necessary.
-
-Fix: configure the pinned checkout action with
-`persist-credentials: false`; retain current job-scoped permissions.
-
-### AGG2-12 — CI audits only production packages while executing the development graph
-
-Severity: **Low**
-Confidence: **High**
-Status: **Confirmed coverage gap; the full graph is currently clean**
-Agreement: security-reviewer
+Status: **Confirmed by state and ownership trace**
+Agreement: critic, verifier, tracer, designer, non-technical traveler
 
 Evidence:
 
-- `.github/workflows/deploy-pages.yml:25-35`
-- `package.json:36-48`
-- `package-lock.json:19-31`
+- `src/components/ExportPanel.tsx:226-243`
+- `src/components/ExportPanel.tsx:335-394`
+- the parent keeps `ExportPanel` mounted across Export Again
 
-`npm ci` installs the complete lock and CI executes Playwright, ESLint,
-TypeScript/Next, Vitest, and build tooling, but the only audit gate uses
-`--omit=dev`. A future high advisory in an executed development package would
-not block artifact creation.
+`shareError` is local state. Export Again resets the export controller but
+does not clear that local error. Because the panel remains mounted, a failed
+share from export A disappears during progress and then resurfaces as soon as
+export B reaches `done`, before the traveler attempts to share export B. The
+alert is also placed inside the non-wrapping action row, so its
+`col-span-full` class does not make it full width.
 
-Fix: run `npm audit --audit-level=high` against the installed graph. A
-production-only audit may remain as an additional diagnostic.
+Fix: clear share-local state at the export-session boundary and render the
+alert below the action row. Regress failed Share → Export Again → second
+completion, asserting no alert until a new Share attempt.
 
-### AGG2-13 — Korean file-recovery copy breaks its own product terminology
+### AGG3-05 — Responsive toolbar switching can leave focus in a CSS-hidden dialog
 
-Severity: **Low**
-Confidence: **High**
-Status: **Confirmed**
-Agreement: designer, non-tech-traveler-reviewer
+Severity: **Medium**
+Confidence: **Medium-high**
+Status: **State/DOM mismatch confirmed; exact user-agent focus endpoint pending browser regression**
+Agreement: critic, verifier, tracer, designer, non-technical traveler
 
 Evidence:
 
-- `src/lib/i18n.ts:403`
-- `src/components/FileUpload.test.ts:62-82`
+- `src/components/TrackToolbar.tsx:53-122,200-223`
+- short-layout responsive overrides in `src/app/globals.css`
 
-The Korean landing guidance uses `Google 타임라인`, while the recovery hint
-shown during the same task switches to the English `Google Timeline`.
+When More is open, CSS alone can switch to the desktop toolbar after a viewport
+change. React's `menuOpen` remains true, the hidden dialog stays mounted, the
+document focus-trap handler stays installed, and focus can remain in hidden
+content. The More button itself may also be hidden, so its ordinary close
+focus target is not stable.
 
-Failure scenario: error recovery looks unfinished and forces the traveler to
-decide whether two different product names refer to the same source.
+Fix: reconcile open state with the component's live rendering mode. On a
+transition that hides the overflow toolbar, close the dialog and move focus to
+an always-visible stable control. Cover the mode change with a dynamic-viewport
+browser regression in addition to component-level state coverage.
 
-Fix: use `Google 타임라인` consistently and assert the exact localized
-recovery phrase.
+### AGG3-06 — The accepted tracker contract omits a method required by cleanup
 
-## Uncounted residual correction
+Severity: **Medium**
+Confidence: **High**
+Status: **Confirmed by deterministic no-process probe**
+Agreement: test-engineer, debugger
 
-`README.md:48` still says “Street View” although Cycle 1 AGG-29/P15 renamed
-the mode to “Ground-level Follow.” This is an incomplete residue of an already
-counted and nominally completed Cycle 1 finding, so it is deliberately **not**
-included in the 13-new-finding total. It should be corrected alongside Cycle
-2 documentation work rather than silently left behind or misreported as new.
+Evidence:
 
-## Final exclusion sweep
+- `scripts/e2e-process-supervisor.mjs:405-425`
+- `scripts/e2e-process-supervisor.mjs:509-520`
+- `scripts/e2e-process-supervisor.test.mjs`
 
-- The explicit Cycle 1 deferrals for root playback publication frequency,
-  session-wide `preserveDrawingBuffer`, and offline geographic context remain
-  unchanged and were not relabeled.
-- Current full and production audits are clean; version drift without a
-  demonstrated defect is not a finding.
-- The generated parser worker is current.
-- Previously repaired static-serving, CSP, map recovery, Journey ownership,
-  export saving/error classification, locale detection, and responsive
-  bottom-stack findings were checked but not repeated.
-- No other current-HEAD issue met the actionable evidence threshold.
+`assertTrackerContract` accepts trackers that expose `start`,
+`signalAndWait`, and `stop`. `stopOwnedProcessTree`, however, unconditionally
+calls `tracker.describe()` in both the survivor and cleanup-error paths. An
+atomic provider can therefore pass contract validation, correctly report that
+owned processes survived TERM/KILL, and have that termination evidence replaced
+by `TypeError: tracker.describe is not a function`.
+
+Fix: make the provider contract and cleanup helper agree, and make diagnostic
+formatting total so the original cleanup failure remains authoritative. Before
+the production edit, add and run a focused regression that fails on the current
+implementation. After the edit, independently audit the focused regression,
+the complete process suite, and an exact marker/PID/UID/start-token survivor
+scan that also proves an unrelated sentinel is untouched. This is the cycle's
+mandatory P01 implementation finding.
+
+### AGG3-07 — Supervised E2E commands are documented without their Windows refusal
+
+Severity: **Low**
+Confidence: **High**
+Status: **Confirmed documentation defect**
+Agreement: document-specialist
+
+Evidence:
+
+- `README.md` E2E command section
+- `.context/project/01-overview.md` development commands
+- `scripts/e2e-process-supervisor.mjs` platform contract
+
+The primary documentation lists `test:e2e` and `test:e2e:static:ci` as
+ordinary cleanup-safe commands. The supervisor intentionally refuses Windows
+unless an atomic Job Object provider is supplied, and the repository ships no
+such provider. A Windows contributor therefore reaches a deliberate startup
+failure that the command documentation never predicts.
+
+Fix: state that the supervised commands currently require POSIX and that
+Windows fails safely before target launch until a Job Object provider exists.
+Do not advertise the unsupervised development command as cleanup-safe.
+
+## Exclusion sweep
+
+- Cycle 2's 13 implemented roots remain fixed at this reviewed revision.
+- The Cycle 2 P01 native/host-capability boundaries remain explicit deferrals;
+  this review does not disguise them as new findings or broaden their claims.
+- “Ground Follow” in `.context/project/01-overview.md` is accurate internal
+  shorthand and not a terminology defect.
+- No additional validated root remained after route import/export, camera,
+  parser/worker, responsive interaction, process ownership, documentation,
+  generated artifacts, accessibility, security, and performance sweeps.
