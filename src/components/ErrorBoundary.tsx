@@ -8,15 +8,29 @@ interface ErrorBoundaryState {
   error: Error | null
   componentStack: string | null
   resetKey: number
+  isResetting: boolean
+}
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode
+  locale: Locale
+  onError?: (error: Error, info: React.ErrorInfo) => void
+  onReset?: () => void | Promise<void>
 }
 
 class ErrorBoundaryInner extends React.Component<
-  { children: React.ReactNode; locale: Locale; onReset?: () => void },
+  ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  constructor(props: { children: React.ReactNode; locale: Locale; onReset?: () => void }) {
+  constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null, componentStack: null, resetKey: 0 }
+    this.state = {
+      hasError: false,
+      error: null,
+      componentStack: null,
+      resetKey: 0,
+      isResetting: false,
+    }
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
@@ -24,6 +38,7 @@ class ErrorBoundaryInner extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    this.props.onError?.(error, info)
     console.error('ErrorBoundary caught:', error.message, info.componentStack)
     // Preserve the component stack for display in development mode
     this.setState({ componentStack: info.componentStack ?? null })
@@ -33,16 +48,37 @@ class ErrorBoundaryInner extends React.Component<
     window.location.reload()
   }
 
-  handleReset = () => {
-    this.props.onReset?.()
-    this.setState((prev) => ({ hasError: false, error: null, componentStack: null, resetKey: prev.resetKey + 1 }))
+  handleReset = async () => {
+    if (this.state.isResetting) return
+
+    this.setState({ isResetting: true })
+    try {
+      await this.props.onReset?.()
+      this.setState((prev) => ({
+        hasError: false,
+        error: null,
+        componentStack: null,
+        resetKey: prev.resetKey + 1,
+        isResetting: false,
+      }))
+    } catch (error) {
+      console.error(
+        'ErrorBoundary reset failed:',
+        error instanceof Error ? error.message : String(error),
+      )
+      this.setState({ isResetting: false })
+    }
   }
 
   render() {
     if (this.state.hasError) {
       const t = (key: Parameters<typeof translate>[0]) => translate(key, this.props.locale)
       return (
-        <main className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg)' }}>
+        <main
+          className="min-h-screen flex items-center justify-center p-8"
+          style={{ background: 'var(--bg)' }}
+          aria-busy={this.state.isResetting}
+        >
           <div className="gc text-center max-w-md p-8" style={{ borderRadius: 'var(--r-glass)' }}>
             <svg className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--err, #ef4444)" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
             <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--t1)' }}>
@@ -77,6 +113,7 @@ class ErrorBoundaryInner extends React.Component<
               <button
                 type="button"
                 onClick={this.handleReset}
+                disabled={this.state.isResetting}
                 className="gi px-4 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
@@ -99,11 +136,19 @@ class ErrorBoundaryInner extends React.Component<
   }
 }
 
-export default function ErrorBoundary({ children, onReset }: { children: React.ReactNode; onReset?: () => void }) {
+export default function ErrorBoundary({
+  children,
+  onError,
+  onReset,
+}: {
+  children: React.ReactNode
+  onError?: (error: Error, info: React.ErrorInfo) => void
+  onReset?: () => void | Promise<void>
+}) {
   const { locale } = useLocale()
 
   return (
-    <ErrorBoundaryInner locale={locale} onReset={onReset}>
+    <ErrorBoundaryInner locale={locale} onError={onError} onReset={onReset}>
       {children}
     </ErrorBoundaryInner>
   )

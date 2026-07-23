@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 
-import { StrictMode, createElement, useEffect } from 'react'
+import {
+  StrictMode,
+  createElement,
+  useEffect,
+  useState,
+  type ComponentType,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,12 +27,25 @@ vi.mock('@/lib/videoEncoder', async (importOriginal) => ({
 
 vi.mock('@/lib/test-stub', () => ({
   isLocalExportTestStubEnabled: () => false,
+  shouldRenderLocalExportTestFrame: () => false,
 }))
 
+vi.mock('@/lib/i18n', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/i18n')>(),
+  useLocale: () => ({ locale: 'en', t: (key: string) => key }),
+}))
+
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { useExportController } from './useExportController'
 import { ExportError } from './videoEncoder'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+const TestErrorBoundary = ErrorBoundary as ComponentType<{
+  children?: ReactNode
+  onError?: (error: Error, info: ErrorInfo) => void
+  onReset?: () => void | Promise<void>
+}>
 
 const track: Track = {
   name: 'Strict Mode lifecycle',
@@ -276,6 +297,253 @@ describe('useExportController lifecycle', () => {
       exportState: 'idle',
     })
     expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('wires descendant error capture through settlement before boundary remount', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    let resolveHeldExport!: (result: {
+      buffer: ArrayBuffer
+      filename: string
+      mimeType: string
+    }) => void
+    exportVideo.mockImplementation(() => new Promise((resolve) => {
+      resolveHeldExport = resolve
+    }))
+    const mapHandle = createMapHandle()
+    const addToast = vi.fn()
+    const setPlaybackProgress = vi.fn()
+    const controllerRef: { current: ReturnType<typeof useExportController> | null } = { current: null }
+    let crashWorkspace!: () => void
+
+    function CrashingWorkspace({ shouldCrash }: { shouldCrash: boolean }) {
+      if (shouldCrash) throw new Error('workspace crashed')
+      return createElement('p', null, 'Recovered workspace')
+    }
+
+    function IntegratedHarness() {
+      const [shouldCrash, setShouldCrash] = useState(false)
+      const controller = useExportController({
+        track,
+        scenes: [],
+        transitionDuration: 0.03,
+        mapViewRef: { current: mapHandle },
+        t: (key) => key,
+        addToast,
+        pausePlayback: vi.fn(),
+        setPlaybackProgress,
+        playbackProgress: 0,
+      })
+      useEffect(() => {
+        controllerRef.current = controller
+        crashWorkspace = () => setShouldCrash(true)
+      }, [controller])
+
+      return createElement(
+        TestErrorBoundary,
+        {
+          onError: controller.invalidateExportSession,
+          onReset: async () => {
+            await controller.cancelExportAndWait()
+            setShouldCrash(false)
+            controller.resetExportSession()
+          },
+        },
+        createElement(CrashingWorkspace, { shouldCrash }),
+      )
+    }
+
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    await act(() => root?.render(createElement(IntegratedHarness)))
+    let ownerExport!: Promise<void>
+    await act(async () => {
+      ownerExport = controllerRef.current!.exportTrack(request)
+      await vi.waitFor(() => expect(exportVideo).toHaveBeenCalledOnce())
+    })
+    await act(() => crashWorkspace())
+
+    const retry = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === 'Try Again')
+    if (!retry) throw new Error('Missing integrated recovery button')
+    expect(controllerRef.current?.isExporting).toBe(true)
+
+    await act(() => retry.click())
+    expect(retry.disabled).toBe(true)
+    expect(document.body.textContent).not.toContain('Recovered workspace')
+
+    await act(async () => {
+      resolveHeldExport({
+        buffer: new Uint8Array([1, 2, 3]).buffer,
+        filename: 'Travelback - stale.mp4',
+        mimeType: 'video/mp4',
+      })
+      await ownerExport
+    })
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Recovered workspace'))
+    expect(mapHandle.resetSize).toHaveBeenCalledOnce()
+    expect(downloadVideo).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
+    expect(setPlaybackProgress).not.toHaveBeenCalled()
+    expect(controllerRef.current).toMatchObject({
+      isExporting: false,
+      exportState: 'idle',
+      exportedVideoUrl: null,
+      exportedVideoFilename: null,
+    })
+  })
+
+  it('invalidates a held encoder at error capture and authorizes no late callbacks or results', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    let resolveHeldExport!: (result: {
+      buffer: ArrayBuffer
+      filename: string
+      mimeType: string
+    }) => void
+    let ownerSignal: AbortSignal | undefined
+    exportVideo.mockImplementation((...args: unknown[]) => {
+      ownerSignal = args[6] as AbortSignal
+      return new Promise((resolve) => {
+        resolveHeldExport = resolve
+      })
+    })
+    const createObjectURL = vi.fn(() => 'blob:stale-video')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+    const mapHandle = createMapHandle()
+    const { addToast, controllerRef, setPlaybackProgress } = await renderController(mapHandle)
+
+    let ownerExport!: Promise<void>
+    await act(async () => {
+      ownerExport = controllerRef.current!.exportTrack(request)
+      await vi.waitFor(() => expect(exportVideo).toHaveBeenCalledOnce())
+    })
+
+    const renderFrame = exportVideo.mock.calls[0]?.[3] as (
+      progress: number,
+      cameraState: unknown,
+    ) => Promise<void>
+    const reportProgress = exportVideo.mock.calls[0]?.[5] as (progress: number) => void
+
+    controllerRef.current!.invalidateExportSession()
+
+    expect(ownerSignal?.aborted).toBe(true)
+    await expect(renderFrame(0.5, {})).rejects.toMatchObject({ name: 'AbortError' })
+    reportProgress(0.5)
+    expect(mapHandle.renderFrameAndWait).not.toHaveBeenCalled()
+    expect(setPlaybackProgress).not.toHaveBeenCalled()
+
+    let recoverySettled = false
+    let recoveryWait!: Promise<void>
+    await act(async () => {
+      recoveryWait = controllerRef.current!.cancelExportAndWait().then(() => {
+        recoverySettled = true
+      })
+      await Promise.resolve()
+    })
+    expect(recoverySettled).toBe(false)
+
+    await act(async () => {
+      resolveHeldExport({
+        buffer: new Uint8Array([1, 2, 3]).buffer,
+        filename: 'Travelback - stale.mp4',
+        mimeType: 'video/mp4',
+      })
+      await Promise.all([ownerExport, recoveryWait])
+    })
+
+    expect(recoverySettled).toBe(true)
+    expect(mapHandle.resetSize).toHaveBeenCalledOnce()
+    expect(downloadVideo).not.toHaveBeenCalled()
+    expect(createObjectURL).not.toHaveBeenCalled()
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
+    expect(controllerRef.current).toMatchObject({
+      isExporting: true,
+      exportState: 'exporting',
+      exportProgress: 0,
+      exportedVideoUrl: null,
+      exportedVideoBlob: null,
+      exportedVideoFilename: null,
+      downloadMethod: null,
+    })
+
+    await act(() => controllerRef.current!.resetExportSession())
+    expect(controllerRef.current).toMatchObject({
+      isExporting: false,
+      exportState: 'idle',
+      exportProgress: 0,
+      exportedVideoUrl: null,
+      exportedVideoBlob: null,
+      exportedVideoFilename: null,
+      downloadMethod: null,
+    })
+
+    exportVideo.mockRejectedValueOnce(new Error('fresh export reached encoder'))
+    await act(async () => {
+      await controllerRef.current!.exportTrack(request)
+    })
+    expect(exportVideo).toHaveBeenCalledTimes(2)
+    expect(consoleError).toHaveBeenCalledWith('Export failed:', 'fresh export reached encoder')
+  })
+
+  it('revokes a held download URL without publishing it after session invalidation', async () => {
+    const createObjectURL = vi.fn(() => 'blob:held-download')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+    exportVideo.mockResolvedValue({
+      buffer: new Uint8Array([4, 5, 6]).buffer,
+      filename: 'Travelback - held.mp4',
+      mimeType: 'video/mp4',
+    })
+    let releaseDownload!: () => void
+    downloadVideo.mockImplementation(() => new Promise((resolve) => {
+      releaseDownload = () => resolve({ saved: false, method: 'fallback' })
+    }))
+    const mapHandle = createMapHandle()
+    const { addToast, controllerRef, setPlaybackProgress } = await renderController(mapHandle)
+
+    let ownerExport!: Promise<void>
+    await act(async () => {
+      ownerExport = controllerRef.current!.exportTrack(request)
+      await vi.waitFor(() => expect(downloadVideo).toHaveBeenCalledOnce())
+    })
+    expect(createObjectURL).toHaveBeenCalledOnce()
+
+    controllerRef.current!.invalidateExportSession()
+    let recoveryWait!: Promise<void>
+    await act(async () => {
+      recoveryWait = controllerRef.current!.cancelExportAndWait()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      releaseDownload()
+      await Promise.all([ownerExport, recoveryWait])
+    })
+
+    expect(revokeObjectURL).toHaveBeenCalledOnce()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:held-download')
+    expect(addToast).not.toHaveBeenCalled()
+    expect(setPlaybackProgress).not.toHaveBeenCalled()
+    expect(controllerRef.current).toMatchObject({
+      exportState: 'exporting',
+      exportedVideoUrl: null,
+      exportedVideoBlob: null,
+      exportedVideoFilename: null,
+      downloadMethod: null,
+    })
+
+    await act(() => controllerRef.current!.resetExportSession())
+    expect(controllerRef.current).toMatchObject({
+      isExporting: false,
+      exportState: 'idle',
+      exportedVideoUrl: null,
+      exportedVideoBlob: null,
+      exportedVideoFilename: null,
+      downloadMethod: null,
+    })
   })
 
   it('retains ownership through cleanup and releases waiting replacements afterward', async () => {

@@ -5,15 +5,21 @@ import type { ExportConfig, ExportRequest, Scene, Track } from '@/types'
 import type { ToastMessage } from '@/components/Toast'
 import type { MapViewHandle } from '@/components/MapView'
 import { computeCumulativeDistances } from '@/lib/interpolate'
+import { computeCameraForProgress } from '@/lib/camera'
 import { resolveTrackDisplayName, type TranslationKey } from '@/lib/i18n'
 import { exportVideo, downloadVideo, ExportError } from '@/lib/videoEncoder'
-import { isLocalExportTestStubEnabled, LOCAL_EXPORT_TEST_STUB_PAYLOAD } from '@/lib/test-stub'
+import {
+  isLocalExportTestStubEnabled,
+  LOCAL_EXPORT_TEST_STUB_PAYLOAD,
+  shouldRenderLocalExportTestFrame,
+} from '@/lib/test-stub'
 
 export type ExportState = 'idle' | 'exporting' | 'done'
 export type DownloadMethod = 'picker' | 'fallback' | 'ready'
 
 interface ExportLease {
   abortController: AbortController
+  generation: number
   settlement: Promise<void>
   release: () => void
   suppressCancellationToast: boolean
@@ -63,6 +69,7 @@ export function useExportController({
   const [downloadMethod, setDownloadMethod] = useState<DownloadMethod | null>(null)
 
   const exportLeaseRef = useRef<ExportLease | null>(null)
+  const exportGenerationRef = useRef(0)
   const exportedVideoUrlRef = useRef<string | null>(null)
   const exportProgressRef = useRef<number | undefined>(undefined)
   const lastProgressUpdateTimeRef = useRef<number>(0)
@@ -94,6 +101,7 @@ export function useExportController({
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+      exportGenerationRef.current += 1
       // Abort any in-progress export when the owning component unmounts.
       // Without this, the export loop continues against a destroyed map,
       // producing a video with blank/stale frames.
@@ -114,22 +122,33 @@ export function useExportController({
   }, [])
 
   const revokeExportedVideoUrl = useCallback(() => {
-    setExportedVideoUrl((previousUrl) => {
-      if (previousUrl) {
-        URL.revokeObjectURL(previousUrl)
-      }
-      return null
-    })
+    const previousUrl = exportedVideoUrlRef.current
+    exportedVideoUrlRef.current = null
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl)
+    }
+    setExportedVideoUrl(null)
     setExportedVideoBlob(null)
     setExportedVideoFilename(null)
   }, [])
 
+  const invalidateExportSession = useCallback(() => {
+    exportGenerationRef.current += 1
+    const lease = exportLeaseRef.current
+    if (lease) {
+      lease.suppressCancellationToast = true
+      lease.abortController.abort()
+    }
+  }, [])
+
   const resetExportSession = useCallback(() => {
+    invalidateExportSession()
+    setIsExporting(false)
     setExportState('idle')
     setExportProgress(0)
     setDownloadMethod(null)
     revokeExportedVideoUrl()
-  }, [revokeExportedVideoUrl])
+  }, [invalidateExportSession, revokeExportedVideoUrl])
 
   const cancelExport = useCallback(() => {
     exportLeaseRef.current?.abortController.abort()
@@ -162,6 +181,7 @@ export function useExportController({
     let releaseSettlement!: () => void
     const lease: ExportLease = {
       abortController,
+      generation: exportGenerationRef.current,
       settlement: new Promise<void>((resolve) => {
         releaseSettlement = resolve
       }),
@@ -177,6 +197,16 @@ export function useExportController({
     let pendingVideoUrl: string | null = null
     let pendingVideoUrlStored = false
     let exportSucceeded = false
+    const ownsPublication = () => (
+      mountedRef.current
+      && exportLeaseRef.current === lease
+      && exportGenerationRef.current === lease.generation
+    )
+    const requireActiveLease = () => {
+      if (!ownsPublication() || abortController.signal.aborted) {
+        throw new DOMException('Export cancelled', 'AbortError')
+      }
+    }
 
     try {
       setIsExporting(true)
@@ -199,13 +229,16 @@ export function useExportController({
       mapHandle.resize(config.resolution.width, config.resolution.height)
 
       const mapSettledAfterResize = await mapHandle.waitForIdle(abortController.signal)
+      requireActiveLease()
       if (!mapSettledAfterResize) {
         throw new ExportError('Map did not finish rendering after resize', 'EXPORT_MAP_RENDER')
       }
 
       let consecutiveIdleTimeouts = 0
       const waitForStableMap = async () => {
+        requireActiveLease()
         const didIdle = await mapHandle.waitForIdle(abortController.signal)
+        requireActiveLease()
         if (didIdle) {
           consecutiveIdleTimeouts = 0
           return
@@ -222,23 +255,47 @@ export function useExportController({
         : computeCumulativeDistances(track.points, track.segmentStartIndices)
 
       const result = isLocalExportTestStubEnabled()
-        ? await new Promise<{ buffer: ArrayBuffer; filename: string; mimeType: string }>((resolve) => {
-            setPlaybackProgress(1)
-            setExportProgress(1)
-            requestAnimationFrame(() => {
-              resolve({
-                buffer: new TextEncoder().encode(LOCAL_EXPORT_TEST_STUB_PAYLOAD).buffer,
-                filename: `Travelback - ${trackForExport.name}.mp4`,
-                mimeType: 'video/mp4',
+        ? await (async () => {
+            if (shouldRenderLocalExportTestFrame()) {
+              const frameProgress = 0.75
+              const frameCamera = computeCameraForProgress(
+                trackForExport,
+                cumulDist,
+                exportConfig.scenes,
+                frameProgress,
+                exportConfig.duration * frameProgress,
+                exportConfig.transitionDuration,
+              )
+              await mapHandle.renderFrameAndWait(
+                frameCamera,
+                frameProgress,
+                abortController.signal,
+              )
+              requireActiveLease()
+            }
+
+            if (ownsPublication() && !abortController.signal.aborted) {
+              setPlaybackProgress(1)
+              setExportProgress(1)
+            }
+            return new Promise<{ buffer: ArrayBuffer; filename: string; mimeType: string }>((resolve) => {
+              requestAnimationFrame(() => {
+                resolve({
+                  buffer: new TextEncoder().encode(LOCAL_EXPORT_TEST_STUB_PAYLOAD).buffer,
+                  filename: `Travelback - ${trackForExport.name}.mp4`,
+                  mimeType: 'video/mp4',
+                })
               })
             })
-          })
+          })()
         : await exportVideo(
             canvas,
             trackForExport,
             exportConfig,
             async (nextProgress, cameraState) => {
+              requireActiveLease()
               await mapHandle.renderFrameAndWait(cameraState, nextProgress, abortController.signal)
+              requireActiveLease()
               // Throttle visible playback state updates to ~10 Hz using
               // a time-based interval so UI refresh rate is consistent
               // regardless of export duration or frame rate.
@@ -251,6 +308,7 @@ export function useExportController({
             },
             waitForStableMap,
             (nextProgress) => {
+              if (!ownsPublication() || abortController.signal.aborted) return
               // Throttle export progress display updates to ~10 Hz so the
               // progress bar does not re-render on every frame (same pattern
               // as the playback progress throttle above).
@@ -264,18 +322,12 @@ export function useExportController({
             cumulDist,
           )
 
-      if (abortController.signal.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError')
-      }
+      requireActiveLease()
       const blob = new Blob([result.buffer], { type: result.mimeType })
       pendingVideoUrl = URL.createObjectURL(blob)
-      if (abortController.signal.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError')
-      }
+      requireActiveLease()
       const downloadResult = await downloadVideo(pendingVideoUrl, result.filename, blob)
-      if (abortController.signal.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError')
-      }
+      requireActiveLease()
       if (exportedVideoUrlRef.current) {
         URL.revokeObjectURL(exportedVideoUrlRef.current)
       }
@@ -300,7 +352,7 @@ export function useExportController({
       if (pendingVideoUrl && !pendingVideoUrlStored) {
         URL.revokeObjectURL(pendingVideoUrl)
       }
-      if (mountedRef.current) {
+      if (ownsPublication()) {
         if (abortController.signal.aborted) {
           if (!lease.suppressCancellationToast) {
             addToast(tRef.current('app.exportCancelled'), 'info')
@@ -346,7 +398,7 @@ export function useExportController({
             // Timeout is acceptable during cleanup
           }
         }
-        if (mountedRef.current) {
+        if (ownsPublication()) {
           // Only restore pre-export progress on abort/failure — on success,
           // progress was already set to 1 in the try block above.
           if (!exportSucceeded) {
@@ -386,6 +438,7 @@ export function useExportController({
     downloadMethod,
     cancelExport,
     cancelExportAndWait,
+    invalidateExportSession,
     exportTrack,
     resetExportSession,
   }

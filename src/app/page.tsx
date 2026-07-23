@@ -227,6 +227,7 @@ function HomeInner() {
     downloadMethod,
     cancelExport,
     cancelExportAndWait,
+    invalidateExportSession,
     exportTrack,
     resetExportSession,
   } = useExportController({
@@ -595,20 +596,29 @@ function HomeInner() {
     setUnits(nextUnits)
   }, [])
 
-  const handleErrorReset = useCallback(() => {
+  const handleErrorReset = useCallback(async () => {
+    await cancelExportAndWait()
     invalidateSampleLoad()
     setFullTrack(null)
     setTrack(null)
     setScenes([])
     setShowExport(false)
     setShowSceneEditor(false)
+    setShowGoogleGuide(false)
+    setShowKeyboardHelp(false)
     setIsCreatingJourney(false)
+    setPendingTrimRange(null)
     resetPlaybackSession()
     resetExportSession()
-  }, [invalidateSampleLoad, resetPlaybackSession, resetExportSession])
+  }, [
+    cancelExportAndWait,
+    invalidateSampleLoad,
+    resetPlaybackSession,
+    resetExportSession,
+  ])
 
   return (
-    <ErrorBoundary onReset={handleErrorReset}>
+    <ErrorBoundary onError={invalidateExportSession} onReset={handleErrorReset}>
       <main id="app" className="relative w-screen h-screen overflow-hidden" data-travelback-app-root="true" data-travelback-exporting={isExporting ? 'true' : undefined} data-has-track={track ? 'true' : undefined}>
         <MapView
           ref={mapViewRef}

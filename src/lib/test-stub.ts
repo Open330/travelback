@@ -26,3 +26,16 @@ export function isLocalExportTestStubEnabled(): boolean {
     return false
   }
 }
+
+/** Opt-in companion for browser tests that need one real MapView frame
+ * mutation while still bypassing video encoding. */
+export function shouldRenderLocalExportTestFrame(): boolean {
+  if (typeof window === 'undefined') return false
+  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  if (!isLocalHost) return false
+  try {
+    return window.localStorage.getItem('travelback-export-frame-test') === '1'
+  } catch {
+    return false
+  }
+}
