@@ -225,6 +225,11 @@ export default function ExportPanel({
 
   const [shareError, setShareError] = useState(false)
 
+  const handleResetExport = useCallback(() => {
+    setShareError(false)
+    onResetExport()
+  }, [onResetExport])
+
   const handleShare = useCallback(async () => {
     if (!exportedVideoBlob) return
     setShareError(false)
@@ -369,7 +374,7 @@ export default function ExportPanel({
               )}
               <button
                 type="button"
-                onClick={onResetExport}
+                onClick={handleResetExport}
                 className="gi inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
                 style={{ color: 'var(--t1)' }}
               >
@@ -386,12 +391,12 @@ export default function ExportPanel({
                   {t('export.share')}
                 </button>
               )}
-              {shareError && (
-                <p role="alert" className="col-span-full text-xs" style={{ color: 'var(--warn-fg)' }}>
-                  {t('export.shareFailed')}
-                </p>
-              )}
             </div>
+            {shareError && (
+              <p role="alert" className="mt-2 w-full text-xs" style={{ color: 'var(--warn-fg)' }}>
+                {t('export.shareFailed')}
+              </p>
+            )}
           </div>
         ) : isExporting ? (
           <div>

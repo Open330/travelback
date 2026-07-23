@@ -180,6 +180,96 @@ describe('ExportPanel completion state', () => {
     if (!idleHeading) throw new Error('Missing idle Export heading')
     expect(document.activeElement).toBe(idleHeading)
   })
+
+  it('clears a failed share before the next export completion', async () => {
+    const onClose = vi.fn()
+    const onResetExport = vi.fn()
+    const onExport = vi.fn()
+    const onCancelExport = vi.fn()
+    const share = vi.fn().mockRejectedValue(new Error('Share failed'))
+    const shareNavigator = Object.create(navigator) as Navigator
+    Object.defineProperties(shareNavigator, {
+      share: { configurable: true, value: share },
+      canShare: { configurable: true, value: vi.fn().mockReturnValue(true) },
+    })
+    vi.stubGlobal('navigator', shareNavigator)
+
+    await renderExportPanel(onClose, {
+      onExport,
+      onResetExport,
+      onCancelExport,
+      exportState: 'done',
+      exportedVideoUrl: 'blob:first-video',
+      exportedVideoBlob: new Blob(['first'], { type: 'video/mp4' }),
+      exportedVideoFilename: 'first.mp4',
+    })
+
+    const findButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes(label))
+
+    const firstShare = findButton('export.share')
+    if (!firstShare) throw new Error('Missing Share button')
+    await act(async () => {
+      firstShare.click()
+      await Promise.resolve()
+    })
+
+    const firstAlert = document.querySelector<HTMLElement>('[role="alert"]')
+    expect(firstAlert?.textContent).toBe('export.shareFailed')
+
+    const exportAgain = findButton('export.exportAgain')
+    if (!exportAgain) throw new Error('Missing Export Again button')
+    const actionRow = exportAgain.parentElement
+    expect(actionRow?.contains(firstAlert)).toBe(false)
+    expect(firstAlert?.parentElement).toBe(actionRow?.parentElement)
+
+    await act(() => exportAgain.click())
+    expect(onResetExport).toHaveBeenCalledOnce()
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+
+    await act(async () => {
+      root?.render(createElement(ExportPanel, {
+        isOpen: true,
+        onClose,
+        onExport,
+        isExporting: false,
+        exportProgress: 0,
+        exportState: 'idle',
+        onResetExport,
+        onCancelExport,
+      }))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      root?.render(createElement(ExportPanel, {
+        isOpen: true,
+        onClose,
+        onExport,
+        isExporting: false,
+        exportProgress: 1,
+        exportState: 'done',
+        exportedVideoUrl: 'blob:second-video',
+        exportedVideoBlob: new Blob(['second'], { type: 'video/mp4' }),
+        exportedVideoFilename: 'second.mp4',
+        onResetExport,
+        onCancelExport,
+      }))
+      await Promise.resolve()
+    })
+
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+
+    const secondShare = findButton('export.share')
+    if (!secondShare) throw new Error('Missing Share button after second export')
+    await act(async () => {
+      secondShare.click()
+      await Promise.resolve()
+    })
+
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('export.shareFailed')
+    expect(share).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('ExportPanel rendering focus', () => {
