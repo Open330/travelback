@@ -317,6 +317,40 @@ function hasOwnedGpxAncestor(
   return false
 }
 
+function findOwnedXmlDirectChildText(
+  doc: Document,
+  parentLocalName: string,
+  childLocalName: string,
+): string | null | undefined {
+  const root = doc.documentElement
+  const namespaceUri = root.namespaceURI
+  const parents = doc.getElementsByTagNameNS('*', parentLocalName)
+
+  for (let parentIndex = 0; parentIndex < parents.length; parentIndex++) {
+    const parent = parents[parentIndex]
+    let ancestor: Element | null = parent
+    let hasOwnedAncestry = false
+    while (ancestor) {
+      if (ancestor.namespaceURI !== namespaceUri) break
+      if (ancestor === root) {
+        hasOwnedAncestry = true
+        break
+      }
+      ancestor = ancestor.parentElement
+    }
+    if (!hasOwnedAncestry) continue
+
+    for (let childIndex = 0; childIndex < parent.children.length; childIndex++) {
+      const child = parent.children[childIndex]
+      if (child.localName === childLocalName && child.namespaceURI === namespaceUri) {
+        return child.textContent
+      }
+    }
+  }
+
+  return undefined
+}
+
 function extractPointsFromGpxSegments(
   doc: Document,
   maxPoints?: number,
@@ -393,8 +427,8 @@ export function parseGPX(text: string, maxPoints?: number): Track {
   const { points, segmentStartIndices } = semanticTrack
     ? semanticTrack
     : extractPointsFromGeoJSON(gpx(doc) as GeoJSON.FeatureCollection)
-  const explicitName = normalizeImportedTrackName(doc.querySelector('trk > name')?.textContent)
-    ?? normalizeImportedTrackName(doc.querySelector('metadata > name')?.textContent)
+  const explicitName = normalizeImportedTrackName(findOwnedXmlDirectChildText(doc, 'trk', 'name'))
+    ?? normalizeImportedTrackName(findOwnedXmlDirectChildText(doc, 'metadata', 'name'))
   return {
     name: explicitName ?? 'GPX Track',
     points,
@@ -407,8 +441,8 @@ export function parseKML(text: string): Track {
   const doc = parseXml(text, 'KML')
   const geojson = kml(doc)
   const { points, segmentStartIndices } = extractPointsFromGeoJSON(geojson as GeoJSON.FeatureCollection)
-  const explicitName = normalizeImportedTrackName(doc.querySelector('Document > name')?.textContent)
-    ?? normalizeImportedTrackName(doc.querySelector('Placemark > name')?.textContent)
+  const explicitName = normalizeImportedTrackName(findOwnedXmlDirectChildText(doc, 'Document', 'name'))
+    ?? normalizeImportedTrackName(findOwnedXmlDirectChildText(doc, 'Placemark', 'name'))
   return {
     name: explicitName ?? 'KML Track',
     points,

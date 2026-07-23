@@ -1262,6 +1262,23 @@ const xmlNameFormats = [
     fallbackKey: 'gpx',
     parse: parseGPX,
     document: (name: string) => `<gpx><trk><name>${name}</name><trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg></trk></gpx>`,
+    documentWithLeadingForeignName: (sourceName?: string) => `<gpx
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:ext="https://example.test/travelback-extension">
+  <ext:trk><ext:name>Extension override</ext:name></ext:trk>
+  <trk>
+    <ext:name>Direct extension override</ext:name>
+    ${sourceName == null ? '' : `<name>${sourceName}</name>`}
+    <trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg>
+  </trk>
+</gpx>`,
+    documentWithLeadingForeignFallbackName: (sourceName: string) => `<gpx
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:ext="https://example.test/travelback-extension">
+  <ext:metadata><ext:name>Extension metadata override</ext:name></ext:metadata>
+  <metadata><name>${sourceName}</name></metadata>
+  <trk><trkseg><trkpt lat="37.4" lon="-122.1" /></trkseg></trk>
+</gpx>`,
   },
   {
     format: 'KML',
@@ -1269,6 +1286,27 @@ const xmlNameFormats = [
     fallbackKey: 'kml',
     parse: parseKML,
     document: (name: string) => `<kml><Document><name>${name}</name><Placemark><LineString><coordinates>-122.1,37.4,0</coordinates></LineString></Placemark></Document></kml>`,
+    documentWithLeadingForeignName: (sourceName?: string) => `<kml
+  xmlns="http://www.opengis.net/kml/2.2"
+  xmlns:ext="https://example.test/travelback-extension">
+  <ext:Document><ext:name>Extension override</ext:name></ext:Document>
+  <Document>
+    <ext:name>Direct extension override</ext:name>
+    ${sourceName == null ? '' : `<name>${sourceName}</name>`}
+    <Placemark><LineString><coordinates>-122.1,37.4,0</coordinates></LineString></Placemark>
+  </Document>
+</kml>`,
+    documentWithLeadingForeignFallbackName: (sourceName: string) => `<kml
+  xmlns="http://www.opengis.net/kml/2.2"
+  xmlns:ext="https://example.test/travelback-extension">
+  <ext:Placemark><ext:name>Extension placemark override</ext:name></ext:Placemark>
+  <Document>
+    <Placemark>
+      <name>${sourceName}</name>
+      <LineString><coordinates>-122.1,37.4,0</coordinates></LineString>
+    </Placemark>
+  </Document>
+</kml>`,
   },
 ] as const
 
@@ -1286,6 +1324,27 @@ for (const format of xmlNameFormats) {
       const track = format.parse(format.document(format.fallbackName))
 
       expect(track.name).toBe(format.fallbackName)
+      expect(track.fallbackNameSource).toBeUndefined()
+    })
+
+    it('ignores a leading foreign-namespace name before the schema-owned name', () => {
+      const track = format.parse(format.documentWithLeadingForeignName('Schema-owned name'))
+
+      expect(track.name).toBe('Schema-owned name')
+      expect(track.fallbackNameSource).toBeUndefined()
+    })
+
+    it('uses the fallback when only a foreign-namespace name exists', () => {
+      const track = format.parse(format.documentWithLeadingForeignName())
+
+      expect(track.name).toBe(format.fallbackName)
+      expect(track.fallbackNameSource).toBe(format.fallbackKey)
+    })
+
+    it('ignores a foreign fallback-parent name before the schema-owned fallback-parent name', () => {
+      const track = format.parse(format.documentWithLeadingForeignFallbackName('Schema-owned fallback name'))
+
+      expect(track.name).toBe('Schema-owned fallback name')
       expect(track.fallbackNameSource).toBeUndefined()
     })
   })
