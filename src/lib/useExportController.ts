@@ -368,24 +368,25 @@ export function useExportController({
       }
     } finally {
       try {
-        // Only reset map size when the component is still mounted — calling
-        // resetSize() on a destroyed map can throw (C15-F05).
+        // Restore the MapView-owned presentation transaction while its live
+        // imperative handle still owns the snapshot. Keep the defensive catch
+        // so an unexpected teardown error cannot replace the export outcome.
         if (mountedRef.current) {
           try {
             mapViewRef.current?.resetSize()
           } catch (resetError) {
-            // resetSize() is expected to clear forced dimensions itself; this log
-            // keeps unexpected map teardown failures visible without reaching into
-            // MapView's DOM from the controller.
+            // MapView restores captured inline dimensions before touching
+            // MapLibre. Keep unexpected teardown failures visible without
+            // reaching into MapView's DOM from the controller.
             console.warn('[Travelback] mapHandle.resetSize() failed during export cleanup:', resetError instanceof Error ? resetError.message : String(resetError))
           }
         } else {
-          // Component unmounted during export — attempt a best-effort container
-          // style cleanup only (resetSize clears container style + calls
-          // map.resize). The container style clear is non-throwing.
+          // Component unmounted during export — give any remaining handle one
+          // best-effort chance to consume its presentation snapshot. MapView's
+          // own teardown owns the no-snapshot fallback.
           try {
             mapViewRef.current?.resetSize()
-          } catch { /* map destroyed — container already cleaned by unmount */ }
+          } catch { /* map destroyed — MapView teardown owns remaining cleanup */ }
         }
         // Wait for map to settle after resize on the normal-completion path.
         // Skip the idle wait when the export was aborted — the signal is already

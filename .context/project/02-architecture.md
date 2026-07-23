@@ -50,7 +50,11 @@ ExportPanel (config: resolution, codec, fps, bitrate, duration)
     ↓
 useExportController.exportTrack()
     ↓
-MapView.resize(width, height)  →  Resize map to export resolution
+MapView.resize(width, height)
+    1. captureExportPresentation() → On the first resize, snapshot the exact
+       inline dimensions, DPR ownership, and (when Follow is off) manual camera
+    2. applyExportPresentation()   → Set DPR to 1, apply export dimensions,
+       and resize the map
     ↓
 videoEncoder.ts exportVideo()
     ↓
@@ -66,7 +70,10 @@ mediabunny Output.finalize() with abort/deadline → BufferTarget ArrayBuffer (M
     ↓
 downloadVideo() → Browser download
     ↓
-MapView.resetSize() → Restore original dimensions
+MapView.resetSize()
+    ↓
+restoreExportPresentation() → Restore the captured dimensions and DPR
+ownership, resize the map, and restore an eligible Follow-off camera
 ```
 
 Note: `waitForIdle()` is used after resize and again after each painted frame to confirm that map resources have settled before capture. `renderFrameAndWait()` subscribes to MapLibre's `render` event before changing the trail, marker, and camera, explicitly calls `triggerRepaint()` even when the camera is unchanged, and resolves on the following animation frame. A missing render event rejects after five seconds; there is no identical-camera shortcut because source-only changes still need to paint.
@@ -79,9 +86,28 @@ During export, `useExportController` sets `isExporting=true` on MapView. The pro
 
 At track load time, `precomputeWrappedSegments()` applies antimeridian wrapping once, then `buildTrailChunks()` partitions the route into immutable features of at most 512 coordinates. The complete chunk collection is published once per track/style load. During playback, a binary search finds the last completed chunk, `trail-line` reveals completed chunks with a filter only when a chunk boundary is crossed, and `trail-head-line` republishes only the current bounded chunk plus its interpolated endpoint. Per-frame serialization is therefore bounded by the 512-coordinate chunk budget rather than the total traveled prefix; preprocessing and initial publication remain linear in track size.
 
-### Export cleanup: resetSize
+### Export presentation transaction
 
-`resetSize()` clears container inline styles (`width`, `height`) before calling `map.resize()`. If `map.resize()` throws (e.g., the map was destroyed during export), the container is already restored to its natural dimensions. This prevents a permanently resized map on cleanup failure.
+The first export resize captures one presentation snapshot before applying the
+export resolution. The snapshot preserves the container's exact pre-export
+inline `width` and `height`, whether MapLibre's pixel ratio was automatic or an
+explicit override (the current MapView enters export with automatic ownership),
+and the live camera when Follow is off. Applying the export presentation
+temporarily sets pixel ratio 1 so the canvas matches the requested video pixels
+exactly.
+
+`resetSize()` consumes that snapshot as one restore transaction. It first
+restores the original inline dimensions, then releases the DPR override with
+`setPixelRatio(null)` for automatic ownership or reapplies the captured
+explicit value, calls `map.resize()`, and restores the captured manual camera
+only if Follow is still off. Follow-on cleanup instead clears camera smoothing
+and lets the current playback progress recompute the interactive camera.
+
+The no-snapshot path is a teardown fallback, not the normal export restore
+contract: it clears forced inline dimensions and attempts a best-effort
+`map.resize()`. If the snapshot still exists but the map has already
+disappeared, MapView can restore the exact container dimensions but has no live
+MapLibre instance whose DPR or camera needs restoration.
 
 ## Camera System
 
