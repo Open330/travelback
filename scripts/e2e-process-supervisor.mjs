@@ -1,12 +1,17 @@
 import { execFile, spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { createServer as createTcpServer } from 'node:net'
 import path from 'node:path'
 
 const FORWARDED_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT']
+const OWNERSHIP_ENVIRONMENT_KEY = 'TRAVELBACK_E2E_OWNER'
 const TRAVELBACK_MARKER = /\bdata-svc=(['"])travelback\1/i
 const MARKER_READ_LIMIT = 64 * 1024
 const PROCESS_TABLE_TIMEOUT_MS = 2_000
+const PROCESS_TABLE_MAX_BUFFER = 64 * 1024 * 1024
+const CLEANUP_POLL_INTERVAL_MS = 50
+export const POSIX_OWNERSHIP_POLL_INTERVAL_MS = 5_000
 
 function delay(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds))
@@ -28,33 +33,42 @@ function isProcessAlive(pid) {
   }
 }
 
-async function forceWindowsProcessTreeExit(pid) {
-  await new Promise((resolve, reject) => {
-    const taskkill = spawn(
-      'taskkill.exe',
-      ['/pid', String(pid), '/t', '/f'],
-      { stdio: 'ignore', windowsHide: true },
-    )
-    taskkill.once('error', reject)
-    taskkill.once('exit', code => {
-      if (code === 0 || !isProcessAlive(pid)) {
-        resolve()
-        return
-      }
-      reject(new Error(`taskkill exited with code ${code ?? 'unknown'}`))
-    })
-  })
+export class UnsupportedProcessContainmentError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'UnsupportedProcessContainmentError'
+  }
 }
 
-function readPosixProcessTable() {
+function parsePosixProcessTable(stdout, ownershipMarker) {
+  const snapshot = new Map()
+  for (const line of stdout.split('\n')) {
+    const match = line.trimEnd().match(
+      /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.{24})(?:\s+(.*))?$/,
+    )
+    if (!match) continue
+    const commandAndEnvironment = match[5] ?? ''
+    const entry = {
+      pid: Number(match[1]),
+      ppid: Number(match[2]),
+      pgid: Number(match[3]),
+      startedAt: match[4],
+      owned: commandAndEnvironment.includes(ownershipMarker),
+    }
+    snapshot.set(entry.pid, entry)
+  }
+  return snapshot
+}
+
+function runPosixProcessSnapshot(args, ownershipMarker) {
   return new Promise((resolve, reject) => {
     execFile(
       'ps',
-      ['-axo', 'pid=,ppid=,pgid=,lstart='],
+      args,
       {
         encoding: 'utf8',
         env: { ...process.env, LC_ALL: 'C' },
-        maxBuffer: 4 * 1024 * 1024,
+        maxBuffer: PROCESS_TABLE_MAX_BUFFER,
         timeout: PROCESS_TABLE_TIMEOUT_MS,
         killSignal: 'SIGKILL',
       },
@@ -64,47 +78,90 @@ function readPosixProcessTable() {
           return
         }
 
-        const snapshot = new Map()
-        for (const line of stdout.split('\n')) {
-          const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.+?)\s*$/)
-          if (!match) continue
-          const entry = {
-            pid: Number(match[1]),
-            ppid: Number(match[2]),
-            pgid: Number(match[3]),
-            startedAt: match[4],
-          }
-          snapshot.set(entry.pid, entry)
-        }
-        resolve(snapshot)
+        resolve(parsePosixProcessTable(stdout, ownershipMarker))
       },
     )
   })
 }
 
-class PosixOwnedProcessTracker {
-  constructor(rootPid) {
+function readPosixProcessTable(ownershipMarker) {
+  return runPosixProcessSnapshot(
+    ['-AxwwE', '-o', 'pid=,ppid=,pgid=,lstart=,command='],
+    ownershipMarker,
+  )
+}
+
+async function readPosixProcessIdentities(pids, ownershipMarker) {
+  if (pids.length === 0) return new Map()
+
+  const snapshots = await Promise.all(
+    Array.from({ length: Math.ceil(pids.length / 128) }, (_, index) => {
+      const chunk = pids.slice(index * 128, (index + 1) * 128)
+      return runPosixProcessSnapshot(
+        ['-p', chunk.join(','), '-wwE', '-o', 'pid=,ppid=,pgid=,lstart=,command='],
+        ownershipMarker,
+      )
+    }),
+  )
+  return new Map(snapshots.flatMap(snapshot => [...snapshot]))
+}
+
+function processIdentity(entry) {
+  return `${entry.pid}:${entry.startedAt}`
+}
+
+function sameProcessIdentity(left, right) {
+  return left.pid === right.pid
+    && left.startedAt === right.startedAt
+    && left.owned
+    && right.owned
+}
+
+export class PosixOwnedProcessTracker {
+  constructor(rootPid, ownershipMarker, {
+    readSnapshot,
+    readIdentities,
+    signalProcess,
+    now,
+    wait,
+    setIntervalFn,
+    clearIntervalFn,
+    pollIntervalMs = POSIX_OWNERSHIP_POLL_INTERVAL_MS,
+    wrapperPid = process.pid,
+  } = {}) {
     this.rootPid = rootPid
-    this.knownProcesses = new Map()
-    this.activeGroupTokens = new Map()
-    this.previousActiveGroups = new Set()
+    this.ownershipMarker = ownershipMarker
+    this.readSnapshot = readSnapshot ?? (() => readPosixProcessTable(this.ownershipMarker))
+    this.readIdentities = readIdentities
+      ?? (pids => readPosixProcessIdentities(pids, this.ownershipMarker))
+    this.signalProcess = signalProcess ?? ((pid, signal) => process.kill(pid, signal))
+    this.now = now ?? Date.now
+    this.wait = wait ?? delay
+    this.setIntervalFn = setIntervalFn ?? setInterval
+    this.clearIntervalFn = clearIntervalFn ?? clearInterval
+    this.pollIntervalMs = pollIntervalMs
+    this.wrapperPid = wrapperPid
+    this.lastValidatedProcesses = new Map()
     this.sentSignals = new Set()
-    this.nextGroupGeneration = 1
     this.refreshPromise = null
     this.pollTimer = null
     this.wrapperPgid = null
+    this.snapshotError = null
+    this.operationError = null
   }
 
   async start() {
     await this.refresh()
-    this.pollTimer = setInterval(() => {
-      this.refresh().catch(() => {})
-    }, 100)
-    this.pollTimer.unref()
+    this.pollTimer = this.setIntervalFn(() => {
+      this.refresh().catch(error => {
+        this.rememberSnapshotError(error)
+      })
+    }, this.pollIntervalMs)
+    this.pollTimer?.unref?.()
   }
 
   stop() {
-    if (this.pollTimer) clearInterval(this.pollTimer)
+    if (this.pollTimer) this.clearIntervalFn(this.pollTimer)
     this.pollTimer = null
   }
 
@@ -118,132 +175,150 @@ class PosixOwnedProcessTracker {
   }
 
   async refreshNow() {
-    const snapshot = await readPosixProcessTable()
-    this.wrapperPgid = snapshot.get(process.pid)?.pgid ?? this.wrapperPgid
+    const snapshot = await this.readSnapshot()
+    this.wrapperPgid = snapshot.get(this.wrapperPid)?.pgid ?? this.wrapperPgid
 
-    if (!this.knownProcesses.has(this.rootPid)) {
-      const root = snapshot.get(this.rootPid)
-      if (root) this.knownProcesses.set(root.pid, root.startedAt)
+    const liveProcesses = []
+    for (const current of snapshot.values()) {
+      if (!current.owned) continue
+      this.assertSafeIdentity(current)
+      liveProcesses.push(current)
     }
 
-    const activeOwnedPids = new Set()
-    const activeOwnedGroups = new Set()
-    for (const [pid, startedAt] of this.knownProcesses) {
-      const current = snapshot.get(pid)
-      if (!current || current.startedAt !== startedAt) continue
-      activeOwnedPids.add(pid)
-      activeOwnedGroups.add(current.pgid)
-    }
-
-    let discoveredProcess = true
-    while (discoveredProcess) {
-      discoveredProcess = false
-      for (const current of snapshot.values()) {
-        if (current.pid === process.pid || activeOwnedPids.has(current.pid)) continue
-        if (!activeOwnedPids.has(current.ppid) && !activeOwnedGroups.has(current.pgid)) continue
-
-        this.knownProcesses.set(current.pid, current.startedAt)
-        activeOwnedPids.add(current.pid)
-        activeOwnedGroups.add(current.pgid)
-        discoveredProcess = true
-      }
-    }
-
-    for (const pgid of activeOwnedGroups) {
-      if (!this.previousActiveGroups.has(pgid)) {
-        this.activeGroupTokens.set(pgid, `${pgid}:${this.nextGroupGeneration}`)
-        this.nextGroupGeneration += 1
-      }
-    }
-    for (const pgid of this.previousActiveGroups) {
-      if (!activeOwnedGroups.has(pgid)) this.activeGroupTokens.delete(pgid)
-    }
-    this.previousActiveGroups = activeOwnedGroups
-
-    return [...activeOwnedPids].map(pid => snapshot.get(pid))
+    this.lastValidatedProcesses = new Map(
+      liveProcesses.map(entry => [processIdentity(entry), entry]),
+    )
+    return liveProcesses
   }
 
-  signalGroupsOnce(liveProcesses, signal) {
-    const groups = new Set(liveProcesses.map(entry => entry.pgid))
-    for (const pgid of groups) {
-      if (pgid <= 1 || pgid === this.wrapperPgid) {
-        throw new Error(`Refusing to signal unsafe process group ${pgid}`)
-      }
+  assertSafeIdentity(entry) {
+    if (
+      !Number.isSafeInteger(entry.pid)
+      || entry.pid <= 1
+      || entry.pid === this.wrapperPid
+    ) {
+      throw new Error(`Refusing to signal unsafe owned PID ${entry.pid}`)
+    }
 
-      const groupToken = this.activeGroupTokens.get(pgid)
-      if (!groupToken) continue
-      const signalKey = `${groupToken}:${signal}`
+    if (!Number.isSafeInteger(entry.pgid) || entry.pgid <= 1) {
+      throw new Error(`Refusing to act on owned PID ${entry.pid} in unsafe process group ${entry.pgid}`)
+    }
+
+    if (this.wrapperPgid && entry.pgid === this.wrapperPgid) {
+      throw new Error(
+        `Refusing to act on owned PID ${entry.pid} in wrapper process group ${entry.pgid}`,
+      )
+    }
+  }
+
+  rememberSnapshotError(error) {
+    this.snapshotError ??= error
+  }
+
+  rememberOperationError(error) {
+    this.operationError ??= error
+  }
+
+  async readValidatedCache() {
+    const liveProcesses = []
+    let snapshot
+    try {
+      snapshot = await this.readIdentities(
+        [...this.lastValidatedProcesses.values()].map(entry => entry.pid),
+      )
+    } catch (error) {
+      this.rememberOperationError(error)
+      return liveProcesses
+    }
+
+    for (const cached of this.lastValidatedProcesses.values()) {
+      try {
+        const current = snapshot.get(cached.pid)
+        if (!current || !sameProcessIdentity(cached, current)) continue
+        this.assertSafeIdentity(current)
+        liveProcesses.push(current)
+      } catch (error) {
+        this.rememberOperationError(error)
+      }
+    }
+
+    return liveProcesses
+  }
+
+  async observeForCleanup() {
+    try {
+      return {
+        completeSnapshot: true,
+        liveProcesses: await this.refresh(),
+      }
+    } catch (error) {
+      this.rememberSnapshotError(error)
+      return {
+        completeSnapshot: false,
+        liveProcesses: await this.readValidatedCache(),
+      }
+    }
+  }
+
+  signalProcessesOnce(liveProcesses, signal) {
+    for (const entry of liveProcesses) {
+      const signalKey = `${processIdentity(entry)}:${signal}`
       if (this.sentSignals.has(signalKey)) continue
 
       try {
-        process.kill(-pgid, signal)
+        this.signalProcess(entry.pid, signal)
       } catch (error) {
-        if (!isMissingProcessError(error)) throw error
+        if (!isMissingProcessError(error)) this.rememberOperationError(error)
       }
       this.sentSignals.add(signalKey)
     }
   }
 
   async signalAndWait(signal, timeoutMs) {
-    const deadline = Date.now() + timeoutMs
+    const deadline = this.now() + timeoutMs
     while (true) {
-      const liveProcesses = await this.refresh()
-      if (liveProcesses.length === 0) return true
-      this.signalGroupsOnce(liveProcesses, signal)
-      if (Date.now() >= deadline) return false
-      await delay(50)
+      const observation = await this.observeForCleanup()
+      if (observation.completeSnapshot && observation.liveProcesses.length === 0) return true
+      this.signalProcessesOnce(observation.liveProcesses, signal)
+      if (this.now() >= deadline) return false
+      await this.wait(CLEANUP_POLL_INTERVAL_MS)
     }
+  }
+
+  cleanupError() {
+    return this.snapshotError ?? this.operationError
   }
 
   describe() {
-    return `owned E2E descendants rooted at PID ${this.rootPid}`
+    return `owned E2E processes for run rooted at PID ${this.rootPid}`
   }
 }
 
-class WindowsOwnedProcessTracker {
-  constructor(child) {
-    this.child = child
-    this.rootPid = child.pid
-    this.sentSignals = new Set()
+export async function stopOwnedProcessTree(
+  tracker,
+  initialSignal,
+  gracePeriodMs,
+  forceKillWaitMs,
+) {
+  let stopped = await tracker.signalAndWait(initialSignal, gracePeriodMs)
+  if (!stopped) {
+    stopped = await tracker.signalAndWait('SIGKILL', forceKillWaitMs)
   }
 
-  async start() {}
-
-  stop() {}
-
-  async signalAndWait(signal, timeoutMs) {
-    if (!this.rootPid || !isProcessAlive(this.rootPid)) return true
-
-    if (!this.sentSignals.has(signal)) {
-      // taskkill's exact PID tree is the only reliable way to include browser
-      // descendants before the Windows root exits and loses that relationship.
-      await forceWindowsProcessTreeExit(this.rootPid)
-      this.sentSignals.add(signal)
-    }
-
-    const deadline = Date.now() + timeoutMs
-    while (isProcessAlive(this.rootPid)) {
-      if (Date.now() >= deadline) return false
-      await delay(50)
-    }
-    return true
+  const cleanupError = tracker.cleanupError?.()
+  if (cleanupError) {
+    throw new Error(
+      `Cleanup of ${tracker.describe()} could not be fully verified: ${cleanupError.message}`,
+      { cause: cleanupError },
+    )
   }
-
-  describe() {
-    return `owned E2E process tree rooted at PID ${this.rootPid}`
-  }
+  if (!stopped) throw new Error(`${tracker.describe()} survived forced termination`)
 }
 
-async function stopOwnedProcessTree(tracker, initialSignal, gracePeriodMs, forceKillWaitMs) {
-  if (await tracker.signalAndWait(initialSignal, gracePeriodMs)) return
-  if (await tracker.signalAndWait('SIGKILL', forceKillWaitMs)) return
-  throw new Error(`${tracker.describe()} survived forced termination`)
-}
-
-async function forceRootGroupExitAfterTrackingFailure(child) {
+async function forceRootGroupExitAfterTrackingFailure(child, platform) {
   if (!child.pid) return
-  if (process.platform === 'win32') {
-    await forceWindowsProcessTreeExit(child.pid).catch(() => {})
+  if (platform === 'win32') {
+    child.kill('SIGKILL')
     return
   }
   try {
@@ -253,11 +328,58 @@ async function forceRootGroupExitAfterTrackingFailure(child) {
   }
 }
 
+function waitForChildOutcome(child) {
+  return new Promise(resolve => {
+    child.once('error', error => resolve({ error }))
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  })
+}
+
+async function verifyPosixOwnershipBoundary(ownershipMarker, childEnvironment) {
+  const probe = spawn(
+    process.execPath,
+    ['-e', 'setTimeout(() => {}, 30_000)'],
+    {
+      env: childEnvironment,
+      stdio: 'ignore',
+      windowsHide: true,
+    },
+  )
+  const probeOutcome = waitForChildOutcome(probe)
+
+  try {
+    await new Promise((resolve, reject) => {
+      probe.once('spawn', resolve)
+      probe.once('error', reject)
+    })
+    const snapshot = await readPosixProcessTable(ownershipMarker)
+    if (!snapshot.get(probe.pid)?.owned) {
+      throw new UnsupportedProcessContainmentError(
+        'This platform does not expose inherited E2E ownership identities; refusing to launch without complete-tree cleanup',
+      )
+    }
+  } finally {
+    if (probe.pid && isProcessAlive(probe.pid)) {
+      try {
+        process.kill(probe.pid, 'SIGKILL')
+      } catch (error) {
+        if (!isMissingProcessError(error)) throw error
+      }
+    }
+    const outcome = await Promise.race([
+      probeOutcome,
+      delay(1_000).then(() => null),
+    ])
+    if (!outcome) {
+      throw new Error(`Ownership-boundary probe PID ${probe.pid} survived exact cleanup`)
+    }
+  }
+}
+
 /**
- * Runs a command in its own POSIX process group and inventories descendants
- * that create their own groups (as Playwright browsers do). Wrapper signals
- * are relayed once to every exact owned group, followed by a bounded graceful
- * wait and exact-group escalation.
+ * Establishes an inherited run identity before launch, then supervises every
+ * process that retains that identity even after reparenting or changing
+ * process groups. Cleanup targets validated PID/start identities individually.
  */
 export async function runSupervisedProcess(command, args, {
   cwd = process.cwd(),
@@ -265,12 +387,45 @@ export async function runSupervisedProcess(command, args, {
   stdio = 'inherit',
   gracePeriodMs = 5_000,
   forceKillWaitMs = 2_000,
+  processOperations = {},
 } = {}) {
-  const child = spawn(command, args, {
+  const platform = processOperations.platform ?? process.platform
+  if (platform === 'win32' && !processOperations.createTracker) {
+    return {
+      error: new UnsupportedProcessContainmentError(
+        'Windows E2E supervision requires a Job Object containment provider; refusing to infer complete-tree cleanup from root-PID death',
+      ),
+    }
+  }
+
+  const ownershipValue = (
+    processOperations.createOwnershipValue?.()
+    ?? randomBytes(24).toString('hex')
+  )
+  const ownershipMarker = `${OWNERSHIP_ENVIRONMENT_KEY}=${ownershipValue}`
+  const childEnvironment = {
+    ...env,
+    [OWNERSHIP_ENVIRONMENT_KEY]: ownershipValue,
+  }
+
+  if (platform !== 'win32') {
+    try {
+      const verifyOwnershipBoundary = (
+        processOperations.verifyOwnershipBoundary
+        ?? verifyPosixOwnershipBoundary
+      )
+      await verifyOwnershipBoundary(ownershipMarker, childEnvironment)
+    } catch (error) {
+      return { error }
+    }
+  }
+
+  const spawnProcess = processOperations.spawnProcess ?? spawn
+  const child = spawnProcess(command, args, {
     cwd,
-    env,
+    env: childEnvironment,
     stdio,
-    detached: process.platform !== 'win32',
+    detached: platform !== 'win32',
     windowsHide: true,
   })
 
@@ -308,15 +463,23 @@ export async function runSupervisedProcess(command, args, {
   child.once('error', error => settleOnce({ error }))
   child.once('exit', (code, signal) => settleOnce({ code, signal }))
 
-  const tracker = process.platform === 'win32'
-    ? new WindowsOwnedProcessTracker(child)
-    : new PosixOwnedProcessTracker(child.pid)
+  const tracker = processOperations.createTracker
+    ? processOperations.createTracker({
+        child,
+        ownershipMarker,
+        platform,
+      })
+    : new PosixOwnedProcessTracker(
+        child.pid,
+        ownershipMarker,
+        processOperations.trackerOptions,
+      )
 
   try {
     try {
       await tracker.start()
     } catch (error) {
-      await forceRootGroupExitAfterTrackingFailure(child)
+      await forceRootGroupExitAfterTrackingFailure(child, platform)
       throw error
     }
 

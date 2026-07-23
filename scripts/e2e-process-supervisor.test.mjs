@@ -6,14 +6,36 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
+  POSIX_OWNERSHIP_POLL_INTERVAL_MS,
+  PosixOwnedProcessTracker,
   readReusableNextDevLock,
   runSupervisedProcess,
+  stopOwnedProcessTree,
+  UnsupportedProcessContainmentError,
 } from './e2e-process-supervisor.mjs'
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixturePath = path.join(scriptsDirectory, 'fixtures/fake-process-tree.mjs')
 const harnessPath = path.join(scriptsDirectory, 'fixtures/supervisor-harness.mjs')
 const isPosix = process.platform !== 'win32'
+
+async function assertWindowsContainmentRefusal() {
+  let spawned = false
+  const outcome = await runSupervisedProcess('must-not-run.exe', [], {
+    stdio: 'ignore',
+    processOperations: {
+      platform: 'win32',
+      spawnProcess() {
+        spawned = true
+        throw new Error('Windows target was launched without containment')
+      },
+    },
+  })
+
+  assert.equal(spawned, false)
+  assert.ok(outcome.error instanceof UnsupportedProcessContainmentError)
+  assert.match(outcome.error.message, /Job Object/)
+}
 
 function processIsAlive(pid) {
   try {
@@ -112,7 +134,9 @@ async function terminateExactProcessGroup(rootPid) {
   await waitForProcessExit(rootPid, 1_000)
 }
 
-test('preserves normal and nonzero child exits and reaps their process trees', { skip: !isPosix }, async () => {
+test('preserves normal and nonzero child exits and reaps their process trees', async () => {
+  if (!isPosix) return assertWindowsContainmentRefusal()
+
   for (const [mode, expectedCode] of [['normal', 0], ['nonzero', 23]]) {
     const stateDirectory = await mkdtemp(path.join(os.tmpdir(), `travelback-${mode}-`))
     let harness
@@ -132,7 +156,9 @@ test('preserves normal and nonzero child exits and reaps their process trees', {
   }
 })
 
-test('reaps a detached stubborn grandchild after its direct child exits normally', { skip: !isPosix }, async () => {
+test('reaps a detached stubborn grandchild after its direct child exits normally', async () => {
+  if (!isPosix) return assertWindowsContainmentRefusal()
+
   const stateDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-orphan-'))
   let harness
   let tree
@@ -151,8 +177,31 @@ test('reaps a detached stubborn grandchild after its direct child exits normally
   }
 })
 
+test('reaps a detached stubborn descendant when its root exits immediately', async () => {
+  if (!isPosix) return assertWindowsContainmentRefusal()
+
+  const stateDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-immediate-orphan-'))
+  let harness
+  let tree
+  try {
+    harness = spawnHarness('immediate-orphan-stubborn', stateDirectory)
+    tree = await readTree(stateDirectory)
+    assert.deepEqual(await waitForChild(harness), { code: 0, signal: null })
+    assert.equal(await waitForProcessExit(tree.rootPid), true)
+    assert.equal(await waitForProcessExit(tree.grandchildPid), true)
+    await waitForFile(path.join(stateDirectory, 'grandchild-SIGTERM'))
+  } finally {
+    await terminateExactProcess(harness)
+    await terminateExactProcessGroup(tree?.rootPid)
+    await terminateExactPid(tree?.grandchildPid)
+    await rm(stateDirectory, { recursive: true, force: true })
+  }
+})
+
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  test(`forwards ${signal}, preserves signal status, and leaves an unrelated sentinel alive`, { skip: !isPosix }, async () => {
+  test(`forwards ${signal}, preserves signal status, and leaves an unrelated sentinel alive`, async () => {
+    if (!isPosix) return assertWindowsContainmentRefusal()
+
     const stateDirectory = await mkdtemp(path.join(os.tmpdir(), `travelback-${signal.toLowerCase()}-`))
     const sentinelDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-sentinel-'))
     let harness
@@ -186,7 +235,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-test('escalates only the stubborn owned process group and ignores repeated wrapper signals', { skip: !isPosix }, async () => {
+test('escalates only stubborn owned identities and ignores repeated wrapper signals', async () => {
+  if (!isPosix) return assertWindowsContainmentRefusal()
+
   const stateDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-stubborn-'))
   const sentinelDirectory = await mkdtemp(path.join(os.tmpdir(), 'travelback-sentinel-'))
   let harness
@@ -220,6 +271,167 @@ test('escalates only the stubborn owned process group and ignores repeated wrapp
     await rm(stateDirectory, { recursive: true, force: true })
     await rm(sentinelDirectory, { recursive: true, force: true })
   }
+})
+
+function ownedProcessEntry({
+  pid = 41_001,
+  ppid = 1,
+  pgid = 41_001,
+  startedAt = 'Thu Jul 23 18:00:00 2026',
+} = {}) {
+  return { pid, ppid, pgid, startedAt, owned: true }
+}
+
+function inertInterval(callback, milliseconds) {
+  return {
+    callback,
+    milliseconds,
+    unref() {},
+  }
+}
+
+for (const [failurePoint, failureCall] of [
+  ['before TERM', 2],
+  ['between TERM polls', 3],
+  ['before KILL', 5],
+]) {
+  test(`cached exact identities survive a process snapshot failure ${failurePoint}`, async () => {
+    const entry = ownedProcessEntry()
+    const snapshotError = new Error(`injected snapshot failure ${failurePoint}`)
+    const signals = []
+    let snapshotCalls = 0
+    let alive = true
+    let currentTime = 0
+    let timer
+
+    const tracker = new PosixOwnedProcessTracker(entry.pid, 'owner=test', {
+      readSnapshot: async () => {
+        snapshotCalls += 1
+        if (snapshotCalls === failureCall) throw snapshotError
+        return new Map(alive ? [[entry.pid, entry]] : [])
+      },
+      readIdentities: async pids => new Map(
+        alive && pids.includes(entry.pid) ? [[entry.pid, { ...entry }]] : [],
+      ),
+      signalProcess(pid, signal) {
+        signals.push({ pid, signal })
+        if (signal === 'SIGKILL') alive = false
+      },
+      now: () => currentTime,
+      wait: async milliseconds => {
+        currentTime += milliseconds
+      },
+      setIntervalFn: (callback, milliseconds) => {
+        timer = inertInterval(callback, milliseconds)
+        return timer
+      },
+      clearIntervalFn() {},
+      wrapperPid: 91_001,
+    })
+
+    try {
+      await tracker.start()
+      await assert.rejects(
+        stopOwnedProcessTree(tracker, 'SIGTERM', 100, 100),
+        error => {
+          assert.equal(error.cause, snapshotError)
+          assert.match(error.message, /could not be fully verified/)
+          return true
+        },
+      )
+    } finally {
+      tracker.stop()
+    }
+
+    assert.deepEqual(signals, [
+      { pid: entry.pid, signal: 'SIGTERM' },
+      { pid: entry.pid, signal: 'SIGKILL' },
+    ])
+    assert.equal(alive, false)
+    assert.ok(currentTime <= 250)
+    assert.equal(timer.milliseconds, POSIX_OWNERSHIP_POLL_INTERVAL_MS)
+  })
+}
+
+test('snapshot fallback refuses a cached PID whose exact start identity changed', async () => {
+  const entry = ownedProcessEntry()
+  const snapshotError = new Error('snapshot unavailable after initial validation')
+  const signalledPids = []
+  let snapshotCalls = 0
+
+  const tracker = new PosixOwnedProcessTracker(entry.pid, 'owner=test', {
+    readSnapshot: async () => {
+      snapshotCalls += 1
+      if (snapshotCalls > 1) throw snapshotError
+      return new Map([[entry.pid, entry]])
+    },
+    readIdentities: async () => new Map([[
+      entry.pid,
+      {
+        ...entry,
+        startedAt: 'Thu Jul 23 18:00:01 2026',
+      },
+    ]]),
+    signalProcess(pid) {
+      signalledPids.push(pid)
+    },
+    now: () => 0,
+    wait: async () => {},
+    setIntervalFn: inertInterval,
+    clearIntervalFn() {},
+    wrapperPid: 91_001,
+  })
+
+  try {
+    await tracker.start()
+    await assert.rejects(
+      stopOwnedProcessTree(tracker, 'SIGTERM', 0, 0),
+      error => error.cause === snapshotError,
+    )
+  } finally {
+    tracker.stop()
+  }
+
+  assert.deepEqual(signalledPids, [])
+})
+
+test('steady-state process snapshots stay materially below ten per second', async () => {
+  let snapshotCalls = 0
+  let timer
+  let timerCleared = false
+  const tracker = new PosixOwnedProcessTracker(41_001, 'owner=test', {
+    readSnapshot: async () => {
+      snapshotCalls += 1
+      return new Map()
+    },
+    setIntervalFn: (callback, milliseconds) => {
+      timer = inertInterval(callback, milliseconds)
+      return timer
+    },
+    clearIntervalFn(handle) {
+      assert.equal(handle, timer)
+      timerCleared = true
+    },
+  })
+
+  await tracker.start()
+  const tenMinutesMs = 10 * 60 * 1_000
+  const scheduledPolls = Math.floor(tenMinutesMs / timer.milliseconds)
+  for (let index = 0; index < scheduledPolls; index += 1) {
+    timer.callback()
+    await new Promise(resolve => setImmediate(resolve))
+  }
+  tracker.stop()
+
+  assert.equal(timer.milliseconds, POSIX_OWNERSHIP_POLL_INTERVAL_MS)
+  assert.equal(snapshotCalls, scheduledPolls + 1)
+  assert.ok(snapshotCalls < tenMinutesMs / 1_000)
+  assert.ok(snapshotCalls < tenMinutesMs / 100 / 10)
+  assert.equal(timerCleared, true)
+})
+
+test('Windows refuses to launch without durable Job Object containment', async () => {
+  await assertWindowsContainmentRefusal()
 })
 
 test('reports spawn errors without leaving an owned process', async () => {

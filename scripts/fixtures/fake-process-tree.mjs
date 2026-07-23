@@ -53,6 +53,8 @@ if (role === 'grandchild') {
     }))
     if (mode === 'orphan-stubborn') {
       setTimeout(() => process.exit(0), 250)
+    } else if (mode === 'immediate-orphan-stubborn') {
+      process.exit(0)
     }
   })
   grandchild.once('error', error => {
