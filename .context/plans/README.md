@@ -1,9 +1,6 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle8-implementation-2026-07-24.md` — Planned localization of MapLibre's
-  canvas/navigation/attribution UI with dynamic locale synchronization that
-  preserves the existing map session
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 - `deferred-p01-platform-boundaries-cycle2-2026-07-23.md` — Explicit native/host-capability exit criteria for pre-observation identity erasure, pidfd-grade signaling, and zero host-environment marker discovery; practical P01 cleanup remains in Cycle 2
 
@@ -30,6 +27,11 @@
 - `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `archive/cycle8-implementation-2026-07-24.md` — Completed the fresh
+  MapLibre locale finding across all five shipped locales with dynamic
+  canvas/control synchronization that preserves the existing map session;
+  all configured gates and exact browser cleanup passed, and no deployment
+  occurred
 - `archive/cycle7-implementation-2026-07-24.md` — Completed all 3 fresh findings covering bounded high-cardinality parser collection, Unicode-safe export filenames, and current architecture ownership; all configured gates and exact browser cleanup passed, and no deployment occurred
 - `archive/cycle6-implementation-2026-07-24.md` — Completed all 4 fresh findings covering empty-track GPX route fallback, obsolete wrapped-geometry retention, scene-preview lifecycle settlement, and semantic scene no-op export preservation; all gates and exact browser cleanup passed, and no deployment occurred
 - `archive/cycle5-implementation-2026-07-23.md` — Completed all 6 fresh Cycle 5 findings plus the known Cycle 4 P05 gate correction; all configured gates and exact browser cleanup passed, and no deployment occurred
