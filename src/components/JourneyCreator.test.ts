@@ -220,6 +220,66 @@ describe('JourneyCreator interaction readiness', () => {
   })
 })
 
+describe('JourneyCreator short viewport layout', () => {
+  it('bounds the panel to the safe viewport with pinned controls around an internal scroller', async () => {
+    await renderJourneyCreator()
+
+    const panel = container?.querySelector<HTMLElement>('[data-testid="journey-creator-panel"]')
+    const header = container?.querySelector<HTMLElement>('[data-testid="journey-creator-header"]')
+    const scrollRegion = container?.querySelector<HTMLElement>('[data-testid="journey-creator-scroll-region"]')
+    const actions = container?.querySelector<HTMLElement>('[data-testid="journey-creator-actions"]')
+
+    expect(panel?.classList.contains('flex')).toBe(true)
+    expect(panel?.classList.contains('flex-col')).toBe(true)
+    expect(panel?.style.top).toContain('safe-area-inset-top')
+    expect(panel?.style.left).toContain('safe-area-inset-left')
+    expect(panel?.style.maxWidth).toContain('safe-area-inset-right')
+    expect(panel?.style.maxHeight).toContain('100dvh')
+    expect(panel?.style.maxHeight).toContain('safe-area-inset-bottom')
+
+    expect(header?.parentElement).toBe(panel)
+    expect(header?.classList.contains('sticky')).toBe(true)
+    expect(header?.classList.contains('top-0')).toBe(true)
+    expect(scrollRegion?.parentElement).toBe(panel)
+    expect(scrollRegion?.classList.contains('min-h-0')).toBe(true)
+    expect(scrollRegion?.classList.contains('overflow-y-auto')).toBe(true)
+    expect(actions?.parentElement).toBe(panel)
+    expect(actions?.classList.contains('sticky')).toBe(true)
+    expect(actions?.classList.contains('bottom-0')).toBe(true)
+  })
+
+  it('keeps Cancel, Clear, Done, and confirmation actions outside the scroll region', async () => {
+    const { map, onComplete } = await renderJourneyCreator()
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 126.9, lat: 37.5 } }))
+    await act(() => map.trigger('click', { point: {}, lngLat: { lng: 127.1, lat: 37.7 } }))
+
+    const header = container?.querySelector<HTMLElement>('[data-testid="journey-creator-header"]')
+    const scrollRegion = container?.querySelector<HTMLElement>('[data-testid="journey-creator-scroll-region"]')
+    const actions = container?.querySelector<HTMLElement>('[data-testid="journey-creator-actions"]')
+    const cancelButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.cancel')
+    const clearButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.clear')
+    const doneButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent === 'journey.done')
+
+    expect(header?.contains(cancelButton ?? null)).toBe(true)
+    expect(actions?.contains(clearButton ?? null)).toBe(true)
+    expect(actions?.contains(doneButton ?? null)).toBe(true)
+    expect(clearButton?.disabled).toBe(false)
+    expect(doneButton?.disabled).toBe(false)
+
+    await act(() => doneButton?.click())
+    const createButton = [...(container?.querySelectorAll('button') ?? [])]
+      .find(button => button.textContent?.includes('journey.confirmCreate'))
+    expect(actions?.contains(createButton ?? null)).toBe(true)
+    expect(scrollRegion?.querySelector('#journey-name')).not.toBeNull()
+
+    await act(() => createButton?.click())
+    expect(onComplete).toHaveBeenCalledOnce()
+  })
+})
+
 describe('JourneyCreator confirmation ownership', () => {
   it('freezes map mutations and commits a copied valid snapshot', async () => {
     const { map, canvas, disable, sources, onComplete } = await renderJourneyCreator()

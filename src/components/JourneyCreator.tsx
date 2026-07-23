@@ -835,10 +835,19 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
       role="region"
       aria-labelledby="journey-creator-title"
       aria-busy={!isMapInteractionReady}
-      className="absolute top-20 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] gs overflow-hidden sm:top-4"
-      style={{ borderRadius: 'var(--r-glass)' }}>
+      className="absolute z-10 flex w-72 flex-col overflow-hidden gs [--journey-panel-top:5rem] sm:[--journey-panel-top:1rem]"
+      style={{
+        borderRadius: 'var(--r-glass)',
+        top: 'calc(var(--journey-panel-top) + env(safe-area-inset-top, 0px))',
+        left: 'calc(1rem + env(safe-area-inset-left, 0px))',
+        maxWidth: 'calc(100vw - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))',
+        maxHeight: 'calc(100dvh - var(--journey-panel-top) - env(safe-area-inset-top, 0px) - 1rem - env(safe-area-inset-bottom, 0px))',
+      }}>
       {/* Header */}
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--div)' }}>
+      <div
+        data-testid="journey-creator-header"
+        className="sticky top-0 z-10 shrink-0 px-4 py-3"
+        style={{ background: 'var(--gs-bg)', borderBottom: '1px solid var(--div)' }}>
         <div className="flex items-center justify-between">
           <span id="journey-creator-title" className="font-semibold text-sm" style={{ color: 'var(--t1)' }}>
             {t('journey.title')}
@@ -857,8 +866,11 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
         </p>
       </div>
 
-      {/* Search bar */}
-      <div className="relative px-4 pt-2 pb-1">
+      <div
+        data-testid="journey-creator-scroll-region"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* Search bar */}
+        <div className="relative px-4 pt-2 pb-1">
         {!searchEnabled ? (
           <div className="gi rounded-lg px-3 py-2" style={{ border: '1px solid var(--div)' }}>
             <div className="flex items-center justify-between gap-3">
@@ -875,7 +887,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                 data-testid="journey-enable-search"
                 onClick={handleToggleSearch}
                 className="rounded-md px-2.5 py-1 text-[10px] font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                style={{ color: 'rgb(var(--gl))', border: '1px solid rgba(var(--gl), .35)' }}
+                style={{ color: 'var(--accent-text)', border: '1px solid rgba(var(--gl), .35)' }}
               >
                 {t('journey.searchEnableAction')}
               </button>
@@ -911,7 +923,7 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
                   aria-label={t('journey.searchAction')}
                   title={t('journey.searchAction')}
                   className="rounded-md px-2 py-1 text-[10px] font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
-                  style={{ color: 'rgb(var(--gl))' }}
+                  style={{ color: 'var(--accent-text)' }}
                 >
                   {t('journey.searchAction')}
                 </button>
@@ -947,9 +959,9 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             )}
           </>
         )}
-      </div>
+        </div>
 
-      <div className="px-4 pb-2">
+        <div className="px-4 pb-2">
         <div className="text-[10px] mb-1" style={{ color: 'var(--t4)' }}>
           {t('journey.travelIconLabel')}
         </div>
@@ -978,20 +990,20 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             )
           })}
         </div>
-      </div>
+        </div>
 
-      {/* Instructions overlay when no points yet */}
-      {pointCount === 0 ? (
-        <div className="px-4 py-4 text-center">
+        {/* Instructions overlay when no points yet */}
+        {pointCount === 0 ? (
+          <div className="px-4 py-4 text-center">
           <p className="text-sm font-medium" style={{ color: 'var(--t2)' }}>
             {t('journey.instructionTitle')}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--t4)' }}>
             {t('journey.instructionSubtitle')}
           </p>
-        </div>
-      ) : (
-        <>
+          </div>
+        ) : (
+          <>
           {/* Hint */}
           <div className="px-4 py-2">
             <p className="text-xs" style={{ color: 'var(--t3)' }}>
@@ -1005,12 +1017,12 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               ? t('journey.onePoint')
               : `${pointCount} ${t('timeline.points')} · ${formatDistance(distanceMeters, units)}`}
           </div>
-        </>
-      )}
+          </>
+        )}
 
-      {/* Confirmation card */}
-      {showConfirm && (
-        <div className="px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
+        {/* Confirmation card */}
+        {showConfirm && (
+          <div className="px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
           <p className="text-xs font-medium mb-2" style={{ color: 'var(--t1)' }}>
             {t('journey.confirmTitle')}
           </p>
@@ -1031,7 +1043,17 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               className="vitro-input min-h-11 w-full px-3 py-2 text-sm"
             />
           </label>
-          <div className="flex items-center gap-2">
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div
+        data-testid="journey-creator-actions"
+        className="sticky bottom-0 z-10 shrink-0"
+        style={{ background: 'var(--gs-bg)', borderTop: '1px solid var(--div)' }}>
+        {showConfirm ? (
+          <div className="flex items-center gap-2 px-4 py-3">
             <button type="button" onClick={handleContinueEditing}
               className="gi px-3 py-1.5 text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))]"
               style={{ color: 'var(--t1)' }}>
@@ -1044,12 +1066,8 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
               <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      {!showConfirm && (
-        <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--div)' }}>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-3">
           <button
             type="button"
             onClick={handleUndo}
@@ -1079,12 +1097,13 @@ export default function JourneyCreator({ isActive, onComplete, onCancel, mapRef,
             <Check size={14} strokeWidth={2.5} className="inline -mt-px ml-1" />
           </button>
           {pointCount === 1 && (
-            <p className="text-[10px] mt-1 ml-2" style={{ color: 'rgb(var(--gl))' }}>
+            <p className="text-[10px] mt-1 ml-2" style={{ color: 'var(--accent-text)' }}>
               {t('journey.addOneMore')}
             </p>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {showDiscardConfirm && (
         <ModalDialog
