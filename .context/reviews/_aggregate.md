@@ -1,186 +1,173 @@
-# Aggregate Deep Review — Cycle 6
+# Aggregate Deep Review — Cycle 7
 
 Date: 2026-07-24
-Reviewed revision: `099e85d8860456dea5e59cfa293a12defb27bd99`
+Reviewed revision: `216001ff2bc4ff8c31da333e50e6d0e982816b5b`
 Branch: `review-plan-fix/no-deploy-20260723`
 Deployment: prohibited and not attempted
 
 ## Result
 
-The 12-role reviewer fan-out produced **4 genuinely new, deduplicated
-findings**:
+The 12-role reviewer fan-out plus the registered non-technical-traveler
+reviewer produced **3 genuinely new, deduplicated findings**:
 
 - 0 Critical
-- 0 High
-- 4 Medium
-- 0 Low
+- 1 High
+- 0 Medium
+- 2 Low
 
-All four causal roots are scheduled for Cycle 6; none is deferred. Reports
-shared by multiple roles are counted once at the highest supported severity.
-Completed Cycle 1–5 work, the three explicit native/host-capability
-deferrals, and the final-loop-only user cleanup task were excluded.
+All three roots are actionable in Cycle 7 and none is deferred. Reports
+shared by multiple roles count once at the highest supported severity and
+confidence. All Cycle 1–6 fixes, the three explicit native/host process
+boundaries, and the final-loop-only user cleanup task were excluded.
 
 Fresh browser-free review evidence:
 
-- `npx vitest run src/lib/parser.test.ts` passed 174/174 tests.
-- Focused SceneEditor and playback-hotkey Vitest passed 30/30 tests.
-- Static reference tracing confirmed that no production consumer reads
-  `PreparedTrackGeometry.wrappedSegments`.
-- The pre-Cycle-5 parser source and the installed GPX fallback behavior
-  independently confirmed the empty-track route regression.
+- A Node 24 boundary probe confirmed that array spreading succeeds with
+  100,000 arguments but deterministically throws `RangeError` at 125,000,
+  150,000, and 250,000 arguments.
+- Parser and worker file-scoped Vitest passed 203/203 existing tests; those
+  tests do not cover the accepted 250,000-point boundary.
+- A deterministic filename probe confirmed that
+  `'a'.repeat(63) + '😀'` becomes a 64-code-unit string ending in the
+  unpaired high surrogate `0xD83D` under the current sanitizer.
+- Static source tracing disproved two current architecture-diagram edges.
 - No reviewer ran a full suite, supervisor, E2E, Playwright, Chromium,
-  browser, server, deploy, push, commit, or process-termination command.
-- The pre-review ownership audit found only protected user Chrome rooted at
-  PID 1368 and unrelated host services. Ports 3099, 4173, and 4183 were free,
-  `.next/dev/lock` was absent, and the protected Chrome identity was
-  unchanged after review.
+  browser, server, deployment, commit, push, or process signal.
 
 ## Review provenance
 
-Current Cycle 6 reports:
+Current Cycle 7 reports:
 
-- `cycle6-2026-07-24-code-reviewer.md`
-- `cycle6-2026-07-24-architect.md`
-- `cycle6-2026-07-24-critic.md`
-- `cycle6-2026-07-24-perf-reviewer.md`
-- `cycle6-2026-07-24-security-reviewer.md`
-- `cycle6-2026-07-24-verifier.md`
-- `cycle6-2026-07-24-tracer.md`
-- `cycle6-2026-07-24-debugger.md`
-- `cycle6-2026-07-24-test-engineer.md`
-- `cycle6-2026-07-24-document-specialist.md`
-- `cycle6-2026-07-24-designer.md`
-- `cycle6-2026-07-24-non-tech-traveler-reviewer.md`
+- `cycle7-2026-07-24-code-reviewer.md`
+- `cycle7-2026-07-24-architect.md`
+- `cycle7-2026-07-24-critic.md`
+- `cycle7-2026-07-24-perf-reviewer.md`
+- `cycle7-2026-07-24-security-reviewer.md`
+- `cycle7-2026-07-24-verifier.md`
+- `cycle7-2026-07-24-tracer.md`
+- `cycle7-2026-07-24-debugger.md`
+- `cycle7-2026-07-24-test-engineer.md`
+- `cycle7-2026-07-24-document-specialist.md`
+- `cycle7-2026-07-24-designer.md`
+- `cycle7-2026-07-24-non-tech-traveler-reviewer.md`
 
-All requested roles completed. The concurrency-limited fan-out grouped
-compatible roles without dropping any review. No reviewer-owned browser or
+All requested roles completed. Concurrency limits required compatible roles
+to be grouped. One grouped reviewer completed its underlying sweep but was
+delayed while synthesizing reports; its first turn was interrupted at a
+message boundary and the skill's single retry completed all five reports.
+No operating-system process was signaled and no reviewer-owned browser or
 server exists.
 
 ## Deduplicated findings
 
-### AGG6-01 — Empty semantic GPX tracks suppress a valid route fallback
+### AGG7-01 — Point-budget-compliant imports exceed the VM function-argument limit
 
-Severity: **Medium**
+Severity: **High**
 Confidence: **High**
-Agreement: verifier, debugger, critic
+Agreement: performance reviewer, security reviewer
 
 Evidence:
 
-- `src/lib/parser.ts:318-400,670-702`
-- `src/lib/parser.test.ts:995-1026,1051-1063,1334-1362`
+- `src/lib/parse-utils.ts:7,54-64,109-113`
+- `src/lib/googleJsonParser.ts:63-83,244-275,317-381`
+- `src/lib/parser.ts:39-67,388-415,670-703`
+- `src/workers/trackParser.worker.ts:14-45`
+- `public/workers/trackParser.worker.js:185-193,215-249,252-275`
 
-`extractPointsFromGpxSegments()` returns a truthy semantic result whenever an
-owned `trkseg` exists, even if every direct point is empty, malformed, or
-out-of-range. `parseGPX()` then skips `@tmcw/togeojson`, discarding a valid
-sibling route and eventually raising `TOO_FEW_POINTS`.
+The parsers correctly enforce the advertised 250,000-point budget, then
+expand user-sized arrays as JavaScript call arguments:
 
-Before Cycle 5, empty retained segments were filtered before the fallback
-decision. The regression is distinct from the older policy that a usable
-track takes precedence over route features.
+```ts
+points.push(...nextPoints)
+segments.push(...parseTimelineObjects(root.timelineObjects, budget))
+segments.push(...parseSemanticSegments(root.semanticSegments, budget))
+```
 
-Fix: return `null` after bounded semantic extraction when zero valid points
-were retained, preserving valid-track precedence and all namespace, nesting,
-and point-budget protections. Cover both empty and all-invalid tracks
-followed by a two-point route.
+A flat 250,000-record Google input is only 7,250,001 bytes, remains within
+the JSON and point limits, and reaches `points.push(...nextPoints)` with
+250,000 arguments. Current V8 rejects substantially fewer arguments, so the
+valid import throws `RangeError` and is misreported as malformed. A single
+KML `LineString` below the XML byte cap reaches the same root, and many
+singleton semantic segments can fail at the segment-array spreads. The
+checked-in worker reproduces the same expressions.
 
-### AGG6-02 — Prepared tracks retain an obsolete coordinate graph
+This is distinct from the earlier over-budget materialization repair, which
+moved the budget check before these spreads but left the accepted boundary
+unsafe. It is also distinct from the historical elevation
+`Math.min(...values)` repair.
 
-Severity: **Medium**
+Fix: replace every untrusted-length array spread with bounded iteration,
+preserve point budgets and segment-start indexes, regenerate the worker, and
+add direct plus worker boundary regressions that prove accepted counts work
+and the first point over budget still fails with `TOO_MANY_POINTS`.
+
+### AGG7-02 — Export filename truncation can split an astral character
+
+Severity: **Low**
 Confidence: **High**
-Agreement: performance reviewer, tracer
+Agreement: code reviewer, architect, test engineer, tracer, debugger
 
 Evidence:
 
-- `src/lib/map-geometry.ts:202-211,274-360,489-506`
-- `src/components/MapView.tsx:296,338-361,558-835,999-1023`
-- `src/lib/map-geometry.test.ts:243-244,273-280,345,459,491`
+- `src/lib/videoEncoder.ts:290-299,323-338,374-398`
+- `src/lib/parse-utils.ts:89-105`
+- `src/lib/videoEncoder.test.ts:230-477`
 
-`prepareTrackGeometry()` allocates the raw unwrapped segment graph, then
-allocates a distinct renderer-rebased graph. Bounds, route geometry, trail
-chunks, and the active head all use renderer data, but the returned prepared
-object still retains the raw graph in `preparedTrackRef` for the entire track
-session. At the supported limit, that keeps 250,000 otherwise-unused
-coordinate tuple arrays strongly reachable.
+The exporter applies UTF-16 `.slice(0, 64)` after sanitizing the track name.
+With 63 ASCII characters followed by an emoji, the result keeps only the
+emoji's high surrogate. `ExportResult.filename` is therefore ill-formed
+before it reaches either `showSaveFilePicker` or the fallback anchor; a
+Unicode-scalar sink replaces the broken unit with `U+FFFD`.
 
-This is not the old accepted cost of the raw graph when it was itself the
-rendering cache. Renderer rebasing later made that field test-only and
-production-unread.
+This is not the historical non-Latin filename issue. Imported names already
+use code-point iteration specifically to avoid splitting surrogate pairs,
+while the exporter still defines its length in UTF-16 code units.
 
-Fix: remove `wrappedSegments` from `PreparedTrackGeometry` and its returned
-object. Keep raw unwrapping coverage against the exported
-`precomputeWrappedSegments()` helper and assert that prepared production
-output contains only renderer-consumed fields.
+Fix: cap the sanitized export name by Unicode code point while retaining the
+current normalization, reserved-character removal, whitespace, suffix, and
+fallback rules. Add a focused successful-export regression at the 63-ASCII
+plus emoji boundary.
 
-### AGG6-03 — Scene-camera preview ownership can end without restoration
+### AGG7-03 — The authoritative architecture diagram has stale ownership edges
 
-Severity: **Medium**
+Severity: **Low**
 Confidence: **High**
-Agreement: code reviewer, architect, test engineer, designer, non-technical
-traveler reviewer
+Agreement: critic, verifier, document specialist
 
 Evidence:
 
-- `src/components/SceneEditor.tsx:436-650`
-- `src/lib/usePlaybackController.ts:219-235`
-- `src/app/page.tsx:259-268,511-551`
-- `src/components/SceneEditor.test.ts:241-311`
+- `.context/project/02-architecture.md:5-43`
+- `src/components/TrackToolbar.tsx:149-335`
+- `src/components/JourneyCreator.tsx:791-807`
+- `src/components/FileUpload.tsx:79-94`
+- `src/app/page.tsx:416-447`
 
-Scene preview imperatively moves the live camera to a scene midpoint, but the
-editor does not record whether a preview actually reached the map. A camera
-slider can move away and back to its exact origin, then release without
-committing or restoring. An applied keyboard preview can also survive global
-Escape because unmount cancels only a pending frame. With paused playback or
-Follow off, the camera remains visibly stale.
+The component tree calls `TrackToolbar` a theme/locale/reset toolbar, but its
+current responsibilities are loaded-session actions such as New Route,
+Camera, map style, Help, and Export, with theme/locale only in the mobile
+overflow menu and no Reset action. The data-flow diagram also routes both
+file imports and Journey Creator through `parser.ts`; Journey Creator instead
+constructs a validated `Track` directly and enters the shared session loader.
 
-The parent now handles `onPreviewScene(null)` correctly, so this is distinct
-from the historical ignored-clear defect. These terminal paths simply fail
-to emit the clear.
+A maintainer following these false edges can place an invariant in the parser
+and incorrectly assume manual journeys receive it, or edit the wrong owner
+for loaded-session and responsive toolbar behavior.
 
-Fix: model pending/applied preview ownership explicitly. Restore an applied
-preview exactly once on cancel, net-zero settlement, Escape, or unmount;
-transfer ownership cleanly on a real commit; and keep a close that never
-published a preview camera-neutral. Add deterministic component regressions
-for net-zero pointer settlement and preview-then-unmount.
+Fix: show parsed-file/sample and direct-journey ingress as separate branches
+converging at `loadTrackIntoSession()`, and describe the toolbar's current
+loaded-session actions plus mobile settings responsibility.
 
-### AGG6-04 — A net-zero scene-range drag revokes a completed export
+## Exclusions and final sweep
 
-Severity: **Medium**
-Confidence: **High**
-Agreement: code reviewer, architect, test engineer, designer, non-technical
-traveler reviewer
-
-Evidence:
-
-- `src/components/SceneEditor.tsx:202-326,652-704,759-783`
-- `src/app/page.tsx:502-509`
-- `src/lib/useExportController.ts:113-126`
-- `src/components/SceneEditor.test.ts:313-365`
-
-`SceneRangeEditor` commits whenever any pointer move occurred, even when its
-final canonical range exactly equals the drag origin. The editor publishes a
-new but value-identical scene array; the page treats publication identity as
-a real edit and revokes the completed export result.
-
-This is a current SceneEditor transaction defect, not the completed Timeline
-no-op release fix. The older direct scene/export coverage note did not fix or
-record this concrete path.
-
-Fix: suppress an origin-equivalent gesture commit and independently guard
-the session boundary by complete scene-value equality. Add component
-coverage for away/back/release and a pure equality regression so a future
-same-values publication cannot invalidate export ownership.
-
-## Exclusions
-
-- All completed Cycle 1–5 causal roots and their gate corrections.
-- The three explicit native/host process boundaries: pre-observation identity
-  erasure, pidfd-grade atomic signaling, and host-environment marker
-  discovery.
-- The final-loop-only user task under
+- All completed Cycle 1–6 causal roots and gate corrections.
+- The three explicit platform boundaries: pre-observation identity erasure,
+  pidfd-grade atomic signaling, and exact host-environment marker discovery.
+- The final-loop-only task in
   `.context/plans/user-injected/pending-next-cycle.md`.
-- Historical mixed-GPX feature policy, Timeline no-op handling, ignored
-  preview-clear handling, and raw geometry caching before renderer rebasing.
-- Browser-only responsive observations that lacked a distinct current
-  source-backed failure.
+- Historical parser over-budget allocation, non-Latin filenames, imported
+  name bounding, and earlier architecture claims that did not identify the
+  current direct JourneyCreator edge.
+- Browser-only observations without a distinct source-backed failure.
 
-No reviewer failed. No deployment occurred.
+The final missed-issue sweep found no fourth genuinely new root. No
+deployment occurred.
