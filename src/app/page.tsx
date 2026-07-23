@@ -359,10 +359,16 @@ function HomeInner() {
     invalidateSampleLoad()
     resumePlaybackAfterJourneyRef.current = isPlaying
     pausePlayback()
+    if (track && !followCamera) {
+      const camera = mapViewRef.current?.getCameraState?.()
+      if (camera) {
+        mapViewRef.current?.queueCameraRestoreAfterTrackHydration?.(camera)
+      }
+    }
     setShowExport(false)
     setShowSceneEditor(false)
     setIsCreatingJourney(true)
-  }, [invalidateSampleLoad, isPlaying, pausePlayback])
+  }, [followCamera, invalidateSampleLoad, isPlaying, pausePlayback, track])
 
   const handleRangeChange = useCallback((startIdx: number, endIdx: number) => {
     if (!fullTrack) return

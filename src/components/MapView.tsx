@@ -44,6 +44,8 @@ interface MapViewProps {
 export interface MapViewHandle {
   getMap: () => maplibregl.Map | null
   getCanvas: () => HTMLCanvasElement | null
+  getCameraState?: () => CameraState | null
+  queueCameraRestoreAfterTrackHydration?: (state: CameraState) => void
   applyCameraState: (state: CameraState) => void
   renderFrameAndWait: (state: CameraState, progress: number, signal?: AbortSignal) => Promise<void>
   clearTrackArtifacts: () => void
@@ -293,6 +295,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const fitTrackOnReadyRef = useRef<Track | null>(null)
   const preparedTrackRef = useRef<PreparedMapTrack | null>(null)
   const retryCameraStateRef = useRef<CameraState | null>(null)
+  const queuedCameraRestoreRef = useRef<CameraState | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapRetryNonce, setMapRetryNonce] = useState(0)
   const [readyStyleRevision, setReadyStyleRevision] = useState(0)
@@ -393,6 +396,23 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current,
     getCanvas: () => mapRef.current?.getCanvas() ?? null,
+    getCameraState: () => {
+      const map = mapRef.current
+      if (!map) return null
+      const center = map.getCenter()
+      return {
+        center: [center.lng, center.lat],
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      }
+    },
+    queueCameraRestoreAfterTrackHydration: (state: CameraState) => {
+      queuedCameraRestoreRef.current = {
+        ...state,
+        center: [...state.center] as [number, number],
+      }
+    },
     applyCameraState: (state: CameraState) => {
       const map = mapRef.current
       if (!map) return
@@ -443,6 +463,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
     },
     clearTrackArtifacts: () => {
+      queuedCameraRestoreRef.current = null
       const map = mapRef.current
       if (!map) return
       removeTrackArtifacts(map)
@@ -746,7 +767,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       markerSource.setData(markerPointFeature(result.point))
       updateTrailSources(map, result.segmentIndex, result.point)
 
-      if (followCameraRef.current && !suspendAutoCameraRef.current) {
+      const queuedCameraRestore = queuedCameraRestoreRef.current
+      if (queuedCameraRestore) {
+        if (map.isMoving()) map.stop()
+        map.jumpTo({
+          center: queuedCameraRestore.center as [number, number],
+          zoom: queuedCameraRestore.zoom,
+          pitch: queuedCameraRestore.pitch,
+          bearing: queuedCameraRestore.bearing,
+        })
+        queuedCameraRestoreRef.current = null
+        lastCameraStateRef.current = null
+      } else if (followCameraRef.current && !suspendAutoCameraRef.current) {
         const targetCamera = computeCurrentTargetCamera(activeTrack, result)
         if (map.isMoving()) map.stop()
         map.jumpTo({
