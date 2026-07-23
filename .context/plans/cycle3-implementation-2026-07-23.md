@@ -228,11 +228,13 @@ run every configured gate:
 4. `npm run build`
 5. `npm run test:e2e`
 6. `npm run test:e2e:static:ci`
+7. `npm audit --audit-level=high`
+8. `npm run test:e2e:static:real-mp4`
 
-The two browser matrices run sequentially with an ownership inventory before
-each and an exact survivor/listener scan after each. A failed gate is repaired
-when possible, recorded either way, and never used as a reason to stop the
-outer cycle sequence.
+The two browser matrices and isolated real-MP4 gate run sequentially with an
+ownership inventory before each and an exact survivor/listener scan after each.
+A failed gate is repaired when possible, recorded either way, and never used
+as a reason to stop the outer cycle sequence.
 
 ## Completion log
 
@@ -253,16 +255,26 @@ outer cycle sequence.
   reset, total tracker diagnostics with a complete provider contract, and
   accurate supervised-E2E platform documentation.
 - Configured gates passed: lint, typecheck, 551 unit tests, 37 process tests,
-  generated-worker parity, production build and CSP hardening, development E2E
-  (115 passed / 1 intentional real-export skip), and static smoke/E2E
-  (115 passed / 1 intentional real-export skip).
+  generated-worker parity, zero-vulnerability High-severity dependency audit,
+  production build and CSP hardening, development E2E (115 passed / 1
+  intentional real-export skip), static smoke/E2E (115 passed / 1 intentional
+  real-export skip), and the isolated production real-MP4 gate (1 passed).
+- The first isolated real-MP4 run encoded and decoded successfully but exposed
+  a gate defect: its helper armed `requestVideoFrameCallback` only after
+  `seeked`, then played the video long enough for the sampled media time to
+  advance to 0.583333 s. The gate-driven repair arms the callback before a
+  paused seek so it validates the sought frame. Focused lint/typecheck and the
+  full structural-box, AVC-track, packet/duration, metadata, first/last-frame
+  decode, canvas-read, and download assertions then passed 1/1.
 - Browser matrices ran sequentially. Their exact recorded roots, process
   groups, Chromium profiles, and listeners were absent after each gate; ports
   3099, 4173, and 4183 were clear. Pre-existing user Chrome remained unchanged.
   One unrelated headless Chromium tree appeared outside every recorded
   Travelback group after the static terminal and exited naturally; it was not
-  signaled or otherwise touched.
-- Six implementation/review commits plus this completion update were signed
-  and pushed only to `review-plan-fix/no-deploy-20260723`. The Pages workflow
-  remained restricted to pushes on `main`; no deployment command or deployment
-  occurred.
+  signaled or otherwise touched. Both real-MP4 attempts also completed exact
+  teardown; unrelated xylolabs Playwright/Chromium trees were re-inventoried
+  and left untouched.
+- Nine Cycle 3 commits, including the gate repair and this final evidence
+  update, were signed and pushed only to
+  `review-plan-fix/no-deploy-20260723`. The Pages workflow remained restricted
+  to pushes on `main`; no deployment command or deployment occurred.
