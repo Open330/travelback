@@ -218,13 +218,19 @@ Implementation evidence:
 
 Gate-driven repairs: **0**.
 
-Recorded recoverable execution errors: **1**.
+Recorded recoverable execution errors: **2**.
 
 - The first attempt to remove the exact supervised-test temporary root used a
   broad-style cleanup command that the command safety layer rejected before
   execution. No state changed. After exact holder, listener, path, and owner
   validation, the same run-owned root was removed with bounded
   `find -depth -delete`; every later temporary root used that safer method.
+- The first final read-only audit used `path` as a loop variable, which is
+  zsh's special alias for `PATH`; later `lsof`, `ps`, and `rg` calls in that
+  subshell therefore did not execute. No external state changed. The audit
+  was immediately repeated with task-specific variable names and confirmed
+  every owned marker, temporary root, listener, lock, and browser process
+  absent.
 
 Verification:
 
