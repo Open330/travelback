@@ -91,5 +91,8 @@ Run every gate even if an earlier one fails:
   deletion; an early process inventory included environment text in tool
   output and may have exposed a credential. Subsequent inventories emitted
   PID-only sanitized matches. No credential was added to the repository or
-  worktree; any credential visible in the tool output should be rotated.
+  worktree; any credential visible in the tool output should be rotated. The
+  first final audit reused zsh's special `path` variable, invalidating that
+  audit's command lookup; a fresh-shell rerun used non-reserved names and
+  absolute binaries and passed every parity and cleanup check.
 - Deployment: none.
