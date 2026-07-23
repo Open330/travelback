@@ -1,6 +1,9 @@
 # Active Implementation Plans
 
 ## Active
+- `cycle8-implementation-2026-07-24.md` — Planned localization of MapLibre's
+  canvas/navigation/attribution UI with dynamic locale synchronization that
+  preserves the existing map session
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 - `deferred-p01-platform-boundaries-cycle2-2026-07-23.md` — Explicit native/host-capability exit criteria for pre-observation identity erasure, pidfd-grade signaling, and zero host-environment marker discovery; practical P01 cleanup remains in Cycle 2
 
