@@ -2440,6 +2440,9 @@ test.describe('Travelback App', () => {
       })
     }
 
+    const cancelJourneyButton = provisionalJourney.getByRole('button', { name: 'Cancel' })
+    await expect(cancelJourneyButton).toBeFocused()
+
     const appRoot = page.locator('main#app')
     await appRoot.evaluate((element) => {
       element.setAttribute('tabindex', '-1')
@@ -2454,7 +2457,7 @@ test.describe('Travelback App', () => {
       await expect(exportDialog).toHaveCount(0)
     }
 
-    await provisionalJourney.getByRole('button', { name: 'Cancel' }).click()
+    await cancelJourneyButton.click()
     await expect(provisionalJourney).toHaveCount(0)
     await expect(visibleTrackTitle(page, 'Test Route Seoul')).toBeVisible({ timeout: 15_000 })
     const playbackProgress = page.getByLabel('Playback progress')
