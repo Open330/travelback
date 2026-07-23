@@ -1,292 +1,238 @@
-# Aggregate Deep Review — Cycle 4
+# Aggregate Deep Review — Cycle 5
 
 Date: 2026-07-23
-Reviewed revision: `975dded34c849db4eb972221ed9483d3d64fb81d`
+Reviewed revision: `97f66a63b3df97bce3f349a05248ebb8fef7886e`
 Branch: `review-plan-fix/no-deploy-20260723`
 Deployment: prohibited and not attempted
 
 ## Result
 
-The reviewer fan-out produced **9 genuinely new, deduplicated findings**:
+The reviewer fan-out produced **6 genuinely new, deduplicated findings**:
 
-- 0 Critical or High
-- 5 Medium
-- 4 Low
+- 0 Critical
+- 2 High
+- 3 Medium
+- 1 Low
 
-All nine roots are scheduled for this cycle. Repeated renderer reports retain
-one root at the highest assigned severity and confidence. The seven completed
-Cycle 3 findings and the three explicit native/host-capability deferrals were
-excluded rather than relitigated.
+All six causal roots are scheduled for this cycle; none is deferred. Reports
+shared by multiple roles are counted once at the highest supported severity.
+Completed Cycle 1–4 work, the three explicit native/host-capability
+deferrals, and the already-recorded Cycle 4 P05 gate residue were excluded
+from the new-finding count.
 
 Fresh review evidence:
 
-- Vitest: 25 files / 551 tests passed.
-- Development E2E: 114 passed, 1 intentional real-export skip, and 1 failed.
-  The failed mobile Journey test left the Import Guide open after a forced
-  click; isolated stable semantic clicks opened Journey Creator correctly at
-  the reviewed mobile widths.
-- A pure-Node probe of the installed `@maplibre/geojson-vt` tiler confirmed
-  that a late `[600,720]` feature is absent at zooms 0, 1, 2, 4, 8, and 14
-  when the application publishes cumulative multi-wrap longitudes.
-- A source-equivalent XML probe showed 1,001 real element levels scanning as
-  a maximum depth of 2 when comments interleave fake closing tags.
-- Isolated UI review covered landing, Journey Creator, sample import,
-  playback, Camera, Export/cancel, More, Korean guidance, dark appearance,
-  focus restoration, and 320×480 through 1440×900 layouts.
-- Every exact review-owned browser, server, listener, and temporary profile
-  was absent after cleanup. Ports 3099 and 4183 were clear. The unrelated
-  user Chrome, shared agent-browser, and port-4173 owner were never signaled;
-  unrelated owners later exited naturally.
-- No reviewer used `agent-browser close`, a global/shared close, `pkill`,
-  `killall`, broad name-only termination, or a deployment command.
+- Vitest: 25 files / 565 tests passed; generated-worker parity passed.
+- Focused parser, geometry, camera, rendering, and export checks passed
+  204/204 and 62/62, while deterministic probes reproduced the six missing
+  contracts below.
+- A 250,000-point zero-distance camera call performed 500,001 indexed point
+  reads; the export camera plus marker path performs 750,001 per frame.
+- The actual GPX parser returned 50, 400, and 1,600 retained points for the
+  same 50 physical points nested under 1, 8, and 32 `trkseg` elements.
+- Four well-formed GPX/KML documents containing inert `DOCTYPE`/`ENTITY`
+  literals in comments or CDATA were all rejected by the application.
+- A held Track A export republished `done`, filename, success toast, and
+  progress `1` after the current error-reset path had cleared the session.
+- Real Chromium keyboard input changed an intended duration edit from
+  `30 → 1 → 15` into `30 → 5 → 55`; clearing the field restored `30`.
+- The isolated UI browser/server were closed by exact identity. Every owned
+  browser, daemon, renderer, crashpad, listener, and server PID was absent;
+  the profile had no holders; port 45184 and `.next/dev/lock` were absent;
+  protected user Chrome PID 1368 was unchanged.
+- No reviewer deployed, pushed, used global browser shutdown, `pkill`,
+  `killall`, or broad name-only process termination.
 
 ## Review provenance
 
-Current Cycle 4 reports:
+Current Cycle 5 reports:
 
-- `cycle4-2026-07-23-code-reviewer.md`
-- `cycle4-2026-07-23-architect.md`
-- `cycle4-2026-07-23-perf-reviewer.md`
-- `cycle4-2026-07-23-security-reviewer.md`
-- `cycle4-2026-07-23-critic.md`
-- `cycle4-2026-07-23-verifier.md`
-- `cycle4-2026-07-23-test-engineer.md`
-- `cycle4-2026-07-23-tracer.md`
-- `cycle4-2026-07-23-debugger.md`
-- `cycle4-2026-07-23-document-specialist.md`
-- `cycle4-2026-07-23-designer.md`
-- `cycle4-2026-07-23-non-tech-traveler-reviewer.md`
+- `cycle5-2026-07-23-code-reviewer.md`
+- `cycle5-2026-07-23-architect.md`
+- `cycle5-2026-07-23-critic.md`
+- `cycle5-2026-07-23-perf-reviewer.md`
+- `cycle5-2026-07-23-security-reviewer.md`
+- `cycle5-2026-07-23-verifier.md`
+- `cycle5-2026-07-23-tracer.md`
+- `cycle5-2026-07-23-debugger.md`
+- `cycle5-2026-07-23-test-engineer.md`
+- `cycle5-2026-07-23-document-specialist.md`
+- `cycle5-2026-07-23-designer.md`
+- `cycle5-2026-07-23-non-tech-traveler-reviewer.md`
 
-All requested roles completed. No reviewer failure remains unresolved.
+All requested roles completed. No reviewer-owned browser or server remains.
 
 ## Deduplicated findings
 
-### AGG4-01 — Multi-wrap route and trail coordinates leave MapLibre's renderable domain
+### AGG5-01 — Degenerate accepted tracks make each follow/export frame linear
 
-Severity: **Medium**
+Severity: **High**
 Confidence: **High**
-Status: **Confirmed by source trace and the installed renderer's tiler**
-Agreement: tracer, debugger, performance reviewer
+Agreement: performance reviewer
 
 Evidence:
 
-- `src/lib/map-geometry.ts:265-315,327-480`
-- `src/components/MapView.tsx:406-455,525-653,730-785,955-1065`
-- `src/lib/interpolate.ts:213-215`
-- `src/lib/camera.ts:209-239,353-368`
+- `src/lib/interpolate.ts:104-192,222-231`
+- `src/lib/camera.ts:62-106,353-368,505-524`
+- `src/components/MapView.tsx:426-445,1069-1098`
+- `src/lib/videoEncoder.ts:230-245`
 
-Parser-valid repeated canonical longitudes become cumulative display
-coordinates such as `0,120,240,360,480,600,720`. The application publishes
-that unbounded chronology directly to MapLibre route, completed-trail, and
-active-head GeoJSON sources. MapLibre's tiler projects longitude linearly and
-retains only the center and immediate adjacent source worlds. Late geometry is
-therefore clipped or positioned outside the tile extent while the normalized
-marker and camera continue moving.
+Endpoint interpolation scans segment boundaries and both directions for a
+usable bearing. Camera bearing resolution repeats a similar scan. A valid
+250,000-point zero-distance Records track therefore performs 750,001 indexed
+point reads for one export frame before painting or encoding; the supported
+180-second/60-fps maximum can exceed 8.1 billion reads. Disconnected
+singleton segments also make endpoint ownership linear.
 
-Fix: retain the unbounded graph only as internal chronology. Derive a
-renderer-owned graph that splits at world-copy changes, rebases each part into
-a bounded center/adjacent-world domain, preserves segment and seam ownership,
-uses the same bounded part for the active head, and drives fit/grid coverage
-from bounded geographic coverage. Prove the contract through the installed
-tiler for eastbound, westbound, repeated-lap, disconnected, completed-trail,
-and active-head cases.
+Fix: make zero-total-distance interpolation and camera bearing constant time,
+and keep segment-bound lookup and duplicate-bearing fallback logarithmic or
+constant through prepared/indexed metadata. Preserve disconnected-segment
+semantics. Add operation-count regressions at the 250,000-point limit for
+identical points and singleton segments.
 
-### AGG4-02 — A pending import can replace the track underneath an active export
+### AGG5-02 — Nested GPX segments multiply point allocation before the budget
 
-Severity: **Medium**
+Severity: **High**
 Confidence: **High**
-Status: **Confirmed by async ownership and state trace**
-Agreement: architect
+Agreement: performance reviewer, security reviewer
 
 Evidence:
 
-- `src/components/FileUpload.tsx:79-94,133-144,186-216`
-- `src/app/page.tsx:331-354,622-631,680-727`
-- `src/lib/useExportController.ts:120-338`
-- `src/components/MapView.tsx:406-455`
+- `src/lib/parser.ts:215-320`
+- `src/lib/parse-utils.ts:6-25,108-113`
+- `src/lib/parser.test.ts:1416-1429,1461-1491,1556-1586`
 
-File parsing and export own unrelated leases. If a slow replacement import
-finishes after export starts, `loadTrackIntoSession` resets and replaces the
-track without aborting or awaiting the export. The export captured the old
-camera program, but its imperative frame renderer reads mutable current-track
-refs, so it can mix tracks and later publish result, progress, toast, and map
-cleanup into the replacement session.
+The parser enumerates every `trkseg`, then uses descendant
+`getElementsByTagName('trkpt')` for each one. A point nested under `d`
+segments is constructed `d` times, and all amplified arrays are materialized
+before the later point-budget reduce. A roughly 2.4 MiB document can stay
+inside byte, tag, depth, and physical-point limits while requesting 12.6
+million `TrackPoint` objects.
 
-Fix: expose an abort-and-settle export lease, await it before any track-session
-mutation, suppress replacement-driven cancellation publication, and keep the
-import busy until the handoff finishes. Add a deterministic held-export
-regression proving cleanup settles before the replacement commits and no late
-old-session state is published.
+Fix: accept schema-owned direct `trkseg > trkpt` children only, reject nested
+`trkseg`, and consume one shared running budget before each retained point
+allocation. Add direct-child, nested-structure, and bounded early-rejection
+regressions.
 
-### AGG4-03 — XML comments can cancel real nesting in the preflight depth counter
+### AGG5-03 — Export frames permanently overwrite a Follow-off manual camera
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed by deterministic source-equivalent probe**
-Agreement: critic
+Agreement: code reviewer, architect, critic
 
 Evidence:
 
-- `src/lib/parser.ts:147-180`
+- `src/lib/map-export-presentation.ts:13-63`
+- `src/components/MapView.tsx:281-282,396-489,1063-1145`
+- `src/lib/useExportController.ts:147-203,236-367`
 
-The XML preflight counts tag-shaped raw text without recognizing lexical
-contexts. Valid comments containing `</x>` decrement its depth, allowing a
-1,001-level document to scan at depth 2 and reach `DOMParser` despite the
-advertised limit of 128. Tag-like text in comments or CDATA can also falsely
-reject shallow input.
+The export presentation lease captures dimensions and DPR, but every real
+frame also `jumpTo()`s the shared map camera. Cleanup never captures or
+restores that camera. Follow-on happens to recompute its pose when export
+ownership ends; Follow-off intentionally performs no camera update, so the
+last encoded frame replaces the traveler’s manual center, zoom, pitch, and
+bearing after success, failure, or cancellation.
 
-Fix: replace the regular-expression counter with a linear XML-aware scanner
-that skips comments, CDATA, processing instructions, and declarations; honors
-quoted `>` characters; and counts only real start, end, and self-closing tags.
-Cover both GPX and KML with deep bypass and shallow lexical-context cases.
+Fix: include manual-camera ownership and pose in the MapView export
+presentation transaction. Restore size/DPR first and the captured pose before
+releasing the lease when Follow is still off; let Follow-on recompute current
+progress. Cover success, failure, and abort with independent live/captured
+camera state and a real-map cancellation assertion.
 
-### AGG4-04 — Throwing cleanup evidence can replace forced-survivor evidence
+### AGG5-04 — Error recovery clears the session while its export remains live
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed by two deterministic no-process probes**
-Agreement: test engineer
+Agreement: verifier, tracer, debugger
 
 Evidence:
 
-- `scripts/e2e-process-supervisor.mjs:405-438,521-533`
-- `scripts/e2e-process-supervisor.test.mjs:1147-1190,1260-1354`
+- `src/app/page.tsx:183-243,598-612`
+- `src/components/ErrorBoundary.tsx:22-39,98-108`
+- `src/lib/useExportController.ts:127-145,267-366`
 
-Cycle 3 made tracker descriptions total, but
-`tracker.cleanupError?.()` is still called directly. If that diagnostic
-accessor throws after both TERM and KILL report failure, its exception replaces
-the authoritative “survived forced termination” evidence.
+`useExportController` is owned above the descendant `ErrorBoundary`, so a
+child crash removes MapView without unmounting or aborting the controller.
+Try Again synchronously calls `resetExportSession()` and remounts. A held old
+export can then publish its blob, filename, `done` state, toast, and progress
+into the recovered session.
 
-Fix: make cleanup-evidence retrieval total, keep forced-survivor evidence
-primary, and attach or aggregate accessor failures. Cover the direct helper
-and the full contained-provider path, including signal order, tracker stop,
-provider disposal, survivor wording, and cause preservation.
+Fix: cancel/invalidate export ownership at error capture, make Try Again await
+full lease settlement before reset/remount, and gate all late publications by
+the current export/session generation. Add a held-encoder component
+regression proving recovery waits and the old owner publishes nothing.
 
-### AGG4-05 — No real-Chromium failure-path regression proves supervised cleanup
+### AGG5-05 — Export duration clamps incomplete keyboard edits
 
 Severity: **Medium**
 Confidence: **High**
-Status: **Confirmed coverage gap at the actual browser topology**
-Agreement: test engineer
+Agreement: designer, non-technical traveler reviewer
 
 Evidence:
 
-- `package.json:18-23`
-- `scripts/run-dev-e2e.mjs:21-35`
-- `scripts/run-static-e2e.mjs:19-33`
-- `scripts/e2e-process-supervisor.test.mjs`
-- `playwright.config.ts:9-49`
-- `playwright.static.config.ts:15-55`
+- `src/components/ExportPanel.tsx:443-456`
+- `e2e/travelback.spec.ts:3367-3369,3501-3508`
 
-Synthetic process trees deeply exercise ownership logic, while successful
-matrices incidentally exercise Chromium. No committed negative-path integration
-launches the configured browser and owned listener, deliberately exits
-nonzero or is interrupted after both are live, then asserts that every exact
-PID/UID/start-token/marker identity, profile lock, and listener is absent while
-an unrelated sentinel survives.
+The controlled number field parses and clamps every `onChange`. Typing `15`
+one key at a time changes the first `1` to minimum `5`, then appends the
+second key and produces `55`; clearing immediately restores `30`. Existing
+atomic `fill()` coverage cannot observe ordinary keyboard editing.
 
-Fix: add one serialized POSIX-only integration fixture using the repository's
-configured Playwright Chromium, a unique marker/profile/listener, an intentional
-nonzero outcome, exact post-run absence assertions, and exact bounded emergency
-cleanup. Preserve the existing safe Windows pre-launch refusal.
+Fix: preserve a focused string draft, validate and commit on blur, Enter, or
+Start Export, and associate a localized inline error with invalid/empty or
+out-of-range input. Add sequential-key, temporary-empty, boundary-error, and
+recovery coverage.
 
-### AGG4-06 — Cancelling provisional New Route discards the manual map pose
+### AGG5-06 — Raw XML declaration checks reject inert comments and CDATA
 
 Severity: **Low**
 Confidence: **High**
-Status: **Confirmed by deterministic source trace**
-Agreement: code reviewer
+Agreement: verifier, tracer, debugger
 
 Evidence:
 
-- `src/app/page.tsx:356-363,469-475,605-618`
-- `src/components/MapView.tsx:749-785,955-985`
-- nearest E2E at `e2e/travelback.spec.ts:2324-2397`
+- `src/lib/parser.ts:132-138,215-245`
+- `src/lib/parser.test.ts:1392-1414,1432-1491`
 
-New Route retains the prior session but passes `track=null` to `MapView`,
-clearing prepared and camera refs. Cancel restores the same track, which is
-then treated as new and fit to overview. A traveler who disabled Follow loses
-their center, zoom, pitch, and bearing even though the provisional replacement
-was cancelled.
+`preflightXml()` applies a whole-document `DOCTYPE`/`ENTITY` regex before its
+lexical scanner can skip comments, CDATA, and processing instructions.
+`stripXmlEntities()` is context-blind too. Well-formed inert documentation is
+therefore rejected or would be silently mutated.
 
-Fix: capture a narrow camera snapshot before provisional replacement, queue it
-for post-hydration restoration when Follow is off, and discard it on commit or
-session reset. Extend the existing cancellation E2E with a distinguishable
-manual pose and normal MapLibre tolerances.
+Fix: detect and reject active declarations inside the lexical scanner after
+inert contexts are skipped, and pass the verified raw text to `DOMParser`
+without context-blind stripping. Retain real-declaration rejection and cover
+GPX/KML comment and CDATA literals for both tokens.
 
-### AGG4-07 — Closeup documentation promises a street-level view
+## Required gate correction — not a new finding
 
-Severity: **Low**
-Confidence: **High**
-Status: **Confirmed documentation mismatch**
-Agreement: document specialist
+The current 40-test supervisor suite reports 39 pass / 1 fail at
+`scripts/e2e-process-supervisor.test.mjs:557`. Its real-Chromium fixture
+correctly discovers nested profile locks, but the test incorrectly requires
+each lock’s direct parent to equal the profile root. Cycle 4 already recorded
+this P05 residue.
 
-Evidence:
+Correct the assertion to prove canonical containment anywhere under the exact
+fixture-owned profile while retaining pre-removal existence, identity,
+marker, listener, profile, lock, and unrelated-sentinel checks. Run the
+focused real-Chromium case and all 40 tests with independent exact cleanup
+audits.
 
-- `README.md:74-83`
-- `.context/project/02-architecture.md:85-96,128-131`
-- `src/lib/i18n.ts:221-233`
+## Review execution error
 
-README and architecture call Closeup a “Street-level view,” while the
-application accurately calls it a tight route zoom and the privacy boundary
-states that local maps are abstract backdrops without road or city basemaps.
+The test-engineer’s intended no-match Node command unexpectedly executed the
+40 supervisor tests without the required pre-run inventory. It reproduced
+the known 39/40 P05 failure. Its exact temporary root, matching marker
+processes, ports 3099/4173/4183, and `.next/dev/lock` were independently
+confirmed absent afterward, and protected Chrome PID 1368 was unchanged.
+This is a recorded Cycle 5 process-hygiene error, not a product finding.
 
-Fix: describe Closeup consistently as a tight route closeup with shallow pitch.
+## Exclusions
 
-### AGG4-08 — Save-failure recovery names a button that does not exist
-
-Severity: **Low**
-Confidence: **High**
-Status: **Confirmed copy/action mismatch in all five locales**
-Agreement: document specialist
-
-Evidence:
-
-- `src/lib/i18n.ts:144,324,518,698,892,1072,1266,1446,1640,1820`
-- `src/lib/useExportController.ts:250-269`
-
-All five save-failure messages direct the traveler to a generic “Download
-Video” action, but the recovery button is labelled “Download MP4” with exact
-localized equivalents.
-
-Fix: use the exact localized Download MP4 action name in every save-failure
-message and add a state-specific copy regression.
-
-### AGG4-09 — Forced mobile Journey clicks can hit the adjacent Import Guide action
-
-Severity: **Low**
-Confidence: **Medium-high**
-Status: **Observed in the full development matrix; stable semantic retry passed**
-Agreement: designer, non-technical traveler, review supervisor
-
-Evidence:
-
-- `e2e/travelback.spec.ts:1228-1260`
-- development E2E failure artifact under
-  `test-results/travelback-Travelback-App--651ef--at-supported-mobile-widths-chromium/`
-- responsive landing transition in `src/components/FileUpload.tsx:219-365`
-
-The width-loop test resizes the viewport and immediately uses a forced pointer
-click. One full matrix click landed on the adjacent Help action, leaving the
-Import Guide dialog open and timing out on Journey Creator. Isolated semantic
-clicks at the same widths opened Journey Creator correctly, so this is a test
-ownership/stability defect rather than a product interaction failure.
-
-Fix: wait for the responsive target to be stable and hit-owned, use the normal
-semantic click without `force`, and assert that the Import Guide remains absent
-before measuring Journey controls.
-
-## Exclusion sweep
-
-- All seven Cycle 3 roots are fixed at the reviewed revision.
-- The three native/host limitations in
-  `.context/plans/deferred-p01-platform-boundaries-cycle2-2026-07-23.md`
-  retain their explicit exit criteria. AGG4-04 repairs diagnostic precedence
-  within the supported tracker contract; AGG4-05 adds real-browser evidence.
-  Neither claims pidfd-grade signaling or zero host-environment discovery.
-- The isolated UI pass found no additional design or non-technical-traveler
-  defect after responsive layout, semantics, focus, localization, appearance,
-  playback, camera, export, cancellation, and recovery sweeps.
-- No additional validated root remained after parser/worker, geometry,
-  session ownership, camera, export, accessibility, documentation, static
-  hosting, security, dependency, workflow, and process-boundary review.
+- All completed Cycle 1–4 roots and archived UI target-size work.
+- The three native/host P01 deferrals: identity erasure before observation,
+  pidfd-grade atomic signalling, and host-environment marker discovery.
+- The Cycle 4 P05 assertion residue, carried only as a gate correction above.
+- Forced mobile-click, bounded multi-wrap geometry, Journey cancellation
+  camera restoration, Retry Map hydration, save-copy, and documentation items
+  already resolved in prior cycles.

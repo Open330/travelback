@@ -6,7 +6,7 @@
 
 ## Completed this cycle
 
-- `cycle4-implementation-2026-07-23.md` — Implemented all 9 fresh findings covering bounded renderer geometry, export/session settlement, lexical XML limits, cleanup evidence, real-Chromium negative cleanup, provisional camera restoration, exact documentation/recovery copy, and stable mobile Journey interaction; seven configured gates passed, while `npm test` recorded one corrected-but-not-retried fixture-finalizer assertion after all exact browser cleanup succeeded; no deployment occurred
+- `cycle5-implementation-2026-07-23.md` — Implementing all 6 fresh findings covering degenerate-track frame complexity, nested-GPX allocation, export camera ownership, settled error recovery, natural duration editing, and lexical XML declaration classification, plus the known Cycle 4 P05 gate correction; no deployment is permitted
 - `cycle13-implementation-2026-07-17.md` — Completed four fresh findings and one reopened base-path edge covering scene-gap creation, consistent base-path validation, modal-safe Toast announcements, locale-aware retained state, and semantic text contrast, plus two E2E handshake repairs; lint/typecheck, 472 units, audit/worker parity, build/smoke, sequential one-browser development/static matrices, and isolated real MP4 all passed; no deployment or cleanup deletion occurred
 - `cycle12-implementation-2026-07-17.md` — Completed both fresh Medium/High findings and four reopened historical edges covering paused scene-camera refresh, polar bounds validity, in-flight drop replacement, mobile modal opener focus, cancelled-export focus, and generated inline-style CSP hashes; lint/typecheck, 457 units, audit/worker parity, build/smoke, sequential one-browser development/static matrices, and isolated real MP4 all passed with no gate-driven repair; no deployment or cleanup deletion occurred
 - `cycle11-implementation-2026-07-17.md` — Completed all three fresh Medium/High findings plus the reopened Cycle 2 sample/drop edge; lint/typecheck, 447 units, audit/worker parity, build/smoke, sequential one-browser development/static matrices, and isolated real MP4 all passed; no deployment or cleanup deletion occurred
@@ -29,6 +29,7 @@
 - `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `archive/cycle4-implementation-2026-07-23.md` — Completed all 9 fresh Cycle 4 findings; seven configured gates passed, while `npm test` recorded the P05 nested-profile-lock assertion residue carried into Cycle 5; exact browser cleanup passed and no deployment occurred
 - `archive/cycle3-implementation-2026-07-23.md` — Completed all 7 fresh Cycle 3 findings; all configured gates and exact browser cleanup passed and no deployment occurred
 - `archive/cycle2-implementation-2026-07-23.md` — Completed all 13 fresh Cycle 2 findings; three native/host P01 boundaries retain explicit exit criteria and no deployment occurred
 - `archive/cycle1-implementation-2026-07-23.md`
