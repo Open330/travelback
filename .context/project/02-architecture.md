@@ -14,7 +14,7 @@ page.tsx (Client Component — app shell / track-session boundary)
 │   ├── ElevationProfile  — Elevation chart with gradient shading
 │   ├── TimelineSelector  — Drag-based time range selector with density histogram
 │   ├── SceneEditor       — Scene editor panel (camera mode, start/end %, params)
-│   └── TrackToolbar      — Track-level toolbar (theme, locale, reset)
+│   └── TrackToolbar      — Loaded-session actions (New Route, Camera, map style, Help/import, Export) + mobile settings
 ├── ExportPanel           — Video export settings (resolution, codec, FPS, bitrate)
 ├── GoogleGuide           — Phone-first travel data import guide (Google, fitness, and GPS apps)
 ├── Toast                 — Non-intrusive notification toast
@@ -24,22 +24,23 @@ page.tsx (Client Component — app shell / track-session boundary)
 ## Data Flow
 
 ```
-File Upload / Journey Creator → parser.ts → Track { name, points: TrackPoint[] }
-                                                ↓
-                          page.tsx (track-session boundary + modal state)
-                                                ↓
-                        TrackWorkspace / TimelineSelector (optional trim filtering)
-                                                ↓
-                               handleRangeChange → filtered track
-                                                ↓
-                     usePlaybackController (progress, seek, follow, hotkeys)
-                                                ↓
-                    ┌───────────────────────────────────────────┐
-                    │ interpolate.ts → position, bearing        │
-                    │ camera.ts → CameraState (per scene)       │
-                    └───────────────────────────────────────────┘
-                                                ↓
-                              MapView (update marker, trail, camera)
+File upload / sample trip → parser.ts parseTrackFile() → parsed Track ───────────┐
+JourneyCreator → direct Track assembly from confirmed waypoints ────────────────┤
+                                                                                ↓
+             page.tsx loadTrackIntoSession() (track-session boundary + modal reset)
+                                                                                ↓
+                         TrackWorkspace / TimelineSelector (optional trim filtering)
+                                                                                ↓
+                                        handleRangeChange → filtered track
+                                                                                ↓
+                              usePlaybackController (progress, seek, follow, hotkeys)
+                                                                                ↓
+                             ┌───────────────────────────────────────────┐
+                             │ interpolate.ts → position, bearing        │
+                             │ camera.ts → CameraState (per scene)       │
+                             └───────────────────────────────────────────┘
+                                                                                ↓
+                                       MapView (update marker, trail, camera)
 ```
 
 ## Export Pipeline
