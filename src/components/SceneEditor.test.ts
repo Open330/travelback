@@ -310,6 +310,55 @@ describe('SceneEditor camera controls', () => {
     }))
   })
 
+  it('restores an applied preview after a net-zero camera pointer gesture', async () => {
+    const onChange = vi.fn()
+    const onScenesCommitted = vi.fn()
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onChange, onScenesCommitted, onPreviewScene })
+
+    await act(() => zoomSlider.dispatchEvent(pointerEvent('pointerdown', 9, 0)))
+    await act(() => changeInputValue(zoomSlider, '16'))
+    await act(() => flushAnimationFrames())
+    await act(() => changeInputValue(zoomSlider, String(scene.params.zoom)))
+    await act(() => flushAnimationFrames())
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 9, 0)))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onScenesCommitted).not.toHaveBeenCalled()
+    expect(onPreviewScene).toHaveBeenCalledTimes(3)
+    expect(onPreviewScene).toHaveBeenLastCalledWith(null)
+  })
+
+  it('restores an applied keyboard preview when the editor unmounts before keyup', async () => {
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onPreviewScene })
+
+    await act(() => changeInputValue(zoomSlider, '14.5'))
+    await act(() => flushAnimationFrames())
+    expect(onPreviewScene).toHaveBeenCalledOnce()
+
+    await act(() => root?.unmount())
+    root = null
+
+    expect(onPreviewScene).toHaveBeenCalledTimes(2)
+    expect(onPreviewScene).toHaveBeenLastCalledWith(null)
+  })
+
+  it('cancels an unpublished preview on unmount without restoring the camera', async () => {
+    const onPreviewScene = vi.fn()
+    const { zoomSlider } = await renderExpandedEditor({ onPreviewScene })
+
+    await act(() => changeInputValue(zoomSlider, '14.5'))
+    expect(requestAnimationFrame).toHaveBeenCalledOnce()
+    expect(onPreviewScene).not.toHaveBeenCalled()
+
+    await act(() => root?.unmount())
+    root = null
+
+    expect(cancelAnimationFrame).toHaveBeenCalledOnce()
+    expect(onPreviewScene).not.toHaveBeenCalled()
+  })
+
   it('publishes one normalized parent snapshot at the end of a scene-range drag', async () => {
     const scenes: Scene[] = [
       { ...scene, id: 'first', name: '첫 번째', startPercent: 0, endPercent: 0.5 },
@@ -347,14 +396,14 @@ describe('SceneEditor camera controls', () => {
     })
     const endHandle = range.querySelectorAll<HTMLElement>('[role="slider"]')[1]
 
-    await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 9, 50)))
+    await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 10, 50)))
     await act(() => {
-      window.dispatchEvent(pointerEvent('pointermove', 9, 60))
-      window.dispatchEvent(pointerEvent('pointermove', 9, 70))
+      window.dispatchEvent(pointerEvent('pointermove', 10, 60))
+      window.dispatchEvent(pointerEvent('pointermove', 10, 70))
     })
     expect(onChange).not.toHaveBeenCalled()
     expect(onScenesCommitted).not.toHaveBeenCalled()
-    await act(() => window.dispatchEvent(pointerEvent('pointerup', 9, 70)))
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 10, 70)))
 
     const normalizedScenes = onChange.mock.calls[0]?.[0] as Scene[]
     expect(onChange).toHaveBeenCalledOnce()

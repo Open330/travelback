@@ -508,8 +508,9 @@ function CameraParameterSlider({
     if (updatePointerState) setPointerActive(false)
 
     if (outcome === 'commit') {
-      onPreviewEndRef.current(false)
-      if (current.latestValue !== current.originValue) {
+      const changed = current.latestValue !== current.originValue
+      onPreviewEndRef.current(!changed)
+      if (changed) {
         if (updatePointerState) setDraftValue(current.latestValue)
         onCommitRef.current(current.latestValue)
       }
@@ -618,6 +619,7 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
   const previewFrameRef = useRef<number | null>(null)
   const pendingPreviewRef = useRef<Scene | null>(null)
+  const previewAppliedRef = useRef(false)
   const onPreviewSceneRef = useRef(onPreviewScene)
   useEffect(() => { onPreviewSceneRef.current = onPreviewScene }, [onPreviewScene])
 
@@ -632,7 +634,10 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
       previewFrameRef.current = null
       const pendingPreview = pendingPreviewRef.current
       pendingPreviewRef.current = null
-      if (pendingPreview) onPreviewSceneRef.current?.(pendingPreview)
+      if (pendingPreview) {
+        previewAppliedRef.current = true
+        onPreviewSceneRef.current?.(pendingPreview)
+      }
     })
   }, [])
 
@@ -642,12 +647,15 @@ function SceneEditor({ scenes, onChange, onScenesCommitted, onClose, transitionD
       previewFrameRef.current = null
     }
     pendingPreviewRef.current = null
-    if (restoreCommittedCamera) onPreviewSceneRef.current?.(null)
+    if (restoreCommittedCamera && previewAppliedRef.current) {
+      previewAppliedRef.current = false
+      onPreviewSceneRef.current?.(null)
+    } else if (!restoreCommittedCamera) {
+      previewAppliedRef.current = false
+    }
   }, [])
 
-  useEffect(() => () => {
-    if (previewFrameRef.current != null) cancelAnimationFrame(previewFrameRef.current)
-  }, [])
+  useEffect(() => () => endPreview(true), [endPreview])
 
   const commitScenes = useCallback((nextScenes: Scene[]) => {
     const normalized = normalizeScenes(nextScenes)
