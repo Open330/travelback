@@ -167,6 +167,24 @@ export function restoreDeletedScene(
   return { restored: true, scenes: nextScenes }
 }
 
+export function areScenesEqual(left: Scene[], right: Scene[]): boolean {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+
+  return left.every((scene, index) => {
+    const other = right[index]
+    return scene.id === other.id
+      && scene.name === other.name
+      && scene.cameraMode === other.cameraMode
+      && scene.startPercent === other.startPercent
+      && scene.endPercent === other.endPercent
+      && scene.params.zoom === other.params.zoom
+      && scene.params.pitch === other.params.pitch
+      && scene.params.bearingOffset === other.params.bearingOffset
+      && scene.params.rotationSpeed === other.params.rotationSpeed
+  })
+}
+
 export function normalizeScenes(scenes: Scene[]): Scene[] {
   let previousEndPercent = 0
 

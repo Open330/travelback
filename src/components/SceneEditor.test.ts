@@ -178,6 +178,22 @@ describe('SceneRangeEditor pointer lifecycle', () => {
     expect(onCommit).toHaveBeenCalledWith(0, 0.49)
     expect(requestAnimationFrame).not.toHaveBeenCalled()
   })
+
+  it('does not commit a pointer drag that returns to its origin', async () => {
+    const onCommit = vi.fn()
+    const { endHandle } = await renderRangeEditor(onCommit)
+
+    await act(() => endHandle.dispatchEvent(pointerEvent('pointerdown', 5, 50)))
+    await act(() => window.dispatchEvent(pointerEvent('pointermove', 5, 70)))
+    await act(() => flushAnimationFrames())
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('70')
+
+    await act(() => window.dispatchEvent(pointerEvent('pointermove', 5, 50)))
+    await act(() => window.dispatchEvent(pointerEvent('pointerup', 5, 50)))
+
+    expect(endHandle.getAttribute('aria-valuenow')).toBe('50')
+    expect(onCommit).not.toHaveBeenCalled()
+  })
 })
 
 describe('findFirstAvailableSceneRange', () => {

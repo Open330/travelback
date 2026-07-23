@@ -14,7 +14,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import TrackWorkspace from '@/components/TrackWorkspace'
 import ModalDialog from '@/components/ModalDialog'
 import { MAP_STYLES } from '@/types'
-import { computeCameraForProgress, computeCameraForScene } from '@/lib/camera'
+import { areScenesEqual, computeCameraForProgress, computeCameraForScene } from '@/lib/camera'
 import { computeCumulativeDistances, getUnitPreference, setUnitPreference, type UnitSystem } from '@/lib/interpolate'
 import { parseTrackFile } from '@/lib/parser'
 import { LocaleProvider, resolveTrackDisplayName, useLocale } from '@/lib/i18n'
@@ -504,9 +504,11 @@ function HomeInner() {
   }, [resetExportSession])
 
   const handleScenesChange = useCallback((value: SetStateAction<Scene[]>) => {
+    const nextScenes = typeof value === 'function' ? value(scenes) : value
+    if (areScenesEqual(scenes, nextScenes)) return
     resetExportSession()
-    setScenes(value)
-  }, [resetExportSession])
+    setScenes(nextScenes)
+  }, [resetExportSession, scenes])
 
   const applyCommittedSceneCamera = useCallback((
     committedScenes: Scene[],

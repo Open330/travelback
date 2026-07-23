@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  areScenesEqual,
   normalizeScenes,
   lerpCamera,
   computeCameraForProgress,
@@ -46,6 +47,36 @@ const testTrack: Track = {
   })),
 }
 const testCumulDist = Array.from({ length: 101 }, (_, i) => i * 111320 / 100)
+
+describe('areScenesEqual', () => {
+  const scene = makeScene('scene', 0.1, 0.9)
+
+  it('accepts value-identical scene snapshots', () => {
+    expect(areScenesEqual([scene], [{
+      ...scene,
+      params: { ...scene.params },
+    }])).toBe(true)
+  })
+
+  it('rejects every meaningful scene-field change', () => {
+    const changedScenes: Scene[] = [
+      { ...scene, id: 'other' },
+      { ...scene, name: 'Other' },
+      { ...scene, cameraMode: 'orbit' },
+      { ...scene, startPercent: 0.2 },
+      { ...scene, endPercent: 0.8 },
+      { ...scene, params: { ...scene.params, zoom: 15 } },
+      { ...scene, params: { ...scene.params, pitch: 60 } },
+      { ...scene, params: { ...scene.params, bearingOffset: 5 } },
+      { ...scene, params: { ...scene.params, rotationSpeed: 2 } },
+    ]
+
+    for (const changed of changedScenes) {
+      expect(areScenesEqual([scene], [changed])).toBe(false)
+    }
+    expect(areScenesEqual([scene], [])).toBe(false)
+  })
+})
 
 describe('normalizeScenes', () => {
   it('returns empty array for empty input', () => {

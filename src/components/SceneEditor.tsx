@@ -250,9 +250,13 @@ export function SceneRangeEditor({
       if (updateDraggingState) setDraftRange(origin)
     } else if (lastDrag) {
       cancelDraftFrame()
-      draftRangeRef.current = lastDrag
-      if (updateDraggingState) setDraftRange(lastDrag)
-      onCommitRef.current(lastDrag.start, lastDrag.end)
+      const changed = lastDrag.start !== current.originStart || lastDrag.end !== current.originEnd
+      const settledRange = changed
+        ? lastDrag
+        : { start: current.originStart, end: current.originEnd }
+      draftRangeRef.current = settledRange
+      if (updateDraggingState) setDraftRange(settledRange)
+      if (changed) onCommitRef.current(lastDrag.start, lastDrag.end)
     }
 
     if (captureTarget && capturedPointerId != null) {
