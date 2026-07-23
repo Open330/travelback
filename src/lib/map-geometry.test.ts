@@ -238,10 +238,11 @@ describe('map geometry', () => {
       { length: pointCount },
       (_, index) => point(normalizeLng(index * 179), 0),
     )
+    const wrappedSegments = precomputeWrappedSegments(points)
     const prepared = prepareTrackGeometry(points)
 
-    expect(prepared.wrappedSegments[0].coordinates).toHaveLength(pointCount)
-    expect(prepared.wrappedSegments[0].coordinates.at(-1)).toEqual([
+    expect(wrappedSegments[0].coordinates).toHaveLength(pointCount)
+    expect(wrappedSegments[0].coordinates.at(-1)).toEqual([
       (pointCount - 1) * 179,
       0,
     ])
@@ -264,20 +265,21 @@ describe('map geometry', () => {
       point(-120, 0),
       point(0, 0),
     ]
+    const wrappedSegments = precomputeWrappedSegments(points)
     const prepared = prepareTrackGeometry(points, [], 2)
     const frame = buildTrailFrameGeometry(prepared.trailChunks, 5, point(-60, 0))
     const { collection, expectedIds } = rendererContractCollection(
       prepared,
       frame.activeGeometry,
     )
-    const anchorLongitude = prepared.wrappedSegments[0].coordinates[0][0]
+    const anchorLongitude = wrappedSegments[0].coordinates[0][0]
     const longitudes = publishedLongitudes([
       prepared.routeGeometry,
       ...prepared.trailChunkCollection.features.map((feature) => feature.geometry),
       frame.activeGeometry,
     ])
 
-    expect(prepared.wrappedSegments[0].coordinates.at(-1)).toEqual([720, 0])
+    expect(wrappedSegments[0].coordinates.at(-1)).toEqual([720, 0])
     expect(prepared.trailChunks.flatMap((chunk) => (
       chunk.parts.map((part) => part.range)
     ))).toEqual([
@@ -334,6 +336,7 @@ describe('map geometry', () => {
     const segmentStartIndices = canonicalStarts
       .slice(1)
       .map((_, index) => (index + 1) * 2)
+    const wrappedSegments = precomputeWrappedSegments(points, segmentStartIndices)
     const prepared = prepareTrackGeometry(points, segmentStartIndices, 2)
     const routeParts = geometryParts(prepared.routeGeometry)
     const { collection, expectedIds } = rendererContractCollection(prepared)
@@ -342,7 +345,7 @@ describe('map geometry', () => {
       ...prepared.trailChunkCollection.features.map((feature) => feature.geometry),
     ])
 
-    expect(prepared.wrappedSegments.at(-1)?.coordinates.at(-1)).toEqual([740, 6])
+    expect(wrappedSegments.at(-1)?.coordinates.at(-1)).toEqual([740, 6])
     expect(routeParts).toHaveLength(canonicalStarts.length)
     expect(routeParts.every((coordinates) => (
       coordinates.length === 2
@@ -456,7 +459,7 @@ describe('map geometry', () => {
     const expectedTrailChunks = buildTrailChunks(expectedWrappedSegments, coordinateBudget)
     const prepared = prepareTrackGeometry(points, segmentStartIndices, coordinateBudget)
 
-    expect(JSON.stringify(prepared.wrappedSegments)).toBe(JSON.stringify(expectedWrappedSegments))
+    expect(prepared).not.toHaveProperty('wrappedSegments')
     expect(JSON.stringify(prepared.routeGeometry)).toBe(
       JSON.stringify(buildTrackGeometry(points, segmentStartIndices)),
     )
@@ -488,7 +491,7 @@ describe('map geometry', () => {
     const prepared = prepareTrackGeometry(trackedPoints, [2, 4], 4)
 
     expect(sourcePointReads).toBe(sourcePoints.length)
-    expect(prepared.wrappedSegments).toHaveLength(3)
+    expect(prepared).not.toHaveProperty('wrappedSegments')
     expect(prepared.routeGeometry.type).toBe('MultiLineString')
     expect(prepared.trailChunks.length).toBeGreaterThan(0)
   })

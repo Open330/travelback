@@ -200,7 +200,6 @@ export interface TrailChunk {
 type TrackGeometry = GeoJSON.LineString | GeoJSON.MultiLineString
 
 export interface PreparedTrackGeometry {
-  wrappedSegments: PrecomputedSegment[]
   displayBounds: TrackDisplayBounds | null
   routeGeometry: TrackGeometry
   trailChunks: TrailChunk[]
@@ -498,7 +497,6 @@ export function prepareTrackGeometry(
   const trailChunks = buildTrailChunks(rendererSegments, coordinateBudget)
 
   return {
-    wrappedSegments,
     displayBounds,
     routeGeometry,
     trailChunks,
