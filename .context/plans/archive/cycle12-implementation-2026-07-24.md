@@ -4,7 +4,7 @@ Date: 2026-07-24
 Base revision: `03df087d9befa3a6570f7eea17f2d4c6ba939a3c`
 Branch: `review-plan-fix/no-deploy-20260723`
 Deployment mode: none
-Status: Active
+Status: Completed
 
 ## Inputs
 
@@ -19,7 +19,7 @@ finding is deferred or dropped.
 Finding: `AGG12-01`
 Severity: Low
 Confidence: High
-Status: Pending
+Status: Completed
 
 Evidence:
 
@@ -65,4 +65,31 @@ Run every gate even if an earlier one fails:
 
 ## Completion record
 
-To be filled after implementation and verification.
+- Added a stable `scene-editor-panel` region ID and exposed the Camera
+  trigger's `aria-controls` and `aria-expanded` state.
+- Reused the existing localized open/close strings so the trigger title
+  describes its next action without changing its visible name.
+- Extended the existing Camera ownership E2E case to verify the closed, open,
+  and post-Escape disclosure contract in development and static output.
+- Gate fixes: 0. No gate exposed an error or warning requiring source repair.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- supervised `npm test`: 623 unit tests and 40 process-supervisor tests
+  passed.
+- `npm run build`: passed; generated worker parity and static hardening passed.
+- supervised development E2E: 118 passed, 1 expected skip.
+- supervised static smoke/E2E: smoke passed; 117 passed, 2 expected skips.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- isolated production real-MP4/WebCodecs: passed the single-picker,
+  shared-blob, 1280×720, approximately five-second, first/last decode, canvas
+  read, complete MP4 box, AVC, 120-packet, timing, and downloaded-size checks.
+- Every owned browser/server PID, marker, listener, profile, temporary root,
+  and lock was proved absent after its run. The user Chrome identity remained
+  unchanged; the foreign cherrypicker process was never signaled or removed.
+- Recoverable execution errors: the first exact temp cleanup guard rejected
+  macOS's `/tmp` to `/private/tmp` canonicalization and was corrected before
+  deletion; an early process inventory included environment text in tool
+  output and may have exposed a credential. Subsequent inventories emitted
+  PID-only sanitized matches. No credential was added to the repository or
+  worktree; any credential visible in the tool output should be rotated.
+- Deployment: none.

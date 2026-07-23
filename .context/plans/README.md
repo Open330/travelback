@@ -1,9 +1,6 @@
 # Active Implementation Plans
 
 ## Active
-- `cycle12-implementation-2026-07-24.md` — Expose the Camera disclosure's
-  programmatic expanded state, controlled-region relationship, and truthful
-  open/close action description
 - `deferred-findings-cycle1-2026-04-25.md` — Explicit deferred findings from the 2026-04-25 cycle 1 aggregate
 - `deferred-p01-platform-boundaries-cycle2-2026-07-23.md` — Explicit native/host-capability exit criteria for pre-observation identity erasure, pidfd-grade signaling, and zero host-environment marker discovery; practical P01 cleanup remains in Cycle 2
 
@@ -30,6 +27,11 @@
 - `deferred-findings-cycle1-2026-04-19.md` — Older deferred follow-up retained for traceability
 
 ## Archived this cycle
+- `archive/cycle12-implementation-2026-07-24.md` — Completed the fresh Camera
+  disclosure accessibility finding with a stable controlled-region
+  relationship, truthful localized open/close state, and a development/static
+  regression; every configured gate and exact browser cleanup passed, no
+  credential was written to the repository, and no deployment occurred
 - `archive/cycle11-implementation-2026-07-24.md` — Completed the fresh
   imperative-camera ownership finding so duration-adjusted paused poses hand
   off smoothly when playback resumes; every configured gate, the final-HEAD
