@@ -2648,8 +2648,8 @@ test.describe('Travelback App', () => {
       followedCamera = await waitForStableDebugCamera()
     }
 
-    await animationDuration.selectOption('60')
-    await expect(animationDuration).toHaveValue('60')
+    await animationDuration.selectOption('15')
+    await expect(animationDuration).toHaveValue('15')
 
     if (!IS_STATIC_E2E && followedCamera) {
       const followedBearing = followedCamera.bearing
@@ -2659,6 +2659,68 @@ test.describe('Travelback App', () => {
           ? shortestAngleDelta(followedBearing, snapshot.camera.bearing)
           : 0
       }, { timeout: 10_000, intervals: [100, 150, 250] }).toBeGreaterThan(20)
+
+      const resumedBearings = await page.evaluate(async () => {
+        type DebugWindow = Window & {
+          __travelbackDebug?: {
+            getCamera: () => { bearing: number } | null
+          }
+        }
+
+        const debugWindow = window as DebugWindow
+        const playButton = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]')
+        if (!debugWindow.__travelbackDebug || !playButton) {
+          throw new Error('Missing playback camera debug controls')
+        }
+
+        const bearings: number[] = []
+        const initialBearing = debugWindow.__travelbackDebug.getCamera()?.bearing
+        if (initialBearing == null) throw new Error('Missing paused camera bearing')
+        bearings.push(initialBearing)
+        playButton.click()
+
+        await new Promise<void>((resolve, reject) => {
+          let framesObserved = 0
+          const sampleFrame = () => {
+            const bearing = debugWindow.__travelbackDebug?.getCamera()?.bearing
+            if (bearing != null) {
+              const signedStep = ((bearing - initialBearing + 540) % 360) - 180
+              if (Math.abs(signedStep) > 0.05) {
+                bearings.push(bearing)
+                resolve()
+                return
+              }
+            }
+            framesObserved += 1
+            if (framesObserved === 30) {
+              reject(new Error('Camera did not publish after playback resumed'))
+              return
+            }
+            requestAnimationFrame(sampleFrame)
+          }
+          requestAnimationFrame(sampleFrame)
+        })
+
+        if (bearings.length !== 2) {
+          throw new Error(`Expected first resumed camera publish, received ${bearings.length}`)
+        }
+
+        return bearings
+      })
+
+      const signedBearingStep = (
+        (resumedBearings[1] - resumedBearings[0] + 540) % 360
+      ) - 180
+      expect(resumedBearings).toHaveLength(2)
+      expect(
+        signedBearingStep,
+        `Unexpected first resume bearings: ${JSON.stringify(resumedBearings)}`,
+      ).toBeGreaterThan(-5)
+
+      const resumedPauseButton = page.getByRole('button', { name: 'Pause' })
+      await resumedPauseButton.focus()
+      await page.keyboard.press('Enter')
+      await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
     }
 
     const disableCameraTracking = page.getByRole('button', { name: 'Disable camera tracking' })
