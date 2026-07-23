@@ -43,6 +43,17 @@ describe('i18n locale key parity', () => {
     }
   })
 
+  it('provides a localized export-duration range message in every locale', () => {
+    for (const locale of locales) {
+      const message = translations[locale]['export.durationRange']
+        .replace('{min}', '5')
+        .replace('{max}', '180')
+      expect(message).toContain('5')
+      expect(message).toContain('180')
+      expect(message).not.toMatch(/\{(?:min|max)\}/)
+    }
+  })
+
   it('keeps the legacy Takeout illustration conditional and format-neutral', () => {
     const guide = readFileSync(
       new URL('../../public/guide/google-takeout-export.svg', import.meta.url),

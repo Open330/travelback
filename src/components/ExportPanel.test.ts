@@ -272,6 +272,103 @@ describe('ExportPanel completion state', () => {
   })
 })
 
+describe('ExportPanel duration editing', () => {
+  const setDurationDraft = async (input: HTMLInputElement, value: string) => {
+    await act(() => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      if (!setValue) throw new Error('Missing native input value setter')
+      setValue.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+
+  const findStartButton = () => [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find((button) => button.textContent?.includes('export.startExport'))
+
+  it('preserves sequential keyboard input and exports the committed value', async () => {
+    const onExport = vi.fn()
+    await renderExportPanel(vi.fn(), { onExport, playbackDuration: 30 })
+    await vi.waitFor(() => expect(isCodecSupported).toHaveBeenCalledTimes(3))
+
+    const input = document.querySelector<HTMLInputElement>('input[type="number"][min="5"][max="180"]')
+    if (!input) throw new Error('Missing duration input')
+
+    await setDurationDraft(input, '1')
+    expect(input.value).toBe('1')
+    await setDurationDraft(input, '15')
+    expect(input.value).toBe('15')
+
+    await act(() => input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })))
+    expect(input.value).toBe('15')
+    expect(input.getAttribute('aria-invalid')).toBe('false')
+
+    const startButton = findStartButton()
+    if (!startButton) throw new Error('Missing Start Export button')
+    await vi.waitFor(() => expect(startButton.disabled).toBe(false))
+    await act(() => startButton.click())
+
+    expect(onExport).toHaveBeenCalledOnce()
+    expect(onExport.mock.calls[0]?.[0]).toMatchObject({ duration: 15 })
+  })
+
+  it('keeps an empty draft until validation and associates the range error', async () => {
+    const onExport = vi.fn()
+    await renderExportPanel(vi.fn(), { onExport, playbackDuration: 30 })
+    await vi.waitFor(() => expect(isCodecSupported).toHaveBeenCalledTimes(3))
+
+    const input = document.querySelector<HTMLInputElement>('input[type="number"][min="5"][max="180"]')
+    if (!input) throw new Error('Missing duration input')
+    input.focus()
+    await setDurationDraft(input, '')
+    expect(input.value).toBe('')
+
+    await act(() => input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })))
+    const errorId = input.getAttribute('aria-describedby')
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(errorId).toBeTruthy()
+    expect(document.getElementById(errorId ?? '')?.textContent).toBe('export.durationRange')
+
+    const startButton = findStartButton()
+    if (!startButton) throw new Error('Missing Start Export button')
+    await vi.waitFor(() => expect(startButton.disabled).toBe(false))
+    await act(() => startButton.click())
+
+    expect(onExport).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(input)
+    expect(input.value).toBe('')
+  })
+
+  it.each(['4', '181', '5.5'])('rejects out-of-range or non-integer draft %s on Enter', async (draft) => {
+    const onExport = vi.fn()
+    await renderExportPanel(vi.fn(), { onExport })
+
+    const input = document.querySelector<HTMLInputElement>('input[type="number"][min="5"][max="180"]')
+    if (!input) throw new Error('Missing duration input')
+    await setDurationDraft(input, draft)
+    await act(() => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('export.durationRange')
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('clears the error and commits a corrected value with Enter', async () => {
+    await renderExportPanel(vi.fn())
+    const input = document.querySelector<HTMLInputElement>('input[type="number"][min="5"][max="180"]')
+    if (!input) throw new Error('Missing duration input')
+
+    await setDurationDraft(input, '4')
+    await act(() => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+
+    await setDurationDraft(input, '45')
+    expect(input.getAttribute('aria-invalid')).toBe('false')
+    await act(() => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(input.value).toBe('45')
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+  })
+})
+
 describe('ExportPanel rendering focus', () => {
   it('moves focus to cancel when rendering replaces the idle form', async () => {
     const onClose = vi.fn()

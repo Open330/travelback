@@ -41,6 +41,20 @@ function clampExportDuration(value: number): number {
   return Math.max(EXPORT_LIMITS.duration.min, Math.min(value, EXPORT_LIMITS.duration.max))
 }
 
+function parseExportDurationDraft(value: string): number | null {
+  const normalized = value.trim()
+  if (!/^\d+$/.test(normalized)) return null
+  const parsed = Number(normalized)
+  if (
+    !Number.isSafeInteger(parsed)
+    || parsed < EXPORT_LIMITS.duration.min
+    || parsed > EXPORT_LIMITS.duration.max
+  ) {
+    return null
+  }
+  return parsed
+}
+
 /** Cache for codec support results — scoped to component state so it
  *  re-probes after browser updates that add/remove codec support. */
 const initialCodecSupport: Record<VideoCodec, boolean | null> = { h264: null, h265: null, av1: null }
@@ -86,6 +100,7 @@ export default function ExportPanel({
   const formId = useId()
   const resolutionId = `${formId}-resolution`
   const durationId = `${formId}-duration`
+  const durationErrorId = `${formId}-duration-error`
   const qualityId = `${formId}-quality`
   const codecId = `${formId}-codec`
   const fpsId = `${formId}-fps`
@@ -93,7 +108,10 @@ export default function ExportPanel({
   const [resolutionIdx, setResolutionIdx] = useState(1)
   const [codec, setCodec] = useState<VideoCodec>('h264')
   const [fps, setFps] = useState(30)
-  const [duration, setDuration] = useState(playbackDuration ?? 30)
+  const [duration, setDuration] = useState(() => clampExportDuration(playbackDuration ?? 30))
+  const [durationDraft, setDurationDraft] = useState(() => String(clampExportDuration(playbackDuration ?? 30)))
+  const [durationError, setDurationError] = useState(false)
+  const durationInputRef = useRef<HTMLInputElement>(null)
   const panelOpenedRef = useRef(false)
   const cancelExportButtonRef = useRef<HTMLButtonElement>(null)
   const idleHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -103,8 +121,11 @@ export default function ExportPanel({
   useEffect(() => {
     if (isOpen) {
       if (!panelOpenedRef.current && playbackDuration != null) {
+        const nextDuration = clampExportDuration(playbackDuration)
         // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally sync derived state from prop once on panel open
-        setDuration(clampExportDuration(playbackDuration))
+        setDuration(nextDuration)
+        setDurationDraft(String(nextDuration))
+        setDurationError(false)
       }
       panelOpenedRef.current = true
     } else {
@@ -186,7 +207,7 @@ export default function ExportPanel({
     return 3.0
   })()
   const codecScale = codec === 'av1' ? 2.5 : codec === 'h265' ? 1.5 : 1.0
-  const estimatedSeconds = Math.max(1, Math.round(duration * 0.5 * resScale * codecScale))
+  const estimatedSeconds = Math.max(1, Math.round(safeDuration * 0.5 * resScale * codecScale))
 
   useEffect(() => {
     if (!isOpen) return
@@ -217,11 +238,29 @@ export default function ExportPanel({
     return () => { cancelled = true }
   }, [codecConfigKey, isOpen, safeBitrate, selectedResolution.height, selectedResolution.width])
 
+  const commitDurationDraft = useCallback((focusOnError = false): number | null => {
+    const parsed = parseExportDurationDraft(durationDraft)
+    if (parsed == null) {
+      setDurationError(true)
+      if (focusOnError) {
+        requestAnimationFrame(() => durationInputRef.current?.focus({ preventScroll: true }))
+      }
+      return null
+    }
+
+    setDuration(parsed)
+    setDurationDraft(String(parsed))
+    setDurationError(false)
+    return parsed
+  }, [durationDraft])
+
   const handleExport = useCallback(() => {
     if (!canStartExport) return
+    const committedDuration = commitDurationDraft(true)
+    if (committedDuration == null) return
     const resolution = selectedResolution
-    onExport({ resolution, codec, fps, duration: safeDuration, bitrate: safeBitrate })
-  }, [onExport, selectedResolution, codec, fps, safeDuration, safeBitrate, canStartExport])
+    onExport({ resolution, codec, fps, duration: committedDuration, bitrate: safeBitrate })
+  }, [canStartExport, codec, commitDurationDraft, fps, onExport, safeBitrate, selectedResolution])
 
   const [shareError, setShareError] = useState(false)
 
@@ -407,7 +446,7 @@ export default function ExportPanel({
               <div className="h-full rounded-full" style={{ width: `${exportProgress * 100}%`, background: 'rgb(var(--gl))', transition: 'width 50ms linear' }} />
             </div>
             {(() => {
-              const clampedDuration = Math.max(EXPORT_LIMITS.duration.min, Math.min(duration, EXPORT_LIMITS.duration.max))
+              const clampedDuration = safeDuration
               const clampedFps = Math.max(EXPORT_LIMITS.fps.min, Math.min(fps, EXPORT_LIMITS.fps.max))
               const totalFrames = Math.ceil(clampedDuration * clampedFps)
               return (
@@ -442,19 +481,37 @@ export default function ExportPanel({
               <div>
                 <label htmlFor={durationId} className="vitro-label mb-1 block text-sm font-medium">{t('export.duration')}</label>
                 <input
+                  ref={durationInputRef}
                   id={durationId}
                   type="number"
                   min={EXPORT_LIMITS.duration.min}
                   max={EXPORT_LIMITS.duration.max}
-                  value={duration}
+                  step={1}
+                  value={durationDraft}
+                  aria-invalid={durationError}
+                  aria-describedby={durationError ? durationErrorId : undefined}
                   onChange={e => {
-                    const parsed = parseInt(e.target.value, 10)
-                    setDuration(Number.isFinite(parsed)
-                      ? Math.max(EXPORT_LIMITS.duration.min, Math.min(EXPORT_LIMITS.duration.max, parsed))
-                      : duration)
+                    const nextDraft = e.target.value
+                    setDurationDraft(nextDraft)
+                    if (durationError && parseExportDurationDraft(nextDraft) != null) {
+                      setDurationError(false)
+                    }
+                  }}
+                  onBlur={() => commitDurationDraft()}
+                  onKeyDown={event => {
+                    if (event.key !== 'Enter') return
+                    event.preventDefault()
+                    commitDurationDraft(true)
                   }}
                   className="vitro-input min-h-11 w-full px-3 py-2 text-sm"
                 />
+                {durationError && (
+                  <p id={durationErrorId} role="alert" className="mt-1 text-xs" style={{ color: 'var(--warn-fg)' }}>
+                    {t('export.durationRange')
+                      .replace('{min}', String(EXPORT_LIMITS.duration.min))
+                      .replace('{max}', String(EXPORT_LIMITS.duration.max))}
+                  </p>
+                )}
               </div>
 
               <div>
