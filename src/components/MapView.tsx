@@ -384,8 +384,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return
     }
 
+    const cameraMode = followCameraRef.current ? 'follow' : 'manual'
+    if (cameraMode === 'follow') {
+      // Follow-on cleanup intentionally skips the captured export pose. Clear
+      // smoothing before touching MapLibre so the first interactive frame
+      // recomputes from current progress even if teardown interrupts resize.
+      lastCameraStateRef.current = null
+    }
     try {
-      restoreExportPresentation(map, container, snapshot)
+      restoreExportPresentation(map, container, snapshot, cameraMode)
     } catch {
       // Map teardown may race export cleanup. Inline dimensions are restored
       // before MapLibre is touched, and a removed map has no ratio to retain.
@@ -480,7 +487,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const container = containerRef.current
       if (!map || !container) return
       if (!exportPresentationRef.current) {
-        exportPresentationRef.current = captureExportPresentation(map, container)
+        exportPresentationRef.current = captureExportPresentation(
+          map,
+          container,
+          'automatic',
+          followCameraRef.current ? 'follow' : 'manual',
+        )
       }
       applyExportPresentation(map, container, width, height)
     },
