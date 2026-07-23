@@ -311,6 +311,51 @@ describe('ExportPanel duration editing', () => {
     expect(onExport.mock.calls[0]?.[0]).toMatchObject({ duration: 15 })
   })
 
+  it('keeps focused duration estimates, eligibility, and the request on one prospective value', async () => {
+    const onExport = vi.fn()
+    await renderExportPanel(vi.fn(), { onExport, playbackDuration: 10 })
+    await vi.waitFor(() => expect(isCodecSupported).toHaveBeenCalledTimes(3))
+
+    const input = document.querySelector<HTMLInputElement>('input[type="number"][min="5"][max="180"]')
+    const qualitySelect = [...document.querySelectorAll<HTMLSelectElement>('select')]
+      .find(select => [...select.options].some(option => option.value === 'maximum'))
+    const startButton = findStartButton()
+    const findEstimate = () => [...document.querySelectorAll<HTMLParagraphElement>('p')]
+      .find(paragraph => paragraph.textContent?.includes('export.output'))
+    if (!input || !qualitySelect || !startButton) throw new Error('Missing export settings')
+
+    await act(() => {
+      qualitySelect.value = 'maximum'
+      qualitySelect.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await vi.waitFor(() => expect(isCodecSupported).toHaveBeenCalledTimes(6))
+    await vi.waitFor(() => expect(startButton.disabled).toBe(false))
+    expect(findEstimate()?.textContent).toContain('~24 MB · ~87 MB')
+
+    input.focus()
+    await setDurationDraft(input, '180')
+
+    expect(document.activeElement).toBe(input)
+    expect(findEstimate()?.textContent).toContain('~429 MB · ~493 MB')
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe('export.tooLarge')
+    expect(startButton.disabled).toBe(true)
+    // Exercise the handler guard independently of the render-time disabled
+    // attribute, as if an activation raced an older enabled button state.
+    startButton.disabled = false
+    await act(() => startButton.click())
+    expect(onExport).not.toHaveBeenCalled()
+
+    await setDurationDraft(input, '12')
+
+    expect(document.activeElement).toBe(input)
+    expect(findEstimate()?.textContent).toContain('~29 MB · ~92 MB')
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+    expect(startButton.disabled).toBe(false)
+    await act(() => startButton.click())
+    expect(onExport).toHaveBeenCalledOnce()
+    expect(onExport.mock.calls[0]?.[0]).toMatchObject({ duration: 12, bitrate: 20 })
+  })
+
   it('keeps an empty draft until validation and associates the range error', async () => {
     const onExport = vi.fn()
     await renderExportPanel(vi.fn(), { onExport, playbackDuration: 30 })
@@ -330,7 +375,7 @@ describe('ExportPanel duration editing', () => {
 
     const startButton = findStartButton()
     if (!startButton) throw new Error('Missing Start Export button')
-    await vi.waitFor(() => expect(startButton.disabled).toBe(false))
+    await vi.waitFor(() => expect(startButton.disabled).toBe(true))
     await act(() => startButton.click())
 
     expect(onExport).not.toHaveBeenCalled()
@@ -349,7 +394,9 @@ describe('ExportPanel duration editing', () => {
 
     expect(input.getAttribute('aria-invalid')).toBe('true')
     expect(document.querySelector('[role="alert"]')?.textContent).toBe('export.durationRange')
+    expect(findStartButton()?.disabled).toBe(true)
     expect(onExport).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(input)
   })
 
   it('clears the error and commits a corrected value with Enter', async () => {
