@@ -5,6 +5,13 @@ import { basePath } from '@/lib/env'
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
   ?? (process.env.NODE_ENV === 'production' ? 'https://open330.github.io' : 'http://localhost:3000')
 const appUrl = new URL(`${siteOrigin}${basePath || ''}/`)
+const socialPreviewImage = {
+  url: new URL('social-preview.png', appUrl),
+  type: 'image/png',
+  width: 1200,
+  height: 630,
+  alt: 'Travelback animated journey route on a dark map with playback controls',
+}
 const placeholderScriptSrc = process.env.NODE_ENV === 'production'
   ? "'self' 'unsafe-inline'"
   : "'self' 'unsafe-inline' 'unsafe-eval'"
@@ -29,11 +36,13 @@ export const metadata: Metadata = {
     title: 'Travelback - Animate Your Journeys',
     description: 'Turn GPX, KML, and Google Location History into animated travel videos. Visualize your journeys on an interactive map and export as video.',
     siteName: 'Travelback',
+    images: [socialPreviewImage],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Travelback - Animate Your Journeys',
     description: 'Turn GPX, KML, and Google Location History into animated travel videos.',
+    images: [socialPreviewImage],
   },
   icons: {
     icon: [

@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <title>Travelback animated journey preview</title>
+  <desc>A glowing travel route crosses a dark map above playback controls.</desc>
+  <!-- Raster source for a 1200 by 630 PNG generated with rsvg-convert. -->
+  <defs>
+    <linearGradient id="background" x1="52" y1="22" x2="1148" y2="608" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#050810"/>
+      <stop offset="0.52" stop-color="#0A1726"/>
+      <stop offset="1" stop-color="#082F49"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="88" y1="192" x2="1112" y2="548" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102236"/>
+      <stop offset="1" stop-color="#091725"/>
+    </linearGradient>
+    <linearGradient id="route" x1="142" y1="428" x2="1058" y2="258" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="0.52" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="timeline" x1="195" y1="512" x2="829" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#67E8F9"/>
+    </linearGradient>
+    <radialGradient id="cyanAmbient" cx="0" cy="0" r="1" gradientTransform="translate(174 132) rotate(43) scale(314 269)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#06B6D4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orangeAmbient" cx="0" cy="0" r="1" gradientTransform="translate(1042 408) rotate(-145) scale(270 220)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#F97316" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="mapGrid" width="68" height="68" patternUnits="userSpaceOnUse">
+      <path d="M68 0H0V68" stroke="#A5F3FC" stroke-opacity="0.055" stroke-width="1"/>
+    </pattern>
+    <filter id="panelShadow" x="44" y="154" width="1112" height="438" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#020617" flood-opacity="0.52"/>
+    </filter>
+    <filter id="routeGlow" x="110" y="210" width="980" height="256" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="markerGlow" x="711" y="259" width="98" height="98" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <rect width="1200" height="630" fill="url(#cyanAmbient)"/>
+  <rect width="1200" height="630" fill="url(#orangeAmbient)"/>
+
+  <g opacity="0.16">
+    <path d="M-44 170C82 75 202 80 298 152C394 224 488 213 578 137C668 61 777 48 893 118C1009 188 1137 185 1248 98" stroke="#67E8F9" stroke-width="2"/>
+    <path d="M-29 204C89 119 199 123 291 189C383 255 487 250 582 173C677 96 790 84 906 150C1022 216 1146 212 1235 139" stroke="#67E8F9" stroke-width="1"/>
+  </g>
+
+  <g transform="translate(78 74)">
+    <rect width="76" height="76" rx="19" fill="#0B1323" stroke="#67E8F9" stroke-opacity="0.18"/>
+    <path d="M17 25C17 17 27 15 31 22C36 31 30 38 37 43C44 48 49 40 54 47" stroke="#06B6D4" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="17" cy="25" r="4.5" fill="#22D3EE"/>
+    <path d="M49 42L49 58L64 50L49 42Z" fill="#67E8F9"/>
+  </g>
+  <text x="178" y="128" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700" letter-spacing="-1.5">Travelback</text>
+  <circle cx="1104" cy="102" r="4" fill="#22D3EE"/>
+  <circle cx="1125" cy="102" r="4" fill="#F97316"/>
+
+  <g filter="url(#panelShadow)">
+    <rect x="78" y="184" width="1044" height="364" rx="30" fill="#08111F"/>
+    <rect x="88" y="194" width="1024" height="344" rx="23" fill="url(#panel)" stroke="#F8FAFC" stroke-opacity="0.12"/>
+  </g>
+
+  <clipPath id="mapClip">
+    <rect x="102" y="208" width="996" height="254" rx="17"/>
+  </clipPath>
+  <g clip-path="url(#mapClip)">
+    <rect x="102" y="208" width="996" height="254" fill="#10283A"/>
+    <rect x="102" y="208" width="996" height="254" fill="url(#mapGrid)"/>
+
+    <g fill="none" stroke="#BAE6FD" stroke-opacity="0.10">
+      <path d="M69 391C135 343 200 353 245 399C290 445 355 456 416 408C477 360 541 362 586 401C631 440 695 445 752 398C809 351 874 346 931 386C988 426 1054 423 1134 354" stroke-width="3"/>
+      <path d="M55 362C123 305 197 310 252 360C307 410 371 410 431 357C491 304 554 310 606 351C658 392 722 394 783 342C844 290 910 290 967 329C1024 368 1085 362 1141 313" stroke-width="2"/>
+      <path d="M76 285C145 246 203 252 254 291C305 330 361 334 413 297C465 260 528 260 580 298C632 336 690 337 745 297C800 257 865 252 918 286C971 320 1037 318 1129 253" stroke-width="2"/>
+    </g>
+
+    <path d="M139 421C210 398 232 311 303 320C370 329 391 407 465 399C536 391 551 291 625 297C692 302 706 374 765 365C842 354 864 269 931 275C980 279 1009 300 1058 257" stroke="#E0F2FE" stroke-opacity="0.16" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M139 421C210 398 232 311 303 320C370 329 391 407 465 399C536 391 551 291 625 297C692 302 706 374 765 365C842 354 864 269 931 275C980 279 1009 300 1058 257" stroke="url(#route)" stroke-opacity="0.42" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" filter="url(#routeGlow)"/>
+    <path d="M139 421C210 398 232 311 303 320C370 329 391 407 465 399C536 391 551 291 625 297C692 302 706 374 765 365C842 354 864 269 931 275C980 279 1009 300 1058 257" stroke="url(#route)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <circle cx="139" cy="421" r="17" fill="#06B6D4" fill-opacity="0.20"/>
+    <circle cx="139" cy="421" r="8" fill="#22D3EE" stroke="#ECFEFF" stroke-width="3"/>
+    <circle cx="1058" cy="257" r="17" fill="#F97316" fill-opacity="0.20"/>
+    <circle cx="1058" cy="257" r="8" fill="#F97316" stroke="#FFF7ED" stroke-width="3"/>
+
+    <circle cx="760" cy="365" r="28" fill="#F97316" fill-opacity="0.38" filter="url(#markerGlow)"/>
+    <circle cx="760" cy="365" r="20" fill="#F97316" stroke="#FFF7ED" stroke-width="4"/>
+    <path d="M754 354L770 365L754 376V354Z" fill="#FFFFFF"/>
+  </g>
+
+  <rect x="102" y="478" width="996" height="46" rx="15" fill="#07111D" stroke="#F8FAFC" stroke-opacity="0.10"/>
+  <circle cx="136" cy="501" r="16" fill="#06B6D4"/>
+  <path d="M131 492L145 501L131 510V492Z" fill="#FFFFFF"/>
+  <rect x="172" y="496" width="657" height="10" rx="5" fill="#F8FAFC" fill-opacity="0.12"/>
+  <rect x="172" y="496" width="407" height="10" rx="5" fill="url(#timeline)"/>
+  <circle cx="579" cy="501" r="9" fill="#ECFEFF" stroke="#06B6D4" stroke-width="4"/>
+  <rect x="867" y="494" width="82" height="14" rx="7" fill="#F8FAFC" fill-opacity="0.12"/>
+  <rect x="965" y="494" width="103" height="14" rx="7" fill="#F8FAFC" fill-opacity="0.12"/>
+</svg>
