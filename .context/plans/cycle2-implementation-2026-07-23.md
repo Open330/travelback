@@ -1,6 +1,6 @@
 # Cycle 2 Review Remediation Plan — 2026-07-23
 
-Status: **Planned**
+Status: **Completed**
 
 Source review: `.context/reviews/_aggregate.md`
 Reviewed base: `279f5676eb34baa4929a536fa0c20e9cbc556f34`
@@ -42,9 +42,9 @@ For every browser/E2E execution:
    starting another browser gate.
 6. Never use `agent-browser close`, a shared/global close, `pkill`, `killall`,
    process-name killing, or any broad match.
-7. Leave pre-existing user Chrome PID/PGID 1368, shared agent-browser
-   PID/PGID 92311 with Chrome-for-Testing root 92327 and its profile, and
-   unrelated xylolabs processes untouched.
+7. Leave every per-run pre-existing identity untouched, including user Chrome
+   PID/PGID 1368, each inventoried shared agent-browser tree/profile, and
+   unrelated xylolabs processes.
 
 Protected configured gate ports are 3099, 4173, and 4183. A failed gate does
 not end the outer review-plan-fix loop; record the failure, perform exact
@@ -353,6 +353,83 @@ at the root. A recoverable browser/test failure must still receive exact owned
 cleanup before any rerun. If a final gate cannot be recovered, record the
 error and leave this plan In Progress rather than silently marking it done;
 the outer loop must continue as the user requested.
+
+## Completion evidence
+
+All **13** fresh findings were implemented. No original Cycle 2 finding was
+deferred or silently dropped. The three narrower P01 host/kernel boundaries
+remain explicitly active in
+`deferred-p01-platform-boundaries-cycle2-2026-07-23.md`; they do not weaken the
+implemented exact-identity cleanup contract.
+
+Implemented outcomes:
+
+- P01 now seeds inherited ownership before launch, discovers marker and
+  markerless observed descendants through bounded topology scans, caches exact
+  PID/UID/start identities and observed groups, preserves partial validation
+  successes, composes startup/cleanup errors, latches preflight signals, and
+  refuses Windows before launch without an atomic containment provider.
+  Focused process-supervisor coverage passes **34/34**.
+- P02 and P03 share the no-scene camera target and segment-aware display-bounds
+  contracts across interactive preview, export, fit, grid, and Overview paths.
+- P04 restores MapLibre automatic DPR ownership with `setPixelRatio(null)` on
+  every export cleanup path.
+- P05 parses strict MP4 top-level boxes, inspects the AVC track and packet
+  timing, and proves browser metadata plus first/last-frame decode in the
+  existing isolated real-export case.
+- P06 and P07 separate compact-phone title/navigation hit regions, put Browse
+  before long guidance, and expose a localized sample-owned pending overlay
+  without disabling superseding Browse or Draw intents.
+- P08 disables checkout credential persistence and audits the complete
+  installed dependency graph at High severity while leaving the Pages trigger
+  restricted to `main`.
+- P09 aligns Korean recovery terminology and public Ground-level Follow
+  documentation.
+
+Complete non-browser gates at the final implementation revision:
+
+- `npm run lint` — passed.
+- `npm run typecheck` — passed.
+- `npm test` — Vitest **25 files / 541 tests** plus process-supervisor
+  **34/34**, all passed (**575** total assertions/tests across the two lanes).
+- `node scripts/build-worker.mjs --check` — passed.
+- `npm audit --audit-level=high` — zero vulnerabilities.
+- `npm run build` — Next.js 16.2.11 compiled, type-checked, generated four
+  static pages, and hardened three generated HTML files for CSP.
+
+Sequential browser evidence:
+
+- The first development matrix completed despite one compact title/navigation
+  failure. After the gate repair and exact cleanup, the final development
+  matrix passed **114**, skipped the isolated real-export case once, and had
+  zero failures.
+- The first static matrix completed despite one geometry assertion that
+  sampled the card during the deliberate desktop-to-compact transition. After
+  exact cleanup, the focused repair passed **1/1**, and the final static matrix
+  passed **114**, skipped the isolated real-export case once, and had zero
+  failures.
+- `npm run test:e2e:static:real-mp4` passed **1/1** with structural, track,
+  timing, metadata, and decode validation.
+
+Three gate-driven root repairs were retained: durable cleanup of the
+markerless Next listener and late descendants, compact map-title/navigation
+separation, and stable compact-viewport initialization for the sample-loading
+geometry assertion.
+
+Every browser execution used a fresh exact PID/PPID/PGID/start/profile/port
+inventory. Each run-owned tree, ownership marker, Playwright profile, and
+listener was absent before the next lane; ports **3099**, **4173**, and
+**4183** were clear. No `agent-browser close`, `pkill`, `killall`, broad
+process match, or broad deletion was used. External baselines changed
+naturally during the long run (including unrelated xylolabs and shared
+agent-browser restarts), so each transition was re-inventoried and excluded
+from cleanup. User Chrome PID/PGID 1368 and the final external agent-browser
+PID/PGID 91551 with Chrome root 91554 and its profile were alive after the
+last gate.
+
+Deployment remained **none**. Only
+`review-plan-fix/no-deploy-20260723` was pushed; `main` was not pushed and no
+deployment command was run.
 
 ## Finding map
 
