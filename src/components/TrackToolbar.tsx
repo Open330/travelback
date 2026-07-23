@@ -167,7 +167,9 @@ export default function TrackToolbar({
         ref={sceneEditorTriggerRef}
         type="button"
         onClick={onToggleSceneEditor}
-        title={t('app.openSceneEditor')}
+        aria-controls="scene-editor-panel"
+        aria-expanded={showSceneEditor}
+        title={showSceneEditor ? t('app.closePanel') : t('app.openSceneEditor')}
         className="gi shrink-0 min-h-11 px-2.5 py-2 text-sm font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--gl))] sm:px-3"
         style={showSceneEditor
           ? { background: 'rgba(var(--gl),.85)', color: 'var(--gl-fg)', border: '1px solid rgba(var(--gl),.5)' }

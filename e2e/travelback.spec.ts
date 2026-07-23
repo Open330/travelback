@@ -2211,11 +2211,18 @@ test.describe('Travelback App', () => {
     const cameraButton = page.getByTestId('track-toolbar').getByRole('button', { name: 'Camera' })
     const sceneEditor = page.getByTestId('scene-editor-panel')
 
+    await expect(cameraButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(cameraButton).toHaveAttribute('aria-controls', 'scene-editor-panel')
+    await expect(cameraButton).toHaveAttribute('title', 'Open camera editor')
     await cameraButton.click({ force: true })
     await expect(sceneEditor).toBeVisible({ timeout: 10_000 })
+    await expect(sceneEditor).toHaveAttribute('id', 'scene-editor-panel')
+    await expect(cameraButton).toHaveAttribute('aria-expanded', 'true')
+    await expect(cameraButton).toHaveAttribute('title', 'Close panel')
     await cameraButton.focus()
     await page.keyboard.press('Escape')
     await expect(sceneEditor).toBeHidden()
+    await expect(cameraButton).toHaveAttribute('aria-expanded', 'false')
     await expect(cameraButton).toBeFocused()
 
     await cameraButton.click({ force: true })
