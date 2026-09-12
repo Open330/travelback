@@ -233,3 +233,6 @@ MIT
 <p align="center">
   <sub>Built with Next.js, React, MapLibre GL, and WebCodecs. Your track files, map display, and coordinate jumps stay local in the browser.</sub>
 </p>
+
+---
+<p align="center"><sub>Part of <a href="https://github.com/Open330">Open330</a> · open source tools for AI-agent workflows · <a href="https://open330.github.io">open330.github.io</a></sub></p>
