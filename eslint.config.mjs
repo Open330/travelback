@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "public/workers/trackParser.worker.js",
+    "public/workers/maplibre/**",
     "node-compile-cache/**",
     "playwright-transform-cache*/**",
     "playwright-report/**",

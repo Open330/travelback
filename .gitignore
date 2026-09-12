@@ -51,6 +51,9 @@ node-compile-cache/
 # review screenshots (artifacts, not source)
 review-screenshots/
 
+# vendored MapLibre worker (synced from node_modules by scripts/build-worker.mjs)
+/public/workers/maplibre/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

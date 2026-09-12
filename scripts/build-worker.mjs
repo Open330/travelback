@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, mkdir, writeFile } from 'node:fs/promises'
+import { readFile, mkdir, writeFile, copyFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 
@@ -8,6 +8,24 @@ const cwd = process.cwd()
 const entryPoint = path.resolve(cwd, 'src/workers/trackParser.worker.ts')
 const outputFile = path.resolve(cwd, 'public/workers/trackParser.worker.js')
 const checkOnly = process.argv.includes('--check')
+
+// MapLibre GL 6 resolves its worker via `new URL('./maplibre-gl-worker.mjs', import.meta.url)`.
+// Once Turbopack inlines the library into a Next chunk that URL no longer points at a real
+// file, so the worker never starts and GeoJSON sources never load. We self-host the worker
+// (and the shared chunk it imports) under public/workers/maplibre/ and register it with
+// `setWorkerUrl()` in MapView. The copy is synced from node_modules on every run so it
+// always matches the installed maplibre-gl version.
+const maplibreDist = path.resolve(cwd, 'node_modules/maplibre-gl/dist')
+const maplibreWorkerDir = path.resolve(cwd, 'public/workers/maplibre')
+const MAPLIBRE_WORKER_FILES = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']
+
+async function syncMaplibreWorker() {
+  await mkdir(maplibreWorkerDir, { recursive: true })
+  for (const file of MAPLIBRE_WORKER_FILES) {
+    await copyFile(path.join(maplibreDist, file), path.join(maplibreWorkerDir, file))
+  }
+  console.log(`✓ Synced MapLibre worker to ${path.relative(cwd, maplibreWorkerDir)}`)
+}
 
 const result = await build({
   entryPoints: [entryPoint],
@@ -27,6 +45,7 @@ const result = await build({
 })
 
 const generated = result.outputFiles[0].contents
+await syncMaplibreWorker()
 if (checkOnly) {
   let current
   try {

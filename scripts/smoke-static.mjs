@@ -365,6 +365,8 @@ async function assertNoToolResidue(rootDir) {
 async function assertRuntimePublicAssetCachePolicy() {
   const runtimeAssetUrls = [
     appUrl('/workers/trackParser.worker.js'),
+    appUrl('/workers/maplibre/maplibre-gl-worker.mjs'),
+    appUrl('/workers/maplibre/maplibre-gl-shared.mjs'),
     appUrl('/map-styles/voyager.json'),
   ]
   for (const url of runtimeAssetUrls) {
