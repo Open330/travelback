@@ -3,7 +3,7 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type maplibregl from 'maplibre-gl'
+import type * as maplibregl from 'maplibre-gl'
 import { formatDistance, totalDistance } from '@/lib/interpolate'
 import type { MapViewHandle } from './MapView'
 

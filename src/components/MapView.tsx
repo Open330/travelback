@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint, MapStyleKey, Scene } from '@/types'
 import { MAP_STYLES } from '@/types'
 import { interpolateAlongTrack, shortestLngDelta } from '@/lib/interpolate'
 import { computeCameraForProgress, computeSegmentLocalBearing, normalizeScenes, lerpCamera, linear } from '@/lib/camera'
 import type { CameraState } from '@/lib/camera'
 import { useLocale } from '@/lib/i18n'
+import { basePath } from '@/lib/env'
 import {
   buildFitBoundsCoordinates,
   buildTrailFrameGeometry,
@@ -73,6 +74,12 @@ const TRAIL_SOURCE = 'trail'
 const TRAIL_LAYER = 'trail-line'
 const TRAIL_HEAD_SOURCE = 'trail-head'
 const TRAIL_HEAD_LAYER = 'trail-head-line'
+
+// MapLibre GL 6 derives its worker URL from `import.meta.url`, which is not a real file
+// once Turbopack bundles the library. Point it at the self-hosted copy synced by
+// scripts/build-worker.mjs; without a running worker no GeoJSON source ever loads and
+// `isStyleLoaded()` stays false forever.
+maplibregl.setWorkerUrl(`${basePath}/workers/maplibre/maplibre-gl-worker.mjs`)
 
 function completedTrailFilter(chunkIndex: number): maplibregl.FilterSpecification {
   return ['<=', ['get', 'chunkIndex'], chunkIndex]
@@ -1020,9 +1027,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         }
       }
 
-      const onMapError = (e: { error?: Error | string }) => {
+      const onMapError = (e: maplibregl.ErrorEvent) => {
         if (mapRef.current !== map) return
-        const message = e.error instanceof Error ? e.error.message : typeof e.error === 'string' ? e.error : 'Map failed to load'
+        const error: unknown = e.error
+        const message = error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : typeof error === 'object' && error !== null && typeof (error as { message?: unknown }).message === 'string'
+              ? (error as { message: string }).message
+              : 'Map failed to load'
         console.error('[Travelback] Map error:', message)
         setMapError(message)
       }

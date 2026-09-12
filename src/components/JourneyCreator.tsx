@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Check, Search } from 'lucide-react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
 import type { Track, TrackPoint } from '@/types'
 import type { MapViewHandle } from '@/components/MapView'
 import { totalDistance, formatDistance, shortestLngDelta, normalizeLng, wrapLngNear, type UnitSystem } from '@/lib/interpolate'

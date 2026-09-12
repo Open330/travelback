@@ -9,10 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Open330/travelback/actions/workflows/deploy-pages.yml"><img src="https://github.com/Open330/travelback/actions/workflows/deploy-pages.yml/badge.svg?branch=main" alt="Deploy to GitHub Pages"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white" alt="Next.js 16">
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19">
   <img src="https://img.shields.io/badge/TypeScript-ESNext-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/MapLibre_GL-v5-396CB2?logo=maplibre&logoColor=white" alt="MapLibre GL v5">
+  <img src="https://img.shields.io/badge/MapLibre_GL-v6-396CB2?logo=maplibre&logoColor=white" alt="MapLibre GL v6">
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 4">
   <img src="https://img.shields.io/badge/Playwright-E2E-2EAD33?logo=playwright&logoColor=white" alt="Playwright">
 </p>
@@ -154,7 +156,7 @@ travelback/
 | Framework  | [Next.js](https://nextjs.org/) 16 — App Router, static export             |
 | UI         | [React](https://react.dev/) 19, [TypeScript](https://typescriptlang.org/) |
 | Styling    | [Tailwind CSS](https://tailwindcss.com/) 4 + [Vitro](https://github.com/circle-oo/vitro) liquid glass |
-| Map        | [MapLibre GL JS](https://maplibre.org/) v5 — WebGL vector map rendering   |
+| Map        | [MapLibre GL JS](https://maplibre.org/) v6 — WebGL vector map rendering   |
 | Video      | [mediabunny](https://www.npmjs.com/package/mediabunny) — WebCodecs MP4    |
 | Icons      | [Lucide React](https://lucide.dev/)                                        |
 | Testing    | [Vitest](https://vitest.dev/) — unit/component; [Playwright](https://playwright.dev/) — E2E |
